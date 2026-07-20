@@ -1500,6 +1500,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   <div class="hero-top"><div>
     <h1>Orçado x Realizado — Temporada 2025/2026</h1>
     <div class="badges"><span class="bdg">6 contas: Bradesco, CEF (2), Itaú, Ouribank, Banco do Brasil</span><span class="bdg" id="bdg-per"></span><span class="bdg" id="bdg-prova"></span></div>
+    <div class="note" id="gsheet-status" style="margin-top:6px">Carregando dados ao vivo…</div>
   </div><div class="themebar"><span class="campaign-mark"><b>Nossa Terra tem Basquete</b><small>🏀 Aqui é o nosso lugar</small></span><div class="theme-toggle-group" role="group" aria-label="Escolha do tema"><button type="button" id="theme-light">Tema branco</button><button type="button" id="theme-dark">Tema escuro</button></div><span class="developer-credit">Desenvolvido por: <b>Lucas Santos</b></span></div></div>
   <div class="nav" id="nav">
     <button data-v="home" class="on">Home</button>
@@ -1880,8 +1881,13 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   </div>
   <div class="panel" id="new-season-panel" style="margin:14px 0">
     <h2>Realizado da nova temporada (2026/2027) — com classificação embutida <span class="how">reduz a conciliação desde a entrada</span></h2>
-    <div class="note">Baixe o modelo abaixo e preencha lançamento a lançamento a partir de outubro/2026: ID, Data, Favorecido, Descrição, Documento, Entrada, Saída e Competição. O ID preenche automaticamente Departamento, Grupo e Linha do orçamento. O que vier preenchido entra <b>exatamente como classificado</b>, sem depender de conciliação depois. O que ficar em branco passa pelo mesmo motor de hoje (regra por favorecido, prestadores de RH, regra soberana da LDB, palavra-chave) — incluindo o rateio automático por colaborador, desde que a Composição de Pessoal da temporada já esteja importada abaixo.</div>
+    <div class="note">Fonte ao vivo: edite direto na planilha do Google Sheets abaixo — o painel busca as novidades automaticamente sempre que a página é aberta (e pode ser atualizado a qualquer momento com o botão "Atualizar agora"). Os botões de modelo/importação .xlsx abaixo continuam disponíveis como alternativa manual/offline.</div>
     <div class="toolbar">
+      <a class="act pri" href="https://docs.google.com/spreadsheets/d/1sY4QvX6enN2Jx6hmVFxuutFvtOyoZc3lQ99mtdh0_WI/edit" target="_blank" rel="noopener">📋 Abrir planilha de Realizado (Google Sheets)</a>
+      <button class="act" type="button" id="btn-refresh-gsheets">🔄 Atualizar agora</button>
+    </div>
+    <div class="note">Edite direto nesta planilha — o painel busca as novidades automaticamente sempre que a página é aberta.</div>
+    <div class="toolbar" style="margin-top:10px">
       <button class="act pri" type="button" id="btn-newseason-template">Baixar modelo de realizado 2026/2027 (.xlsx)</button>
       <button class="act pri" type="button" id="btn-newseason-import">Importar planilha preenchida</button>
       <input type="file" id="newseason-import-file" accept=".xlsx,.xls" class="hide">
@@ -1894,8 +1900,12 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   </div>
   <div class="panel" id="new-budget-panel" style="margin:14px 0">
     <h2>Orçado da nova temporada — importar por planilha</h2>
-    <div class="note">Baixe o modelo abaixo (uma linha por Departamento + Grupo + Linha do orçamento, com uma coluna por mês da temporada) e preencha os valores orçados. Ao importar, os valores de cada mês preenchido substituem o que estiver salvo para aquele mês naquela linha; meses deixados em branco na planilha não são alterados. Linhas com um "ID" que já existe atualizam a linha existente; linhas sem ID correspondente criam uma linha orçamentária nova.</div>
+    <div class="note">Fonte ao vivo: edite direto na planilha do Google Sheets abaixo — o painel busca as novidades automaticamente sempre que a página é aberta. Os botões de modelo/importação .xlsx abaixo continuam disponíveis como alternativa manual/offline.</div>
     <div class="toolbar">
+      <a class="act pri" href="https://docs.google.com/spreadsheets/d/1-4A3QK58fNpT2HiJr30RsQtNNq_sJo2lBG7GCffL8VY/edit" target="_blank" rel="noopener">📋 Abrir planilha de Orçado (Google Sheets)</a>
+    </div>
+    <div class="note">Edite direto nesta planilha — o painel busca as novidades automaticamente sempre que a página é aberta.</div>
+    <div class="toolbar" style="margin-top:10px">
       <button class="act pri" type="button" id="btn-newbudget-template">Baixar modelo de orçado (.xlsx)</button>
       <button class="act pri" type="button" id="btn-newbudget-import">Importar planilha de orçado preenchida</button>
       <input type="file" id="newbudget-import-file" accept=".xlsx,.xls" class="hide">
@@ -1981,6 +1991,80 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 <script>
 const DB = JSON.parse(document.getElementById('db').textContent);
 DB.lines.forEach(l=>{l._base=1;});
+const GSHEET_REALIZADO_ID='1sY4QvX6enN2Jx6hmVFxuutFvtOyoZc3lQ99mtdh0_WI';
+const GSHEET_ORCADO_ID='1-4A3QK58fNpT2HiJr30RsQtNNq_sJo2lBG7GCffL8VY';
+function fetchGSheetJSONP(sheetId, timeoutMs){
+  return new Promise((resolve,reject)=>{
+    const cbName='__gsheetCb_'+Math.random().toString(36).slice(2);
+    let done=false;
+    const script=document.createElement('script');
+    const timer=setTimeout(()=>{ if(done)return; done=true; cleanup(); reject(new Error('timeout')); }, timeoutMs||8000);
+    function cleanup(){ clearTimeout(timer); delete window[cbName]; if(script.parentNode)script.parentNode.removeChild(script); }
+    window[cbName]=function(resp){ if(done)return; done=true; cleanup(); resolve(resp); };
+    script.onerror=()=>{ if(done)return; done=true; cleanup(); reject(new Error('load error')); };
+    script.src='https://docs.google.com/spreadsheets/d/'+sheetId+'/gviz/tq?tqx=out:json;responseHandler:'+cbName+'&headers=1';
+    document.head.appendChild(script);
+  });
+}
+function gvizToRows(resp){
+  if(!resp||!resp.table)return [];
+  const cols=resp.table.cols.map(c=>c.label||c.id);
+  return (resp.table.rows||[]).map(r=>{
+    const o={};
+    cols.forEach((label,i)=>{
+      const cell=r.c&&r.c[i];
+      o[label]= cell? (cell.f!=null? cell.f : cell.v) : '';
+    });
+    return o;
+  });
+}
+function setGsheetStatus(text){
+  const el=document.getElementById('gsheet-status');
+  if(el)el.textContent=text;
+}
+async function loadLiveGoogleSheets(){
+  setGsheetStatus('Atualizando…');
+  let realizadoOk=false, orcadoOk=false, changed=false;
+  try{
+    const [rRes, oRes]=await Promise.allSettled([
+      fetchGSheetJSONP(GSHEET_REALIZADO_ID),
+      fetchGSheetJSONP(GSHEET_ORCADO_ID)
+    ]);
+    if(rRes.status==='fulfilled'&&rRes.value&&rRes.value.table){
+      try{
+        const rawRows=gvizToRows(rRes.value);
+        const stats=await importNewSeasonRealizado(null, rawRows);
+        if(stats&&!stats.error){ realizadoOk=true; if(stats.added>0)changed=true; }
+      }catch(e){ console.error('loadLiveGoogleSheets: falha ao processar Realizado', e); }
+    }else{
+      console.error('loadLiveGoogleSheets: falha ao buscar Realizado', rRes.reason);
+    }
+    if(oRes.status==='fulfilled'&&oRes.value&&oRes.value.table){
+      try{
+        const rawRows=gvizToRows(oRes.value);
+        const stats=await importNewBudgetSpreadsheet(null, rawRows);
+        if(stats&&!stats.error){ orcadoOk=true; if((stats.created+stats.updated)>0)changed=true; }
+      }catch(e){ console.error('loadLiveGoogleSheets: falha ao processar Orçado', e); }
+    }else{
+      console.error('loadLiveGoogleSheets: falha ao buscar Orçado', oRes.reason);
+    }
+  }catch(e){
+    console.error('loadLiveGoogleSheets: erro inesperado', e);
+  }
+  const now=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  if(realizadoOk&&orcadoOk)setGsheetStatus('Dados ao vivo carregados às '+now+'.');
+  else if(realizadoOk||orcadoOk)setGsheetStatus('Carregado parcialmente às '+now+' (verifique o compartilhamento das planilhas).');
+  else setGsheetStatus('Não foi possível carregar as planilhas — mostrando dados salvos.');
+  if(changed){
+    try{
+      if(!sessionStorage.getItem('gsheet_synced_this_session')){
+        sessionStorage.setItem('gsheet_synced_this_session','1');
+        location.reload();
+      }
+    }catch(e){ console.error('loadLiveGoogleSheets: falha ao recarregar', e); }
+  }
+  return {realizadoOk,orcadoOk,changed};
+}
 const AREAS = {REC:'Receitas',LNB:'Superintendência (SUP)',TOP:'Técnico operacional (TOP)',COM:'Comunicação (COM)','A&F':'Administrativo & financeiro (A&F)',MKT:'Marketing (MKT)',EQP:'Equipes',OREC:'Outras receitas',TRF:'Transferências e tarifas',ENC:'Encargos e benefícios'};
 const RESP = {LNB:'Sérgio',TOP:'Paulo',COM:'Márcio','A&F':'Gilmar',MKT:'Álvaro',EQP:'—'};
 const DESP = ['LNB','TOP','COM','A&F','MKT','EQP','ENC'];
@@ -5090,24 +5174,29 @@ async function downloadNewSeasonTemplate(){
   setTimeout(()=>URL.revokeObjectURL(a.href),3000);
   if(msg)msg.textContent='Modelo baixado.';
 }
-async function importNewSeasonRealizado(file){
+async function importNewSeasonRealizado(file, raw){
   const msg=document.getElementById('newseason-msg');
-  if(msg)msg.textContent='Lendo planilha…';
+  const live=!!raw;
+  if(msg&&!live)msg.textContent='Lendo planilha…';
+  const emptyStats={added:0,decided:0,duplicated:0,skipped:0,composed:0,abatidos:0,composicaoDivergente:0,monthsTouched:[]};
   try{
-    await ensureXLSX();
-    const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
-    const sn=wb.SheetNames.find(n=>norm(n)==='lancamentos'||norm(n)==='lançamentos')||wb.SheetNames[0];
-    const raw=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:''});
-    if(!raw.length){if(msg)msg.textContent='Nenhuma linha encontrada na aba "Lançamentos".';return;}
+    let wb=null;
+    if(!raw){
+      await ensureXLSX();
+      wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+      const sn=wb.SheetNames.find(n=>norm(n)==='lancamentos'||norm(n)==='lançamentos')||wb.SheetNames[0];
+      raw=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:''});
+    }
+    if(!raw.length){if(msg&&!live)msg.textContent='Nenhuma linha encontrada na aba "Lançamentos".';return emptyStats;}
     const headerKeys=Object.keys(raw[0]);
     const findKey=(...cands)=>headerKeys.find(h=>cands.some(c=>norm(h)===norm(c)));
     const kData=findKey('Data'),kFav=findKey('Favorecido'),kDesc=findKey('Descrição','Descricao'),kDoc=findKey('Documento'),
       kEnt=findKey('Entrada'),kSai=findKey('Saída','Saida'),kID=findKey('ID','ID chave','Id'),kTipo=findKey('TIPO (1-8)','TIPO','Tipo'),kArea=findKey('Departamento'),kGrupo=findKey('Grupo'),
       kLinha=findKey('Linha do orçamento','Linha'),kComp=findKey('Competição','Competicao'),kMarc=findKey('Composição (marcador, ex: *1)','Composição','Marcador','Composicao'),
       kAbat=findKey('Abatimento (Sim/Não)','Abatimento'),kTipoReemb=findKey('Tipo de reembolso (opcional)','Tipo de reembolso');
-    if(!kData||!kFav||(!kEnt&&!kSai)){if(msg)msg.textContent='Planilha fora do modelo: verifique as colunas Data, Favorecido e Entrada/Saída.';return;}
+    if(!kData||!kFav||(!kEnt&&!kSai)){if(msg&&!live)msg.textContent='Planilha fora do modelo: verifique as colunas Data, Favorecido e Entrada/Saída.';return emptyStats;}
     const TIPO_REEMB_MAP={'refeicao':'REEMB_REFEICAO','pedagio':'REEMB_PEDAGIO','transporte':'REEMB_TRANSPORTE','combustivel':'REEMB_COMBUSTIVEL','estacionamento':'REEMB_ESTACIONAMENTO'};
-    const snComp=wb.SheetNames.find(n=>norm(n)==='composicao'||norm(n)==='composição');
+    const snComp=wb?wb.SheetNames.find(n=>norm(n)==='composicao'||norm(n)==='composição'):null;
     const composicaoMap={};
     if(snComp){
       const rawComp=XLSX.utils.sheet_to_json(wb.Sheets[snComp],{defval:''});
@@ -5194,13 +5283,19 @@ async function importNewSeasonRealizado(file){
         }
       }
     });
-    if(!added&&!duplicated&&!skipped){if(msg)msg.textContent='Nenhuma linha válida encontrada.';return;}
+    const stats={added,decided,duplicated,skipped,composed,abatidos,composicaoDivergente,monthsTouched:[...monthsTouched]};
+    if(!added&&!duplicated&&!skipped){if(msg&&!live)msg.textContent='Nenhuma linha válida encontrada.';return stats;}
     store.setItem('lnb3_imported',JSON.stringify(imported));
     save('decisions',decisions);
-    alert(`Importação da temporada 2026/2027 concluída:\n${added} lançamento(s) novo(s) adicionado(s) (${[...monthsTouched].sort().map(mlabel).join(', ')||'-'}).\n${decided} já entraram totalmente classificados (sem precisar de conciliação)${composed?`, sendo ${composed} via Composição`:''}.\n${duplicated} já existiam e foram ignorados (evita duplicidade).\n${skipped} linha(s) ignorada(s) por falta de Data/Favorecido/Entrada-Saída ou por ter as duas preenchidas.${abatidos?`\n${abatidos} lançamento(s) marcado(s) como Abatimento (entram com sinal negativo na linha de destino).`:''}${composicaoDivergente?`\nAtenção: ${composicaoDivergente} lançamento(s) com Composição cuja soma não bate com o valor total — revise na aba Composição.`:''}`);
-    location.reload();
+    if(!live){
+      alert(`Importação da temporada 2026/2027 concluída:\n${added} lançamento(s) novo(s) adicionado(s) (${[...monthsTouched].sort().map(mlabel).join(', ')||'-'}).\n${decided} já entraram totalmente classificados (sem precisar de conciliação)${composed?`, sendo ${composed} via Composição`:''}.\n${duplicated} já existiam e foram ignorados (evita duplicidade).\n${skipped} linha(s) ignorada(s) por falta de Data/Favorecido/Entrada-Saída ou por ter as duas preenchidas.${abatidos?`\n${abatidos} lançamento(s) marcado(s) como Abatimento (entram com sinal negativo na linha de destino).`:''}${composicaoDivergente?`\nAtenção: ${composicaoDivergente} lançamento(s) com Composição cuja soma não bate com o valor total — revise na aba Composição.`:''}`);
+      location.reload();
+    }
+    return stats;
   }catch(e){
-    if(msg)msg.textContent='Erro ao importar: '+e.message;
+    if(msg&&!live)msg.textContent='Erro ao importar: '+e.message;
+    if(live)console.error('importNewSeasonRealizado (live):',e);
+    return {...emptyStats,error:e.message};
   }
 }
 document.getElementById('btn-newseason-template').onclick=()=>downloadNewSeasonTemplate().catch(e=>alert('Falha ao gerar modelo: '+e.message));
@@ -5256,19 +5351,23 @@ async function downloadNewBudgetTemplate(){
     if(msg)msg.textContent='Erro ao gerar modelo: '+e.message;
   }
 }
-async function importNewBudgetSpreadsheet(file){
+async function importNewBudgetSpreadsheet(file, raw){
   const msg=document.getElementById('newbudget-msg');
-  if(msg)msg.textContent='Lendo planilha…';
+  const live=!!raw;
+  if(msg&&!live)msg.textContent='Lendo planilha…';
+  const emptyStats={created:0,updated:0,skipped:0,monthsTouched:[]};
   try{
-    await ensureXLSX();
-    const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
-    const sn=wb.SheetNames.find(n=>norm(n)==='orcado'||norm(n)==='orçado')||wb.SheetNames[0];
-    const raw=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:''});
-    if(!raw.length){if(msg)msg.textContent='Nenhuma linha encontrada na planilha.';return;}
+    if(!raw){
+      await ensureXLSX();
+      const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+      const sn=wb.SheetNames.find(n=>norm(n)==='orcado'||norm(n)==='orçado')||wb.SheetNames[0];
+      raw=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:''});
+    }
+    if(!raw.length){if(msg&&!live)msg.textContent='Nenhuma linha encontrada na planilha.';return emptyStats;}
     const headerKeys=Object.keys(raw[0]);
     const findKey=(...cands)=>headerKeys.find(h=>cands.some(c=>norm(h)===norm(c)));
     const kID=findKey('ID'),kArea=findKey('Departamento'),kGrupo=findKey('Grupo'),kLinha=findKey('Linha do orçamento','Linha');
-    if(!kArea&&!kID){if(msg)msg.textContent='Planilha fora do modelo: verifique as colunas ID/Departamento/Grupo/Linha.';return;}
+    if(!kArea&&!kID){if(msg&&!live)msg.textContent='Planilha fora do modelo: verifique as colunas ID/Departamento/Grupo/Linha.';return emptyStats;}
     const months=newBudgetMonthCols();
     const monthKeyByHeader={};
     months.forEach(m=>{monthKeyByHeader[norm(mlabel(m))]=m;});
@@ -5311,12 +5410,18 @@ async function importNewBudgetSpreadsheet(file){
       Object.keys(prevVals).forEach(m=>monthsTouched.add(m));
       if(existingLine)updated++;else created++;
     });
-    if(!created&&!updated){if(msg)msg.textContent='Nenhuma linha válida encontrada.';return;}
+    const stats={created,updated,skipped,monthsTouched:[...monthsTouched]};
+    if(!created&&!updated){if(msg&&!live)msg.textContent='Nenhuma linha válida encontrada.';return stats;}
     save('budgetlines',budgetLines);
-    alert(`Importação do orçado concluída:\n${created} linha(s) nova(s) criada(s).\n${updated} linha(s) existente(s) atualizada(s).\n${skipped} linha(s) ignorada(s) por falta de ID/Departamento/Linha.\nMeses afetados: ${[...monthsTouched].sort().map(mlabel).join(', ')||'-'}`);
-    location.reload();
+    if(!live){
+      alert(`Importação do orçado concluída:\n${created} linha(s) nova(s) criada(s).\n${updated} linha(s) existente(s) atualizada(s).\n${skipped} linha(s) ignorada(s) por falta de ID/Departamento/Linha.\nMeses afetados: ${[...monthsTouched].sort().map(mlabel).join(', ')||'-'}`);
+      location.reload();
+    }
+    return stats;
   }catch(e){
-    if(msg)msg.textContent='Erro ao importar: '+e.message;
+    if(msg&&!live)msg.textContent='Erro ao importar: '+e.message;
+    if(live)console.error('importNewBudgetSpreadsheet (live):',e);
+    return {...emptyStats,error:e.message};
   }
 }
 async function endSeasonAndReset(){
@@ -6249,6 +6354,9 @@ window.addEventListener('resize',()=>{ if(!iaPop.classList.contains('hide'))iaKe
 iaInit();
 
 render();
+const btnRefreshGsheets=document.getElementById('btn-refresh-gsheets');
+if(btnRefreshGsheets)btnRefreshGsheets.onclick=()=>{ loadLiveGoogleSheets().catch(e=>console.error('loadLiveGoogleSheets (manual):',e)); };
+loadLiveGoogleSheets().catch(e=>console.error('loadLiveGoogleSheets (auto):',e));
 </script>
 
 <script id="v60-semantic-kpi-colors">
