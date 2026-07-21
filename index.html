@@ -5741,7 +5741,7 @@ structureCfg.areas=structureCfg.areas||{};structureCfg.supports=structureCfg.sup
 const areaLabel=a=>structureCfg.areas[a]||STRUCTURE_DEFAULTS.areas[a]||AN[a]||a;
 const supportLabel=k=>structureCfg.supports[k]||STRUCTURE_DEFAULTS.supports[k]||k;
 const supportParent=k=>structureCfg.parents[k]||STRUCTURE_DEFAULTS.parents[k]||'TOP';
-function persistStructure(){localStorage.setItem('lnb_structure_v39',JSON.stringify(structureCfg));applyStructureLabels();}
+function persistStructure(){localStorage.setItem('lnb_structure_v39',JSON.stringify(structureCfg));try{applyStructureLabels();}catch(e){console.error('applyStructureLabels falhou (ignorado):',e);}}
 function applyStructureLabels(){
  document.querySelectorAll('#nav button[data-area]').forEach(b=>b.textContent=areaLabel(b.dataset.area));
  document.querySelectorAll('#nav button[data-sup]').forEach(b=>b.textContent=supportLabel(b.dataset.sup));
@@ -5762,7 +5762,7 @@ render=function(){
  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',isNavButtonActive(b)));
  document.getElementById('v-structure').classList.toggle('hide',curV!=='structure');
  if(curV==='structure')renderStructureEditor();
- applyStructureLabels();renderSubnavV39();
+ try{applyStructureLabels();}catch(e){console.error('applyStructureLabels falhou (ignorado):',e);}renderSubnavV39();
 };
 function renderSubnavV39(){
  const el=document.getElementById('subnav');let items=[];let active='';
@@ -5867,7 +5867,7 @@ function downloadIdMap(){
   const blob=new Blob(['\ufeff'+head+body],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='LNB_mapa_de_ids.csv';a.click();URL.revokeObjectURL(a.href);
 }
-applyStructureLabels();
+try{applyStructureLabels();}catch(e){console.error('applyStructureLabels falhou (ignorado):',e);}
 
 document.body.dataset.visual='nossa-terra';
 function clearBulkDestination(){['bulk-area','bulk-group','bulk-line'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const msg=document.getElementById('bulk-msg');if(msg)msg.innerHTML='Selecione uma área, grupo e linha somente quando desejar fazer uma realocação.';}
