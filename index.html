@@ -2008,6 +2008,82 @@ async function supaInsertIgnoreDup(table, rows){
   if(!res.ok){ const t=await res.text(); throw new Error('Supabase insert '+table+' falhou: '+res.status+' '+t); }
   return {inserted: rows.length};
 }
+async function supaUpsert(table, rows, onConflict){
+  if(!rows.length) return {upserted:0};
+  const headers=Object.assign({}, supaHeaders(), {'Prefer':'resolution=merge-duplicates,return=minimal'});
+  const url=SUPABASE_URL+'/rest/v1/'+table+(onConflict?('?on_conflict='+onConflict):'');
+  const res=await fetch(url, {method:'POST', headers: headers, body: JSON.stringify(rows)});
+  if(!res.ok){ const t=await res.text(); throw new Error('Supabase upsert '+table+' falhou: '+res.status+' '+t); }
+  return {upserted: rows.length};
+}
+function orcadoRowsToWide(supaRows){
+  var byLine={};
+  var MES_ABREV=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  function labelFromYm(ym){ var p=String(ym).split('-'); var y=p[0], m=parseInt(p[1],10); return MES_ABREV[m-1]+'./'+y; }
+  supaRows.forEach(function(r){
+    var key=(r.id_linha||'')+'|'+(r.departamento||'')+'|'+(r.grupo||'')+'|'+(r.linha_orcamento||'');
+    if(!byLine[key]) byLine[key]={'ID': r.id_linha||'', 'Departamento': r.departamento||'', 'Grupo': r.grupo||'', 'Linha do orçamento': r.linha_orcamento||''};
+    if(r.mes!=null && r.valor!=null) byLine[key][labelFromYm(r.mes)] = r.valor;
+  });
+  return Object.values(byLine);
+}
+async function syncOrcadoFileToSupabase(file){
+  var msg=document.getElementById('newbudget-msg');
+  try{
+    await ensureXLSX();
+    var wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+    var sn=wb.SheetNames.find(function(n){return norm(n)===norm('orcado')||norm(n)===norm('orçado');})||wb.SheetNames[0];
+    var arr=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''});
+    var headerRowIdx=-1;
+    for(var i=0;i<arr.length;i++){
+      var rn=arr[i].map(function(cc){return norm(String(cc||''));});
+      if(rn.indexOf(norm('Departamento'))>-1 && rn.indexOf(norm('Linha do orçamento'))>-1){headerRowIdx=i;break;}
+    }
+    if(headerRowIdx===-1){ if(msg) msg.textContent += ' | Não encontrei o cabeçalho da planilha de orçado para enviar à base central.'; return; }
+    var headers=arr[headerRowIdx].map(function(h){return String(h||'').trim();});
+    function colIdx(name){ return headers.findIndex(function(h){return norm(h)===norm(name);}); }
+    var iId=colIdx('ID'), iDep=colIdx('Departamento'), iGrp=colIdx('Grupo'), iLin=colIdx('Linha do orçamento');
+    var MES_ABREV2=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    function parseMesHeader(h){
+      var m=String(h||'').trim().toLowerCase().match(/^([a-zç]{3})\.?\/(\d{4})$/);
+      if(!m) return null;
+      var idx=MES_ABREV2.indexOf(m[1]);
+      if(idx===-1) return null;
+      return m[2]+'-'+String(idx+1).padStart(2,'0');
+    }
+    var monthCols=[];
+    headers.forEach(function(h, idx){ var ym=parseMesHeader(h); if(ym) monthCols.push({idx:idx, mes:ym}); });
+    if(!monthCols.length){ if(msg) msg.textContent += ' | Não encontrei colunas de mês na planilha de orçado.'; return; }
+    function toNum(v){
+      if(v==null||v==='') return null;
+      if(typeof v==='number') return v;
+      var s=String(v).replace(/[^0-9,.-]/g,'').replace(',', '.');
+      var n=parseFloat(s);
+      return isNaN(n)?null:n;
+    }
+    var rows=[];
+    for(var rr=headerRowIdx+1; rr<arr.length; rr++){
+      var row=arr[rr];
+      var dep=iDep>-1?String(row[iDep]||'').trim():'';
+      var grp=iGrp>-1?String(row[iGrp]||'').trim():'';
+      var lin=iLin>-1?String(row[iLin]||'').trim():'';
+      var idVal=iId>-1?String(row[iId]||'').trim():'';
+      if(!dep && !grp && !lin && !idVal) continue;
+      monthCols.forEach(function(mc){
+        var val=toNum(row[mc.idx]);
+        if(val==null) return;
+        rows.push({ id_linha: idVal, departamento: dep, grupo: grp, linha_orcamento: lin, mes: mc.mes, valor: val });
+      });
+    }
+    if(!rows.length){ if(msg) msg.textContent += ' | Nada novo para enviar à base central.'; return; }
+    if(msg) msg.textContent += ' | Enviando '+rows.length+' valor(es) de orçado para a base central...';
+    await supaUpsert('orcado', rows, 'id_linha,mes');
+    if(msg) msg.textContent += ' | Base central atualizada — todos que abrirem o painel já veem esta atualização.';
+  }catch(e){
+    if(msg) msg.textContent += ' | Erro ao enviar orçado para a base central: '+e.message;
+    console.error('syncOrcadoFileToSupabase', e);
+  }
+}
 function realizadoRowToPortugues(r){
   return {
     'Data': r.data||'', 'Favorecido': r.favorecido||'', 'Descrição': r.descricao||'', 'Documento': r.documento||'',
@@ -2141,7 +2217,7 @@ async function loadLiveGoogleSheets(){
   try{
     const [rRes, oRes]=await Promise.allSettled([
       supaSelect('realizado'),
-      fetchGSheetJSONP(GSHEET_ORCADO_ID)
+      supaSelect('orcado')
     ]);
     if(rRes.status==='fulfilled'&&Array.isArray(rRes.value)){
       try{
@@ -2152,10 +2228,10 @@ async function loadLiveGoogleSheets(){
     }else{
       console.error('loadLiveGoogleSheets: falha ao buscar Realizado', rRes.reason);
     }
-    if(oRes.status==='fulfilled'&&oRes.value&&oRes.value.table){
+    if(oRes.status==='fulfilled'&&Array.isArray(oRes.value)){
       try{
-        const rawRows=gvizToRows(oRes.value);
-        const stats=await importNewBudgetSpreadsheet(null, rawRows);
+        const rawRows=orcadoRowsToWide(oRes.value);
+        const stats=rawRows.length?await importNewBudgetSpreadsheet(null, rawRows):{created:0,updated:0};
         if(stats&&!stats.error){ orcadoOk=true; if((stats.created+stats.updated)>0)changed=true; }
       }catch(e){ console.error('loadLiveGoogleSheets: falha ao processar Orçado', e); }
     }else{
@@ -5180,7 +5256,7 @@ setTimeout(()=>{
   const bt=document.getElementById('btn-newbudget-template'),bi=document.getElementById('btn-newbudget-import'),bf=document.getElementById('newbudget-import-file');
   if(bt)bt.onclick=()=>downloadNewBudgetTemplate().catch(e=>alert('Falha ao gerar modelo: '+e.message));
   if(bi)bi.onclick=()=>bf.click();
-  if(bf)bf.onchange=ev=>{const f=ev.target.files[0];if(f)importNewBudgetSpreadsheet(f);ev.target.value='';};
+  if(bf)bf.onchange=ev=>{const f=ev.target.files[0];if(f){importNewBudgetSpreadsheet(f).then(function(){return syncOrcadoFileToSupabase(f);}).catch(function(e){console.error('sync orcado',e);});}ev.target.value='';};
 },0);
 const NEWSEASON_EVENTOS=['NBB','LDB','Liga Ouro','Jogo das Estrelas','Copa Super 8','Interligas'];
 const NEWSEASON_TAGS=['FILIADOS','EQUIPES','TRANSP_HOSP','REEMB_FUNC','REEMB_ARB','TRANSMISSAO','MEDIA_DAY','CLINICA'];
