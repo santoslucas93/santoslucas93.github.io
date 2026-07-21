@@ -1833,11 +1833,36 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 
   <div class="panel" id="plan-governance-panel">
     <h2>Controle e comparação do orçamento 2026/2027</h2>
-    <div class="toolbar admin-only" style="margin-bottom:12px">
-      <button class="act pri" type="button" id="btn-iniciar-temporada">🚀 Iniciar nova temporada</button>
-      <button class="act" type="button" id="btn-zerar-temporada" style="border-color:var(--er);color:var(--er)">🗑️ Zerar temporada (Realizado)</button>
+    <div class="admin-only" style="margin-bottom:14px;border:1px solid var(--bd);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px">
+      <div>
+        <h3 style="margin:0 0 4px;font-size:15px">Gestão de temporadas</h3>
+        <div class="note" style="margin:0">Escolha a temporada, veja quantos registros ela tem e decida o que fazer. Nada é apagado sem você confirmar digitando o nome da temporada.</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Temporada
+          <select id="tp-select" style="min-width:170px"></select>
+        </label>
+        <button class="act" type="button" id="btn-tp-refresh">🔄 Ver situação desta temporada</button>
+      </div>
+      <div id="tp-status" class="foot" style="margin:0">Escolha uma temporada acima.</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="tp-chk-realizado"> Apagar Realizado desta temporada</label>
+        <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="tp-chk-orcado"> Apagar Orçado desta temporada</label>
+      </div>
+      <div class="toolbar" style="margin:0">
+        <button class="act" type="button" id="btn-tp-apagar" style="border-color:var(--er);color:var(--er)">🗑️ Apagar o que estiver marcado acima</button>
+      </div>
+      <div style="border-top:1px dashed var(--bd);padding-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Copiar o Orçado de
+          <select id="tp-origem-select" style="min-width:170px"></select>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Para a nova temporada
+          <input type="text" id="tp-destino-input" placeholder="ex: 2027/2028" style="min-width:170px">
+        </label>
+        <button class="act pri" type="button" id="btn-tp-iniciar">🚀 Iniciar nova temporada (copiar Orçado)</button>
+      </div>
+      <div id="temporada-msg" class="foot" style="margin:0"></div>
     </div>
-    <div id="temporada-msg" class="foot admin-only"></div>
     <div id="plan-compare-summary" class="kpis"></div>
     <details class="plan-gov-details">
       <summary>Ajustar status, responsável e reajuste em massa</summary>
@@ -2208,12 +2233,71 @@ function lnbCurrentTemporada(){
   return m ? m[1] : '';
 }
 
+async function lnbListTemporadas(){
+  try{
+    const [real, orc] = await Promise.all([
+      supaSelectFiltered('realizado','select=temporada'),
+      supaSelectFiltered('orcado','select=temporada')
+    ]);
+    const set=new Set();
+    real.forEach(function(r){ if(r.temporada) set.add(r.temporada); });
+    orc.forEach(function(r){ if(r.temporada) set.add(r.temporada); });
+    const cur=lnbCurrentTemporada(); if(cur) set.add(cur);
+    return [...set].sort();
+  }catch(e){
+    console.error('lnbListTemporadas falhou:', e);
+    const cur=lnbCurrentTemporada();
+    return cur?[cur]:[];
+  }
+}
+async function lnbRefreshTemporadaCounts(){
+  const sel=document.getElementById('tp-select');
+  const status=document.getElementById('tp-status');
+  if(!sel || !status) return;
+  const t=sel.value;
+  if(!t){ status.textContent='Escolha uma temporada acima.'; return; }
+  status.textContent='Verificando '+t+'...';
+  try{
+    const [real, orc] = await Promise.all([
+      supaSelectFiltered('realizado', 'temporada=eq.'+encodeURIComponent(t)+'&select=id'),
+      supaSelectFiltered('orcado', 'temporada=eq.'+encodeURIComponent(t)+'&select=id')
+    ]);
+    status.textContent='Temporada '+t+': '+real.length+' lançamento(s) de Realizado e '+orc.length+' linha(s) de Orçado salvos no sistema.';
+  }catch(e){
+    status.textContent='Não consegui verificar: '+e.message;
+  }
+}
+async function lnbApagarTemporadaSelecionada(){
+  const sel=document.getElementById('tp-select');
+  const msg=document.getElementById('temporada-msg');
+  const t=sel?sel.value:'';
+  const chkR=document.getElementById('tp-chk-realizado')?.checked;
+  const chkO=document.getElementById('tp-chk-orcado')?.checked;
+  if(!t){ if(msg) msg.textContent='Escolha uma temporada.'; return; }
+  if(!chkR && !chkO){ if(msg) msg.textContent='Marque Realizado e/ou Orçado antes de apagar.'; return; }
+  const partes=[]; if(chkR) partes.push('Realizado'); if(chkO) partes.push('Orçado');
+  const confirmText=prompt('Isso vai APAGAR '+partes.join(' e ')+' da temporada '+t+' do banco (para todo mundo). Um backup é baixado antes. Para confirmar, digite a temporada exatamente: '+t);
+  if(confirmText!==t){ if(msg) msg.textContent='Não confere o texto digitado. Nada foi apagado.'; return; }
+  if(msg) msg.textContent='Apagando '+partes.join(' e ')+' de '+t+'...';
+  try{
+    await lnbAutoSnapshot('antes de apagar '+partes.join(' e ')+' da temporada '+t);
+    if(chkR) await supaDelete('realizado', 'temporada=eq.'+encodeURIComponent(t));
+    if(chkO) await supaDelete('orcado', 'temporada=eq.'+encodeURIComponent(t));
+    if(msg) msg.textContent=partes.join(' e ')+' da temporada '+t+' apagado(s) com sucesso.';
+    await lnbRefreshTemporadaCounts();
+  }catch(e){
+    console.error('lnbApagarTemporadaSelecionada falhou:', e);
+    if(msg) msg.textContent='Falha ao apagar: '+e.message+' (confirme que rodou o supabase-rls-admin-update.sql no Supabase)';
+  }
+}
 async function lnbIniciarNovaTemporada(){
   const msg=document.getElementById('temporada-msg');
-  const origem=prompt('De qual temporada copiar o Orçado (origem)? Ex: 2026/2027', lnbCurrentTemporada());
-  if(!origem) return;
-  const destino=prompt('Qual é a nova temporada (destino)? Ex: 2027/2028', '');
-  if(!destino) return;
+  const origemSel=document.getElementById('tp-origem-select');
+  const destinoInput=document.getElementById('tp-destino-input');
+  const origem=origemSel?origemSel.value:'';
+  const destino=destinoInput?destinoInput.value.trim():'';
+  if(!origem){ if(msg) msg.textContent='Escolha de qual temporada copiar o Orçado.'; return; }
+  if(!destino){ if(msg) msg.textContent='Informe o nome da nova temporada (ex: 2027/2028).'; return; }
   if(!confirm('Isso vai copiar o Orçado de '+origem+' para '+destino+' (um ano à frente, mesmos valores como ponto de partida a ajustar). Confirmar?')) return;
   if(msg) msg.textContent='Copiando orçado de '+origem+' para '+destino+'...';
   try{
@@ -2230,32 +2314,28 @@ async function lnbIniciarNovaTemporada(){
     });
     await supaUpsert('orcado', newRows, 'id_linha,mes');
     if(msg) msg.textContent='Temporada '+destino+' criada com '+newRows.length+' valor(es) de orçado, a partir de '+origem+'.';
+    await lnbInitTemporadaManager(true);
   }catch(e){
     console.error('lnbIniciarNovaTemporada falhou:', e);
     if(msg) msg.textContent='Falha ao iniciar nova temporada: '+e.message;
   }
 }
-async function lnbZerarTemporada(){
-  const msg=document.getElementById('temporada-msg');
-  const alvo=prompt('Qual temporada do REALIZADO você quer ZERAR (apagar)? Ex: 2025/2026', '');
-  if(!alvo) return;
-  const confirmText=prompt('Isso vai APAGAR todo o Realizado da temporada '+alvo+' do banco (para todo mundo). Um backup será baixado antes. Para confirmar, digite a temporada exatamente: '+alvo);
-  if(confirmText!==alvo){ if(msg) msg.textContent='Não confere o texto digitado. Nada foi apagado.'; return; }
-  if(msg) msg.textContent='Apagando Realizado de '+alvo+'...';
-  try{
-    await lnbAutoSnapshot('antes de zerar temporada '+alvo);
-    await supaDelete('realizado', 'temporada=eq.'+encodeURIComponent(alvo));
-    if(msg) msg.textContent='Realizado da temporada '+alvo+' apagado.';
-  }catch(e){
-    console.error('lnbZerarTemporada falhou:', e);
-    if(msg) msg.textContent='Falha ao zerar: '+e.message+' (confirme que rodou o supabase-rls-admin-update.sql no Supabase)';
-  }
-}
-function lnbInitSeasonButtons(){
-  const bi=document.getElementById('btn-iniciar-temporada');
-  const bz=document.getElementById('btn-zerar-temporada');
-  if(bi) bi.onclick=lnbIniciarNovaTemporada;
-  if(bz) bz.onclick=lnbZerarTemporada;
+async function lnbInitTemporadaManager(force){
+  const sel=document.getElementById('tp-select');
+  const selOrigem=document.getElementById('tp-origem-select');
+  if(!sel || !selOrigem) return;
+  if(sel.options.length && !force) return;
+  const temporadas=await lnbListTemporadas();
+  const cur=lnbCurrentTemporada();
+  const opts=temporadas.length?temporadas.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join(''):'<option value="">(nenhuma temporada encontrada)</option>';
+  sel.innerHTML=opts;
+  selOrigem.innerHTML=opts;
+  if(temporadas.includes(cur)){ sel.value=cur; selOrigem.value=cur; }
+  await lnbRefreshTemporadaCounts();
+  sel.onchange=lnbRefreshTemporadaCounts;
+  const br=document.getElementById('btn-tp-refresh'); if(br) br.onclick=lnbRefreshTemporadaCounts;
+  const ba=document.getElementById('btn-tp-apagar'); if(ba) ba.onclick=lnbApagarTemporadaSelecionada;
+  const bi=document.getElementById('btn-tp-iniciar'); if(bi) bi.onclick=lnbIniciarNovaTemporada;
 }
 
 async function lnbFetchIdLinha(grupo, linha){
@@ -5699,13 +5779,40 @@ function csvCell(v){return '"'+String(v??'').replace(/"/g,'""')+'"';}
 function downloadText(name,text,type){const b=new Blob([text],{type:type||'text/plain;charset=utf-8'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
 function downloadIntegrityReport(){const rows=integrityScan();downloadText(`LNB_integridade_${new Date().toISOString().slice(0,10)}.csv`,'Nível;Tipo;Data;Descrição;Detalhe\n'+rows.map(x=>[x.nivel,x.tipo,x.data,x.descricao,x.detalhe].map(csvCell).join(';')).join('\n'),'text/csv;charset=utf-8');}
 function planGovernance(){try{return JSON.parse(store.getItem('lnb3_plan_governance')||'{}')}catch(e){return{}}}
-function savePlanGovernance(){const v={status:document.getElementById('plan-status')?.value||'Base copiada',owner:document.getElementById('plan-owner')?.value||'',justification:document.getElementById('plan-justification')?.value||'',updatedAt:new Date().toISOString()};store.setItem('lnb3_plan_governance',JSON.stringify(v));alert('Controle do orçamento salvo.');}
+async function savePlanGovernance(){
+  const v={status:document.getElementById('plan-status')?.value||'Base copiada',owner:document.getElementById('plan-owner')?.value||'',justification:document.getElementById('plan-justification')?.value||'',updatedAt:new Date().toISOString()};
+  store.setItem('lnb3_plan_governance',JSON.stringify(v));
+  try{
+    const temporada=lnbCurrentTemporada();
+    await supaUpsert('orcado_governance', [{temporada:temporada, status:v.status, responsavel:v.owner, justificativa:v.justification, updated_at:new Date().toISOString()}], 'temporada');
+    alert('Controle do orçamento salvo — visível para todos que acessarem o painel.');
+  }catch(e){
+    console.error('savePlanGovernance (Supabase) falhou:', e);
+    alert('Salvo apenas neste navegador: falhou ao gravar no sistema para todos verem ('+e.message+').');
+  }
+}
 function planTotals(){
  const old=DB.lines.reduce((a,l)=>a+Object.values(l.prev||{}).reduce((s,v)=>s+(Number(v)||0),0),0);
  const next=customPlan.reduce((a,l)=>a+Object.values(l.prev||{}).reduce((s,v)=>s+(Number(v)||0),0),0);
  return {old,next,diff:next-old,pct:old?((next-old)/old*100):0};
 }
-function initPlanGovernance(){const g=planGovernance(),st=document.getElementById('plan-status');if(!st)return;st.value=g.status||'Base copiada';document.getElementById('plan-owner').value=g.owner||'';document.getElementById('plan-justification').value=g.justification||'';const t=planTotals(),el=document.getElementById('plan-compare-summary');if(el)el.innerHTML=`<div class="kpi"><div class="l">Orçado 2025/2026</div><div class="v">${fmt(t.old)}</div></div><div class="kpi"><div class="l">Proposta 2026/2027</div><div class="v">${fmt(t.next)}</div></div><div class="kpi"><div class="l">Diferença</div><div class="v">${fmt(t.diff)}</div><div class="d">${t.pct.toFixed(2).replace('.',',')}%</div></div><div class="kpi"><div class="l">Status</div><div class="v" style="font-size:18px">${esc(g.status||'Base copiada')}</div><div class="d">${esc(g.owner||'sem responsável')}</div></div>`;}
+async function fetchPlanGovernance(temporada){
+  try{
+    const rows=await supaSelectFiltered('orcado_governance', 'temporada=eq.'+encodeURIComponent(temporada)+'&limit=1');
+    if(rows && rows[0]) return {status:rows[0].status, owner:rows[0].responsavel, justification:rows[0].justificativa};
+  }catch(e){ console.error('fetchPlanGovernance falhou:', e); }
+  return planGovernance();
+}
+async function initPlanGovernance(){
+  const temporada=lnbCurrentTemporada();
+  const g=await fetchPlanGovernance(temporada);
+  const st=document.getElementById('plan-status');if(!st)return;
+  st.value=g.status||'Base copiada';
+  document.getElementById('plan-owner').value=g.owner||'';
+  document.getElementById('plan-justification').value=g.justification||'';
+  const t=planTotals(),el=document.getElementById('plan-compare-summary');
+  if(el)el.innerHTML=`<div class="kpi"><div class="l">Orçado 2025/2026</div><div class="v">${fmt(t.old)}</div></div><div class="kpi"><div class="l">Proposta 2026/2027</div><div class="v">${fmt(t.next)}</div></div><div class="kpi"><div class="l">Diferença</div><div class="v">${fmt(t.diff)}</div><div class="d">${t.pct.toFixed(2).replace('.',',')}%</div></div><div class="kpi"><div class="l">Status</div><div class="v" style="font-size:18px">${esc(g.status||'Base copiada')}</div><div class="d">${esc(g.owner||'sem responsável')}</div></div>`;
+}
 function applyPlanAdjustment(){const pct=Number(document.getElementById('plan-adjust-pct')?.value||0);if(!Number.isFinite(pct)||pct===0){alert('Informe um percentual diferente de zero.');return;}const scope=document.getElementById('plan-adjust-scope')?.value||'ALL',area=curPlanArea;if(scope==='CURRENT'&&['ALL','__new__'].includes(area)){alert('Selecione um departamento específico.');return;}if(!confirm(`Aplicar reajuste de ${pct}% ${scope==='ALL'?'em todas as linhas':'no departamento atual'}?`))return;customPlan.forEach(x=>{if(scope==='CURRENT'&&x.area!==area)return;Object.keys(x.prev||{}).forEach(m=>x.prev[m]=Math.round((Number(x.prev[m])||0)*(1+pct/100)*100)/100);});store.setItem('lnb3_custom_plan_v56',JSON.stringify(customPlan));renderPlan();setTimeout(initPlanGovernance,0);}
 function exportFullBackup(){const data={app:'Orçado x Realizado LNB',version:V30_VERSION,createdAt:new Date().toISOString(),localStorage:{}};for(let i=0;i<store.length;i++){const k=store.key(i);if(k&&k.startsWith('lnb3_'))data.localStorage[k]=store.getItem(k);}downloadText(`LNB_backup_V30_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(data,null,2),'application/json');}
 function exportPublishSnapshot(){
@@ -7023,7 +7130,7 @@ function lnbBootApp(){
   lnbShowAuthBadge();
   try{ lnbInitHeaderResize(); }catch(e){ console.error('lnbInitHeaderResize falhou:', e); }
   try{ lnbInitManualEntryForm(); }catch(e){ console.error('lnbInitManualEntryForm falhou:', e); }
-  try{ lnbInitSeasonButtons(); }catch(e){ console.error('lnbInitSeasonButtons falhou:', e); }
+  try{ lnbInitTemporadaManager(); }catch(e){ console.error('lnbInitTemporadaManager falhou:', e); }
 }
 lnbAuthGate(lnbBootApp);
 </script>
