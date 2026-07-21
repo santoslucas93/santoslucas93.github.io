@@ -1510,7 +1510,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 </div>
 <div class="hero">
   <div class="hero-top"><div>
-    <h1>Orçado x Realizado — Temporada 2025/2026</h1>
+    <h1>Orçado x Realizado — Temporada 2026/2027</h1>
     <div class="badges" style="display:flex;align-items:center;flex-wrap:wrap;gap:0;font-size:11.5px;opacity:.82;letter-spacing:.1px">
   <span style="padding:2px 10px 2px 0;white-space:nowrap">🏦 6 contas: Bradesco, CEF (2), Itaú, Ouribank, Banco do Brasil</span>
   <span style="width:1px;height:11px;background:rgba(255,255,255,.18);margin:0 2px"></span>
@@ -5264,7 +5264,7 @@ function xlDataRow(ws,vals,opts){
 async function buildExecWorkbook(){
   const wb=new ExcelJS.Workbook();wb.creator='LNB — Orçado x Realizado';wb.created=new Date();
   const meses=months.slice();const R={};meses.forEach(m=>R[m]=realized(m));
-  const per='Temporada 2025/2026 · Extrato: '+mlabel(meses[0])+' a '+mlabel(meses[meses.length-1])+' · Gerado em '+new Date().toLocaleDateString('pt-BR');
+  const per='Temporada 2026/2027 · Extrato: '+mlabel(meses[0])+' a '+mlabel(meses[meses.length-1])+' · Gerado em '+new Date().toLocaleDateString('pt-BR');
   const r2x=v=>Math.round(v*100)/100;
   // ============ 1. RESUMO EXECUTIVO ============
   {
@@ -5594,7 +5594,7 @@ function addHomeSheet(wb,rows,pend,per){
 }
 async function buildRealizadoWorkbook(){
   const {rows,pend}=alocacaoRows();
-  const per='Temporada 2025/2026 · Realizado: '+(months.length?mlabel(months[0])+' a '+mlabel(months[months.length-1]):'sem lançamentos')+' · Gerado em '+new Date().toLocaleDateString('pt-BR');
+  const per='Temporada 2026/2027 · Realizado: '+(months.length?mlabel(months[0])+' a '+mlabel(months[months.length-1]):'sem lançamentos')+' · Gerado em '+new Date().toLocaleDateString('pt-BR');
   const wb=new ExcelJS.Workbook();wb.creator='LNB — Orçado x Realizado';wb.created=new Date();
   const wsCapa=wb.addWorksheet('Capa',{views:[{state:'frozen',ySplit:4}]});
   xlBand(wsCapa,'LIGA NACIONAL DE BASQUETE — REALIZADO PREMIUM',per,1);
@@ -6214,7 +6214,7 @@ function persistStructure(){localStorage.setItem('lnb_structure_v39',JSON.string
 function applyStructureLabels(){
  document.querySelectorAll('#nav button[data-area]').forEach(b=>b.textContent=areaLabel(b.dataset.area));
  document.querySelectorAll('#nav button[data-sup]').forEach(b=>b.textContent=supportLabel(b.dataset.sup));
- const title=document.querySelector('.hero h1');if(title)title.textContent='Orçado x Realizado — Temporada 2025/2026';
+ const title=document.querySelector('.hero h1');if(title)title.textContent='Orçado x Realizado — Temporada 2026/2027';
 }
 function isNavButtonActive(b){
  if(b.dataset.v==='comp')return curV==='comp'||(curV==='sup'&&supportParent(curSup)==='COMP');
@@ -6445,7 +6445,7 @@ async function downloadRealizadoClassificationTemplate(){
   if(msg)msg.textContent='Gerando modelo…';
   await ensureExcelJS();
   const rowsData=realizadoClassificationRows();
-  const per='Temporada 2025/2026 · '+(months.length?mlabel(months[0])+' a '+mlabel(months[months.length-1]):'sem lançamentos')+' · Gerado em '+new Date().toLocaleDateString('pt-BR');
+  const per='Temporada 2026/2027 · '+(months.length?mlabel(months[0])+' a '+mlabel(months[months.length-1]):'sem lançamentos')+' · Gerado em '+new Date().toLocaleDateString('pt-BR');
   const wb=new ExcelJS.Workbook();wb.creator='LNB — Orçado x Realizado';wb.created=new Date();
   const wsCapa=wb.addWorksheet('Capa',{views:[{state:'frozen',ySplit:4}]});
   xlBand(wsCapa,'CLASSIFICAÇÃO ASSERTIVA DO REALIZADO',per,1);
