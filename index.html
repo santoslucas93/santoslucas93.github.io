@@ -2276,15 +2276,22 @@ async function lnbApagarTemporadaSelecionada(){
   if(!t){ if(msg) msg.textContent='Escolha uma temporada.'; return; }
   if(!chkR && !chkO){ if(msg) msg.textContent='Marque Realizado e/ou Orçado antes de apagar.'; return; }
   const partes=[]; if(chkR) partes.push('Realizado'); if(chkO) partes.push('Orçado');
-  const confirmText=prompt('Isso vai APAGAR '+partes.join(' e ')+' da temporada '+t+' do banco (para todo mundo). Um backup é baixado antes. Para confirmar, digite a temporada exatamente: '+t);
+  const confirmText=prompt('Isso vai APAGAR '+partes.join(' e ')+' da temporada '+t+' do banco (para todo mundo) e também do rascunho salvo neste navegador. Um backup é baixado antes. Para confirmar, digite a temporada exatamente: '+t);
   if(confirmText!==t){ if(msg) msg.textContent='Não confere o texto digitado. Nada foi apagado.'; return; }
   if(msg) msg.textContent='Apagando '+partes.join(' e ')+' de '+t+'...';
   try{
     await lnbAutoSnapshot('antes de apagar '+partes.join(' e ')+' da temporada '+t);
     if(chkR) await supaDelete('realizado', 'temporada=eq.'+encodeURIComponent(t));
-    if(chkO) await supaDelete('orcado', 'temporada=eq.'+encodeURIComponent(t));
-    if(msg) msg.textContent=partes.join(' e ')+' da temporada '+t+' apagado(s) com sucesso.';
-    await lnbRefreshTemporadaCounts();
+    if(chkO){
+      await supaDelete('orcado', 'temporada=eq.'+encodeURIComponent(t));
+      if(typeof customPlan!=='undefined'){
+        customPlan=customPlan.filter(function(x){ return x.temporada!==t; });
+        if(typeof saveCustomPlan==='function') saveCustomPlan();
+      }
+    }
+    if(msg) msg.textContent=partes.join(' e ')+' da temporada '+t+' apagado(s) com sucesso. Recarregando a página...';
+    await new Promise(function(r){ setTimeout(r,1200); });
+    location.reload();
   }catch(e){
     console.error('lnbApagarTemporadaSelecionada falhou:', e);
     if(msg) msg.textContent='Falha ao apagar: '+e.message+' (confirme que rodou o supabase-rls-admin-update.sql no Supabase)';
