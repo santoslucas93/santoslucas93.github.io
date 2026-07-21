@@ -1833,6 +1833,11 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 
   <div class="panel" id="plan-governance-panel">
     <h2>Controle e comparação do orçamento 2026/2027</h2>
+    <div class="toolbar admin-only" style="margin-bottom:12px">
+      <button class="act pri" type="button" id="btn-iniciar-temporada">🚀 Iniciar nova temporada</button>
+      <button class="act" type="button" id="btn-zerar-temporada" style="border-color:var(--er);color:var(--er)">🗑️ Zerar temporada (Realizado)</button>
+    </div>
+    <div id="temporada-msg" class="foot admin-only"></div>
     <div id="plan-compare-summary" class="kpis"></div>
     <details class="plan-gov-details">
       <summary>Ajustar status, responsável e reajuste em massa</summary>
@@ -1945,11 +1950,6 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <div class="toolbar" style="margin-top:10px">
       <button class="act" type="button" id="btn-end-season" style="border-color:var(--er);color:var(--er)">Encerrar temporada e começar nova (arquivo local antigo)</button>
     </div>
-    <div class="toolbar" style="margin-top:10px;border-top:1px dashed var(--bd);padding-top:14px">
-      <button class="act pri" type="button" id="btn-iniciar-temporada">🚀 Iniciar nova temporada</button>
-      <button class="act" type="button" id="btn-zerar-temporada" style="border-color:var(--er);color:var(--er)">🗑️ Zerar temporada (Realizado)</button>
-    </div>
-    <div id="temporada-msg" class="foot"></div>
   </div>
   <div class="panel admin-only" id="new-budget-panel" style="margin:14px 0">
     <h2>Orçado da nova temporada — importar por planilha</h2>
