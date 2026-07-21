@@ -1511,9 +1511,16 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 <div class="hero">
   <div class="hero-top"><div>
     <h1>Orçado x Realizado — Temporada 2025/2026</h1>
-    <div class="badges"><span class="bdg">6 contas: Bradesco, CEF (2), Itaú, Ouribank, Banco do Brasil</span><span class="bdg" id="bdg-per"></span><span class="bdg" id="bdg-prova"></span></div>
-    <div class="note" id="gsheet-status" style="margin-top:6px">Carregando dados ao vivo…</div>
-  </div><div class="themebar"><span class="campaign-mark"><b>Nossa Terra tem Basquete</b><small>🏀 Aqui é o nosso lugar</small></span><div class="theme-toggle-group" role="group" aria-label="Escolha do tema"><button type="button" id="theme-light">Tema branco</button><button type="button" id="theme-dark">Tema escuro</button></div><span class="developer-credit">Desenvolvido por: <b>Lucas Santos</b></span></div></div>
+    <div class="badges" style="display:flex;align-items:center;flex-wrap:wrap;gap:0;font-size:11.5px;opacity:.82;letter-spacing:.1px">
+  <span style="padding:2px 10px 2px 0;white-space:nowrap">🏦 6 contas: Bradesco, CEF (2), Itaú, Ouribank, Banco do Brasil</span>
+  <span style="width:1px;height:11px;background:rgba(255,255,255,.18);margin:0 2px"></span>
+  <span id="bdg-per" style="padding:2px 10px;white-space:nowrap"></span>
+  <span style="width:1px;height:11px;background:rgba(255,255,255,.18);margin:0 2px"></span>
+  <span id="bdg-prova" style="padding:2px 0 2px 10px;white-space:nowrap"></span>
+</div>
+    <div id="gsheet-status" style="position:fixed;top:8px;left:8px;z-index:150;background:rgba(0,0,0,.5);color:#fff;padding:4px 10px 4px 8px;border-radius:20px;font-size:10.5px;display:flex;align-items:center;gap:6px;backdrop-filter:blur(4px);white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:#ff3b30;display:inline-block;animation:lnbLiveDot 1.4s ease-in-out infinite"></span><span id="gsheet-status-text">Carregando dados ao vivo…</span></div>
+<style>@keyframes lnbLiveDot{0%{opacity:1}50%{opacity:.25}100%{opacity:1}}</style>
+  </div><div class="themebar"><span class="campaign-mark"><b>Nossa Terra tem Basquete</b><small>🏀 Aqui é o nosso lugar</small></span><div class="theme-toggle-group" role="group" aria-label="Escolha do tema"><button type="button" id="theme-light">Tema branco</button><button type="button" id="theme-dark">Tema escuro</button></div><span class="developer-credit" style="border:1px solid rgba(212,175,55,.55);background:rgba(212,175,55,.08);border-radius:20px;padding:4px 12px;display:inline-flex;align-items:center;gap:6px;color:inherit">🛡️ Desenvolvido por: <b>Lucas Santos</b></span></div></div>
   <div class="nav" id="nav">
     <button data-v="home" class="on">Home</button>
     <button data-v="rec">Receitas</button>
@@ -2555,7 +2562,7 @@ function gvizToRows(resp){
   });
 }
 function setGsheetStatus(text){
-  const el=document.getElementById('gsheet-status');
+  const el=document.getElementById('gsheet-status-text');
   if(el)el.textContent=text;
 }
 async function loadLiveGoogleSheets(){
@@ -2603,7 +2610,7 @@ async function loadLiveGoogleSheets(){
 }
 const AREAS = {REC:'Receitas',LNB:'Superintendência (SUP)',TOP:'Técnico operacional (TOP)',COM:'Comunicação (COM)','A&F':'Administrativo & financeiro (A&F)',MKT:'Marketing (MKT)',EQP:'Equipes',OREC:'Outras receitas',TRF:'Transferências e tarifas',ENC:'Encargos e benefícios'};
 const RESP = {LNB:'Sérgio',TOP:'Paulo',COM:'Márcio','A&F':'Gilmar',MKT:'Álvaro',EQP:'—'};
-const DESP = ['LNB','TOP','COM','A&F','MKT','EQP','ENC'];
+const DESP = ['LNB','TOP','COM','A&F','MKT','EQP'];
 const DEPTS = ['LNB','TOP','COM','A&F','MKT','EQP'];
 const SUPS = [
  {k:'FILIADOS',n:'Filiados',type:'tag',v:'FILIADOS',d:'Taxas de arbitragem e movimentos de clubes filiados'},
@@ -2611,6 +2618,9 @@ const SUPS = [
  {k:'INTERLIGAS',n:'Interligas',type:'ev',v:'Interligas',d:'Lançamentos com prefixo INTERLIGAS'},
  {k:'JDE',n:'Jogo das Estrelas',type:'ev',v:'Jogo das Estrelas',d:'Lançamentos com prefixo JDE'},
  {k:'LDB',n:'LDB',type:'ev',v:'LDB',d:'Lançamentos com prefixo LDB'},
+ {k:'NBB',n:'NBB',type:'ev',v:'NBB',d:'Lançamentos com prefixo NBB'},
+ {k:'LOU',n:'Liga Ouro',type:'ev',v:'Liga Ouro',d:'Lançamentos com prefixo LOU / Liga Ouro'},
+ {k:'NBBTRIO',n:'NBB Trio',type:'ev',v:'NBB Trio',d:'Lançamentos com prefixo NBB Trio'},
  {k:'TRHO',n:'Transp & Hosp',type:'tag',v:'TRANSP_HOSP',d:'Passagens, hospedagens e locomoção'},
  {k:'REFU',n:'Reemb. funcionários',type:'tag',v:'REEMB_FUNC',d:'Restituições e reembolsos de funcionários'},
  {k:'REAR',n:'Reemb. árbitros',type:'tag',v:'REEMB_ARB',d:'Restituições e reembolsos de arbitragem'},
@@ -3108,7 +3118,7 @@ budgetLines.forEach(bl=>{
     DB.lines.push({area:bl.area,g:bl.g,n:bl.n,cod:bl.cod||'',prev:Object.assign({},bl.prev),id:bl.id,_base:1});
   }
 });
-const EVS=[['NBB','NBB'],['LDB','LDB'],['LOU','Liga Ouro'],['LIGA OURO','Liga Ouro'],['JDE','Jogo das Estrelas'],['CS8','Copa Super 8'],['SUPER 8','Copa Super 8'],['INTERLIGAS','Interligas']];
+const EVS=[['NBB','NBB'],['LDB','LDB'],['LOU','Liga Ouro'],['LIGA OURO','Liga Ouro'],['JDE','Jogo das Estrelas'],['CS8','Copa Super 8'],['SUPER 8','Copa Super 8'],['INTERLIGAS','Interligas'],['NBBTRIO','NBB Trio'],['NBB TRIO','NBB Trio']];
 function findLine(area,gsub,nsub){for(const l of DB.lines){if(l.area===area&&norm(l.g).includes(gsub)&&(!nsub||norm(l.n).includes(nsub)))return l.id;}return null;}
 const LREF={refN:findLine('TOP','logistica','refeicao arbitragem/staff depto - nbb'),refL:findLine('TOP','logistica','refeicao arbitragem/staff depto - l ouro'),traN:findLine('TOP','logistica','transporte aereo - arbitragem/staff depto - nbb'),traL:findLine('TOP','logistica','transporte aereo - arbitragem/staff depto - l ouro'),resN:findLine('TOP','logistica','restituicao arbitros nbb'),resL:findLine('TOP','logistica','restituicao arbitros l ouro'),jde:findLine('TOP','','jogo das estrelas - remuneracao'),cont:findLine('A&F','prestadores','contab')};
 const LEGACY_LINE_ID_MAP={"322":"9.1","327":"9.2","328":"9.3","329":"9.4","330":"9.5","331":"9.6","332":"9.7","333":"9.8","334":"9.9","335":"9.10","336":"9.11","337":"9.12","338":"9.13","339":"9.14","340":"9.15","341":"9.16","342":"9.17","343":"9.18","344":"9.19","345":"9.20","346":"9.21","347":"9.22","350":"9.23","351":"9.24","356":"9.25","359":"9.26","360":"9.27","363":"9.28","364":"9.29","370":"9.30","371":"9.31","372":"9.32","373":"9.33","375":"9.34","376":"9.35","377":"9.36","378":"9.37","379":"9.38","380":"9.39","381":"9.40","382":"9.41","383":"9.42","384":"9.43","385":"9.44","386":"9.45","387":"9.46","388":"9.47","389":"9.48","390":"9.49","391":"9.50","392":"9.51","393":"9.52","394":"9.53","395":"9.54","396":"9.55","1":"1.1","2":"1.2","3":"1.3","4":"1.4","5":"1.5","8":"1.6","9":"1.7","10":"1.8","11":"1.9","12":"1.10","13":"1.11","14":"1.12","15":"1.13","16":"1.14","17":"1.15","18":"1.16","19":"1.17","20":"1.18","21":"1.19","22":"1.20","23":"1.21","26":"4.1","27":"4.2","28":"4.3","29":"4.4","30":"4.5","31":"4.6","32":"4.7","33":"4.8","34":"4.9","35":"4.10","36":"4.11","37":"4.12","39":"4.13","40":"4.14","41":"4.15","42":"4.16","43":"4.17","44":"4.18","45":"4.19","46":"4.20","47":"4.21","48":"4.22","49":"4.23","50":"4.24","51":"4.25","52":"4.26","53":"4.27","54":"4.28","55":"4.29","56":"4.30","57":"4.31","58":"4.32","59":"4.33","60":"4.34","61":"4.35","62":"4.36","63":"4.37","64":"4.38","65":"4.39","66":"4.40","67":"4.41","68":"4.42","69":"4.43","70":"4.44","71":"4.45","72":"4.46","73":"4.47","74":"4.48","75":"4.49","76":"4.50","77":"4.51","78":"4.52","79":"4.53","80":"4.54","81":"4.55","82":"2.1","83":"2.2","84":"2.3","85":"2.4","86":"2.5","87":"2.6","88":"2.7","89":"2.8","90":"2.9","92":"2.11","93":"2.12","94":"2.13","95":"2.14","96":"2.15","97":"2.16","98":"2.17","99":"2.18","100":"2.19","101":"2.20","102":"2.21","103":"2.22","104":"2.23","105":"2.24","106":"2.25","107":"2.26","108":"2.27","109":"2.28","110":"2.29","111":"2.30","112":"2.31","113":"2.32","114":"2.33","115":"2.34","116":"2.35","117":"2.36","118":"2.37","119":"2.38","120":"2.39","121":"2.40","122":"2.41","123":"2.42","124":"2.43","125":"2.44","126":"2.45","127":"2.46","128":"2.47","129":"2.48","130":"2.49","131":"2.50","132":"2.51","133":"2.52","134":"2.53","135":"2.54","136":"2.55","137":"2.56","138":"2.57","139":"2.58","140":"2.59","141":"2.60","142":"2.61","143":"2.62","144":"2.63","145":"2.64","146":"2.65","147":"2.66","148":"2.67","149":"2.68","150":"2.69","151":"2.70","152":"2.71","153":"2.72","154":"2.73","155":"2.74","156":"2.75","157":"2.76","158":"2.77","159":"2.78","160":"2.79","161":"2.80","162":"2.81","163":"2.82","164":"2.83","165":"2.84","166":"2.85","167":"2.86","168":"2.87","169":"5.1","170":"5.2","171":"5.3","172":"5.4","173":"5.5","174":"5.6","175":"5.7","176":"5.8","177":"5.9","178":"5.10","179":"5.11","180":"5.12","181":"5.13","182":"5.14","183":"5.15","184":"5.16","185":"5.17","186":"5.18","187":"5.19","188":"5.20","189":"5.21","190":"5.22","191":"5.23","192":"5.24","193":"5.25","194":"5.26","195":"5.27","196":"5.28","197":"5.29","198":"5.30","199":"5.31","200":"5.32","201":"5.33","202":"5.34","203":"5.35","204":"5.36","205":"5.37","206":"5.38","207":"5.39","208":"5.40","209":"5.41","210":"5.42","211":"5.43","212":"5.44","213":"5.45","214":"5.46","215":"5.47","216":"5.48","217":"5.49","218":"5.50","219":"5.51","220":"5.52","221":"5.53","222":"5.54","223":"5.55","224":"5.56","225":"5.57","226":"5.58","227":"5.59","228":"3.1","229":"3.2","230":"3.3","231":"3.4","232":"3.5","233":"3.6","234":"3.7","235":"3.8","236":"3.9","237":"3.10","238":"3.11","239":"3.12","240":"3.13","241":"3.14","242":"3.15","243":"3.16","244":"3.17","245":"3.18","246":"3.19","247":"3.20","248":"3.21","249":"3.22","250":"3.23","251":"3.24","252":"3.25","253":"3.26","254":"3.27","255":"3.28","256":"3.29","257":"3.30","258":"3.31","259":"3.32","261":"3.33","262":"3.34","263":"3.35","264":"3.36","265":"3.37","266":"3.38","267":"3.39","268":"3.40","269":"3.41","270":"3.42","271":"3.43","272":"3.44","273":"3.45","274":"3.46","275":"3.47","276":"3.48","277":"3.49","278":"3.50","279":"3.51","280":"3.52","281":"3.53","283":"3.54","284":"3.55","285":"3.56","286":"3.57","287":"3.58","288":"3.59","289":"3.60","290":"3.61","291":"3.62","292":"3.63","293":"3.64","294":"3.65","295":"3.66","296":"3.67","297":"3.69","298":"3.70","299":"3.71","300":"3.72","301":"3.73","302":"3.74","303":"3.75","304":"3.76","305":"3.77","306":"3.78","307":"3.79","308":"3.80","309":"3.81","310":"3.82","311":"3.83","312":"3.84","313":"3.85","314":"3.86","316":"3.87","317":"3.88","318":"3.89","319":"3.90","320":"3.91","321":"3.92"};
@@ -5666,7 +5676,7 @@ async function downloadNewSeasonTemplate(){
     '6. Pagamento único que precisa ser dividido entre departamentos com valores diferentes (ex.: um pagamento de Ranking de R$ 100.000 que na verdade é passagens + comunicação + marketing, cada parte com um valor próprio): preencha a coluna "Composição" do lançamento com um marcador (ex.: *1) e detalhe a divisão na aba "Composição" — Departamento, Grupo, Linha e Valor de cada parte, cuja soma deve bater com o total do lançamento. A Composição tem prioridade sobre o ID.',
     '7. Coluna "Abatimento (Sim/Não)": marque "Sim" quando o lançamento for estorno, ressarcimento ou devolução que deve REDUZIR o total já lançado de um departamento/grupo/linha, em vez de entrar como receita nova. O valor entra com sinal negativo na linha/departamento informado (via ID ou via Departamento/Grupo/Linha). Não combine Abatimento com Composição no mesmo lançamento.',
     '8. Coluna "Tipo de reembolso" (opcional): quando o lançamento for reembolso de funcionário, identifique a categoria (Refeição, Pedágio, Transporte, Combustível, Estacionamento) para aparecer separado nos relatórios por tipo de reembolso. Se não preencher, o sistema tenta identificar sozinho pela descrição; o que não for identificado fica agrupado em "Reembolso de funcionários" (geral).',
-    '9. Competição (opcional): preencha se souber (NBB, LDB, Liga Ouro, Jogo das Estrelas, Copa Super 8, Interligas) — também costuma ser detectada sozinha pela descrição. Quando fica em branco, o lançamento cai como despesa/receita geral da LNB (sem competição vinculada).',
+    '9. Competição (opcional): preencha se souber (NBB, LDB, Liga Ouro, NBB Trio, Jogo das Estrelas, Copa Super 8, Interligas) — também costuma ser detectada sozinha pela descrição. Quando fica em branco, o lançamento cai como despesa/receita geral da LNB (sem competição vinculada).',
     '10. Pode reimportar a mesma planilha quantas vezes precisar, acrescentando linhas novas: lançamentos já importados (mesma data, favorecido, entrada e saída) não duplicam — por isso importações semanais são cumulativas e formam o acumulado mensal/trimestral/anual automaticamente, sem precisar refazer nada.',
     '11. Datas podem ser digitadas como AAAA-MM-DD ou DD/MM/AAAA.',
     '12. A estrutura de IDs (criar, renomear ou excluir departamento/grupo/linha, e reordenar os IDs) é totalmente editável na aba "Estrutura" do sistema, sem mexer em código — a aba "IDs" desta planilha é sempre gerada com a estrutura mais atual no momento do download.'
@@ -6108,7 +6118,7 @@ document.getElementById('dl-lines').innerHTML=splitPool().map(l=>`<option value=
 const STRUCTURE_DEFAULTS={
  areas:{LNB:'Superintendência',TOP:'Técnico Operacional',COM:'Comunicação','A&F':'Administrativo & Financeiro',MKT:'Marketing',EQP:'Equipes',REC:'Receitas'},
  supports:Object.fromEntries(SUPS.map(x=>[x.k,x.n])),
- parents:{FILIADOS:'EQP',TRAN:'COM',CS8:'COMP',INTERLIGAS:'COMP',LDB:'COMP',REAR:'TOP',REFU:'TOP',TRHO:'TOP',JDE:'TOP',MDAY:'TOP',CLIN:'TOP'}
+ parents:{FILIADOS:'EQP',TRAN:'COM',CS8:'COMP',INTERLIGAS:'COMP',LDB:'COMP',NBB:'COMP',LOU:'COMP',NBBTRIO:'COMP',REAR:'TOP',REFU:'TOP',TRHO:'TOP',JDE:'TOP',MDAY:'TOP',CLIN:'TOP'}
 };
 let structureCfg=(()=>{try{return JSON.parse(localStorage.getItem('lnb_structure_v39')||'{}')}catch(e){return {}}})();
 structureCfg.areas=structureCfg.areas||{};structureCfg.supports=structureCfg.supports||{};structureCfg.parents=structureCfg.parents||{};
@@ -6129,7 +6139,7 @@ function isNavButtonActive(b){
 }
 const renderBaseV39=render;
 render=function(){
- if(curV==='comp'){curSup=['CS8','INTERLIGAS','LDB'].includes(curSup)?curSup:'CS8';}
+ if(curV==='comp'){curSup=['CS8','INTERLIGAS','LDB','NBB','LOU','NBBTRIO'].includes(curSup)?curSup:'CS8';}
  const logicalV=curV; if(curV==='comp')curV='sup';
  renderBaseV39();
  if(logicalV==='comp')curV='comp';
@@ -6140,7 +6150,7 @@ render=function(){
 };
 function renderSubnavV39(){
  const el=document.getElementById('subnav');let items=[];let active='';
- if(curV==='comp'||(curV==='sup'&&supportParent(curSup)==='COMP')){items=['CS8','INTERLIGAS','LDB'];active=curSup;}
+ if(curV==='comp'||(curV==='sup'&&supportParent(curSup)==='COMP')){items=['CS8','INTERLIGAS','LDB','NBB','LOU','NBBTRIO'];active=curSup;}
  else if((curV==='dept'&&curDept==='EQP')||(curV==='sup'&&supportParent(curSup)==='EQP')){items=['EQP','FILIADOS'];active=curV==='dept'?'EQP':curSup;}
  else if((curV==='dept'&&curDept==='COM')||(curV==='sup'&&supportParent(curSup)==='COM')){items=['COM','TRAN'];active=curV==='dept'?'COM':curSup;}
  if(!items.length){el.classList.add('hide');el.innerHTML='';return;}
@@ -6245,7 +6255,7 @@ try{applyStructureLabels();}catch(e){console.error('applyStructureLabels falhou 
 
 document.body.dataset.visual='nossa-terra';
 function clearBulkDestination(){['bulk-area','bulk-group','bulk-line'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const msg=document.getElementById('bulk-msg');if(msg)msg.innerHTML='Selecione uma área, grupo e linha somente quando desejar fazer uma realocação.';}
-document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{curV=b.dataset.v;if(curV==='conc')clearBulkDestination();if(b.dataset.area)curDept=b.dataset.area;if(b.dataset.sup)curSup=b.dataset.sup;if(curV==='comp')curSup=['CS8','INTERLIGAS','LDB'].includes(curSup)?curSup:'CS8';openLineId=null;openGroupKey=null;render();window.scrollTo(0,0);});
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{curV=b.dataset.v;if(curV==='conc')clearBulkDestination();if(b.dataset.area)curDept=b.dataset.area;if(b.dataset.sup)curSup=b.dataset.sup;if(curV==='comp')curSup=['CS8','INTERLIGAS','LDB','NBB','LOU','NBBTRIO'].includes(curSup)?curSup:'CS8';openLineId=null;openGroupKey=null;render();window.scrollTo(0,0);});
 const dashChart=document.getElementById('dash-chart'),dashQ=document.getElementById('dash-q'),dashRefresh=document.getElementById('dash-refresh'),dashType=document.getElementById('dash-type');if(dashChart)dashChart.onchange=renderDash;if(dashQ)dashQ.oninput=renderDash;if(dashRefresh)dashRefresh.onclick=renderDash;if(dashType)dashType.onchange=renderDash;
 document.getElementById('f-status').onchange=()=>{page=1;renderTable();};
 document.getElementById('f-q').oninput=()=>{page=1;renderTable();};
