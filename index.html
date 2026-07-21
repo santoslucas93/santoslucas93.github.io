@@ -1496,6 +1496,16 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 </style>
 </head>
 <body>
+
+<div id="lnb-auth-overlay" style="position:fixed;inset:0;background:#0b1220;color:#fff;z-index:99999;display:flex;align-items:center;justify-content:center;font-family:inherit;">
+  <div style="background:#111827;padding:32px 28px;border-radius:12px;max-width:360px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.5)">
+    <h2 style="margin:0 0 6px;font-size:20px;">Painel LNB — Acesso restrito</h2>
+    <div style="opacity:.7;font-size:13px;margin-bottom:18px;">Digite a senha para continuar.</div>
+    <input id="lnb-auth-pass" type="password" placeholder="Senha" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #374151;background:#0b1220;color:#fff;font-size:15px;box-sizing:border-box;" autocomplete="current-password">
+    <div id="lnb-auth-err" style="color:#f87171;font-size:13px;margin-top:8px;min-height:16px;"></div>
+    <button id="lnb-auth-btn" type="button" style="margin-top:14px;width:100%;padding:10px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:15px;cursor:pointer;">Entrar</button>
+  </div>
+</div>
 <div class="hero">
   <div class="hero-top"><div>
     <h1>Orçado x Realizado — Temporada 2025/2026</h1>
@@ -1879,7 +1889,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <input type="file" id="backup-file" accept=".json" class="hide">
     <button class="act" id="btn-reset">Limpar decisões salvas</button>
   </div>
-  <div class="panel" id="new-season-panel" style="margin:14px 0">
+  <div class="panel admin-only" id="new-season-panel" style="margin:14px 0">
     <h2>Realizado da nova temporada (2026/2027) — com classificação embutida <span class="how">reduz a conciliação desde a entrada</span></h2>
     <div class="note">Fonte ao vivo: edite direto na planilha do Google Sheets abaixo — o painel busca as novidades automaticamente sempre que a página é aberta (e pode ser atualizado a qualquer momento com o botão "Atualizar agora"). Os botões de modelo/importação .xlsx abaixo continuam disponíveis como alternativa manual/offline.</div>
     <div class="toolbar">
@@ -1898,7 +1908,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <button class="act" type="button" id="btn-end-season" style="border-color:var(--er);color:var(--er)">Encerrar temporada e começar nova</button>
     </div>
   </div>
-  <div class="panel" id="new-budget-panel" style="margin:14px 0">
+  <div class="panel admin-only" id="new-budget-panel" style="margin:14px 0">
     <h2>Orçado da nova temporada — importar por planilha</h2>
     <div class="note">Fonte ao vivo: edite direto na planilha do Google Sheets abaixo — o painel busca as novidades automaticamente sempre que a página é aberta. Os botões de modelo/importação .xlsx abaixo continuam disponíveis como alternativa manual/offline.</div>
     <div class="toolbar">
@@ -1995,7 +2005,132 @@ const GSHEET_REALIZADO_ID='1sY4QvX6enN2Jx6hmVFxuutFvtOyoZc3lQ99mtdh0_WI';
 const GSHEET_ORCADO_ID='1-4A3QK58fNpT2HiJr30RsQtNNq_sJo2lBG7GCffL8VY';
 const SUPABASE_URL='https://iiheewndotcwqntppjrw.supabase.co';
 const SUPABASE_KEY='sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz';
-function supaHeaders(){return {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'};}
+
+const AUTH_ADMIN_EMAIL='admin@painel-lnb.local';
+const AUTH_READONLY_EMAIL='leitura@painel-lnb.local';
+let AUTH_SESSION=null;
+
+function lnbLoadSession(){
+  try{ const raw=localStorage.getItem('lnb_auth_session_v1'); if(raw) AUTH_SESSION=JSON.parse(raw); }catch(e){ AUTH_SESSION=null; }
+}
+function lnbSaveSession(){
+  try{ localStorage.setItem('lnb_auth_session_v1', JSON.stringify(AUTH_SESSION)); }catch(e){}
+}
+function lnbClearSession(){
+  AUTH_SESSION=null;
+  try{ localStorage.removeItem('lnb_auth_session_v1'); }catch(e){}
+}
+
+async function lnbTryLogin(email, password){
+  const r = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password', {
+    method:'POST',
+    headers:{'apikey':SUPABASE_KEY,'Content-Type':'application/json'},
+    body: JSON.stringify({email:email, password:password})
+  });
+  if(!r.ok) return null;
+  const j = await r.json();
+  if(!j.access_token) return null;
+  return {access_token:j.access_token, refresh_token:j.refresh_token, expires_at: Date.now()+((j.expires_in||3600)*1000)};
+}
+
+async function lnbLoginWithPassword(password){
+  let role='admin';
+  let sess = await lnbTryLogin(AUTH_ADMIN_EMAIL, password);
+  if(!sess){ sess = await lnbTryLogin(AUTH_READONLY_EMAIL, password); role='readonly'; }
+  if(!sess) return false;
+  sess.role = role;
+  AUTH_SESSION = sess;
+  lnbSaveSession();
+  return true;
+}
+
+async function lnbRefreshSession(){
+  if(!AUTH_SESSION || !AUTH_SESSION.refresh_token) return false;
+  try{
+    const r = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({refresh_token: AUTH_SESSION.refresh_token})
+    });
+    if(!r.ok) return false;
+    const j = await r.json();
+    if(!j.access_token) return false;
+    AUTH_SESSION.access_token=j.access_token;
+    AUTH_SESSION.refresh_token=j.refresh_token;
+    AUTH_SESSION.expires_at=Date.now()+((j.expires_in||3600)*1000);
+    lnbSaveSession();
+    return true;
+  }catch(e){ return false; }
+}
+
+function lnbShowAuthBadge(){
+  try{
+    if(document.getElementById('lnb-auth-badge')) return;
+    const b=document.createElement('div');
+    b.id='lnb-auth-badge';
+    b.style.cssText='position:fixed;bottom:10px;right:10px;z-index:99998;background:#111827;color:#fff;padding:8px 12px;border-radius:20px;font-size:12px;display:flex;gap:10px;align-items:center;box-shadow:0 2px 10px rgba(0,0,0,.3);font-family:inherit;';
+    const role = AUTH_SESSION ? AUTH_SESSION.role : null;
+    b.innerHTML = '<span>'+(role==='admin'?'\uD83D\uDD11 Admin':'\uD83D\uDC41 Leitura')+'</span><a href="#" id="lnb-logout-link" style="color:#93c5fd;text-decoration:none;">Sair</a>';
+    document.body.appendChild(b);
+    document.getElementById('lnb-logout-link').onclick=function(ev){ ev.preventDefault(); lnbClearSession(); location.reload(); };
+  }catch(e){ console.error('lnbShowAuthBadge falhou:', e); }
+}
+
+function lnbShowOverlay(msg){
+  const ov = document.getElementById('lnb-auth-overlay');
+  if(ov) ov.style.display='flex';
+  const err = document.getElementById('lnb-auth-err');
+  if(err) err.textContent = msg||'';
+}
+function lnbHideOverlay(){
+  const ov = document.getElementById('lnb-auth-overlay');
+  if(ov) ov.style.display='none';
+}
+
+function lnbAuthGate(onReady){
+  lnbLoadSession();
+  const proceed = function(){
+    lnbHideOverlay();
+    onReady();
+  };
+  const afterSessionCheck = async function(){
+    if(AUTH_SESSION && AUTH_SESSION.expires_at && Date.now() < AUTH_SESSION.expires_at - 60000){
+      proceed();
+      return;
+    }
+    if(AUTH_SESSION && AUTH_SESSION.refresh_token){
+      const ok = await lnbRefreshSession();
+      if(ok){ proceed(); return; }
+    }
+    lnbClearSession();
+    lnbShowOverlay('');
+    const btn = document.getElementById('lnb-auth-btn');
+    const input = document.getElementById('lnb-auth-pass');
+    if(btn && input){
+      const doLogin = async function(){
+        btn.disabled = true;
+        btn.textContent = 'Entrando...';
+        const pass = input.value;
+        let ok=false;
+        try{ ok = await lnbLoginWithPassword(pass); }catch(e){ ok=false; }
+        btn.disabled=false;
+        btn.textContent='Entrar';
+        if(ok){ proceed(); }
+        else { lnbShowOverlay('Senha incorreta. Tente novamente.'); input.value=''; input.focus(); }
+      };
+      btn.onclick = doLogin;
+      input.onkeydown = function(ev){ if(ev.key==='Enter') doLogin(); };
+      input.focus();
+    }
+  };
+  afterSessionCheck();
+}
+
+function supaHeaders(){
+  const token = (AUTH_SESSION && AUTH_SESSION.access_token) ? AUTH_SESSION.access_token : SUPABASE_KEY;
+  return {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json'};
+}
+
 async function supaSelect(table){
   const res=await fetch(SUPABASE_URL+'/rest/v1/'+table+'?select=*', {headers: supaHeaders()});
   if(!res.ok) throw new Error('Supabase select '+table+' falhou: '+res.status);
@@ -6540,12 +6675,20 @@ window.addEventListener('resize',()=>{ if(!iaPop.classList.contains('hide'))iaKe
   });
   window.addEventListener('mouseup',()=>{ if(dragging){dragging=false; document.body.style.userSelect='';} });
 })();
-iaInit();
-
-render();
-const btnRefreshGsheets=document.getElementById('btn-refresh-gsheets');
-if(btnRefreshGsheets)btnRefreshGsheets.onclick=()=>{ loadLiveGoogleSheets().catch(e=>console.error('loadLiveGoogleSheets (manual):',e)); };
-loadLiveGoogleSheets().catch(e=>console.error('loadLiveGoogleSheets (auto):',e));
+function lnbBootApp(){
+  try{ iaInit(); }catch(e){ console.error('iaInit falhou:', e); }
+  try{ render(); }catch(e){ console.error('render falhou:', e); }
+  const btnRefreshGsheets=document.getElementById('btn-refresh-gsheets');
+  if(btnRefreshGsheets)btnRefreshGsheets.onclick=()=>{ loadLiveGoogleSheets().catch(e=>console.error('loadLiveGoogleSheets (manual):',e)); };
+  loadLiveGoogleSheets().catch(e=>console.error('loadLiveGoogleSheets (auto):',e));
+  try{
+    if(AUTH_SESSION && AUTH_SESSION.role!=='admin'){
+      document.querySelectorAll('.admin-only').forEach(function(el){ el.style.display='none'; });
+    }
+  }catch(e){ console.error('gate admin-only falhou:', e); }
+  lnbShowAuthBadge();
+}
+lnbAuthGate(lnbBootApp);
 </script>
 
 <script id="v60-semantic-kpi-colors">
