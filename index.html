@@ -13,7 +13,7 @@ body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--
 .hero h1{font-size:20px;font-weight:600}
 .hero .s{opacity:.75;font-size:13px;margin-top:2px}
 .hero .badges{margin:10px 0 12px;display:flex;gap:8px;flex-wrap:wrap}
-.hero .bdg{font-size:12px;padding:3px 12px;border:1px solid rgba(255,255,255,.25);border-radius:20px}
+.hero .bdg{font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,.16);border-radius:20px;opacity:.85}
 .nav{display:flex;gap:2px;flex-wrap:wrap;max-width:1480px;margin:0 auto}
 .nav button{padding:9px 15px;border:none;background:transparent;color:var(--navtx);opacity:.72;cursor:pointer;font-size:13.5px;border-radius:8px 8px 0 0}
 .nav button.on{background:var(--bg);color:var(--tx);opacity:1;font-weight:600;box-shadow:inset 0 -3px 0 var(--brand-yellow)}
@@ -277,12 +277,14 @@ body{
 .hero .s{font-size:13.5px;opacity:.88;margin-top:6px}
 .hero .badges{gap:10px;margin:14px 0 14px}
 .hero .bdg{
-  background:rgba(255,255,255,.12);
-  border:1px solid rgba(255,255,255,.22);
-  padding:6px 12px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.13);
+  padding:4px 10px;
   border-radius:999px;
-  backdrop-filter:blur(10px);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+  font-size:11px;
+  font-weight:400;
+  opacity:.82;
+  letter-spacing:.1px;
 }
 .themebar button{
   box-shadow:inset 0 1px 0 rgba(255,255,255,.20),0 10px 24px rgba(0,0,0,.10);
@@ -1106,10 +1108,10 @@ body[data-visual="arena"],body[data-visual="court"],body[data-visual="executive"
   box-shadow:0 0 0 4px rgba(255,255,255,.05),0 0 18px rgba(57,201,154,.22)!important;
 }
 .hero .bdg{
-  background:rgba(3,12,18,.24)!important;
-  border-color:rgba(255,255,255,.20)!important;
+  background:rgba(3,12,18,.14)!important;
+  border-color:rgba(255,255,255,.10)!important;
   color:#f5fbf8!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.08)!important;
+  opacity:.8!important;
 }
 .campaign-mark{border-right-color:rgba(211,178,103,.42)!important}
 .campaign-mark small{color:var(--gold)!important}
@@ -1884,6 +1886,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <button class="act" id="btn-csv-resumo">CSV — resumo área × mês</button>
     <button class="act" id="btn-csv-linhas">CSV — realizado por linha do orçamento</button>
     <button class="act" id="btn-csv-banco">CSV — conciliação bancária mensal</button>
+    <button class="act pri" id="btn-backup-db">💾 Backup do banco agora (Supabase)</button>
     <button class="act pri" id="btn-backup-export">Exportar backup completo</button>
     <button class="act" id="btn-backup-import">Restaurar backup</button>
     <input type="file" id="backup-file" accept=".json" class="hide">
@@ -1891,12 +1894,10 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   </div>
   <div class="panel admin-only" id="new-season-panel" style="margin:14px 0">
     <h2>Realizado da nova temporada (2026/2027) — com classificação embutida <span class="how">reduz a conciliação desde a entrada</span></h2>
-    <div class="note">Fonte ao vivo: edite direto na planilha do Google Sheets abaixo — o painel busca as novidades automaticamente sempre que a página é aberta (e pode ser atualizado a qualquer momento com o botão "Atualizar agora"). Os botões de modelo/importação .xlsx abaixo continuam disponíveis como alternativa manual/offline.</div>
+    <div class="note">Os dados são carregados automaticamente do banco de dados sempre que a página é aberta. Você também pode atualizar manualmente a qualquer momento.</div>
     <div class="toolbar">
-      <a class="act pri" href="https://docs.google.com/spreadsheets/d/1sY4QvX6enN2Jx6hmVFxuutFvtOyoZc3lQ99mtdh0_WI/edit" target="_blank" rel="noopener">📋 Abrir planilha de Realizado (Google Sheets)</a>
       <button class="act" type="button" id="btn-refresh-gsheets">🔄 Atualizar agora</button>
     </div>
-    <div class="note">Edite direto nesta planilha — o painel busca as novidades automaticamente sempre que a página é aberta.</div>
     <div class="toolbar" style="margin-top:10px">
       <button class="act pri" type="button" id="btn-newseason-template">Baixar modelo de realizado 2026/2027 (.xlsx)</button>
       <button class="act pri" type="button" id="btn-newseason-import">Importar planilha preenchida</button>
@@ -1904,17 +1905,42 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <button class="act pri" type="button" id="btn-publish-snapshot">📤 Publicar atualização desta semana</button>
     </div>
     <div id="newseason-msg" class="foot"></div>
+    <div class="toolbar" style="margin-top:16px;flex-direction:column;align-items:stretch;gap:10px;border-top:1px dashed var(--bd);padding-top:14px">
+      <h3 style="margin:0;font-size:15px">Lançar um registro de Realizado direto no sistema (sem planilha)</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="date" id="ml-data" style="flex:1;min-width:140px">
+        <input type="text" id="ml-favorecido" placeholder="Favorecido" style="flex:2;min-width:180px">
+        <input type="text" id="ml-descricao" placeholder="Descrição (opcional)" style="flex:2;min-width:180px">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="ml-tipo" style="min-width:120px">
+          <option value="saida">Saída</option>
+          <option value="entrada">Entrada</option>
+        </select>
+        <input type="text" id="ml-valor" placeholder="Valor (ex: 1234,56)" style="flex:1;min-width:140px">
+        <input type="text" id="ml-documento" placeholder="Documento (opcional)" style="flex:1;min-width:140px">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="ml-departamento" style="flex:1;min-width:180px"><option value="">Departamento...</option></select>
+        <input type="text" id="ml-grupo" placeholder="Grupo" list="dl-ml-grupos" style="flex:1;min-width:160px">
+        <input type="text" id="ml-linha" placeholder="Linha do orçamento" list="dl-ml-linhas" style="flex:1;min-width:200px">
+      </div>
+      <datalist id="dl-ml-grupos"></datalist>
+      <datalist id="dl-ml-linhas"></datalist>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="ml-competicao" placeholder="Competição (opcional)" style="flex:1;min-width:160px">
+        <label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="ml-abatimento">Abatimento</label>
+        <button class="act pri" type="button" id="btn-ml-save">Salvar lançamento no sistema</button>
+      </div>
+      <div id="ml-msg" class="foot"></div>
+    </div>
     <div class="toolbar" style="margin-top:10px">
       <button class="act" type="button" id="btn-end-season" style="border-color:var(--er);color:var(--er)">Encerrar temporada e começar nova</button>
     </div>
   </div>
   <div class="panel admin-only" id="new-budget-panel" style="margin:14px 0">
     <h2>Orçado da nova temporada — importar por planilha</h2>
-    <div class="note">Fonte ao vivo: edite direto na planilha do Google Sheets abaixo — o painel busca as novidades automaticamente sempre que a página é aberta. Os botões de modelo/importação .xlsx abaixo continuam disponíveis como alternativa manual/offline.</div>
-    <div class="toolbar">
-      <a class="act pri" href="https://docs.google.com/spreadsheets/d/1-4A3QK58fNpT2HiJr30RsQtNNq_sJo2lBG7GCffL8VY/edit" target="_blank" rel="noopener">📋 Abrir planilha de Orçado (Google Sheets)</a>
-    </div>
-    <div class="note">Edite direto nesta planilha — o painel busca as novidades automaticamente sempre que a página é aberta.</div>
+    <div class="note">Os dados são carregados automaticamente do banco de dados sempre que a página é aberta.</div>
     <div class="toolbar" style="margin-top:10px">
       <button class="act pri" type="button" id="btn-newbudget-template">Baixar modelo de orçado (.xlsx)</button>
       <button class="act pri" type="button" id="btn-newbudget-import">Importar planilha de orçado preenchida</button>
@@ -2151,6 +2177,190 @@ async function supaUpsert(table, rows, onConflict){
   if(!res.ok){ const t=await res.text(); throw new Error('Supabase upsert '+table+' falhou: '+res.status+' '+t); }
   return {upserted: rows.length};
 }
+
+async function lnbFetchIdLinha(grupo, linha){
+  try{
+    const params=new URLSearchParams();
+    params.set('select','id_linha');
+    params.set('grupo','eq.'+grupo);
+    params.set('linha_orcamento','eq.'+linha);
+    params.set('limit','1');
+    let res=await fetch(SUPABASE_URL+'/rest/v1/orcado?'+params.toString(), {headers: supaHeaders()});
+    if(res.ok){ const j=await res.json(); if(j && j[0] && j[0].id_linha) return j[0].id_linha; }
+    res=await fetch(SUPABASE_URL+'/rest/v1/realizado?'+params.toString(), {headers: supaHeaders()});
+    if(res.ok){ const j=await res.json(); if(j && j[0] && j[0].id_linha) return j[0].id_linha; }
+  }catch(e){ console.error('lnbFetchIdLinha falhou:', e); }
+  return null;
+}
+function lnbSlugId(parts){
+  const s=norm(parts.join('-')).replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'');
+  return s || ('linha-'+Date.now());
+}
+let lnbLineIndexCache=null;
+async function lnbGetLineIndex(force){
+  if(lnbLineIndexCache && !force) return lnbLineIndexCache;
+  const byDept={};
+  try{
+    const rows=await supaSelect('orcado');
+    rows.forEach(function(r){
+      if(!r.departamento) return;
+      if(!byDept[r.departamento]) byDept[r.departamento]=[];
+      byDept[r.departamento].push(r);
+    });
+  }catch(e){ console.error('lnbGetLineIndex falhou:', e); }
+  lnbLineIndexCache={byDept:byDept};
+  return lnbLineIndexCache;
+}
+async function lnbAutoSnapshot(label){
+  try{
+    const realizado=await supaSelect('realizado');
+    const orcado=await supaSelect('orcado');
+    const data={app:'Orçado x Realizado LNB - snapshot do banco', label: label||'', createdAt:new Date().toISOString(), realizado:realizado, orcado:orcado};
+    downloadText('LNB_snapshot_banco_'+new Date().toISOString().replace(/[:.]/g,'-')+'.json', JSON.stringify(data), 'application/json');
+  }catch(e){
+    console.error('lnbAutoSnapshot falhou:', e);
+  }
+}
+async function lnbSaveManualRealizado(){
+  const msg=document.getElementById('ml-msg');
+  const dataEl=document.getElementById('ml-data');
+  const favEl=document.getElementById('ml-favorecido');
+  const descEl=document.getElementById('ml-descricao');
+  const tipoEl=document.getElementById('ml-tipo');
+  const valorEl=document.getElementById('ml-valor');
+  const docEl=document.getElementById('ml-documento');
+  const depEl=document.getElementById('ml-departamento');
+  const grpEl=document.getElementById('ml-grupo');
+  const linEl=document.getElementById('ml-linha');
+  const compEl=document.getElementById('ml-competicao');
+  const abatEl=document.getElementById('ml-abatimento');
+  if(!dataEl || !favEl) return;
+  if(!dataEl.value){ if(msg) msg.textContent='Informe a data.'; return; }
+  if(!favEl.value.trim()){ if(msg) msg.textContent='Informe o favorecido.'; return; }
+  const valorNum=moneyVal(valorEl.value);
+  if(!valorNum){ if(msg) msg.textContent='Informe um valor maior que zero.'; return; }
+  if(!depEl.value){ if(msg) msg.textContent='Escolha o departamento.'; return; }
+  if(!grpEl.value.trim() || !linEl.value.trim()){ if(msg) msg.textContent='Informe grupo e linha do orçamento.'; return; }
+  const btn=document.getElementById('btn-ml-save');
+  if(btn){ btn.disabled=true; btn.textContent='Salvando...'; }
+  try{
+    const dep=depEl.value, grp=grpEl.value.trim(), lin=linEl.value.trim();
+    let idLinha=await lnbFetchIdLinha(grp, lin);
+    if(!idLinha) idLinha=lnbSlugId([dep,grp,lin]);
+    const row={
+      data: dataEl.value,
+      favorecido: favEl.value.trim(),
+      descricao: descEl.value.trim(),
+      documento: docEl.value.trim(),
+      entrada: tipoEl.value==='entrada'?valorNum:0,
+      saida: tipoEl.value==='saida'?valorNum:0,
+      id_linha: idLinha,
+      departamento: dep,
+      grupo: grp,
+      linha_orcamento: lin,
+      competicao: compEl.value.trim(),
+      composicao: '',
+      abatimento: abatEl.checked?'Sim':'Não',
+      tipo_reembolso: ''
+    };
+    await supaInsertIgnoreDup('realizado', [row]);
+    if(msg) msg.textContent='Lançamento salvo no sistema.';
+    favEl.value=''; descEl.value=''; valorEl.value=''; docEl.value=''; compEl.value=''; abatEl.checked=false;
+  }catch(e){
+    console.error('Falha ao salvar lançamento manual:', e);
+    if(msg) msg.textContent='Falhou ao salvar: '+e.message;
+  }
+  if(btn){ btn.disabled=false; btn.textContent='Salvar lançamento no sistema'; }
+}
+async function lnbInitManualEntryForm(){
+  const depEl=document.getElementById('ml-departamento');
+  if(!depEl) return;
+  if(depEl.options.length<=1){
+    DEPTS.forEach(function(code){
+      const opt=document.createElement('option');
+      opt.value=code; opt.textContent=AREAS[code]||code;
+      depEl.appendChild(opt);
+    });
+  }
+  const idx=await lnbGetLineIndex();
+  function refreshLists(){
+    const dep=depEl.value;
+    const rowsForDept=idx.byDept[AREAS[dep]||dep] || idx.byDept[dep] || [];
+    const grupos=[...new Set(rowsForDept.map(function(r){return r.grupo;}).filter(Boolean))];
+    const linhas=[...new Set(rowsForDept.map(function(r){return r.linha_orcamento;}).filter(Boolean))];
+    const dlG=document.getElementById('dl-ml-grupos');
+    const dlL=document.getElementById('dl-ml-linhas');
+    if(dlG) dlG.innerHTML=grupos.map(function(g){return '<option value="'+String(g).replace(/"/g,'&quot;')+'">';}).join('');
+    if(dlL) dlL.innerHTML=linhas.map(function(l){return '<option value="'+String(l).replace(/"/g,'&quot;')+'">';}).join('');
+  }
+  depEl.onchange=refreshLists;
+  refreshLists();
+  const btn=document.getElementById('btn-ml-save');
+  if(btn) btn.onclick=lnbSaveManualRealizado;
+}
+function lnbInitHeaderResize(){
+  const hero=document.querySelector('.hero');
+  if(!hero) return;
+  let handle=document.getElementById('hero-resize-handle');
+  if(!handle){
+    handle=document.createElement('div');
+    handle.id='hero-resize-handle';
+    handle.title='Arraste para redimensionar o cabeçalho (duplo clique para restaurar)';
+    handle.style.cssText='position:absolute;left:0;right:0;bottom:0;height:9px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;z-index:200;';
+    const grip=document.createElement('div');
+    grip.style.cssText='width:44px;height:4px;border-radius:3px;background:rgba(255,255,255,.35);';
+    handle.appendChild(grip);
+    hero.appendChild(handle);
+  }
+  const MIN_H=64;
+  const saved=parseInt(localStorage.getItem('lnb_header_h')||'', 10);
+  if(saved && saved>0){
+    hero.style.maxHeight=saved+'px';
+    hero.style.overflowY='auto';
+  }
+  let startY=0, startH=0, dragging=false;
+  function naturalHeight(){
+    const prevMax=hero.style.maxHeight;
+    hero.style.maxHeight='none';
+    const h=hero.scrollHeight;
+    hero.style.maxHeight=prevMax;
+    return h;
+  }
+  function onDown(ev){
+    dragging=true;
+    startY=(ev.touches? ev.touches[0].clientY : ev.clientY);
+    startH=hero.getBoundingClientRect().height;
+    document.body.style.userSelect='none';
+    ev.preventDefault();
+  }
+  function onMove(ev){
+    if(!dragging) return;
+    const y=(ev.touches? ev.touches[0].clientY : ev.clientY);
+    const delta=y-startY;
+    let newH=Math.max(MIN_H, Math.round(startH+delta));
+    newH=Math.min(newH, naturalHeight());
+    hero.style.maxHeight=newH+'px';
+    hero.style.overflowY='auto';
+  }
+  function onUp(){
+    if(!dragging) return;
+    dragging=false;
+    document.body.style.userSelect='';
+    const h=parseInt(hero.style.maxHeight,10);
+    if(h) localStorage.setItem('lnb_header_h', String(h));
+  }
+  handle.onmousedown=onDown;
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+  handle.addEventListener('touchstart', onDown, {passive:false});
+  window.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('touchend', onUp);
+  handle.ondblclick=function(){
+    hero.style.maxHeight='none';
+    hero.style.overflowY='visible';
+    localStorage.removeItem('lnb_header_h');
+  };
+}
 function orcadoRowsToWide(supaRows){
   var byLine={};
   var MES_ABREV=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -2165,6 +2375,7 @@ function orcadoRowsToWide(supaRows){
 async function syncOrcadoFileToSupabase(file){
   var msg=document.getElementById('newbudget-msg');
   try{
+    await lnbAutoSnapshot('antes de importar Orçado');
     await ensureXLSX();
     var wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
     var sn=wb.SheetNames.find(function(n){return norm(n)===norm('orcado')||norm(n)===norm('orçado');})||wb.SheetNames[0];
@@ -2231,6 +2442,7 @@ function realizadoRowToPortugues(r){
 async function syncRealizadoFileToSupabase(file){
   var msg=document.getElementById('newseason-msg');
   try{
+    await lnbAutoSnapshot('antes de importar Realizado');
     await ensureXLSX();
     var wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
     var snLanc=wb.SheetNames.find(function(n){return norm(n)===norm('Lançamentos');})||wb.SheetNames[0];
@@ -4447,7 +4659,7 @@ function bindPlanReferenceSearch(){
     });
   };
 }
-function savePlanCarryForward(area){
+async function savePlanCarryForward(area){
   const temporada=(document.getElementById('plan-season').value||'').trim();
   const msg=document.getElementById('plan-msg');
   if(!temporada){if(msg)msg.textContent='Informe a temporada (barra lateral, no topo) antes de salvar a estrutura.';return;}
@@ -4475,6 +4687,33 @@ function savePlanCarryForward(area){
   savePlanExcluded();
   store.setItem('lnb3_plan_season',temporada);
   saveCustomPlan();
+  try{
+    if(msg) msg.textContent='Salvando no sistema (Supabase)...';
+    const dep=AREAS[area]||area;
+    const rowsToSave=[];
+    for(const chk of chks){
+      if(!chk.checked) continue;
+      const g=chk.dataset.g,n=chk.dataset.n;
+      const valInput=document.querySelector(`.plan-carry-val[data-line-id="${chk.dataset.lineId}"]`);
+      const v=valInput?moneyVal(valInput.value):0;
+      if(!v) continue;
+      let idLinha=await lnbFetchIdLinha(g, n);
+      if(!idLinha) idLinha=lnbSlugId([dep,g,n]);
+      nextBudgetMonths.forEach(function(m){
+        rowsToSave.push({id_linha:idLinha, departamento:dep, grupo:g, linha_orcamento:n, mes:m, valor:v});
+      });
+    }
+    if(rowsToSave.length){
+      await supaUpsert('orcado', rowsToSave, 'id_linha,mes');
+      if(msg) msg.textContent='Salvo no sistema (Supabase) e neste navegador.';
+    } else if(msg){
+      msg.textContent='Nenhum valor preenchido para salvar no Supabase.';
+    }
+  }catch(e){
+    console.error('Falha ao salvar orçado no Supabase:', e);
+    if(msg) msg.textContent=(msg.textContent||'')+' | Aviso: falhou ao salvar no Supabase: '+e.message;
+  }
+  await new Promise(r=>setTimeout(r,900));
   location.reload();
 }
 function refreshPlanLineDatalistFor(area,g){
@@ -5382,7 +5621,7 @@ function exportPublishSnapshot(){
   alert('Arquivo "dados-atuais.json" baixado. Suba ele na raiz do repositório do GitHub (mesma pasta do index.html), substituindo o arquivo anterior, para que todos os gestores vejam esta atualização.');
 }
 async function importFullBackup(file){try{const data=JSON.parse(await file.text());if(!data||!data.localStorage)throw new Error('Arquivo inválido');if(!confirm('Restaurar este backup substituirá os dados salvos neste navegador. Continuar?'))return;Object.keys(data.localStorage).forEach(k=>store.setItem(k,data.localStorage[k]));alert('Backup restaurado. O sistema será recarregado.');location.reload();}catch(e){alert('Não foi possível restaurar o backup: '+e.message);}}
-setTimeout(()=>{const ex=document.getElementById('btn-backup-export'),im=document.getElementById('btn-backup-import'),fi=document.getElementById('backup-file');if(ex)ex.onclick=exportFullBackup;if(im)im.onclick=()=>fi.click();if(fi)fi.onchange=e=>{if(e.target.files[0])importFullBackup(e.target.files[0]);};},0);
+setTimeout(()=>{const ex=document.getElementById('btn-backup-export'),im=document.getElementById('btn-backup-import'),fi=document.getElementById('backup-file'),db=document.getElementById('btn-backup-db');if(ex)ex.onclick=exportFullBackup;if(im)im.onclick=()=>fi.click();if(fi)fi.onchange=e=>{if(e.target.files[0])importFullBackup(e.target.files[0]);};if(db)db.onclick=()=>lnbAutoSnapshot('manual').catch(e=>alert('Falha ao gerar backup do banco: '+e.message));},0);
 
 document.getElementById('btn-reset').onclick=()=>{if(confirm('Apagar todas as decisões e regras salvas neste navegador?')){['decisions','favrules'].forEach(k=>store.removeItem('lnb3_'+k));store.removeItem('lnb3_imported');location.reload();}};
 setTimeout(()=>{
@@ -6687,6 +6926,8 @@ function lnbBootApp(){
     }
   }catch(e){ console.error('gate admin-only falhou:', e); }
   lnbShowAuthBadge();
+  try{ lnbInitHeaderResize(); }catch(e){ console.error('lnbInitHeaderResize falhou:', e); }
+  try{ lnbInitManualEntryForm(); }catch(e){ console.error('lnbInitManualEntryForm falhou:', e); }
 }
 lnbAuthGate(lnbBootApp);
 </script>
