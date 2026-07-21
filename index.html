@@ -3025,7 +3025,7 @@ const months=[...new Set(txs.map(t=>t.m))].sort();
 const MN={'01':'jan','02':'fev','03':'mar','04':'abr','05':'mai','06':'jun','07':'jul','08':'ago','09':'set','10':'out','11':'nov','12':'dez'};
 const mlabel=m=>MN[m.slice(5)]+'/'+m.slice(2,4);
 let curV='home', curM='ALL', curDept='LNB', curSup='FILIADOS', page=1, openLineId=null, openGroupKey=null, focusTxId=null, openRecType=null; const PAGE=60;
-document.getElementById('bdg-per').textContent='Extrato: '+mlabel(months[0])+' a '+mlabel(months[months.length-1]);
+document.getElementById('bdg-per').textContent=(months.length?('Extrato: '+mlabel(months[0])+' a '+mlabel(months[months.length-1])):'Extrato: sem lançamentos');
 function classify(t){
   const c=classifyCore(t);
   if(c&&c.splits)c.splits.forEach(s=>{if(s&&s.l!=null){const l=lineById(s.l);if(l){s.l=l.id;s.a=l.area;s.g=l.g||'';}}});
