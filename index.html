@@ -1993,6 +1993,119 @@ const DB = JSON.parse(document.getElementById('db').textContent);
 DB.lines.forEach(l=>{l._base=1;});
 const GSHEET_REALIZADO_ID='1sY4QvX6enN2Jx6hmVFxuutFvtOyoZc3lQ99mtdh0_WI';
 const GSHEET_ORCADO_ID='1-4A3QK58fNpT2HiJr30RsQtNNq_sJo2lBG7GCffL8VY';
+const SUPABASE_URL='https://iiheewndotcwqntppjrw.supabase.co';
+const SUPABASE_KEY='sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz';
+function supaHeaders(){return {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'};}
+async function supaSelect(table){
+  const res=await fetch(SUPABASE_URL+'/rest/v1/'+table+'?select=*', {headers: supaHeaders()});
+  if(!res.ok) throw new Error('Supabase select '+table+' falhou: '+res.status);
+  return await res.json();
+}
+async function supaInsertIgnoreDup(table, rows){
+  if(!rows.length) return {inserted:0};
+  const headers=Object.assign({}, supaHeaders(), {'Prefer':'resolution=ignore-duplicates,return=minimal'});
+  const res=await fetch(SUPABASE_URL+'/rest/v1/'+table, {method:'POST', headers: headers, body: JSON.stringify(rows)});
+  if(!res.ok){ const t=await res.text(); throw new Error('Supabase insert '+table+' falhou: '+res.status+' '+t); }
+  return {inserted: rows.length};
+}
+function realizadoRowToPortugues(r){
+  return {
+    'Data': r.data||'', 'Favorecido': r.favorecido||'', 'Descrição': r.descricao||'', 'Documento': r.documento||'',
+    'Entrada': r.entrada||'', 'Saída': r.saida||'', 'ID': r.id_linha||'', 'Departamento': r.departamento||'',
+    'Grupo': r.grupo||'', 'Linha do orçamento': r.linha_orcamento||'', 'Competição': r.competicao||'',
+    'Composição (marcador, ex: *1)': r.composicao||'', 'Abatimento (Sim/Não)': r.abatimento||'',
+    'Tipo de reembolso (opcional)': r.tipo_reembolso||''
+  };
+}
+async function syncRealizadoFileToSupabase(file){
+  var msg=document.getElementById('newseason-msg');
+  try{
+    await ensureXLSX();
+    var wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+    var snLanc=wb.SheetNames.find(function(n){return norm(n)===norm('Lançamentos');})||wb.SheetNames[0];
+    var arr=XLSX.utils.sheet_to_json(wb.Sheets[snLanc],{header:1,defval:''});
+    var headerRowIdx=-1;
+    for(var i=0;i<arr.length;i++){
+      var rn=arr[i].map(function(cc){return norm(String(cc||''));});
+      if(rn.indexOf(norm('Data'))>-1 && rn.indexOf(norm('Entrada'))>-1 && rn.indexOf(norm('Saída'))>-1){headerRowIdx=i;break;}
+    }
+    if(headerRowIdx===-1){ if(msg) msg.textContent += ' | Não encontrei o cabeçalho da aba Lançamentos para enviar à base central.'; return; }
+    var headers=arr[headerRowIdx].map(function(h){return String(h||'').trim();});
+    function colIdx(name){ return headers.findIndex(function(h){return norm(h)===norm(name);}); }
+    var iData=colIdx('Data'), iFav=colIdx('Favorecido'), iDesc=colIdx('Descrição'), iDoc=colIdx('Documento'),
+        iEnt=colIdx('Entrada'), iSai=colIdx('Saída'),
+        iId=headers.findIndex(function(h){return norm(h).indexOf(norm('ID'))===0;}),
+        iDep=colIdx('Departamento'), iGrp=colIdx('Grupo'), iLin=colIdx('Linha do orçamento'),
+        iComp=colIdx('Competição'),
+        iCompo=headers.findIndex(function(h){return norm(h).indexOf(norm('Composição'))===0;}),
+        iAbat=headers.findIndex(function(h){return norm(h).indexOf(norm('Abatimento'))===0;}),
+        iTipoR=headers.findIndex(function(h){return norm(h).indexOf(norm('Tipo de reembolso'))===0;});
+    var idMap={};
+    var snIds=wb.SheetNames.find(function(n){return norm(n)===norm('IDs');});
+    if(snIds){
+      var idsArr=XLSX.utils.sheet_to_json(wb.Sheets[snIds],{header:1,defval:''});
+      var idsHeaderIdx=-1;
+      for(var k=0;k<idsArr.length;k++){
+        var rn2=idsArr[k].map(function(cc){return norm(String(cc||''));});
+        if(rn2.indexOf(norm('ID'))>-1 && rn2.indexOf(norm('Departamento'))>-1){idsHeaderIdx=k;break;}
+      }
+      if(idsHeaderIdx>-1){
+        var idsHeaders=idsArr[idsHeaderIdx].map(function(h){return String(h||'').trim();});
+        var iiId=idsHeaders.findIndex(function(h){return norm(h)===norm('ID');});
+        var iiDep=idsHeaders.findIndex(function(h){return norm(h)===norm('Departamento');});
+        var iiGrp=idsHeaders.findIndex(function(h){return norm(h)===norm('Grupo');});
+        var iiLin=idsHeaders.findIndex(function(h){return norm(h)===norm('Linha do orçamento');});
+        for(var r=idsHeaderIdx+1;r<idsArr.length;r++){
+          var row=idsArr[r];
+          var key=String(row[iiId]||'').trim();
+          if(key) idMap[key]={dep:row[iiDep]||'',grp:row[iiGrp]||'',lin:row[iiLin]||''};
+        }
+      }
+    }
+    function toISODate(v){
+      if(v==null||v==='') return null;
+      if(v instanceof Date) return v.toISOString().slice(0,10);
+      if(typeof v==='number'){ try{ var d=XLSX.SSF.parse_date_code(v); if(d) return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'); }catch(e){} }
+      var s=String(v).trim();
+      var m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[1]+'-'+m[2]+'-'+m[3];
+      m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/); if(m) return m[3]+'-'+m[2]+'-'+m[1];
+      return s;
+    }
+    function toNum(v){
+      if(v==null||v==='') return null;
+      if(typeof v==='number') return v;
+      var s=String(v).replace(/[^0-9,.-]/g,'').replace(',', '.');
+      var n=parseFloat(s);
+      return isNaN(n)?null:n;
+    }
+    var rows=[];
+    for(var rr=headerRowIdx+1; rr<arr.length; rr++){
+      var row=arr[rr];
+      var dataV=row[iData], favV=row[iFav], entV=row[iEnt], saiV=row[iSai];
+      if(!dataV && !favV && !entV && !saiV) continue;
+      var idVal=iId>-1?String(row[iId]||'').trim():'';
+      var dep=iDep>-1?row[iDep]:'', grp=iGrp>-1?row[iGrp]:'', lin=iLin>-1?row[iLin]:'';
+      if((!dep||!grp||!lin) && idVal && idMap[idVal]){
+        dep=dep||idMap[idVal].dep; grp=grp||idMap[idVal].grp; lin=lin||idMap[idVal].lin;
+      }
+      rows.push({
+        data: toISODate(dataV), favorecido: String(favV||'').trim(),
+        descricao: iDesc>-1?String(row[iDesc]||''):'', documento: iDoc>-1?String(row[iDoc]||''):'',
+        entrada: toNum(entV), saida: toNum(saiV), id_linha: idVal,
+        departamento: dep||'', grupo: grp||'', linha_orcamento: lin||'',
+        competicao: iComp>-1?String(row[iComp]||''):'', composicao: iCompo>-1?String(row[iCompo]||''):'',
+        abatimento: iAbat>-1?String(row[iAbat]||''):'', tipo_reembolso: iTipoR>-1?String(row[iTipoR]||''):''
+      });
+    }
+    if(!rows.length){ if(msg) msg.textContent += ' | Nada novo para enviar à base central.'; return; }
+    if(msg) msg.textContent += ' | Enviando '+rows.length+' lançamento(s) para a base central...';
+    await supaInsertIgnoreDup('realizado', rows);
+    if(msg) msg.textContent += ' | Base central atualizada — todos que abrirem o painel já veem esta atualização.';
+  }catch(e){
+    if(msg) msg.textContent += ' | Erro ao enviar para a base central: '+e.message;
+    console.error('syncRealizadoFileToSupabase', e);
+  }
+}
 function fetchGSheetJSONP(sheetId, timeoutMs){
   return new Promise((resolve,reject)=>{
     const cbName='__gsheetCb_'+Math.random().toString(36).slice(2);
@@ -2027,12 +2140,12 @@ async function loadLiveGoogleSheets(){
   let realizadoOk=false, orcadoOk=false, changed=false;
   try{
     const [rRes, oRes]=await Promise.allSettled([
-      fetchGSheetJSONP(GSHEET_REALIZADO_ID),
+      supaSelect('realizado'),
       fetchGSheetJSONP(GSHEET_ORCADO_ID)
     ]);
-    if(rRes.status==='fulfilled'&&rRes.value&&rRes.value.table){
+    if(rRes.status==='fulfilled'&&Array.isArray(rRes.value)){
       try{
-        const rawRows=gvizToRows(rRes.value);
+        const rawRows=rRes.value.map(realizadoRowToPortugues);
         const stats=await importNewSeasonRealizado(null, rawRows);
         if(stats&&!stats.error){ realizadoOk=true; if(stats.added>0)changed=true; }
       }catch(e){ console.error('loadLiveGoogleSheets: falha ao processar Realizado', e); }
@@ -5300,7 +5413,7 @@ async function importNewSeasonRealizado(file, raw){
 }
 document.getElementById('btn-newseason-template').onclick=()=>downloadNewSeasonTemplate().catch(e=>alert('Falha ao gerar modelo: '+e.message));
 document.getElementById('btn-newseason-import').onclick=()=>document.getElementById('newseason-import-file').click();
-document.getElementById('newseason-import-file').onchange=ev=>{const f=ev.target.files[0];if(f)importNewSeasonRealizado(f);ev.target.value='';};
+document.getElementById('newseason-import-file').onchange=ev=>{const f=ev.target.files[0];if(f){importNewSeasonRealizado(f).then(function(){return syncRealizadoFileToSupabase(f);}).catch(function(e){console.error('sync realizado',e);});}ev.target.value='';};
 function ymAdd(m,n){
   let y=Number(m.slice(0,4)),mo=Number(m.slice(5,7))+n;
   while(mo>12){mo-=12;y++;}
