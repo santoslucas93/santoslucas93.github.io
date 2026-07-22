@@ -1535,14 +1535,14 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <button data-v="sup" data-sup="TRHO"><span style="opacity:.65;margin-right:5px;font-size:12px">🚌🏨</span>Transporte e Hospedagem</button>
     <button data-v="sup" data-sup="REFU"><span style="opacity:.65;margin-right:5px;font-size:12px">👨‍💼</span>Reemb. Funcionários</button>
     <button data-v="dash"><span style="opacity:.65;margin-right:5px;font-size:12px">📊</span>Gráficos</button>
-    <button data-v="conc">Conciliação</button>
-    <button data-v="bank">Conciliação Bancária</button>
+    <button data-v="conc"><span style="opacity:.65;margin-right:5px;font-size:12px">🧩</span>Conciliação</button>
+    <button data-v="bank"><span style="opacity:.65;margin-right:5px;font-size:12px">🏦</span>Conciliação Bancária</button>
     <button data-v="plan"><span style="opacity:.65;margin-right:5px;font-size:12px">➕</span>Novo Orçado</button>
-    <button data-v="structure">Editar Estrutura</button>
-    <button data-v="guia">Guia</button>
-    <button data-v="rules">Regras</button>
-    <button data-v="audit">Integridade</button>
-    <button data-v="exp">Exportar</button>
+    <button data-v="structure"><span style="opacity:.65;margin-right:5px;font-size:12px">🛠️</span>Editar Estrutura</button>
+    <button data-v="guia"><span style="opacity:.65;margin-right:5px;font-size:12px">🧭</span>Guia</button>
+    <button data-v="rules"><span style="opacity:.65;margin-right:5px;font-size:12px">📋</span>Regras</button>
+    <button data-v="audit"><span style="opacity:.65;margin-right:5px;font-size:12px">🛡️</span>Integridade</button>
+    <button data-v="exp"><span style="opacity:.65;margin-right:5px;font-size:12px">📤</span>Exportar</button>
   </div>
 </div>
 <div class="subnav hide" id="subnav"></div>
@@ -6321,7 +6321,7 @@ const STRUCTURE_DEFAULTS={
 let structureCfg=(()=>{try{return JSON.parse(localStorage.getItem('lnb_structure_v39')||'{}')}catch(e){return {}}})();
 structureCfg.areas=structureCfg.areas||{};structureCfg.supports=structureCfg.supports||{};structureCfg.parents=structureCfg.parents||{};
 const AREA_ICONS={LNB:'👔',TOP:'⚙️',COM:'📣','A&F':'💼',MKT:'📢',EQP:'🏀'};
-const SUP_ICONS={REAR:'⚖️',REFU:'👨‍💼',TRHO:'🚌🏨',CLIN:'🎓',MDAY:'📸',TRAN:'📡'};
+const SUP_ICONS={REAR:'⚖️',REFU:'👨‍💼',TRHO:'🚌🏨',CLIN:'🎓',MDAY:'📸',TRAN:'📡',FILIADOS:'🤝'};
 const SUP_LOGOS={CS8:'logos/cs8.png',INTERLIGAS:'logos/interligas.png',JDE:'logos/jde.png',LDB:'logos/ldb.png',NBB:'logos/nbb.png',LOU:'logos/lou.png',NBBTRIO:'logos/nbbtrio.png'};
 const areaLabel=a=>(AREA_ICONS[a]?AREA_ICONS[a]+' ':'')+(structureCfg.areas[a]||STRUCTURE_DEFAULTS.areas[a]||AN[a]||a);
 const supportLabel=k=>(SUP_ICONS[k]?SUP_ICONS[k]+' ':'')+(structureCfg.supports[k]||STRUCTURE_DEFAULTS.supports[k]||k);
