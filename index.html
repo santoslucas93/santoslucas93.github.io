@@ -6316,7 +6316,7 @@ document.getElementById('dl-lines').innerHTML=splitPool().map(l=>`<option value=
 const STRUCTURE_DEFAULTS={
  areas:{LNB:'Superintendência',TOP:'Técnico Operacional',COM:'Comunicação','A&F':'Administrativo & Financeiro',MKT:'Marketing',EQP:'Equipes',REC:'Receitas'},
  supports:Object.fromEntries(SUPS.map(x=>[x.k,x.n])),
- parents:{FILIADOS:'EQP',TRAN:'COM',CS8:'COMP',INTERLIGAS:'COMP',LDB:'COMP',NBB:'COMP',LOU:'COMP',NBBTRIO:'COMP',REAR:'TOP',REFU:'TOP',TRHO:'TOP',JDE:'MKT',MDAY:'COM',CLIN:'TOP'}
+ parents:{FILIADOS:'EQP',TRAN:'COM',CS8:'COMP',INTERLIGAS:'COMP',LDB:'COMP',NBB:'COMP',LOU:'COMP',NBBTRIO:'COMP',REAR:'TOP',REFU:'',TRHO:'',JDE:'MKT',MDAY:'COM',CLIN:'TOP'}
 };
 let structureCfg=(()=>{try{return JSON.parse(localStorage.getItem('lnb_structure_v39')||'{}')}catch(e){return {}}})();
 structureCfg.areas=structureCfg.areas||{};structureCfg.supports=structureCfg.supports||{};structureCfg.parents=structureCfg.parents||{};
@@ -6324,7 +6324,7 @@ const AREA_ICONS={LNB:'👔',TOP:'⚙️',COM:'📣','A&F':'💼',MKT:'📢',EQP
 const SUP_ICONS={REAR:'⚖️',REFU:'👨‍💼',TRHO:'🚌🏨',CLIN:'🎓'};
 const areaLabel=a=>(AREA_ICONS[a]?AREA_ICONS[a]+' ':'')+(structureCfg.areas[a]||STRUCTURE_DEFAULTS.areas[a]||AN[a]||a);
 const supportLabel=k=>(SUP_ICONS[k]?SUP_ICONS[k]+' ':'')+(structureCfg.supports[k]||STRUCTURE_DEFAULTS.supports[k]||k);
-const supportParent=k=>structureCfg.parents[k]||STRUCTURE_DEFAULTS.parents[k]||'TOP';
+const supportParent=k=>structureCfg.parents[k]||STRUCTURE_DEFAULTS.parents[k]||'';
 function persistStructure(){localStorage.setItem('lnb_structure_v39',JSON.stringify(structureCfg));try{applyStructureLabels();}catch(e){console.error('applyStructureLabels falhou (ignorado):',e);}}
 function applyStructureLabels(){
  document.querySelectorAll('#nav button[data-area]').forEach(b=>b.textContent=areaLabel(b.dataset.area));
