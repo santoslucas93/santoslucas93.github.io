@@ -1520,29 +1520,29 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 </div>
     <div id="gsheet-status" style="position:fixed;top:8px;left:8px;z-index:150;background:rgba(0,0,0,.5);color:#fff;padding:4px 10px 4px 8px;border-radius:20px;font-size:10.5px;display:flex;align-items:center;gap:6px;backdrop-filter:blur(4px);white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:#ff3b30;display:inline-block;animation:lnbLiveDot 1.4s ease-in-out infinite"></span><span id="gsheet-status-text">Carregando dados ao vivo…</span></div>
 <style>@keyframes lnbLiveDot{0%{opacity:1}50%{opacity:.25}100%{opacity:1}}</style>
-  </div><div class="themebar"><span class="campaign-mark"><b>Nossa Terra tem Basquete</b><small>🏀 Aqui é o nosso lugar</small></span><div class="theme-toggle-group" role="group" aria-label="Escolha do tema"><button type="button" id="theme-light">Tema branco</button><button type="button" id="theme-dark">Tema escuro</button></div><span class="developer-credit" style="border:1px solid rgba(212,175,55,.55);background:rgba(212,175,55,.08);border-radius:20px;padding:4px 12px;display:inline-flex;align-items:center;gap:6px;color:inherit">🛡️ Desenvolvido por: <b>Lucas Santos</b></span></div></div>
+  </div><div class="themebar"><span class="campaign-mark"><b>Nossa Terra tem Basquete</b><small>🏀 Aqui é o nosso lugar</small></span><div class="theme-toggle-group" role="group" aria-label="Escolha do tema"><button type="button" id="theme-light">Tema branco</button><button type="button" id="theme-dark">Tema escuro</button></div><span class="developer-credit" style="border:1px solid rgba(212,175,55,.55);background:rgba(212,175,55,.08);border-radius:20px;padding:4px 12px;display:inline-flex;align-items:center;gap:6px;color:inherit">🧠👨‍💻 Desenvolvido por: <b>Lucas Santos</b></span></div></div>
   <div class="nav" id="nav">
     <button data-v="home" class="on">Home</button>
     <button data-v="rec">Receitas</button>
-    <button data-v="dept" data-area="LNB">Superintendência</button>
-    <button data-v="dept" data-area="TOP">Técnico Operacional</button>
-    <button data-v="dept" data-area="COM">Comunicação</button>
-    <button data-v="dept" data-area="A&F">Administrativo &amp; Financeiro</button>
-    <button data-v="dept" data-area="MKT">Marketing</button>
-    <button data-v="dept" data-area="EQP">Equipes</button>
-    <button data-v="comp">Competições</button>
-    <button data-v="sup" data-sup="REAR">Reemb. Arbitragem</button>
-    <button data-v="sup" data-sup="REFU">Reemb. Funcionários</button>
-    <button data-v="sup" data-sup="TRHO">Transporte e Hospedagem</button>
-    <button data-v="sup" data-sup="JDE">Jogo das Estrelas</button>
+    <button data-v="dept" data-area="LNB"><span style="opacity:.65;margin-right:5px;font-size:12px">👔</span>Superintendência</button>
+    <button data-v="dept" data-area="TOP"><span style="opacity:.65;margin-right:5px;font-size:12px">⚙️</span>Técnico Operacional</button>
+    <button data-v="sup" data-sup="CLIN"><span style="opacity:.65;margin-right:5px;font-size:12px">🎓</span>Clínica e Congresso</button>
+    <button data-v="dept" data-area="COM"><span style="opacity:.65;margin-right:5px;font-size:12px">📣</span>Comunicação</button>
     <button data-v="sup" data-sup="MDAY">Media Day</button>
-    <button data-v="sup" data-sup="CLIN">Clínica e Congresso</button>
-    <button data-v="club">Créditos dos Clubes</button>
+    <button data-v="dept" data-area="A&F"><span style="opacity:.65;margin-right:5px;font-size:12px">💼</span>Administrativo &amp; Financeiro</button>
+    <button data-v="dept" data-area="MKT"><span style="opacity:.65;margin-right:5px;font-size:12px">📢</span>Marketing</button>
+    <button data-v="sup" data-sup="JDE">Jogo das Estrelas</button>
+    <button data-v="dept" data-area="EQP"><span style="opacity:.65;margin-right:5px;font-size:12px">🏀</span>Equipes</button>
+    <button data-v="comp">Competições</button>
+    <button data-v="sup" data-sup="REAR"><span style="opacity:.65;margin-right:5px;font-size:12px">⚖️</span>Reemb. Arbitragem</button>
+    <button data-v="sup" data-sup="REFU"><span style="opacity:.65;margin-right:5px;font-size:12px">👨‍💼</span>Reemb. Funcionários</button>
+    <button data-v="sup" data-sup="TRHO"><span style="opacity:.65;margin-right:5px;font-size:12px">🚌🏨</span>Transporte e Hospedagem</button>
+    <button data-v="club"><span style="opacity:.65;margin-right:5px;font-size:12px">🏀</span>Créditos dos Clubes</button>
     <button data-v="conc">Conciliação</button>
     <button data-v="bank">Conciliação Bancária</button>
     <button data-v="audit">Integridade</button>
-    <button data-v="dash">Gráficos</button>
-    <button data-v="plan">Novo Orçado</button>
+    <button data-v="dash"><span style="opacity:.65;margin-right:5px;font-size:12px">📊</span>Gráficos</button>
+    <button data-v="plan"><span style="opacity:.65;margin-right:5px;font-size:12px">➕</span>Novo Orçado</button>
     <button data-v="structure">Editar Estrutura</button>
     <button data-v="rules">Regras</button>
     <button data-v="guia">Guia</button>
@@ -3799,11 +3799,12 @@ function renderHome(){
   const recR=(r.A['REC']||0)+(r.A['OREC']||0);
   let pend=0;txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;const c=classify(t);if(isAttention(t,c))pend++;});
   const pct=despP?Math.round(despR/despP*100):0;
+  const monthTag=curM!=='ALL'?` <span style="opacity:.55;font-weight:400;font-size:11px">(${MN[curM.slice(5)].toUpperCase()}/${curM.slice(0,4)})</span>`:'';
   document.getElementById('kpis').innerHTML=`
-   <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas orçadas${curM==='ALL'?' (período do extrato)':''}</div><div class="v">${fmt(despP)}</div></div>
-   <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas realizadas</div><div class="v">${fmt(despR)}</div><div class="d">${pct}% do orçado</div></div>
-   <div class="kpi click" onclick="goRec('rec-lines')" title="Ver composição das receitas"><div class="l">Receitas realizadas</div><div class="v" style="color:var(--ok)">${fmt(recR)}</div><div class="d">orçado ${fmt(recP)}</div></div>
-   <div class="kpi click" onclick="scrollToId('home-weekly')" title="Ver fluxo bancário semanal sem transferências internas"><div class="l">Fluxo bancário líquido</div><div class="v">${fmt(weeklyRows(curM).reduce((s,x)=>s+x.e-x.s,0))}</div><div class="d">entradas − saídas, sem transferências internas</div></div>
+   <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas orçadas${curM==='ALL'?' (período do extrato)':''}</div><div class="v">${fmt(despP)}${monthTag}</div></div>
+   <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas realizadas</div><div class="v">${fmt(despR)}${monthTag}</div><div class="d">${pct}% do orçado</div></div>
+   <div class="kpi click" onclick="goRec('rec-lines')" title="Ver composição das receitas"><div class="l">Receitas realizadas</div><div class="v" style="color:var(--ok)">${fmt(recR)}${monthTag}</div><div class="d">orçado ${fmt(recP)}</div></div>
+   <div class="kpi click" onclick="scrollToId('home-weekly')" title="Ver fluxo bancário semanal sem transferências internas"><div class="l">Fluxo bancário líquido</div><div class="v">${fmt(weeklyRows(curM).reduce((s,x)=>s+x.e-x.s,0))}${monthTag}</div><div class="d">entradas − saídas, sem transferências internas</div></div>
    <div class="kpi click" onclick="goConcFilter('pend','')" title="Ver lançamentos pendentes na Conciliação"><div class="l">Lançamentos que pedem atenção</div><div class="v" style="color:${pend?'var(--wn)':'var(--ok)'}">${pend}</div><div class="d">${pend?'ver Conciliação':'tudo revisado ou sugerido'}</div></div>`;
   const maxA=Math.max(...DESP.map(a=>Math.max(budP(curM,a),r.A[a]||0)),1);
   document.getElementById('g-areas').innerHTML=DESP.map(a=>{
@@ -5817,8 +5818,8 @@ async function initPlanGovernance(){
   st.value=g.status||'Base copiada';
   document.getElementById('plan-owner').value=g.owner||'';
   document.getElementById('plan-justification').value=g.justification||'';
-  const t=planTotals(),el=document.getElementById('plan-compare-summary');
-  if(el)el.innerHTML=`<div class="kpi"><div class="l">Orçado 2025/2026</div><div class="v">${fmt(t.old)}</div></div><div class="kpi"><div class="l">Proposta 2026/2027</div><div class="v">${fmt(t.next)}</div></div><div class="kpi"><div class="l">Diferença</div><div class="v">${fmt(t.diff)}</div><div class="d">${t.pct.toFixed(2).replace('.',',')}%</div></div><div class="kpi"><div class="l">Status</div><div class="v" style="font-size:18px">${esc(g.status||'Base copiada')}</div><div class="d">${esc(g.owner||'sem responsável')}</div></div>`;
+  const el=document.getElementById('plan-compare-summary');
+  if(el)el.innerHTML=`<div class="kpi"><div class="l">Status</div><div class="v" style="font-size:18px">${esc(g.status||'Base copiada')}</div><div class="d">${esc(g.owner||'sem responsável')}</div></div>`;
 }
 function applyPlanAdjustment(){const pct=Number(document.getElementById('plan-adjust-pct')?.value||0);if(!Number.isFinite(pct)||pct===0){alert('Informe um percentual diferente de zero.');return;}const scope=document.getElementById('plan-adjust-scope')?.value||'ALL',area=curPlanArea;if(scope==='CURRENT'&&['ALL','__new__'].includes(area)){alert('Selecione um departamento específico.');return;}if(!confirm(`Aplicar reajuste de ${pct}% ${scope==='ALL'?'em todas as linhas':'no departamento atual'}?`))return;customPlan.forEach(x=>{if(scope==='CURRENT'&&x.area!==area)return;Object.keys(x.prev||{}).forEach(m=>x.prev[m]=Math.round((Number(x.prev[m])||0)*(1+pct/100)*100)/100);});store.setItem('lnb3_custom_plan_v56',JSON.stringify(customPlan));renderPlan();setTimeout(initPlanGovernance,0);}
 function exportFullBackup(){const data={app:'Orçado x Realizado LNB',version:V30_VERSION,createdAt:new Date().toISOString(),localStorage:{}};for(let i=0;i<store.length;i++){const k=store.key(i);if(k&&k.startsWith('lnb3_'))data.localStorage[k]=store.getItem(k);}downloadText(`LNB_backup_V30_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(data,null,2),'application/json');}
