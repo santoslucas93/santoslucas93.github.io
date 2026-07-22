@@ -6322,8 +6322,10 @@ const STRUCTURE_DEFAULTS={
 };
 let structureCfg=(()=>{try{return JSON.parse(localStorage.getItem('lnb_structure_v39')||'{}')}catch(e){return {}}})();
 structureCfg.areas=structureCfg.areas||{};structureCfg.supports=structureCfg.supports||{};structureCfg.parents=structureCfg.parents||{};
-const areaLabel=a=>structureCfg.areas[a]||STRUCTURE_DEFAULTS.areas[a]||AN[a]||a;
-const supportLabel=k=>structureCfg.supports[k]||STRUCTURE_DEFAULTS.supports[k]||k;
+const AREA_ICONS={LNB:'👔',TOP:'⚙️',COM:'📣','A&F':'💼',MKT:'📢',EQP:'🏀'};
+const SUP_ICONS={REAR:'⚖️',REFU:'👨‍💼',TRHO:'🚌🏨',CLIN:'🎓'};
+const areaLabel=a=>(AREA_ICONS[a]?AREA_ICONS[a]+' ':'')+(structureCfg.areas[a]||STRUCTURE_DEFAULTS.areas[a]||AN[a]||a);
+const supportLabel=k=>(SUP_ICONS[k]?SUP_ICONS[k]+' ':'')+(structureCfg.supports[k]||STRUCTURE_DEFAULTS.supports[k]||k);
 const supportParent=k=>structureCfg.parents[k]||STRUCTURE_DEFAULTS.parents[k]||'TOP';
 function persistStructure(){localStorage.setItem('lnb_structure_v39',JSON.stringify(structureCfg));try{applyStructureLabels();}catch(e){console.error('applyStructureLabels falhou (ignorado):',e);}}
 function applyStructureLabels(){
