@@ -308,7 +308,7 @@ body{
   letter-spacing:-.01em;
 }
 .nav button:before{font-size:14px;opacity:.95;filter:drop-shadow(0 1px 0 rgba(0,0,0,.12))}
-.nav button[data-v="home"]:before{content:"⌂"}.nav button[data-v="rec"]:before{content:"↗"}.nav button[data-v="dept"]:before{content:"▦"}.nav button[data-v="sup"]:before{content:"★"}.nav button[data-v="club"]:before{content:"◈"}.nav button[data-v="conc"]:before{content:"⇄"}.nav button[data-v="bank"]:before{content:"▤"}.nav button[data-v="audit"]:before{content:"✓"}.nav button[data-v="charts"]:before{content:"◒"}.nav button[data-v="budget"]:before{content:"＋"}.nav button[data-v="rules"]:before{content:"⚙"}.nav button[data-v="guia"]:before{content:"?"}.nav button[data-v="exp"]:before{content:"⇩"}
+.nav button[data-v="home"]:before{content:"⌂"}.nav button[data-v="rec"]:before{content:"💰"}.nav button[data-v="dept"]:before{content:none}.nav button[data-v="sup"]:before{content:none}.nav button[data-v="club"]:before{content:none}.nav button[data-v="conc"]:before{content:"⇄"}.nav button[data-v="bank"]:before{content:"▤"}.nav button[data-v="audit"]:before{content:"✓"}.nav button[data-v="charts"]:before{content:"◒"}.nav button[data-v="budget"]:before{content:"＋"}.nav button[data-v="rules"]:before{content:"⚙"}.nav button[data-v="guia"]:before{content:"?"}.nav button[data-v="exp"]:before{content:"⇩"}
 .nav button:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
 .nav button.on{
   background:linear-gradient(180deg,var(--bg),color-mix(in srgb,var(--bg) 93%,var(--card)));
@@ -2775,7 +2775,7 @@ async function loadLiveGoogleSheets(){
   return {realizadoOk,orcadoOk,changed};
 }
 const AREAS = {REC:'Receitas',LNB:'Superintendência (SUP)',TOP:'Técnico operacional (TOP)',COM:'Comunicação (COM)','A&F':'Administrativo & financeiro (A&F)',MKT:'Marketing (MKT)',EQP:'Equipes',OREC:'Outras receitas',TRF:'Transferências e tarifas',ENC:'Encargos e benefícios'};
-const RESP = {LNB:'Sérgio',TOP:'Paulo',COM:'Márcio','A&F':'Gilmar',MKT:'Álvaro',EQP:'—'};
+const RESP = {LNB:'Sérgio Domenici',TOP:'A definir',COM:'Alvaro Cotta','A&F':'Gilmar Gomes',MKT:'Alvaro Cotta',EQP:'—'};
 const DESP = ['LNB','TOP','COM','A&F','MKT','EQP'];
 const DEPTS = ['LNB','TOP','COM','A&F','MKT','EQP'];
 const SUPS = [
@@ -3956,7 +3956,7 @@ function renderRecTrfList(){
 }
 function renderDept(){
   const a=curDept;const r=realized(curM);
-  document.getElementById('dept-flow').innerHTML=`Na planilha, esta aba é alimentada pelas abas de apoio e alimenta a <b>Home</b>. Responsável: <b>${RESP[a]||'—'}</b>`;
+  document.getElementById('dept-flow').innerHTML= a==='EQP' ? 'Na aba EQUIPES, temos acesso às desonerações e aos demais gastos relacionados às equipes.' : `Na planilha, esta aba é alimentada pelas abas de apoio e alimenta a <b>Home</b>. Responsável: <b>${RESP[a]||'—'}</b>`;
   const p=budP(curM,a),rr=r.A[a]||0;
   let n=0;txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;if(areaOfTx(t).includes(a))n++;});
   document.getElementById('dept-kpis').innerHTML=`
@@ -3978,7 +3978,8 @@ function renderSup(){
   txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;if(!flt(t))return;n++;
     if(t.e>0)ent+=t.e;else tot+=t.s;
     const c=classify(t);(c.splits||[]).forEach(x=>{if(t.s>0)feeds[x.a]=(feeds[x.a]||0)+x.v;});});
-  document.getElementById('sup-flow').innerHTML=`${esc(s.d)}. Na planilha, esta aba alimenta: ${Object.entries(feeds).sort((a,b)=>b[1]-a[1]).map(([a,v])=>`<span class="chip">${AREAS[a]||a} · ${fmt(v)}</span>`).join(' ')||'<span class="desc">—</span>'}`;
+  const CUSTOM_SUP_TEXT={"CS8":"Lançamentos destinados à alocação das despesas de cada competição.","REAR":"As restituições alimentam a linha 'Restituições dos Árbitros', no departamento Técnico Operacional.","REFU":"As restituições alimentam a linha 'Restituições dos Colaboradores', de acordo com o departamento de cada colaborador.","TRHO":"As despesas com passagens, hospedagens e locomoção são alocadas nos respectivos departamentos dos colaboradores."};
+  document.getElementById('sup-flow').innerHTML= CUSTOM_SUP_TEXT[s.k] ? esc(CUSTOM_SUP_TEXT[s.k]) : `${esc(s.d)}. Na planilha, esta aba alimenta: ${Object.entries(feeds).sort((a,b)=>b[1]-a[1]).map(([a,v])=>`<span class="chip">${AREAS[a]||a} · ${fmt(v)}</span>`).join(' ')||'<span class="desc">—</span>'}`;
   document.getElementById('sup-kpis').innerHTML=`
    <div class="kpi"><div class="l">Saídas no período</div><div class="v">${fmt(tot)}</div></div>
    ${ent>0.01?`<div class="kpi"><div class="l">Entradas no período</div><div class="v" style="color:var(--ok)">${fmt(ent)}</div></div>`:''}
