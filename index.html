@@ -6321,7 +6321,7 @@ const STRUCTURE_DEFAULTS={
 let structureCfg=(()=>{try{return JSON.parse(localStorage.getItem('lnb_structure_v39')||'{}')}catch(e){return {}}})();
 structureCfg.areas=structureCfg.areas||{};structureCfg.supports=structureCfg.supports||{};structureCfg.parents=structureCfg.parents||{};
 const AREA_ICONS={LNB:'👔',TOP:'⚙️',COM:'📣','A&F':'💼',MKT:'📢',EQP:'🏀'};
-const SUP_ICONS={REAR:'⚖️',REFU:'👨‍💼',TRHO:'🚌🏨',CLIN:'🎓'};
+const SUP_ICONS={REAR:'⚖️',REFU:'👨‍💼',TRHO:'🚌🏨',CLIN:'🎓',MDAY:'📸',TRAN:'📡'};
 const SUP_LOGOS={CS8:'logos/cs8.png',INTERLIGAS:'logos/interligas.png',JDE:'logos/jde.png',LDB:'logos/ldb.png',NBB:'logos/nbb.png',LOU:'logos/lou.png',NBBTRIO:'logos/nbbtrio.png'};
 const areaLabel=a=>(AREA_ICONS[a]?AREA_ICONS[a]+' ':'')+(structureCfg.areas[a]||STRUCTURE_DEFAULTS.areas[a]||AN[a]||a);
 const supportLabel=k=>(SUP_ICONS[k]?SUP_ICONS[k]+' ':'')+(structureCfg.supports[k]||STRUCTURE_DEFAULTS.supports[k]||k);
