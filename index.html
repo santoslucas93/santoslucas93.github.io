@@ -1525,27 +1525,24 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <button data-v="home" class="on">Home</button>
     <button data-v="rec">Receitas</button>
     <button data-v="dept" data-area="LNB"><span style="opacity:.65;margin-right:5px;font-size:12px">👔</span>Superintendência</button>
-    <button data-v="dept" data-area="TOP"><span style="opacity:.65;margin-right:5px;font-size:12px">⚙️</span>Técnico Operacional</button>
-    <button data-v="sup" data-sup="CLIN"><span style="opacity:.65;margin-right:5px;font-size:12px">🎓</span>Clínica e Congresso</button>
     <button data-v="dept" data-area="COM"><span style="opacity:.65;margin-right:5px;font-size:12px">📣</span>Comunicação</button>
-    <button data-v="sup" data-sup="MDAY">Media Day</button>
-    <button data-v="dept" data-area="A&F"><span style="opacity:.65;margin-right:5px;font-size:12px">💼</span>Administrativo &amp; Financeiro</button>
     <button data-v="dept" data-area="MKT"><span style="opacity:.65;margin-right:5px;font-size:12px">📢</span>Marketing</button>
-    <button data-v="sup" data-sup="JDE">Jogo das Estrelas</button>
+    <button data-v="dept" data-area="TOP"><span style="opacity:.65;margin-right:5px;font-size:12px">⚙️</span>Técnico Operacional</button>
+    <button data-v="dept" data-area="A&F"><span style="opacity:.65;margin-right:5px;font-size:12px">💼</span>Administrativo &amp; Financeiro</button>
     <button data-v="dept" data-area="EQP"><span style="opacity:.65;margin-right:5px;font-size:12px">🏀</span>Equipes</button>
     <button data-v="comp">Competições</button>
-    <button data-v="sup" data-sup="REAR"><span style="opacity:.65;margin-right:5px;font-size:12px">⚖️</span>Reemb. Arbitragem</button>
-    <button data-v="sup" data-sup="REFU"><span style="opacity:.65;margin-right:5px;font-size:12px">👨‍💼</span>Reemb. Funcionários</button>
-    <button data-v="sup" data-sup="TRHO"><span style="opacity:.65;margin-right:5px;font-size:12px">🚌🏨</span>Transporte e Hospedagem</button>
     <button data-v="club"><span style="opacity:.65;margin-right:5px;font-size:12px">🏀</span>Créditos dos Clubes</button>
+    <button data-v="sup" data-sup="TRHO"><span style="opacity:.65;margin-right:5px;font-size:12px">🚌🏨</span>Transporte e Hospedagem</button>
+    <button data-v="sup" data-sup="REFU"><span style="opacity:.65;margin-right:5px;font-size:12px">👨‍💼</span>Reemb. Funcionários</button>
+    <button data-v="sup" data-sup="REAR"><span style="opacity:.65;margin-right:5px;font-size:12px">⚖️</span>Reemb. Arbitragem</button>
+    <button data-v="dash"><span style="opacity:.65;margin-right:5px;font-size:12px">📊</span>Gráficos</button>
     <button data-v="conc">Conciliação</button>
     <button data-v="bank">Conciliação Bancária</button>
-    <button data-v="audit">Integridade</button>
-    <button data-v="dash"><span style="opacity:.65;margin-right:5px;font-size:12px">📊</span>Gráficos</button>
     <button data-v="plan"><span style="opacity:.65;margin-right:5px;font-size:12px">➕</span>Novo Orçado</button>
     <button data-v="structure">Editar Estrutura</button>
-    <button data-v="rules">Regras</button>
     <button data-v="guia">Guia</button>
+    <button data-v="rules">Regras</button>
+    <button data-v="audit">Integridade</button>
     <button data-v="exp">Exportar</button>
   </div>
 </div>
@@ -6319,7 +6316,7 @@ document.getElementById('dl-lines').innerHTML=splitPool().map(l=>`<option value=
 const STRUCTURE_DEFAULTS={
  areas:{LNB:'Superintendência',TOP:'Técnico Operacional',COM:'Comunicação','A&F':'Administrativo & Financeiro',MKT:'Marketing',EQP:'Equipes',REC:'Receitas'},
  supports:Object.fromEntries(SUPS.map(x=>[x.k,x.n])),
- parents:{FILIADOS:'EQP',TRAN:'COM',CS8:'COMP',INTERLIGAS:'COMP',LDB:'COMP',NBB:'COMP',LOU:'COMP',NBBTRIO:'COMP',REAR:'TOP',REFU:'TOP',TRHO:'TOP',JDE:'TOP',MDAY:'TOP',CLIN:'TOP'}
+ parents:{FILIADOS:'EQP',TRAN:'COM',CS8:'COMP',INTERLIGAS:'COMP',LDB:'COMP',NBB:'COMP',LOU:'COMP',NBBTRIO:'COMP',REAR:'TOP',REFU:'TOP',TRHO:'TOP',JDE:'MKT',MDAY:'COM',CLIN:'TOP'}
 };
 let structureCfg=(()=>{try{return JSON.parse(localStorage.getItem('lnb_structure_v39')||'{}')}catch(e){return {}}})();
 structureCfg.areas=structureCfg.areas||{};structureCfg.supports=structureCfg.supports||{};structureCfg.parents=structureCfg.parents||{};
@@ -6338,6 +6335,8 @@ function isNavButtonActive(b){
  if(b.dataset.v==='comp')return curV==='comp'||(curV==='sup'&&supportParent(curSup)==='COMP');
  if(b.dataset.v==='dept'&&b.dataset.area==='EQP'&&curV==='sup'&&supportParent(curSup)==='EQP')return true;
  if(b.dataset.v==='dept'&&b.dataset.area==='COM'&&curV==='sup'&&supportParent(curSup)==='COM')return true;
+ if(b.dataset.v==='dept'&&b.dataset.area==='MKT'&&curV==='sup'&&supportParent(curSup)==='MKT')return true;
+ if(b.dataset.v==='dept'&&b.dataset.area==='TOP'&&curV==='sup'&&supportParent(curSup)==='TOP')return true;
  return b.dataset.v===curV&&(!b.dataset.area||b.dataset.area===curDept)&&(!b.dataset.sup||b.dataset.sup===curSup);
 }
 const renderBaseV39=render;
@@ -6355,11 +6354,13 @@ function renderSubnavV39(){
  const el=document.getElementById('subnav');let items=[];let active='';
  if(curV==='comp'||(curV==='sup'&&supportParent(curSup)==='COMP')){items=['CS8','INTERLIGAS','LDB','NBB','LOU','NBBTRIO'];active=curSup;}
  else if((curV==='dept'&&curDept==='EQP')||(curV==='sup'&&supportParent(curSup)==='EQP')){items=['EQP','FILIADOS'];active=curV==='dept'?'EQP':curSup;}
- else if((curV==='dept'&&curDept==='COM')||(curV==='sup'&&supportParent(curSup)==='COM')){items=['COM','TRAN'];active=curV==='dept'?'COM':curSup;}
+ else if((curV==='dept'&&curDept==='COM')||(curV==='sup'&&supportParent(curSup)==='COM')){items=['COM','TRAN','MDAY'];active=curV==='dept'?'COM':curSup;}
+ else if((curV==='dept'&&curDept==='MKT')||(curV==='sup'&&supportParent(curSup)==='MKT')){items=['MKT','JDE'];active=curV==='dept'?'MKT':curSup;}
+ else if((curV==='dept'&&curDept==='TOP')||(curV==='sup'&&supportParent(curSup)==='TOP')){items=['TOP','CLIN'];active=curV==='dept'?'TOP':curSup;}
  if(!items.length){el.classList.add('hide');el.innerHTML='';return;}
  el.classList.remove('hide');
  el.innerHTML=items.map(k=>{
-   const isArea=['EQP','COM'].includes(k);const label=isArea?'Visão geral — '+areaLabel(k):supportLabel(k);
+   const isArea=['EQP','COM','MKT','TOP'].includes(k);const label=isArea?'Visão geral — '+areaLabel(k):supportLabel(k);
    return `<button class="${active===k?'on':''}" onclick="${isArea?`goDept('${k}')`:`goNestedSup('${k}')`}">${esc(label)}</button>`;
  }).join('');
 }
