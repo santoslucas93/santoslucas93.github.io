@@ -1534,7 +1534,6 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <button data-v="club"><span style="opacity:.65;margin-right:5px;font-size:12px">🏀</span>Créditos dos Clubes</button>
     <button data-v="sup" data-sup="TRHO"><span style="opacity:.65;margin-right:5px;font-size:12px">🚌🏨</span>Transporte e Hospedagem</button>
     <button data-v="sup" data-sup="REFU"><span style="opacity:.65;margin-right:5px;font-size:12px">👨‍💼</span>Reemb. Funcionários</button>
-    <button data-v="sup" data-sup="REAR"><span style="opacity:.65;margin-right:5px;font-size:12px">⚖️</span>Reemb. Arbitragem</button>
     <button data-v="dash"><span style="opacity:.65;margin-right:5px;font-size:12px">📊</span>Gráficos</button>
     <button data-v="conc">Conciliação</button>
     <button data-v="bank">Conciliação Bancária</button>
@@ -6356,7 +6355,7 @@ function renderSubnavV39(){
  else if((curV==='dept'&&curDept==='EQP')||(curV==='sup'&&supportParent(curSup)==='EQP')){items=['EQP','FILIADOS'];active=curV==='dept'?'EQP':curSup;}
  else if((curV==='dept'&&curDept==='COM')||(curV==='sup'&&supportParent(curSup)==='COM')){items=['COM','TRAN','MDAY'];active=curV==='dept'?'COM':curSup;}
  else if((curV==='dept'&&curDept==='MKT')||(curV==='sup'&&supportParent(curSup)==='MKT')){items=['MKT','JDE'];active=curV==='dept'?'MKT':curSup;}
- else if((curV==='dept'&&curDept==='TOP')||(curV==='sup'&&supportParent(curSup)==='TOP')){items=['TOP','CLIN'];active=curV==='dept'?'TOP':curSup;}
+ else if((curV==='dept'&&curDept==='TOP')||(curV==='sup'&&supportParent(curSup)==='TOP')){items=['TOP','CLIN','REAR'];active=curV==='dept'?'TOP':curSup;}
  if(!items.length){el.classList.add('hide');el.innerHTML='';return;}
  el.classList.remove('hide');
  el.innerHTML=items.map(k=>{
