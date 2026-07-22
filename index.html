@@ -3975,7 +3975,8 @@ function renderSup(){
     if(t.e>0)ent+=t.e;else tot+=t.s;
     const c=classify(t);(c.splits||[]).forEach(x=>{if(t.s>0)feeds[x.a]=(feeds[x.a]||0)+x.v;});});
   const CUSTOM_SUP_TEXT={"CS8":"Lançamentos destinados à alocação das despesas de cada competição.","REAR":"As restituições alimentam a linha 'Restituições dos Árbitros', no departamento Técnico Operacional.","REFU":"As restituições alimentam a linha 'Restituições dos Colaboradores', de acordo com o departamento de cada colaborador.","TRHO":"As despesas com passagens, hospedagens e locomoção são alocadas nos respectivos departamentos dos colaboradores."};
-  document.getElementById('sup-flow').innerHTML= CUSTOM_SUP_TEXT[s.k] ? esc(CUSTOM_SUP_TEXT[s.k]) : `${esc(s.d)}. Na planilha, esta aba alimenta: ${Object.entries(feeds).sort((a,b)=>b[1]-a[1]).map(([a,v])=>`<span class="chip">${AREAS[a]||a} · ${fmt(v)}</span>`).join(' ')||'<span class="desc">—</span>'}`;
+  const supLogoTag=SUP_LOGOS[s.k]?`<img src="${SUP_LOGOS[s.k]}" alt="" style="height:36px;vertical-align:middle;margin-right:10px;border-radius:4px">`:'';
+  document.getElementById('sup-flow').innerHTML= supLogoTag+(CUSTOM_SUP_TEXT[s.k] ? esc(CUSTOM_SUP_TEXT[s.k]) : `${esc(s.d)}. Na planilha, esta aba alimenta: ${Object.entries(feeds).sort((a,b)=>b[1]-a[1]).map(([a,v])=>`<span class="chip">${AREAS[a]||a} · ${fmt(v)}</span>`).join(' ')||'<span class="desc">—</span>'}`);
   document.getElementById('sup-kpis').innerHTML=`
    <div class="kpi"><div class="l">Saídas no período</div><div class="v">${fmt(tot)}</div></div>
    ${ent>0.01?`<div class="kpi"><div class="l">Entradas no período</div><div class="v" style="color:var(--ok)">${fmt(ent)}</div></div>`:''}
@@ -6321,6 +6322,7 @@ let structureCfg=(()=>{try{return JSON.parse(localStorage.getItem('lnb_structure
 structureCfg.areas=structureCfg.areas||{};structureCfg.supports=structureCfg.supports||{};structureCfg.parents=structureCfg.parents||{};
 const AREA_ICONS={LNB:'👔',TOP:'⚙️',COM:'📣','A&F':'💼',MKT:'📢',EQP:'🏀'};
 const SUP_ICONS={REAR:'⚖️',REFU:'👨‍💼',TRHO:'🚌🏨',CLIN:'🎓'};
+const SUP_LOGOS={CS8:'logos/cs8.png',INTERLIGAS:'logos/interligas.png',JDE:'logos/jde.png',LDB:'logos/ldb.png',NBB:'logos/nbb.png',LOU:'logos/lou.png',NBBTRIO:'logos/nbbtrio.png'};
 const areaLabel=a=>(AREA_ICONS[a]?AREA_ICONS[a]+' ':'')+(structureCfg.areas[a]||STRUCTURE_DEFAULTS.areas[a]||AN[a]||a);
 const supportLabel=k=>(SUP_ICONS[k]?SUP_ICONS[k]+' ':'')+(structureCfg.supports[k]||STRUCTURE_DEFAULTS.supports[k]||k);
 const supportParent=k=>structureCfg.parents[k]||STRUCTURE_DEFAULTS.parents[k]||'';
@@ -6360,7 +6362,8 @@ function renderSubnavV39(){
  el.classList.remove('hide');
  el.innerHTML=items.map(k=>{
    const isArea=['EQP','COM','MKT','TOP'].includes(k);const label=isArea?'Visão geral — '+areaLabel(k):supportLabel(k);
-   return `<button class="${active===k?'on':''}" onclick="${isArea?`goDept('${k}')`:`goNestedSup('${k}')`}">${esc(label)}</button>`;
+   const logo=SUP_LOGOS[k]?`<img src="${SUP_LOGOS[k]}" alt="" style="height:16px;vertical-align:middle;margin-right:5px;border-radius:3px">`:'';
+   return `<button class="${active===k?'on':''}" onclick="${isArea?`goDept('${k}')`:`goNestedSup('${k}')`}">${logo}${esc(label)}</button>`;
  }).join('');
 }
 function goNestedSup(k){curSup=k;curV=supportParent(k)==='COMP'?'comp':'sup';render();window.scrollTo(0,0);}
