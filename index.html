@@ -3785,7 +3785,17 @@ function allBudgetMonths(){
   DB.lines.forEach(l=>{ if(l.prev)Object.keys(l.prev).forEach(mm=>s.add(mm)); });
   return [...s];
 }
-function budP(m,a){const base=mm=>(((DB.budget[mm]||{})[a]||{}).p||0)+DB.lines.filter(l=>l._custom&&l.area===a).reduce((s,l)=>s+(l.prev[mm]||0),0);if(m!=='ALL')return base(m);return allBudgetMonths().reduce((s,mm)=>s+base(mm),0);}
+function budP(m,a){
+  // DB.budget[mm][a].p nunca é preenchido em produção (fica sempre vazio) — o
+  // total orçado de cada área precisa vir da soma das próprias linhas
+  // (DB.lines), a mesma fonte que já é usada linha a linha em outras partes
+  // do painel. Antes esta função só somava linhas _custom (Novo Orçado) e
+  // ignorava todas as linhas de orçado já existentes (ex.: patrocinadores
+  // já cadastrados), fazendo o card da área mostrar só uma fração do real.
+  const base=mm=>DB.lines.filter(l=>l.area===a&&!isTotalizerLine(l)).reduce((s,l)=>s+((l.prev||{})[mm]||0),0);
+  if(m!=='ALL')return base(m);
+  return allBudgetMonths().reduce((s,mm)=>s+base(mm),0);
+}
 function linePrev(l,m){if(m!=='ALL')return l.prev[m]||0;return allBudgetMonths().reduce((s,mm)=>s+(l.prev[mm]||0),0);}
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
 const cssid=s=>s.replace(/[^a-z0-9]/gi,'_');
