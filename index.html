@@ -3343,7 +3343,7 @@ function renderClubCredit(){
 }
 const budgetMonths=[...new Set(Object.keys(DB.budget||{}))].sort();
 const nextBudgetMonths=(budgetMonths.length?budgetMonths:[]).map(m=>{const y=Number(m.slice(0,4))+1;return y+'-'+m.slice(5);});
-function saveCustomPlan(){store.setItem('lnb3_custom_plan_v56',JSON.stringify(customPlan));pushCustomPlanToSupabase().catch(e=>console.error(e));}
+async function saveCustomPlan(){store.setItem('lnb3_custom_plan_v56',JSON.stringify(customPlan));await pushCustomPlanToSupabase().catch(e=>console.error(e));}
 function applyCustomPlan(){
   customPlan.forEach(x=>{
     x.area=String(x.area||'').trim().toUpperCase();
@@ -5127,7 +5127,7 @@ function clearPlanForm(){
   if(gsel){gsel.value=gsel.options.length?gsel.options[0].value:'';if(gsel.onchange)gsel.onchange();}
 }
 function renderPlanMonths(){const box=document.getElementById('plan-months');if(!box)return;box.innerHTML=nextBudgetMonths.map(m=>`<label>${mlabel(m)}<input type="text" data-plan-month="${m}" placeholder="0,00"></label>`).join('');}
-function addPlanLine(mode){
+async function addPlanLine(mode){
   let area,areaName;
   const type=document.getElementById('plan-type').value;
   if(mode==='__new__'){
@@ -5153,9 +5153,9 @@ function addPlanLine(mode){
   if(exists){exists.areaName=areaName;exists.type=type;exists.cod=cod;exists.prev=prev;exists.temporada=temporada;if(msgEl)msgEl.textContent='Linha atualizada no próximo orçado.';}
   else customPlan.push({id:nextCustomId(area),area,areaName,type,g,n,cod,prev,temporada});
   store.setItem('lnb3_plan_season',temporada);
-  saveCustomPlan();location.reload();
+  await saveCustomPlan();location.reload();
 }
-function removePlanLine(id){if(!confirm('Remover esta linha do próximo orçado?'))return;customPlan=customPlan.filter(x=>String(x.id)!==String(id));saveCustomPlan();location.reload();}
+async function removePlanLine(id){if(!confirm('Remover esta linha do próximo orçado?'))return;customPlan=customPlan.filter(x=>String(x.id)!==String(id));await saveCustomPlan();location.reload();}
 function editPlanLine(id){
   const x=customPlan.find(x=>String(x.id)===String(id));if(!x)return;
   curV='plan';curPlanArea=x.area;render();
