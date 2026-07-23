@@ -2755,7 +2755,7 @@ function orcadoRowsToWide(supaRows){
   supaRows.forEach(function(r){
     var key=(r.id_linha||'')+'|'+(r.departamento||'')+'|'+(r.grupo||'')+'|'+(r.linha_orcamento||'');
     if(!byLine[key]) byLine[key]={'ID': r.id_linha||'', 'Departamento': r.departamento||'', 'Grupo': r.grupo||'', 'Linha do orçamento': r.linha_orcamento||''};
-    if(r.mes!=null && r.valor!=null) byLine[key][labelFromYm(r.mes)] = r.valor;
+    if(r.mes!=null && r.valor!=null) byLine[key][r.mes] = r.valor;
   });
   return Object.values(byLine);
 }
@@ -6152,7 +6152,7 @@ async function importNewBudgetSpreadsheet(file, raw){
     if(!kArea&&!kID){if(msg&&!live)msg.textContent='Planilha fora do modelo: verifique as colunas ID/Departamento/Grupo/Linha.';return emptyStats;}
     const months=newBudgetMonthCols();
     const monthKeyByHeader={};
-    months.forEach(m=>{monthKeyByHeader[norm(mlabel(m))]=m;});
+    months.forEach(m=>{monthKeyByHeader[norm(mlabel(m))]=m;monthKeyByHeader[norm(m)]=m;});
     const monthCols=headerKeys.filter(h=>monthKeyByHeader[norm(h)]);
     let created=0,updated=0,skipped=0;const monthsTouched=new Set();
     raw.forEach(row=>{
