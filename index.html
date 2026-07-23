@@ -6862,13 +6862,16 @@ function iaGeminiContext(q){
   const m=iaFindMonth(q),r=realized(m),rows=iaAreaRows(m).sort((a,b)=>b.r-a.r),rec=(r.A.REC||0)+(r.A.OREC||0);
   const bank=bankProofRows?bankProofRows():[];
   const context={
-    sistema:'Orçado x Realizado LNB 2025/2026',
+    sistema:'Orçado x Realizado LNB '+(lnbCurrentTemporada()||'(temporada atual do painel)'),
     pergunta:q,
     periodo:iaPeriodLabel(m),
     regrasFixas:[
       'Entrada e saída respeitam fielmente a planilha bancária; o sistema não inverte por descrição.',
       'Transferências entre bancos/contas da própria LNB são fora do realizado: não são receita nem despesa.',
-      'Cartão de crédito/fatura exige rateio detalhado por departamento, grupo e linha.',
+      'Não existe mais rateio: cada lançamento do Realizado (inclusive fatura de cartão de crédito, parcela a parcela) chega com seu próprio ID único, que já aloca sozinho Departamento/Grupo/Linha — não há divisão manual por departamento.',
+      'Se faltar ID ou ele não for reconhecido, o lançamento cai pendente e vai para o motor de sugestão da Conciliação para reclassificação.',
+      'Lançamento sem competição informada é classificado em LNB (despesas de escritório, comuns a todos os departamentos).',
+      'Lançamentos com competição LDB seguem regra soberana: receita entra como crédito de Taxas de Inscrição da LDB, e despesas abatem desse crédito.',
       'Receitas devem identificar a fonte pagadora real; LNB é beneficiada, não fonte.',
       'Responda apenas com base nos dados enviados. Se faltar informação, diga o que revisar na Conciliação.'
     ],
@@ -6936,7 +6939,7 @@ Regras de resposta:
 - Responda em português, de forma executiva, objetiva e com valores em R$ com duas casas decimais.
 - Não invente valores. Use somente o JSON de contexto enviado.
 - Quando explicar divergência, cite onde revisar: Conciliação, Receitas/Entradas, Créditos dos Clubes, Conciliação Bancária ou Novo Orçado.
-- Destaque se a resposta envolve transferência entre bancos, cartão de crédito/rateio, receitas ou despesas.
+- Destaque se a resposta envolve transferência entre bancos, lançamentos de cartão de crédito (por ID, sem rateio), receitas ou despesas.
 
 CONTEXTO DO SISTEMA:
 ${iaGeminiContext(q)}
