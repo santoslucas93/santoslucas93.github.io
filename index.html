@@ -1858,6 +1858,20 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
         <button class="act pri" type="button" id="btn-tp-iniciar">🚀 Iniciar nova temporada (copiar Orçado)</button>
       </div>
       <div id="temporada-msg" class="foot" style="margin:0"></div>
+      <div style="border-top:1px dashed var(--bd);padding-top:12px;display:flex;flex-direction:column;gap:10px">
+        <div>
+          <h3 style="margin:0 0 4px;font-size:15px">🗄️ Backups diários</h3>
+          <div class="note" style="margin:0">Todo início de dia o sistema salva um retrato do Novo Orçado, das classificações da Conciliação e das regras por favorecido de antes das alterações do dia. Escolha uma data pra voltar a esse estado.</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Data do backup
+            <select id="backup-select" style="min-width:200px"></select>
+          </label>
+          <button class="act" type="button" id="btn-backup-refresh">🔄 Ver backups disponíveis</button>
+          <button class="act" type="button" id="btn-backup-restore" style="border-color:var(--er);color:var(--er)">♻️ Restaurar este backup</button>
+        </div>
+        <div id="backup-msg" class="foot" style="margin:0"></div>
+      </div>
     </div>
     <div id="plan-compare-summary" class="kpis"></div>
     <details class="plan-gov-details">
@@ -2398,6 +2412,61 @@ async function lnbInitTemporadaManager(force){
   const br=document.getElementById('btn-tp-refresh'); if(br) br.onclick=lnbRefreshTemporadaCounts;
   const ba=document.getElementById('btn-tp-apagar'); if(ba) ba.onclick=lnbApagarTemporadaSelecionada;
   const bi=document.getElementById('btn-tp-iniciar'); if(bi) bi.onclick=lnbIniciarNovaTemporada;
+}
+async function lnbBuildDailyBackupSnapshot(){
+  const [planRows, decRows, favRows]=await Promise.all([
+    supaSelect('custom_plan'), supaSelect('tx_decisions'), supaSelect('fav_rules')
+  ]);
+  return {custom_plan:planRows||[],tx_decisions:decRows||[],fav_rules:favRows||[]};
+}
+async function lnbEnsureDailyBackup(){
+  try{
+    const today=new Date().toISOString().slice(0,10);
+    const existing=await supaSelectFiltered('daily_backups','select=backup_date&backup_date=eq.'+today);
+    if(Array.isArray(existing)&&existing.length)return; // já existe um backup de hoje, não sobrescreve
+    const snapshot=await lnbBuildDailyBackupSnapshot();
+    await supaUpsert('daily_backups',[{backup_date:today,snapshot}],'backup_date');
+  }catch(e){ console.error('lnbEnsureDailyBackup falhou (sem backup automático hoje):',e); }
+}
+async function lnbLoadBackupList(){
+  const sel=document.getElementById('backup-select');
+  const msg=document.getElementById('backup-msg');
+  if(!sel)return;
+  try{
+    const rows=await supaSelectFiltered('daily_backups','select=backup_date&order=backup_date.desc');
+    if(!Array.isArray(rows)||!rows.length){ sel.innerHTML='<option value="">(nenhum backup ainda)</option>'; return; }
+    sel.innerHTML=rows.map(r=>`<option value="${r.backup_date}">${r.backup_date}</option>`).join('');
+  }catch(e){ if(msg)msg.textContent='Não foi possível listar os backups: '+e.message; }
+}
+async function lnbRestoreBackup(){
+  const sel=document.getElementById('backup-select');
+  const msg=document.getElementById('backup-msg');
+  const date=sel&&sel.value;
+  if(!date){ if(msg)msg.textContent='Escolha uma data de backup primeiro.'; return; }
+  if(!confirm(`Isso vai substituir o Novo Orçado, as classificações da Conciliação e as regras por favorecido pelo estado salvo em ${date}. Lançamentos de Realizado e Orçado da temporada não são afetados. Deseja continuar?`))return;
+  if(msg)msg.textContent='Restaurando…';
+  try{
+    const rows=await supaSelectFiltered('daily_backups','select=snapshot&backup_date=eq.'+date);
+    if(!Array.isArray(rows)||!rows.length){ if(msg)msg.textContent='Backup não encontrado.'; return; }
+    const snap=rows[0].snapshot||{};
+    const restoreTable=async(table,idCol,items)=>{
+      const list=items||[];
+      if(list.length)await supaUpsert(table,list,idCol);
+      const ids=list.map(x=>String(x[idCol]));
+      const filter=ids.length?`${idCol}=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'';
+      if(filter)await supaDelete(table,filter);
+    };
+    await restoreTable('custom_plan','id',snap.custom_plan);
+    await restoreTable('tx_decisions','tx_id',snap.tx_decisions);
+    await restoreTable('fav_rules','favorecido_norm',snap.fav_rules);
+    if(msg)msg.textContent='Restaurado. Recarregando…';
+    location.reload();
+  }catch(e){ if(msg)msg.textContent='Erro ao restaurar: '+e.message; }
+}
+function lnbInitBackupManager(){
+  const br=document.getElementById('btn-backup-refresh'); if(br) br.onclick=()=>lnbLoadBackupList().catch(e=>console.error(e));
+  const rb=document.getElementById('btn-backup-restore'); if(rb) rb.onclick=()=>lnbRestoreBackup().catch(e=>console.error(e));
+  lnbLoadBackupList().catch(e=>console.error(e));
 }
 
 async function lnbFetchIdLinha(grupo, linha){
@@ -7121,6 +7190,8 @@ async function lnbBootApp(){
   try{ lnbInitHeaderResize(); }catch(e){ console.error('lnbInitHeaderResize falhou:', e); }
   try{ lnbInitManualEntryForm(); }catch(e){ console.error('lnbInitManualEntryForm falhou:', e); }
   try{ lnbInitTemporadaManager(); }catch(e){ console.error('lnbInitTemporadaManager falhou:', e); }
+  try{ lnbInitBackupManager(); }catch(e){ console.error('lnbInitBackupManager falhou:', e); }
+  lnbEnsureDailyBackup().catch(e=>console.error('lnbEnsureDailyBackup falhou:', e));
 }
 lnbAuthGate(lnbBootApp);
 </script>
