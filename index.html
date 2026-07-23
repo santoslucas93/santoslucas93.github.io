@@ -5218,7 +5218,7 @@ async function addPlanLine(mode){
   if(!temporada){if(msgEl)msgEl.textContent='Informe a temporada do novo orçamento antes de cadastrar a linha.';return;}
   if(!area||!g||!n){if(msgEl)msgEl.textContent='Informe pelo menos área/departamento, grupo e linha do orçamento.';return;}
   if(type==='receita' && !['REC','OREC'].includes(area)){if(msgEl)msgEl.textContent='Para receitas, prefira usar a área REC para que apareça na aba Receitas. A linha não foi salva.';return;}
-  const prev={};document.querySelectorAll('#plan-months input').forEach(i=>{const v=moneyVal(i.value);if(v)prev[i.dataset.planMonth]=v;});
+  const prev={};document.querySelectorAll('#plan-months input').forEach(i=>{prev[i.dataset.planMonth]=moneyVal(i.value);});
   // Se já existe uma linha de verdade na estrutura com essa área/grupo/linha,
   // é ela que deve ser atualizada — não cria uma linha nova/duplicada no
   // Novo Orçado por baixo. customPlan só é usado para linhas realmente novas.
@@ -5275,9 +5275,19 @@ async function removeAnyPlanLine(id){
   const l=DB.lines.find(x=>String(x.id)===String(id));if(!l)return;
   if(!confirm('Remover os valores de orçado da linha "'+l.n+'"? A linha continua existindo na estrutura (para lançamentos de realizado); só o orçado dela é zerado.'))return;
   try{
-    await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(String(l.id)));
+    const dep=AREAS[l.area]||l.area;
+    const temporada=(document.getElementById('plan-season')&&document.getElementById('plan-season').value)||store.getItem('lnb3_plan_season')||lnbCurrentTemporada()||'';
+    const monthsToZero=Object.keys(l.prev||{});
+    if(monthsToZero.length){
+      // zera explicitamente cada mês (upsert valor 0) — isso sempre vence o
+      // valor de origem da estrutura no próximo carregamento; um DELETE puro
+      // não adianta quando a linha nunca teve registro no orçado do Supabase.
+      const rows=monthsToZero.map(m=>({id_linha:String(l.id),departamento:dep,grupo:l.g,linha_orcamento:l.n,mes:m,valor:0,temporada}));
+      await supaUpsert('orcado',rows,'id_linha,mes');
+    }
   }catch(e){ alert('Falha ao remover no Supabase: '+e.message); return; }
   l.prev={};
+  sessionStorage.removeItem('gsheet_synced_this_session');
   location.reload();
 }
 function editPlanLine(id){
