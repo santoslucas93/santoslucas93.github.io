@@ -2038,7 +2038,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   </div>
 </div>
 <div class="note"><b>Regra absoluta:</b> transferências entre bancos/contas da LNB são exibidas apenas para conciliação bancária e conferência, mas não entram em realizado, receitas, despesas, gráficos de orçamento ou exportação de alocados.</div>
-<div class="foot">Decisões e regras ficam salvas neste navegador. Prova real por mês: saldo inicial + entradas − saídas = saldo final do extrato. Realizado consolidado de 6 contas: Bradesco 38379-1, CEF 2215-1, CEF 2246-1, Itaú 38828-0, Ouribank 2950386 e Banco do Brasil 77906-7.</div>
+<div class="foot">Decisões, regras e backups diários ficam salvos na base central (Supabase) — qualquer pessoa com acesso ao painel vê as mesmas informações. Prova real por mês: saldo inicial + entradas − saídas = saldo final do extrato. Realizado consolidado de 6 contas: Bradesco 38379-1, CEF 2215-1, CEF 2246-1, Itaú 38828-0, Ouribank 2950386 e Banco do Brasil 77906-7.</div>
 </div>
 <datalist id="dl-lines"></datalist>
 <datalist id="dl-bulk-areas"></datalist>
@@ -4520,7 +4520,7 @@ function applyBulk(ids,saveRule){
   if(!tgt){alert('Escolha uma área, um grupo e, quando aplicável, a linha do orçamento.');return;}
   if(areaHasLines(tgt.a)&&tgt.l==null){alert('Para este departamento é obrigatório escolher grupo e LINHA do orçamento antes de aplicar a realocação.');return;}
   if(!ids.length){alert('Nenhum lançamento encontrado para realocar.');return;}
-  const msg=`Realocar ${ids.length} lançamento${ids.length>1?'s':''} para:\n\n${tgt.label}\n\nEssa decisão ficará salva neste navegador e substituirá a classificação atual desses lançamentos.`;
+  const msg=`Realocar ${ids.length} lançamento${ids.length>1?'s':''} para:\n\n${tgt.label}\n\nEssa decisão vai para a base central (Supabase) e substituirá a classificação atual desses lançamentos para todo mundo que usa o painel.`;
   if(!confirm(msg))return;
   ids.forEach(id=>{
     const t=txById(id); if(!t)return;
@@ -5932,7 +5932,7 @@ function exportPublishSnapshot(){
 async function importFullBackup(file){try{const data=JSON.parse(await file.text());if(!data||!data.localStorage)throw new Error('Arquivo inválido');if(!confirm('Restaurar este backup substituirá os dados salvos neste navegador. Continuar?'))return;Object.keys(data.localStorage).forEach(k=>store.setItem(k,data.localStorage[k]));alert('Backup restaurado. O sistema será recarregado.');location.reload();}catch(e){alert('Não foi possível restaurar o backup: '+e.message);}}
 setTimeout(()=>{const ex=document.getElementById('btn-backup-export'),im=document.getElementById('btn-backup-import'),fi=document.getElementById('backup-file'),db=document.getElementById('btn-backup-db');if(ex)ex.onclick=exportFullBackup;if(im)im.onclick=()=>fi.click();if(fi)fi.onchange=e=>{if(e.target.files[0])importFullBackup(e.target.files[0]);};if(db)db.onclick=()=>lnbAutoSnapshot('manual').catch(e=>alert('Falha ao gerar backup do banco: '+e.message));},0);
 
-document.getElementById('btn-reset').onclick=()=>{if(confirm('Apagar todas as decisões e regras salvas neste navegador?')){['decisions','favrules'].forEach(k=>store.removeItem('lnb3_'+k));store.removeItem('lnb3_imported');location.reload();}};
+document.getElementById('btn-reset').onclick=()=>{if(confirm('Isso limpa o cache local deste navegador (decisões, regras e importações) e recarrega tudo direto da base central (Supabase). Nada é apagado do sistema para os outros usuários. Continuar?')){['decisions','favrules'].forEach(k=>store.removeItem('lnb3_'+k));store.removeItem('lnb3_imported');location.reload();}};
 setTimeout(()=>{
   const ps=document.getElementById('btn-publish-snapshot');if(ps)ps.onclick=exportPublishSnapshot;
   const es=document.getElementById('btn-end-season');if(es)es.onclick=()=>endSeasonAndReset().catch(e=>alert('Falha ao encerrar temporada: '+e.message));
@@ -6399,7 +6399,7 @@ function saveStructureEdit(){
    const l=DB.lines.find(x=>String(x.id)===k);
    if(l){l.n=n;lineOverrides[k]=Object.assign({},lineOverrides[k],{n});saveLineOverrides();}
  }
- persistStructure();document.getElementById('structure-msg').textContent='Alteração salva neste navegador.';renderStructureEditor();
+ persistStructure();document.getElementById('structure-msg').textContent='Alteração salva na base central (Supabase) — vale para todo mundo que usa o painel.';renderStructureEditor();
 }
 function resetStructureEdit(){
  const type=document.getElementById('structure-type').value,k=document.getElementById('structure-item').value;
