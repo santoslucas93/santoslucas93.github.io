@@ -1999,9 +1999,6 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   <div class="note">Importar novo extrato (.xls/.xlsx no mesmo layout, abas MÊS-ANO, ex.: AGO-2026). A coluna B agora é o ID exato da linha orçamentária (ex.: 1.1, 1.10, 2.3, 5.10). Mantenha essa coluna formatada como texto. Com ID válido, o lançamento cai diretamente no departamento, grupo e linha; sem ID, continua pelo motor de regras existente. Requer internet na primeira importação.</div>
   <input type="file" id="imp" accept=".xls,.xlsx">
   <div id="imp-msg" class="foot"></div>
-  <div class="note" style="margin-top:12px">Composição de pessoal (RH): importe a planilha "COMPOSIÇÃO PESSOAL — TEMPORADA" (abas JANEIRO-2026, FEVEREIRO-2026…). Com ela, o botão <b>ratear entre colaboradores</b> passa a oferecer os valores exatos por verba (Seguro, VR, Porto, Prevent, FGTS…), pessoa a pessoa.</div>
-  <input type="file" id="imp-rh" accept=".xls,.xlsx">
-  <div id="imp-rh-msg" class="foot"></div>
   </div>
 </div>
 
@@ -4417,17 +4414,10 @@ function collabLines(){return splitPool().filter(l=>/recursos humanos/i.test(l.g
 function collabCkAll(id,v){const d=document.getElementById('spd-'+cssid(id));if(d)d.querySelectorAll('.collab-ck').forEach(c=>c.checked=v);}
 function openCollabPicker(id,total){
   const host=document.getElementById('sp-'+cssid(id));if(!host)return;
-  const t=txById(id);const comp=rhComp[t.m];
   const byArea={};collabLines().forEach(l=>{(byArea[l.area]=byArea[l.area]||[]).push(l);});
   const body=Object.keys(byArea).map(a=>`<div style="margin:6px 0 2px;font-weight:600">${esc(AREAS[a]||a)}</div>`+byArea[a].map(l=>`<label style="display:inline-flex;gap:4px;margin:2px 12px 2px 0;font-size:12.5px;align-items:center"><input type="checkbox" class="collab-ck" value="${l.id}" checked>${esc(l.n)}</label>`).join('')).join('');
-  const rhRow=comp?`<div class="row" style="margin-bottom:8px;align-items:center"><span class="desc" style="font-weight:600">Planilha de pessoal (${mlabel(t.m)}):</span>
-    <select id="rhverba-${cssid(id)}"><option value="">escolha a verba…</option>${comp.verbas.map(v=>optHTML(v,v,false)).join('')}</select>
-    <button class="act pri" onclick="applyRhSplit('${id}',${total})">usar valores exatos</button>
-    <span class="desc">preenche pessoa a pessoa com o valor real da coluna</span></div>`
-    :`<div class="note" style="margin-bottom:8px">Dica: importe a planilha <b>COMPOSIÇÃO PESSOAL</b> na aba Exportar para preencher valores exatos por verba em vez de divisão igual.</div>`;
   host.innerHTML=`<div class="split" id="spd-${cssid(id)}">
-    <div class="note" style="margin-bottom:8px">Rateio por colaborador: use os <b>valores exatos</b> da planilha de pessoal (quando importada) ou desmarque quem não participa e divida igualmente. Tudo fica editável antes de salvar.</div>
-    ${rhRow}
+    <div class="note" style="margin-bottom:8px">Rateio por colaborador: valores por pessoa agora entram direto na planilha de Realizado, linha a linha, cada uma com seu próprio ID. Use esta divisão igual só como atalho manual para casos que chegarem sem ID.</div>
     <div style="max-height:260px;overflow:auto;margin-bottom:8px">${body}</div>
     <div class="row"><button class="act" onclick="collabCkAll('${id}',true)">todos</button>
     <button class="act" onclick="collabCkAll('${id}',false)">nenhum</button>
@@ -4435,51 +4425,6 @@ function openCollabPicker(id,total){
     <button class="act" onclick="openSplit('${id}')">voltar</button>
     <button class="act pri" onclick="applyCollabSplit('${id}',${total})">dividir igualmente</button></div>
   </div>`;
-}
-function _lev1(a,b){ // tolerância a 1 erro de digitação
-  if(a===b)return true;
-  const la=a.length,lb=b.length;if(Math.abs(la-lb)>1)return false;
-  let i=0,j=0,dif=0;
-  while(i<la&&j<lb){
-    if(a[i]===b[j]){i++;j++;continue;}
-    if(++dif>1)return false;
-    if(la===lb){i++;j++;}else if(la>lb){i++;}else{j++;}
-  }
-  return dif+(la-i)+(lb-j)<=1;
-}
-function _nomeTokens(s){return norm(s).split(/\s+/).filter(t=>t.length>=3&&!['de','da','do','das','dos','junior','jr'].includes(t));}
-function matchCollabLine(nome,linhas){
-  const exato=linhas.find(l=>norm(l.n)===norm(nome));if(exato)return exato;
-  const ts=_nomeTokens(nome);if(!ts.length)return null;
-  let melhor=null,melhorSc=0,segundo=0;
-  linhas.forEach(l=>{
-    const tl=_nomeTokens(l.n);
-    let sc=0,primeiro=false;
-    ts.forEach((t,i)=>{if(tl.some(x=>_lev1(t,x))){sc++;if(i===0)primeiro=true;}});
-    if(!primeiro)return;
-    if(sc>melhorSc){segundo=melhorSc;melhorSc=sc;melhor=l;}else if(sc>segundo){segundo=sc;}
-  });
-  return (melhorSc>=2&&melhorSc>segundo)?melhor:null;
-}
-function applyRhSplit(id,total){
-  const t=txById(id);const comp=rhComp[t.m];if(!comp)return;
-  const sel=document.getElementById('rhverba-'+cssid(id));const verba=sel?sel.value:'';
-  if(!verba){alert('Escolha a verba (coluna da planilha de pessoal).');return;}
-  const linhas=collabLines();
-  const sp=[];const semLinha=[];let soma=0;
-  Object.entries(comp.dados).forEach(([nome,d])=>{
-    const v=Math.round((Number(d[verba])||0)*100)/100;if(!v)return;
-    const l=matchCollabLine(nome,linhas);
-    if(l){sp.push({a:l.area,g:l.g||'',l:l.id,v:v});soma+=v;}
-    else semLinha.push(nome+' ('+fmt2(v)+')');
-  });
-  if(!sp.length){alert('Nenhum nome da planilha de pessoal corresponde às linhas de RH do orçamento.');return;}
-  soma=Math.round(soma*100)/100;
-  let aviso='';
-  if(semLinha.length)aviso+='Sem linha própria no orçamento (não incluídos): '+semLinha.join(', ')+'.\n\n';
-  if(Math.abs(soma-total)>0.02)aviso+='A soma da verba "'+verba+'" ('+fmt2(soma)+') difere do valor do lançamento ('+fmt2(total)+'). Ajuste os valores antes de salvar.';
-  if(aviso)alert(aviso);
-  _splitDraft={id:id,splits:sp};openSplit(id);
 }
 function applyCollabSplit(id,total){
   const d=document.getElementById('spd-'+cssid(id));if(!d)return;
@@ -6056,16 +6001,15 @@ async function downloadNewSeasonTemplate(){
     '','Como preencher',
     '1. Uma linha por lançamento bancário: Data, Favorecido, Descrição, Documento e Entrada OU Saída (nunca as duas).',
     '2. Coluna "ID" (chave do lançamento): é o identificador único de cada linha do orçamento (departamento + grupo + linha), igual ao mostrado na aba "IDs". O ID sozinho já aloca o lançamento no departamento, grupo e linha corretos — não existem mais colunas de Departamento/Grupo/Linha para preencher à mão.',
-    '3. Se deixar o ID em branco (ou digitar um ID que não existe), o sistema tenta classificar sozinho na importação e o lançamento fica pendente para revisão na Conciliação: regra por favorecido, prestadores de RH, regra soberana da LDB, rateio por colaborador e palavra-chave.',
-    '4. Rateio por colaborador (RH): não divida manualmente. Lance o valor total pago em UMA linha (ex.: fatura do plano de saúde, contribuição sindical), com o Favorecido correto, e deixe o ID em branco — o rateio entre colaboradores e departamentos é automático na importação, desde que a Composição de Pessoal da temporada já tenha sido importada no sistema (painel logo abaixo do botão de importar extrato).',
-    '5. Pagamento único que na verdade é a soma de vários lançamentos menores (ex.: fatura de cartão de crédito, pagamento total de Ranking, guia de impostos federais): não existe mais divisão por marcador de Composição — lance cada parte em sua própria linha, com o ID correto de cada uma. Ex.: fatura de R$ 5.000 com 5 despesas de R$ 1.000 vira 5 linhas na planilha, cada uma com Data, Favorecido, Valor e ID próprios.',
-    '6. Coluna "Abatimento (Sim/Não)": marque "Sim" quando o lançamento for estorno, ressarcimento ou devolução que deve REDUZIR o total já lançado de uma linha, em vez de entrar como receita nova. O valor entra com sinal negativo na linha indicada pelo ID.',
-    '7. Coluna "Tipo de reembolso" (opcional): quando o lançamento for reembolso de funcionário, identifique a categoria (Refeição, Pedágio, Transporte, Combustível, Estacionamento) para aparecer separado nos relatórios por tipo de reembolso. Se não preencher, o sistema tenta identificar sozinho pela descrição; o que não for identificado fica agrupado em "Reembolso de funcionários" (geral).',
-    '8. Competição (opcional): preencha se souber (NBB, LDB, Liga Ouro, NBB Trio, Jogo das Estrelas, Copa Super 8, Interligas). Quando informar LDB, receitas de taxa de inscrição entram em Receitas › Taxas de Inscrição LDB e despesas abatem esse crédito do clube automaticamente. Quando fica em branco, o lançamento entra como "LNB" — despesa/receita geral de escritório, comum a todos os departamentos.',
-    '9. Temporada (opcional): preencha se a despesa/receita for de uma temporada diferente da atual (ex: uma conta atrasada da 2025/2026). Se ficar em branco, entra na temporada atual.',
-    '10. Pode reimportar a mesma planilha quantas vezes precisar, acrescentando linhas novas: lançamentos já importados (mesma data, favorecido, entrada e saída) não duplicam — por isso importações semanais são cumulativas e formam o acumulado mensal/trimestral/anual automaticamente, sem precisar refazer nada.',
-    '11. Datas podem ser digitadas como AAAA-MM-DD ou DD/MM/AAAA.',
-    '12. A estrutura de IDs (criar, renomear ou excluir departamento/grupo/linha, e reordenar os IDs) é totalmente editável na aba "Estrutura" do sistema, sem mexer em código — a aba "IDs" desta planilha é sempre gerada com a estrutura mais atual no momento do download.'
+    '3. Se deixar o ID em branco (ou digitar um ID que não existe), o sistema tenta classificar sozinho na importação e o lançamento fica pendente para revisão na Conciliação: regra por favorecido, prestadores de RH, regra soberana da LDB e palavra-chave.',
+    '4. Pagamento único que na verdade é a soma de vários lançamentos menores (ex.: fatura de cartão de crédito, folha de pagamento/benefícios rateados entre colaboradores, pagamento total de Ranking, guia de impostos federais): lance cada parte em sua própria linha, com o ID correto de cada uma — não existe mais divisão por marcador de Composição nem importação separada de planilha de pessoal. Ex.: fatura de R$ 5.000 com 5 despesas de R$ 1.000 vira 5 linhas na planilha, cada uma com Data, Favorecido, Valor e ID próprios.',
+    '5. Coluna "Abatimento (Sim/Não)": marque "Sim" quando o lançamento for estorno, ressarcimento ou devolução que deve REDUZIR o total já lançado de uma linha, em vez de entrar como receita nova. O valor entra com sinal negativo na linha indicada pelo ID.',
+    '6. Coluna "Tipo de reembolso" (opcional): quando o lançamento for reembolso de funcionário, identifique a categoria (Refeição, Pedágio, Transporte, Combustível, Estacionamento) para aparecer separado nos relatórios por tipo de reembolso. Se não preencher, o sistema tenta identificar sozinho pela descrição; o que não for identificado fica agrupado em "Reembolso de funcionários" (geral).',
+    '7. Competição (opcional): preencha se souber (NBB, LDB, Liga Ouro, NBB Trio, Jogo das Estrelas, Copa Super 8, Interligas). Quando informar LDB, receitas de taxa de inscrição entram em Receitas › Taxas de Inscrição LDB e despesas abatem esse crédito do clube automaticamente. Quando fica em branco, o lançamento entra como "LNB" — despesa/receita geral de escritório, comum a todos os departamentos.',
+    '8. Temporada (opcional): preencha se a despesa/receita for de uma temporada diferente da atual (ex: uma conta atrasada da 2025/2026). Se ficar em branco, entra na temporada atual.',
+    '9. Pode reimportar a mesma planilha quantas vezes precisar, acrescentando linhas novas: lançamentos já importados (mesma data, favorecido, entrada e saída) não duplicam — por isso importações semanais são cumulativas e formam o acumulado mensal/trimestral/anual automaticamente, sem precisar refazer nada.',
+    '10. Datas podem ser digitadas como AAAA-MM-DD ou DD/MM/AAAA.',
+    '11. A estrutura de IDs (criar, renomear ou excluir departamento/grupo/linha, e reordenar os IDs) é totalmente editável na aba "Estrutura" do sistema, sem mexer em código — a aba "IDs" desta planilha é sempre gerada com a estrutura mais atual no momento do download.'
   ].forEach((t,i)=>{const rr=wsCapa.addRow([t]);rr.getCell(1).font=i===1?{bold:true,size:12,color:{argb:XLC.navy}}:{size:10.5,color:{argb:XLC.ink}};});
   wsCapa.getColumn(1).width=112;
   const nCols=11;
@@ -6385,54 +6329,6 @@ document.getElementById('imp').addEventListener('change',async ev=>{
     msg.textContent=added?added+' lançamentos importados. '+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto (ex.: 1.10). ':'')+'Recarregando…':'Nenhum mês novo encontrado.';
     if(added)setTimeout(()=>location.reload(),900);
   }catch(err){msg.textContent='Falha ao ler o arquivo: '+err.message;}
-});
-let rhComp=JSON.parse(store.getItem('lnb3_rhcomp')||'{}');
-const RH_MESES={janeiro:'01',fevereiro:'02',marco:'03',abril:'04',maio:'05',junho:'06',julho:'07',agosto:'08',setembro:'09',outubro:'10',novembro:'11',dezembro:'12'};
-function parseRhWorkbook(wb){
-  const novo={};const pessoas=new Set();
-  wb.SheetNames.forEach(sn=>{
-    const key=norm(sn).replace(/[^a-z0-9]/g,'');
-    const mo=key.match(/^([a-z]+)(\d{4})$/);
-    if(!mo||!RH_MESES[mo[1]])return;
-    const mm=mo[2]+'-'+RH_MESES[mo[1]];
-    const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1});
-    const hdr=rows[1]||[];const verbas={};
-    for(let c=3;c<hdr.length;c++){
-      const nome=String(hdr[c]||'').trim();
-      if(!nome)break;                                  // fim do bloco de verbas
-      if(/^total/.test(norm(nome))||/^pagamento/.test(norm(nome)))break; // TOTAL e memória de cálculo ficam fora
-      verbas[c]=nome;
-    }
-    if(!Object.keys(verbas).length)return;
-    const dados={};let comecou=false;
-    for(let r=2;r<rows.length;r++){
-      const linha=rows[r]||[];const nomeP=String(linha[0]||'').trim();
-      if(!nomeP){if(comecou)break;continue;}           // primeira linha vazia após os colaboradores encerra o bloco
-      if(/^total/i.test(nomeP))continue;
-      comecou=true;
-      const reg={regime:String(linha[1]||'').trim(),dp:String(linha[2]||'').trim()};
-      let temValor=false;
-      Object.entries(verbas).forEach(([c,v])=>{const val=Math.round((Number(linha[c])||0)*100)/100;reg[v]=val;if(val)temValor=true;});
-      dados[nomeP]=reg;if(temValor)pessoas.add(nomeP);
-    }
-    if(Object.keys(dados).length)novo[mm]={verbas:Object.values(verbas),dados};
-  });
-  return {novo,pessoas:pessoas.size};
-}
-const impRhEl=document.getElementById('imp-rh');
-if(impRhEl)impRhEl.addEventListener('change',async ev=>{
-  const f=ev.target.files[0];if(!f)return;
-  const msg=document.getElementById('imp-rh-msg');msg.textContent='Lendo…';
-  try{
-    if(!window.XLSX){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
-    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
-    const {novo,pessoas}=parseRhWorkbook(wb);
-    const meses=Object.keys(novo).sort();
-    if(!meses.length){msg.textContent='Nenhuma aba de mês reconhecida (esperado: JANEIRO-2026, FEVEREIRO-2026…).';return;}
-    meses.forEach(m=>rhComp[m]=novo[m]);
-    store.setItem('lnb3_rhcomp',JSON.stringify(rhComp));
-    msg.textContent='Composição importada: '+meses.map(mlabel).join(', ')+' · '+pessoas+' pessoas. O rateio por colaborador agora oferece valores exatos por verba.';
-  }catch(err){msg.textContent='Falha ao ler: '+err.message;}
 });
 document.getElementById('dl-lines').innerHTML=splitPool().map(l=>`<option value="#${l.id} ${esc(l.area)} · ${esc(l.g)} · ${esc(l.n.slice(0,45))}"></option>`).join('');
 
