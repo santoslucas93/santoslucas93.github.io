@@ -1502,7 +1502,8 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 <div id="lnb-auth-overlay" style="position:fixed;inset:0;background:#0b1220;color:#fff;z-index:99999;display:flex;align-items:center;justify-content:center;font-family:inherit;">
   <div style="background:#111827;padding:32px 28px;border-radius:12px;max-width:360px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.5)">
     <h2 style="margin:0 0 6px;font-size:20px;">Painel LNB — Acesso restrito</h2>
-    <div style="opacity:.7;font-size:13px;margin-bottom:18px;">Digite a senha para continuar.</div>
+    <div style="opacity:.7;font-size:13px;margin-bottom:18px;">Entre com seu e-mail e senha individual. Sem login pessoal ainda? Deixe o e-mail em branco e use a senha da equipe.</div>
+    <input id="lnb-auth-email" type="email" placeholder="E-mail (deixe em branco para usar a senha da equipe)" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #374151;background:#0b1220;color:#fff;font-size:15px;box-sizing:border-box;margin-bottom:10px;" autocomplete="username">
     <input id="lnb-auth-pass" type="password" placeholder="Senha" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #374151;background:#0b1220;color:#fff;font-size:15px;box-sizing:border-box;" autocomplete="current-password">
     <div id="lnb-auth-err" style="color:#f87171;font-size:13px;margin-top:8px;min-height:16px;"></div>
     <button id="lnb-auth-btn" type="button" style="margin-top:14px;width:100%;padding:10px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:15px;cursor:pointer;">Entrar</button>
@@ -1749,10 +1750,12 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <button class="act pri" type="button" onclick="saveStructureEdit()">Salvar alteração</button>
       <button class="act" type="button" onclick="resetStructureEdit()">Restaurar nome original</button>
       <button class="act" type="button" onclick="exportStructureConfig()">Exportar configuração</button>
+      <span id="structure-deactivate-wrap" style="display:none"><button class="act" type="button" id="structure-deactivate-btn" onclick="deactivateSelectedStructureLine()">Desativar</button></span>
       <span id="structure-delete-wrap" style="display:none"><button class="act danger" type="button" onclick="deleteSelectedStructureLine()">Excluir esta linha</button></span>
       <button class="act" type="button" onclick="downloadIdMap()">Baixar mapa de IDs (CSV)</button>
     </div>
     <div id="structure-msg" class="desc"></div>
+    <div id="structure-history" class="desc" style="margin-top:10px;"></div>
   </div>
   <div class="panel">
     <h2>Nova linha do orçamento (ID)</h2>
@@ -1776,6 +1779,17 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     </div>
   </div>
   <div class="panel"><h2>Estrutura atual</h2><div id="structure-preview"></div></div>
+  <div class="panel">
+    <h2>Lixeira (linhas excluídas)</h2>
+    <div class="note">Linhas criadas por aqui que foram excluídas. Pode restaurar enquanto o ID ainda não foi reutilizado.</div>
+    <div id="trash-list" class="desc">Carregando…</div>
+  </div>
+  <div class="panel">
+    <h2>Histórico de alterações</h2>
+    <div class="note">Últimas alterações registradas automaticamente (criação, edição e exclusão de linhas do orçamento).</div>
+    <div class="toolbar"><button class="act" type="button" onclick="loadAuditHistory()">Atualizar histórico</button></div>
+    <div id="audit-history-list" class="desc">Clique em "Atualizar histórico" para carregar.</div>
+  </div>
 </div>
 
 <div id="v-rules" class="hide">
@@ -2094,12 +2108,51 @@ async function lnbTryLogin(email, password){
   return {access_token:j.access_token, refresh_token:j.refresh_token, expires_at: Date.now()+((j.expires_in||3600)*1000)};
 }
 
-async function lnbLoginWithPassword(password){
-  let role='admin';
-  let sess = await lnbTryLogin(AUTH_ADMIN_EMAIL, password);
-  if(!sess){ sess = await lnbTryLogin(AUTH_READONLY_EMAIL, password); role='readonly'; }
-  if(!sess) return false;
-  sess.role = role;
+async function lnbFetchAuthUser(token){
+  try{
+    const r = await fetch(SUPABASE_URL+'/auth/v1/user', {headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+token}});
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
+}
+async function lnbFetchProfile(uid){
+  try{
+    const r = await fetch(SUPABASE_URL+'/rest/v1/profiles?id=eq.'+uid+'&select=nome,role', {headers: supaHeaders()});
+    if(!r.ok) return null;
+    const arr = await r.json();
+    return arr[0]||null;
+  }catch(e){ return null; }
+}
+function lnbRoleToLegacy(dbRole){
+  return (dbRole==='administrador'||dbRole==='gestor'||dbRole==='editor') ? 'admin' : 'readonly';
+}
+async function lnbAttachProfile(sess){
+  try{
+    const user = await lnbFetchAuthUser(sess.access_token);
+    if(user && user.id){
+      sess.uid = user.id;
+      sess.email = user.email;
+      const prof = await lnbFetchProfile(user.id);
+      if(prof){ sess.nome = prof.nome; sess.dbRole = prof.role; sess.role = lnbRoleToLegacy(prof.role); }
+    }
+  }catch(e){ console.error('lnbAttachProfile falhou:', e); }
+  return sess;
+}
+async function lnbLoginWithPassword(email, password){
+  email = (email||'').trim();
+  let sess = null;
+  if(email){
+    sess = await lnbTryLogin(email, password);
+    if(!sess) return false;
+    sess.role = 'readonly';
+    await lnbAttachProfile(sess);
+  } else {
+    let role='admin';
+    sess = await lnbTryLogin(AUTH_ADMIN_EMAIL, password);
+    if(!sess){ sess = await lnbTryLogin(AUTH_READONLY_EMAIL, password); role='readonly'; }
+    if(!sess) return false;
+    sess.role = role;
+  }
   AUTH_SESSION = sess;
   lnbSaveSession();
   return true;
@@ -2131,7 +2184,10 @@ function lnbShowAuthBadge(){
     b.id='lnb-auth-badge';
     b.style.cssText='position:fixed;bottom:10px;left:10px;z-index:99998;background:#111827;color:#fff;padding:8px 12px;border-radius:20px;font-size:12px;display:flex;gap:10px;align-items:center;box-shadow:0 2px 10px rgba(0,0,0,.3);font-family:inherit;';
     const role = AUTH_SESSION ? AUTH_SESSION.role : null;
-    b.innerHTML = '<span>'+(role==='admin'?'\uD83D\uDD11 Admin':'\uD83D\uDC41 Leitura')+'</span><a href="#" id="lnb-logout-link" style="color:#93c5fd;text-decoration:none;">Sair</a>';
+    const label = AUTH_SESSION && AUTH_SESSION.nome
+      ? (AUTH_SESSION.nome+' · '+(AUTH_SESSION.dbRole||(role==='admin'?'admin':'leitura')))
+      : (role==='admin'?'\uD83D\uDD11 Admin':'\uD83D\uDC41 Leitura');
+    b.innerHTML = '<span>'+label+'</span><a href="#" id="lnb-logout-link" style="color:#93c5fd;text-decoration:none;">Sair</a>';
     document.body.appendChild(b);
     document.getElementById('lnb-logout-link').onclick=function(ev){ ev.preventDefault(); lnbClearSession(); location.reload(); };
   }catch(e){ console.error('lnbShowAuthBadge falhou:', e); }
@@ -2167,21 +2223,24 @@ function lnbAuthGate(onReady){
     lnbShowOverlay('');
     const btn = document.getElementById('lnb-auth-btn');
     const input = document.getElementById('lnb-auth-pass');
+    const emailInput = document.getElementById('lnb-auth-email');
     if(btn && input){
       const doLogin = async function(){
         btn.disabled = true;
         btn.textContent = 'Entrando...';
         const pass = input.value;
+        const email = emailInput ? emailInput.value : '';
         let ok=false;
-        try{ ok = await lnbLoginWithPassword(pass); }catch(e){ ok=false; }
+        try{ ok = await lnbLoginWithPassword(email, pass); }catch(e){ ok=false; }
         btn.disabled=false;
         btn.textContent='Entrar';
         if(ok){ proceed(); }
-        else { lnbShowOverlay('Senha incorreta. Tente novamente.'); input.value=''; input.focus(); }
+        else { lnbShowOverlay('E-mail ou senha incorretos. Tente novamente.'); input.value=''; input.focus(); }
       };
       btn.onclick = doLogin;
       input.onkeydown = function(ev){ if(ev.key==='Enter') doLogin(); };
-      input.focus();
+      if(emailInput) emailInput.onkeydown = function(ev){ if(ev.key==='Enter') input.focus(); };
+      (emailInput||input).focus();
     }
   };
   afterSessionCheck();
@@ -2295,7 +2354,7 @@ async function pushStructureOverridesToSupabase(){
 }
 async function pushCustomLinesToSupabase(){
   try{
-    const rows=customLines.map(x=>({id:String(x.id),area:x.area,g:x.g||'',n:x.n,created_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido'}));
+    const rows=customLines.map(x=>({id:String(x.id),area:x.area,g:x.g||'',n:x.n,status:x.status||'ativa',created_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido'}));
     if(rows.length)await supaUpsert('custom_lines',rows,'id');
     const ids=customLines.map(x=>String(x.id));
     const filter=ids.length?`id=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'id=not.is.null';
@@ -2304,8 +2363,14 @@ async function pushCustomLinesToSupabase(){
 }
 async function pushDeletedLinesToSupabase(){
   try{
-    const rows=deletedLineIds.map(id=>({id:String(id),deleted_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido'}));
+    const rows=deletedLineIds.map(id=>{
+      const m=trashMeta[String(id)]||{};
+      return {id:String(id),deleted_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',area:m.area||null,g:m.g||null,n:m.n||null};
+    });
     if(rows.length)await supaUpsert('deleted_lines',rows,'id');
+    const ids=deletedLineIds.map(String);
+    const filter=ids.length?`id=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'id=not.is.null';
+    await supaDelete('deleted_lines',filter);
   }catch(e){ console.error('pushDeletedLinesToSupabase falhou:',e); }
 }
 async function pushClubDebitsToSupabase(){
@@ -2352,12 +2417,15 @@ async function loadSharedStateFromSupabase(){
       store.setItem('lnb3_group_overrides_v56',JSON.stringify(groupOverrides));
     }
     if(Array.isArray(custLineRows)&&custLineRows.length){
-      customLines=custLineRows.map(r=>({id:r.id,area:r.area,g:r.g,n:r.n}));
+      customLines=custLineRows.map(r=>({id:r.id,area:r.area,g:r.g,n:r.n,status:r.status||'ativa'}));
       store.setItem('lnb3_custom_lines_v56',JSON.stringify(customLines));
     }
     if(Array.isArray(delLineRows)&&delLineRows.length){
       deletedLineIds=delLineRows.map(r=>r.id);
       store.setItem('lnb3_deleted_lines_v56',JSON.stringify(deletedLineIds));
+      trashMeta={};
+      delLineRows.forEach(r=>{trashMeta[String(r.id)]={area:r.area,g:r.g,n:r.n,deleted_by:r.deleted_by,deleted_at:r.deleted_at};});
+      store.setItem('lnb3_trash_meta_v56',JSON.stringify(trashMeta));
     }
     if(Array.isArray(clubDebitRows)&&clubDebitRows.length){
       clubDebits=clubDebitRows.map(r=>({id:r.id,club:r.club,d:r.descricao,v:Number(r.valor||0),data:r.data}));
@@ -3408,12 +3476,17 @@ let lineOverrides=JSON.parse(store.getItem('lnb3_line_overrides_v56')||'{}');
 let groupOverrides=JSON.parse(store.getItem('lnb3_group_overrides_v56')||'{}');
 let customLines=JSON.parse(store.getItem('lnb3_custom_lines_v56')||'[]');
 let deletedLineIds=JSON.parse(store.getItem('lnb3_deleted_lines_v56')||'[]');
+let trashMeta=JSON.parse(store.getItem('lnb3_trash_meta_v56')||'{}');
 function saveLineOverrides(){store.setItem('lnb3_line_overrides_v56',JSON.stringify(lineOverrides));pushStructureOverridesToSupabase().catch(e=>console.error(e));}
 function saveGroupOverrides(){store.setItem('lnb3_group_overrides_v56',JSON.stringify(groupOverrides));pushStructureOverridesToSupabase().catch(e=>console.error(e));}
 function saveCustomLines(){store.setItem('lnb3_custom_lines_v56',JSON.stringify(customLines));pushCustomLinesToSupabase().catch(e=>console.error(e));}
-function saveDeletedLineIds(){store.setItem('lnb3_deleted_lines_v56',JSON.stringify(deletedLineIds));pushDeletedLinesToSupabase().catch(e=>console.error(e));}
+function saveDeletedLineIds(){
+  store.setItem('lnb3_deleted_lines_v56',JSON.stringify(deletedLineIds));
+  store.setItem('lnb3_trash_meta_v56',JSON.stringify(trashMeta));
+  pushDeletedLinesToSupabase().catch(e=>console.error(e));
+}
 function applyLineOverlay(){
-  customLines.forEach(obj=>{if(!DB.lines.some(l=>String(l.id)===String(obj.id)))DB.lines.push({...obj,_custom:true});});
+  customLines.forEach(obj=>{if(obj.status!=='desativada'&&!DB.lines.some(l=>String(l.id)===String(obj.id)))DB.lines.push({...obj,_custom:true});});
   if(deletedLineIds.length){const del=new Set(deletedLineIds.map(String));DB.lines=DB.lines.filter(l=>!del.has(String(l.id)));}
   Object.keys(groupOverrides).forEach(key=>{
     const sep=key.indexOf('|'),area=key.slice(0,sep),oldG=key.slice(sep+1),newG=groupOverrides[key];
@@ -3423,13 +3496,22 @@ function applyLineOverlay(){
 }
 applyLineOverlay();
 function nextLineId(area){return nextBudgetId(area);}
+function lineHasLinkedRealizado(id){
+  const key=String(id);
+  return Object.values(decisions||{}).some(sp=>Array.isArray(sp)&&sp.some(s=>String(s.l)===key));
+}
 function createStructureLine(area,g,n,idRaw){
   area=String(area||'').trim().toUpperCase();g=String(g||'').trim();n=String(n||'').trim();
   if(!area||!g||!n)return{ok:false,msg:'Preencha departamento, grupo e nome da linha.'};
   const idKey=String(idRaw||nextLineId(area)).trim();
   if(!/^\d+\.\d+$/.test(idKey))return{ok:false,msg:'ID inválido — use o padrão da planilha, por exemplo 2.88 ou 5.60.'};
   if(DB.lines.some(l=>String(l.id)===idKey)||customPlan.some(l=>String(l.id)===idKey)||customLines.some(l=>String(l.id)===idKey))return{ok:false,msg:'Esse ID já está em uso — escolha outro.'};
-  const obj={area,g,n,cod:'',prev:{},id:idKey,_custom:true};
+  if(deletedLineIds.map(String).includes(idKey)){
+    deletedLineIds=deletedLineIds.filter(x=>String(x)!==idKey);
+    delete trashMeta[idKey];
+    saveDeletedLineIds();
+  }
+  const obj={area,g,n,cod:'',prev:{},id:idKey,_custom:true,status:'ativa'};
   customLines.push(obj);saveCustomLines();
   DB.lines.push(obj);
   return{ok:true,id:idKey};
@@ -3437,8 +3519,32 @@ function createStructureLine(area,g,n,idRaw){
 function deleteStructureLine(id){
   const idx=customLines.findIndex(l=>String(l.id)===String(id));
   if(idx<0)return{ok:false,msg:'Só é possível excluir linhas criadas por aqui — linhas originais do orçamento podem ser renomeadas, mas não excluídas (para preservar o histórico).'};
+  if(lineHasLinkedRealizado(id))return{ok:false,msg:'Não é possível excluir: já existem lançamentos classificados nessa linha. Use "Desativar" para escondê-la sem perder o histórico.',blocked:true};
+  const obj=customLines[idx];
   customLines.splice(idx,1);saveCustomLines();
-  if(!deletedLineIds.map(String).includes(String(id))){deletedLineIds.push(id);saveDeletedLineIds();}
+  trashMeta[String(id)]={area:obj.area,g:obj.g,n:obj.n,deleted_at:new Date().toISOString()};
+  if(!deletedLineIds.map(String).includes(String(id))){deletedLineIds.push(id);}
+  saveDeletedLineIds();
+  return{ok:true};
+}
+function toggleDeactivateStructureLine(id){
+  const obj=customLines.find(l=>String(l.id)===String(id));
+  if(!obj)return{ok:false,msg:'Só é possível desativar linhas criadas por aqui.'};
+  obj.status = obj.status==='desativada' ? 'ativa' : 'desativada';
+  saveCustomLines();
+  return{ok:true,status:obj.status};
+}
+function restoreDeletedLine(id){
+  const key=String(id);
+  if(!deletedLineIds.map(String).includes(key))return{ok:false,msg:'Essa linha não está na lixeira.'};
+  if(DB.lines.some(l=>String(l.id)===key)||customPlan.some(l=>String(l.id)===key)||customLines.some(l=>String(l.id)===key))return{ok:false,msg:'Já existe uma linha com esse ID — não é possível restaurar.'};
+  const meta=trashMeta[key]||{};
+  deletedLineIds=deletedLineIds.filter(x=>String(x)!==key);
+  delete trashMeta[key];
+  saveDeletedLineIds();
+  const obj={area:meta.area||'',g:meta.g||'',n:meta.n||('Linha '+key),cod:'',prev:{},id:key,_custom:true,status:'ativa'};
+  customLines.push(obj);saveCustomLines();
+  DB.lines.push(obj);
   return{ok:true};
 }
 
@@ -6413,9 +6519,11 @@ function refreshStructureItems(){
 }
 function loadStructureItem(){
  const type=document.getElementById('structure-type').value,k=document.getElementById('structure-item').value,name=document.getElementById('structure-name');
- const idWrap=document.getElementById('structure-id-wrap'),delWrap=document.getElementById('structure-delete-wrap');
+ const idWrap=document.getElementById('structure-id-wrap'),delWrap=document.getElementById('structure-delete-wrap'),deactWrap=document.getElementById('structure-deactivate-wrap');
  if(idWrap)idWrap.style.display=type==='line'?'flex':'none';
  if(delWrap)delWrap.style.display='none';
+ if(deactWrap)deactWrap.style.display='none';
+ const histEl=document.getElementById('structure-history');if(histEl)histEl.innerHTML='';
  if(type==='area')name.value=areaLabel(k);
  else if(type==='support'){name.value=supportLabel(k);document.getElementById('structure-parent').value=supportParent(k);}
  else if(type==='group')name.value=(k.split('|').slice(1).join('|'));
@@ -6423,8 +6531,31 @@ function loadStructureItem(){
    const l=DB.lines.find(x=>String(x.id)===k);
    name.value=l?.n||'';
    const idEl=document.getElementById('structure-id');if(idEl)idEl.value=l?l.id:'';
-   if(delWrap)delWrap.style.display=(l&&customLines.some(c=>String(c.id)===String(l.id)))?'flex':'none';
+   const custom=customLines.find(c=>String(c.id)===k);
+   if(delWrap)delWrap.style.display=custom?'flex':'none';
+   if(deactWrap){
+     deactWrap.style.display=custom?'flex':'none';
+     const btn=document.getElementById('structure-deactivate-btn');
+     if(btn&&custom)btn.textContent=custom.status==='desativada'?'Reativar':'Desativar';
+   }
+   if(k)loadLineHistory(k);
  }
+}
+async function loadLineHistory(lineId){
+  const el=document.getElementById('structure-history');
+  if(!el)return;
+  el.textContent='Carregando histórico…';
+  try{
+    const rows=await supaSelectFiltered('orcamento_auditoria','tabela=eq.custom_lines&registro_id=eq.'+encodeURIComponent(String(lineId))+'&order=criado_em.desc&limit=10');
+    if(!Array.isArray(rows)||!rows.length){ el.textContent='Sem alterações registradas para esta linha ainda.'; return; }
+    el.innerHTML='<b>Histórico desta linha:</b><br>'+rows.map(r=>{
+      const dt=r.criado_em?new Date(r.criado_em).toLocaleString('pt-BR'):'';
+      const quem=r.usuario_nome||'desconhecido';
+      const acao={criacao:'criada',edicao:'editada',exclusao:'excluída'}[r.acao]||r.acao;
+      const campoTxt=r.campo?(' ('+r.campo+(r.valor_antigo||r.valor_novo?': '+esc(r.valor_antigo||'')+' → '+esc(r.valor_novo||''):'')+')'):'';
+      return esc(dt)+' — '+esc(quem)+' '+esc(acao)+esc(campoTxt);
+    }).join('<br>');
+  }catch(e){ el.textContent='Não foi possível carregar o histórico agora.'; }
 }
 function saveStructureEdit(){
  const type=document.getElementById('structure-type').value,k=document.getElementById('structure-item').value,n=document.getElementById('structure-name').value.trim();if(!k||!n)return;
@@ -6449,14 +6580,70 @@ function resetStructureEdit(){
  else {delete lineOverrides[k];saveLineOverrides();}
  persistStructure();document.getElementById('structure-msg').textContent='Alteração original restaurada (recarregue a página para ver o efeito completo).';
 }
-function deleteSelectedStructureLine(){
+function deactivateSelectedStructureLine(){
  const k=document.getElementById('structure-item').value;if(!k)return;
- if(!confirm('Excluir esta linha do orçamento? Lançamentos já classificados nela deixam de encontrar a linha.'))return;
- const r=deleteStructureLine(k);
+ const r=toggleDeactivateStructureLine(k);
  const msg=document.getElementById('structure-msg');
  if(!r.ok){if(msg)msg.textContent=r.msg;return;}
- if(msg)msg.textContent='Linha excluída. Recarregando…';
- setTimeout(()=>location.reload(),500);
+ if(msg)msg.textContent = r.status==='desativada'
+   ? 'Linha desativada — ela some das listas de classificação, mas os dados e o histórico continuam preservados. Recarregando…'
+   : 'Linha reativada. Recarregando…';
+ setTimeout(()=>location.reload(),600);
+}
+let lnbPendingDelete=null;
+function deleteSelectedStructureLine(){
+ const k=document.getElementById('structure-item').value;if(!k)return;
+ const custom=customLines.find(l=>String(l.id)===String(k));
+ if(!custom){const msg=document.getElementById('structure-msg');if(msg)msg.textContent='Só é possível excluir linhas criadas por aqui — linhas originais do orçamento podem ser renomeadas, mas não excluídas (para preservar o histórico).';return;}
+ if(lineHasLinkedRealizado(k)){
+   const msg=document.getElementById('structure-msg');
+   if(msg)msg.textContent='Não é possível excluir a linha "'+(custom.n||k)+'": já existem lançamentos classificados nela. Use "Desativar" para escondê-la sem perder o histórico.';
+   return;
+ }
+ const nome=custom.n||k;
+ if(!confirm('Excluir a linha "'+nome+'" (ID '+k+') do orçamento?\n\nA linha vai sumir das listas de classificação. Você terá alguns segundos para desfazer logo em seguida, antes que a exclusão seja enviada para a base central.'))return;
+ if(lnbPendingDelete){ clearInterval(lnbPendingDelete.timer); lnbPendingDelete.finish(); }
+ const idx=customLines.findIndex(l=>String(l.id)===String(k));
+ if(idx<0)return;
+ customLines.splice(idx,1);
+ const dlIdx=DB.lines.findIndex(l=>String(l.id)===String(k));
+ if(dlIdx>=0)DB.lines.splice(dlIdx,1);
+ renderStructureEditor();
+ const msg=document.getElementById('structure-msg');
+ let seconds=10;
+ const renderMsg=()=>{ if(msg)msg.innerHTML='Linha "'+esc(nome)+'" excluída. <a href="#" id="lnb-undo-delete" style="color:#2563eb;text-decoration:underline;cursor:pointer;">Desfazer</a> ('+seconds+'s)'; };
+ renderMsg();
+ const finish=function(){
+   if(!lnbPendingDelete||lnbPendingDelete.done)return;
+   lnbPendingDelete.done=true;
+   trashMeta[String(k)]={area:custom.area,g:custom.g,n:custom.n,deleted_at:new Date().toISOString()};
+   if(!deletedLineIds.map(String).includes(String(k)))deletedLineIds.push(k);
+   saveDeletedLineIds();
+   saveCustomLines();
+   if(msg)msg.textContent='Linha excluída definitivamente. Recarregando…';
+   setTimeout(()=>location.reload(),400);
+ };
+ const timer=setInterval(()=>{
+   seconds--;
+   if(seconds<=0){ clearInterval(timer); finish(); return; }
+   renderMsg();
+   const link=document.getElementById('lnb-undo-delete');
+   if(link)link.onclick=undo;
+ },1000);
+ const undo=function(ev){
+   if(ev)ev.preventDefault();
+   if(!lnbPendingDelete||lnbPendingDelete.done)return;
+   lnbPendingDelete.done=true;
+   clearInterval(timer);
+   customLines.splice(idx,0,custom);
+   DB.lines.push(custom);
+   if(msg)msg.textContent='Exclusão desfeita.';
+   renderStructureEditor();
+   refreshStructureItems();
+   lnbPendingDelete=null;
+ };
+ setTimeout(()=>{ const link=document.getElementById('lnb-undo-delete'); if(link)link.onclick=undo; },0);
+ lnbPendingDelete={timer,finish,done:false};
 }
 function createNewStructureLine(){
  const area=document.getElementById('structure-new-area').value;
@@ -6477,6 +6664,42 @@ function renderStructureEditor(){
  document.getElementById('structure-preview').innerHTML=`<div class="structure-tree">${roots.map(a=>{const nested=SUPS.filter(x=>supportParent(x.k)===a).map(x=>`<span class="chip">${esc(supportLabel(x.k))}</span>`).join('');return `<div class="structure-node"><b>${esc(areaLabel(a))}</b>${nested||'<span class="desc">Grupos e linhas do orçamento</span>'}</div>`;}).join('')}<div class="structure-node"><b>Competições</b>${SUPS.filter(x=>supportParent(x.k)==='COMP').map(x=>`<span class="chip">${esc(supportLabel(x.k))}</span>`).join('')}</div></div>`;
  const newAreaEl=document.getElementById('structure-new-area');
  if(newAreaEl&&!newAreaEl.dataset.ready){newAreaEl.dataset.ready='1';newAreaEl.innerHTML=roots.map(a=>`<option value="${esc(a)}">${esc(areaLabel(a))}</option>`).join('');}
+ renderTrashList();
+}
+function renderTrashList(){
+  const el=document.getElementById('trash-list');if(!el)return;
+  if(!deletedLineIds.length){el.textContent='A lixeira está vazia.';return;}
+  el.innerHTML=deletedLineIds.map(id=>{
+    const meta=trashMeta[String(id)]||{};
+    const quando=meta.deleted_at?new Date(meta.deleted_at).toLocaleString('pt-BR'):'';
+    const desc=(meta.n||('ID '+id))+(meta.area?(' · '+(AREAS[meta.area]||meta.area)):'')+(meta.g?(' › '+esc(meta.g)):'');
+    return '<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;gap:10px;">'
+      +'<span>'+esc(desc)+' <span style="opacity:.6;font-size:11px;">('+esc(id)+(quando?(' · excluída em '+esc(quando)):'')+')</span></span>'
+      +'<button class="act" type="button" onclick="restoreSelectedTrashLine(\''+String(id).replace(/'/g,"\\'")+'\')">Restaurar</button>'
+      +'</div>';
+  }).join('');
+}
+function restoreSelectedTrashLine(id){
+  const r=restoreDeletedLine(id);
+  const el=document.getElementById('trash-list');
+  if(!r.ok){ if(el)el.insertAdjacentHTML('afterbegin','<div style="color:#f87171;">'+esc(r.msg)+'</div>'); return; }
+  if(el)el.insertAdjacentHTML('afterbegin','<div>Linha restaurada. Recarregando…</div>');
+  setTimeout(()=>location.reload(),500);
+}
+async function loadAuditHistory(){
+  const el=document.getElementById('audit-history-list');if(!el)return;
+  el.textContent='Carregando…';
+  try{
+    const rows=await supaSelectFiltered('orcamento_auditoria','order=criado_em.desc&limit=50');
+    if(!Array.isArray(rows)||!rows.length){ el.textContent='Nenhuma alteração registrada ainda.'; return; }
+    el.innerHTML=rows.map(r=>{
+      const dt=r.criado_em?new Date(r.criado_em).toLocaleString('pt-BR'):'';
+      const quem=r.usuario_nome||'desconhecido';
+      const acao={criacao:'criou',edicao:'editou',exclusao:'excluiu'}[r.acao]||r.acao;
+      const campoTxt=r.campo?(' — '+r.campo+(r.valor_antigo||r.valor_novo?(': '+esc(r.valor_antigo||'(vazio)')+' → '+esc(r.valor_novo||'(vazio)')):'')):'';
+      return '<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12.5px;">'+esc(dt)+' — <b>'+esc(quem)+'</b> '+esc(acao)+' um registro em '+esc(r.tabela)+' (ID '+esc(r.registro_id)+')'+esc(campoTxt)+'</div>';
+    }).join('');
+  }catch(e){ el.textContent='Não foi possível carregar o histórico agora.'; }
 }
 function downloadIdMap(){
   const rows=idReferenceRows();
