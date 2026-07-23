@@ -2248,8 +2248,8 @@ async function pushCustomPlanToSupabase(){
     const rows=customPlan.map(customPlanToRow);
     if(rows.length)await supaUpsert('custom_plan',rows,'id');
     const ids=customPlan.map(x=>String(x.id));
-    const filter=ids.length?`id=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'';
-    if(filter)await supaDelete('custom_plan',filter);
+    const filter=ids.length?`id=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'id=not.is.null';
+    await supaDelete('custom_plan',filter);
   }catch(e){ console.error('pushCustomPlanToSupabase falhou (alteração ficou salva só neste navegador por enquanto):',e); }
 }
 async function pushDecisionsToSupabase(changedIds){
@@ -2285,8 +2285,8 @@ async function pushCustomLinesToSupabase(){
     const rows=customLines.map(x=>({id:String(x.id),area:x.area,g:x.g||'',n:x.n,created_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido'}));
     if(rows.length)await supaUpsert('custom_lines',rows,'id');
     const ids=customLines.map(x=>String(x.id));
-    const filter=ids.length?`id=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'';
-    if(filter)await supaDelete('custom_lines',filter);
+    const filter=ids.length?`id=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'id=not.is.null';
+    await supaDelete('custom_lines',filter);
   }catch(e){ console.error('pushCustomLinesToSupabase falhou:',e); }
 }
 async function pushDeletedLinesToSupabase(){
@@ -2300,8 +2300,8 @@ async function pushClubDebitsToSupabase(){
     const rows=clubDebits.map(x=>({id:String(x.id),club:x.club,descricao:x.d||x.descricao||'',valor:Number(x.v||x.valor||0),data:x.data||null,updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',updated_at:new Date().toISOString()}));
     if(rows.length)await supaUpsert('club_debits',rows,'id');
     const ids=clubDebits.map(x=>String(x.id));
-    const filter=ids.length?`id=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'';
-    if(filter)await supaDelete('club_debits',filter);
+    const filter=ids.length?`id=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'id=not.is.null';
+    await supaDelete('club_debits',filter);
   }catch(e){ console.error('pushClubDebitsToSupabase falhou:',e); }
 }
 async function pushPlanMetaToSupabase(key,value){
@@ -2514,8 +2514,8 @@ async function lnbRestoreBackup(){
       const list=items||[];
       if(list.length)await supaUpsert(table,list,idCol);
       const ids=list.map(x=>String(x[idCol]));
-      const filter=ids.length?`${idCol}=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'';
-      if(filter)await supaDelete(table,filter);
+      const filter=ids.length?`${idCol}=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:`${idCol}=not.is.null`;
+      await supaDelete(table,filter);
     };
     await restoreTable('custom_plan','id',snap.custom_plan);
     await restoreTable('tx_decisions','tx_id',snap.tx_decisions);
