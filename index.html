@@ -2229,6 +2229,65 @@ function lnbCurrentTemporada(){
   return m ? m[1] : '';
 }
 
+// ==== Estado compartilhado (Novo Orçado, Conciliação, regras por favorecido) ====
+// Antes ficava só em localStorage (por navegador). Agora Supabase é a fonte de
+// verdade: toda alteração é enviada pra lá, e o boot da página busca o estado
+// mais recente antes do primeiro render, pra qualquer usuário/máquina ver a
+// mesma coisa. localStorage continua sendo escrito como cache local (funciona
+// offline / evita tela em branco se o Supabase estiver fora do ar), mas deixa
+// de ser a fonte de verdade.
+function planRowToCustomPlan(r){
+  return {id:r.id,temporada:r.temporada,area:r.area,areaName:r.area_name,type:r.type,g:r.g,n:r.n,cod:r.cod||'',prev:r.prev||{}};
+}
+function customPlanToRow(x){
+  return {id:x.id,temporada:x.temporada||'',area:x.area,area_name:x.areaName||AREAS[x.area]||x.area,type:x.type||'',g:x.g||'',n:x.n,cod:x.cod||'',prev:x.prev||{},updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',updated_at:new Date().toISOString()};
+}
+async function pushCustomPlanToSupabase(){
+  try{
+    const rows=customPlan.map(customPlanToRow);
+    if(rows.length)await supaUpsert('custom_plan',rows,'id');
+    const ids=customPlan.map(x=>String(x.id));
+    const filter=ids.length?`id=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'';
+    if(filter)await supaDelete('custom_plan',filter);
+  }catch(e){ console.error('pushCustomPlanToSupabase falhou (alteração ficou salva só neste navegador por enquanto):',e); }
+}
+async function pushDecisionsToSupabase(changedIds){
+  try{
+    const ids=changedIds&&changedIds.length?changedIds:Object.keys(decisions);
+    const rows=ids.filter(id=>decisions[id]).map(id=>({tx_id:id,splits:decisions[id],updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',updated_at:new Date().toISOString()}));
+    if(rows.length)await supaUpsert('tx_decisions',rows,'tx_id');
+  }catch(e){ console.error('pushDecisionsToSupabase falhou (classificação ficou salva só neste navegador por enquanto):',e); }
+}
+async function pushFavRulesToSupabase(){
+  try{
+    const rows=Object.keys(favRules).map(k=>({favorecido_norm:k,a:favRules[k].a,g:favRules[k].g||null,l:favRules[k].l==null?null:favRules[k].l,updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',updated_at:new Date().toISOString()}));
+    if(rows.length)await supaUpsert('fav_rules',rows,'favorecido_norm');
+  }catch(e){ console.error('pushFavRulesToSupabase falhou:',e); }
+}
+async function loadSharedStateFromSupabase(){
+  try{
+    const [planRows, decRows, favRows]=await Promise.all([
+      supaSelect('custom_plan'), supaSelect('tx_decisions'), supaSelect('fav_rules')
+    ]);
+    if(Array.isArray(planRows)&&planRows.length){
+      customPlan=planRows.map(planRowToCustomPlan);
+      store.setItem('lnb3_custom_plan_v56',JSON.stringify(customPlan));
+    }
+    if(Array.isArray(decRows)&&decRows.length){
+      const fromSupa={};decRows.forEach(r=>{fromSupa[r.tx_id]=r.splits;});
+      decisions=Object.assign({},decisions,fromSupa);
+      save('decisions',decisions,{skipPush:true});
+    }
+    if(Array.isArray(favRows)&&favRows.length){
+      const fromSupa={};favRows.forEach(r=>{fromSupa[r.favorecido_norm]={a:r.a,g:r.g,l:r.l};});
+      favRules=Object.assign({},favRules,fromSupa);
+      store.setItem('lnb3_favrules',JSON.stringify(favRules));
+    }
+  }catch(e){
+    console.error('loadSharedStateFromSupabase falhou — usando cache local deste navegador:',e);
+  }
+}
+
 async function lnbListTemporadas(){
   try{
     const [real, orc] = await Promise.all([
@@ -2905,7 +2964,12 @@ let store;
 try{ localStorage.setItem('t','1'); localStorage.removeItem('t'); store = localStorage; }
 catch(e){ const mem={}; store={getItem:k=>mem[k]||null,setItem:(k,v)=>mem[k]=v,removeItem:k=>delete mem[k]}; }
 const LS=k=>JSON.parse(store.getItem('lnb3_'+k)||'{}');
-const save=(k,v)=>store.setItem('lnb3_'+k,JSON.stringify(v));
+const save=(k,v,opts)=>{
+  store.setItem('lnb3_'+k,JSON.stringify(v));
+  if(opts&&opts.skipPush)return;
+  if(k==='decisions')pushDecisionsToSupabase(opts&&opts.changedIds).catch(e=>console.error(e));
+  else if(k==='favrules')pushFavRulesToSupabase().catch(e=>console.error(e));
+};
 // Orcado 2026/2027 pre-carregado: replica cada linha do orcado 2025/2026 (mesmo
 // departamento/grupo/linha/valor), so que apontando para os meses da proxima
 // temporada (out/2026 a set/2027). E so um ponto de partida - adicione ou exclua
@@ -3172,7 +3236,7 @@ function renderClubCredit(){
 }
 const budgetMonths=[...new Set(Object.keys(DB.budget||{}))].sort();
 const nextBudgetMonths=(budgetMonths.length?budgetMonths:[]).map(m=>{const y=Number(m.slice(0,4))+1;return y+'-'+m.slice(5);});
-function saveCustomPlan(){store.setItem('lnb3_custom_plan_v56',JSON.stringify(customPlan));}
+function saveCustomPlan(){store.setItem('lnb3_custom_plan_v56',JSON.stringify(customPlan));pushCustomPlanToSupabase().catch(e=>console.error(e));}
 function applyCustomPlan(){
   customPlan.forEach(x=>{
     x.area=String(x.area||'').trim().toUpperCase();
@@ -7041,7 +7105,8 @@ window.addEventListener('resize',()=>{ if(!iaPop.classList.contains('hide'))iaKe
   });
   window.addEventListener('mouseup',()=>{ if(dragging){dragging=false; document.body.style.userSelect='';} });
 })();
-function lnbBootApp(){
+async function lnbBootApp(){
+  try{ await loadSharedStateFromSupabase(); }catch(e){ console.error('loadSharedStateFromSupabase falhou:', e); }
   try{ iaInit(); }catch(e){ console.error('iaInit falhou:', e); }
   try{ render(); }catch(e){ console.error('render falhou:', e); }
   const btnRefreshGsheets=document.getElementById('btn-refresh-gsheets');
