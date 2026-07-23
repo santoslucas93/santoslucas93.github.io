@@ -1926,13 +1926,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 <div id="v-exp" class="hide">
   <div class="panel">
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-    <button class="act pri" id="btn-xlsx-exec">Excel — relatório executivo (direção)</button>
     <button class="act pri" id="btn-xlsx-realizado-premium">Excel — Realizado premium (Home + departamentos + Nível 3)</button>
-    <button class="act pri" id="btn-xlsx-alocados">Excel — alocados e pendentes</button>
-    <button class="act" id="btn-csv-baixas">CSV — baixas classificadas (para BI)</button>
-    <button class="act" id="btn-csv-resumo">CSV — resumo área × mês</button>
-    <button class="act" id="btn-csv-linhas">CSV — realizado por linha do orçamento</button>
-    <button class="act" id="btn-csv-banco">CSV — conciliação bancária mensal</button>
     <button class="act pri" id="btn-backup-db">💾 Backup do banco agora (Supabase)</button>
     <button class="act pri" id="btn-backup-export">Exportar backup completo</button>
     <button class="act" id="btn-backup-import">Restaurar backup</button>
@@ -1983,7 +1977,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <div id="ml-msg" class="foot"></div>
     </div>
     <div class="toolbar" style="margin-top:10px">
-      <button class="act" type="button" id="btn-end-season" style="border-color:var(--er);color:var(--er)">Encerrar temporada e começar nova (arquivo local antigo)</button>
+      <button class="act" type="button" id="btn-end-season" style="border-color:var(--er);color:var(--er)">Encerrar temporada e começar nova</button>
     </div>
   </div>
   <div class="panel admin-only" id="new-budget-panel" style="margin:14px 0">
@@ -4802,32 +4796,6 @@ function renderDash(){const r=realized(curM),despR=DESP.reduce((s,a)=>s+(r.A[a]|
 function dl(name,content){const b=new Blob(["﻿"+content],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();}
 const csvq=x=>'"'+String(x).replace(/"/g,'""')+'"';
 const csvn=x=>String(Math.round(x*100)/100).replace('.',',');
-document.getElementById('btn-csv-baixas').onclick=()=>{
-  let out='mes;data;favorecido;descricao;documento;evento;tags;area;grupo;linha;entrada;saida;valor_alocado;origem;status\n';
-  txs.forEach(t=>{const c=classify(t);const tg=(t.tg||[]).join('|');
-    if(!c.splits){out+=[t.m,t.d,csvq(t.f),csvq(t.ds),csvq(t.dc),t.ev||'',tg,'PENDENTE','','',csvn(t.e),csvn(t.s),'','','pendente'].join(';')+'\n';return;}
-    c.splits.forEach(s=>{out+=[t.m,t.d,csvq(t.f),csvq(t.ds),csvq(t.dc),t.ev||'',tg,s.a,csvq(s.g||''),csvq(s.l!=null?lineName(s.l):''),csvn(t.e),csvn(t.s),csvn(s.v),c.how||'',c.st==='conf'?'confirmado':'automatico'].join(';')+'\n';});});
-  dl('baixas_classificadas.csv',out);
-};
-document.getElementById('btn-csv-resumo').onclick=()=>{
-  let out='area;mes;orcado;realizado_extrato;executado_planilha\n';
-  months.forEach(m=>{const r=realized(m);
-    Object.keys(AREAS).filter(a=>a!=='TRF').forEach(a=>{const b=(DB.budget[m]||{})[a]||{};
-      out+=[a,m,csvn(b.p||0),csvn(r.A[a]||0),csvn(b.x||0)].join(';')+'\n';});});
-  dl('resumo_orcado_x_realizado.csv',out);
-};
-document.getElementById('btn-csv-linhas').onclick=()=>{
-  let out='area;grupo;linha;mes;orcado;realizado\n';
-  months.forEach(m=>{const r=realized(m);
-    DB.lines.forEach(l=>{const p=l.prev[m]||0,rr=r.L[l.id]||0;
-      if(p||rr)out+=[l.area,csvq(l.g),csvq(l.n),m,csvn(p),csvn(rr)].join(';')+'\n';});});
-  dl('realizado_por_linha.csv',out);
-};
-document.getElementById('btn-csv-banco').onclick=()=>{
-  let out='banco;mes;saldo_inicial;entradas;saidas;saldo_calculado;saldo_final_extrato;diferenca;status;alertas_possivel_inversao\n';
-  bankList().forEach(b=>{bankProofRows(b.k).forEach(r=>{out+=[csvq(b.n),r.m,csvn(r.ini),csvn(r.entradas),csvn(r.saidas),csvn(r.calc),r.fim==null?'':csvn(r.fim),r.fim==null?'':csvn(r.dif),r.ok?'confere':'divergente',r.susp].join(';')+'\n';});});
-  dl('conciliacao_bancaria_mensal.csv',out);
-};
 
 
 
@@ -5449,113 +5417,6 @@ function xlDataRow(ws,vals,opts){
     if(isFinite(v)&&v>100)c.font=Object.assign({},c.font,{color:{argb:XLC.red},bold:true});});
   return r;
 }
-async function buildExecWorkbook(){
-  const wb=new ExcelJS.Workbook();wb.creator='LNB — Orçado x Realizado';wb.created=new Date();
-  const meses=months.slice();const R={};meses.forEach(m=>R[m]=realized(m));
-  const per='Temporada 2026/2027 · Extrato: '+mlabel(meses[0])+' a '+mlabel(meses[meses.length-1])+' · Gerado em '+new Date().toLocaleDateString('pt-BR');
-  const r2x=v=>Math.round(v*100)/100;
-  // ============ 1. RESUMO EXECUTIVO ============
-  {
-    const nCols=2+2*meses.length+4;
-    const ws=wb.addWorksheet('Resumo Executivo',{views:[{state:'frozen',xSplit:2,ySplit:4}]});
-    xlBand(ws,'LIGA NACIONAL DE BASQUETE — RESUMO EXECUTIVO',per,nCols);
-    const head=['Departamento','Responsável'];meses.forEach(m=>head.push(mlabel(m)+' Orç',mlabel(m)+' Real'));
-    head.push('Total Orçado','Total Realizado','Diferença','% Exec');
-    xlHeader(ws,4,head,3);
-    const pctCol=nCols, numFrom=3;
-    const linhaArea=a=>{const row=[AREAS[a]||a,(typeof RESP!=='undefined'&&RESP[a])||''];let tp=0,tr=0;
-      meses.forEach(m=>{const p=budP(m,a)||0,r=r2x(R[m].A[a]||0);tp+=p;tr+=r;row.push(r2x(p),r);});
-      row.push(r2x(tp),r2x(tr),r2x(tr-tp),tp>0?Math.round(tr/tp*1000)/10:'');
-      return {row,tp:r2x(tp),tr:r2x(tr)};};
-    let sTP=0,sTR=0;
-    DESP.forEach((a,i)=>{const x=linhaArea(a);sTP+=x.tp;sTR+=x.tr;
-      xlDataRow(ws,x.row,{zebra:i%2===1,numFrom,pctCols:[pctCol],pctRed:true});});
-    const totD=['TOTAL DESPESAS',''];meses.forEach(m=>{let p=0,r=0;DESP.forEach(a=>{p+=budP(m,a)||0;r+=R[m].A[a]||0;});totD.push(r2x(p),r2x(r));});
-    totD.push(r2x(sTP),r2x(sTR),r2x(sTR-sTP),sTP>0?Math.round(sTR/sTP*1000)/10:'');
-    xlDataRow(ws,totD,{bold:true,fill:XLC.navy2,fontColor:XLC.white,numFrom,pctCols:[pctCol]});
-    ws.addRow([]);
-    let rTP=0,rTR=0;
-    ['REC','OREC'].forEach((a,i)=>{const x=linhaArea(a);rTP+=x.tp;rTR+=x.tr;
-      xlDataRow(ws,x.row,{zebra:i%2===1,numFrom,pctCols:[pctCol]});});
-    const totR=['TOTAL RECEITAS',''];meses.forEach(m=>{let p=0,r=0;['REC','OREC'].forEach(a=>{p+=budP(m,a)||0;r+=R[m].A[a]||0;});totR.push(r2x(p),r2x(r));});
-    totR.push(r2x(rTP),r2x(rTR),r2x(rTR-rTP),rTP>0?Math.round(rTR/rTP*1000)/10:'');
-    xlDataRow(ws,totR,{bold:true,fill:XLC.navy2,fontColor:XLC.white,numFrom,pctCols:[pctCol]});
-    ws.addRow([]);
-    const res=['RESULTADO (Receitas − Despesas)',''];meses.forEach(m=>{let p=0,r=0;
-      ['REC','OREC'].forEach(a=>{p+=budP(m,a)||0;r+=R[m].A[a]||0;});
-      DESP.forEach(a=>{p-=budP(m,a)||0;r-=R[m].A[a]||0;});res.push(r2x(p),r2x(r));});
-    res.push(r2x(rTP-sTP),r2x(rTR-sTR),'','');
-    const rr=xlDataRow(ws,res,{bold:true,fill:XLC.yellow,fontColor:XLC.navy,numFrom});
-    ws.getColumn(1).width=34;ws.getColumn(2).width=13;
-    for(let c=3;c<nCols-3;c++)ws.getColumn(c).width=12.5;
-    [nCols-3,nCols-2,nCols-1].forEach(c=>ws.getColumn(c).width=15);ws.getColumn(nCols).width=8.5;
-  }
-  // ============ 2. CUSTO POR COLABORADOR ============
-  {
-    const nCols=2+meses.length+2;
-    const ws=wb.addWorksheet('Custo por Colaborador',{views:[{state:'frozen',xSplit:1,ySplit:4}]});
-    xlBand(ws,'CUSTO POR COLABORADOR — salários e benefícios rateados',per,nCols);
-    const head=['Colaborador','Departamento'];meses.forEach(m=>head.push(mlabel(m)));head.push('Total temporada','Média mensal');
-    xlHeader(ws,4,head,3);
-    let z=0;const totCol=Array(meses.length).fill(0);let totG=0;
-    collabLines().slice().sort((a,b)=>((a.area+a.n).localeCompare(b.area+b.n))).forEach(l=>{
-      const row=[l.n,AREAS[l.area]||l.area];let t=0,nm=0;
-      meses.forEach((m,mi)=>{const v=r2x(R[m].L[l.id]||0);t+=v;if(v)nm++;row.push(v);totCol[mi]+=v;});
-      t=r2x(t);totG+=t;row.push(t,nm?r2x(t/nm):0);
-      if(t)xlDataRow(ws,row,{zebra:(z++)%2===1,numFrom:3});});
-    const tot=['TOTAL',''];totCol.forEach(v=>tot.push(r2x(v)));tot.push(r2x(totG),'');
-    xlDataRow(ws,tot,{bold:true,fill:XLC.navy2,fontColor:XLC.white,numFrom:3});
-    ws.autoFilter={from:{row:4,column:1},to:{row:4,column:2}};
-    ws.getColumn(1).width=36;ws.getColumn(2).width=26;
-    for(let c=3;c<=2+meses.length;c++)ws.getColumn(c).width=12;
-    ws.getColumn(nCols-1).width=15;ws.getColumn(nCols).width=13;
-  }
-  // ============ 3. LINHAS POR DEPARTAMENTO ============
-  {
-    const nCols=6;
-    const ws=wb.addWorksheet('Linhas por Departamento',{views:[{state:'frozen',ySplit:4}]});
-    xlBand(ws,'ORÇADO x REALIZADO POR LINHA DO ORÇAMENTO — temporada',per,nCols);
-    xlHeader(ws,4,['Grupo','Linha','Orçado','Realizado','Diferença','% Exec'],3);
-    DESP.concat(['REC']).forEach(a=>{
-      const lns=DB.lines.filter(l=>l.area===a&&!l._custom);
-      const dados=[];let tp=0,tr=0;
-      lns.forEach(l=>{let p=0,r=0;meses.forEach(m=>{p+=(l.prev||{})[m]||0;r+=R[m].L[l.id]||0;});
-        p=r2x(p);r=r2x(r);if(p||r){dados.push([l.g||'—',l.n,p,r,r2x(r-p),p>0?Math.round(r/p*1000)/10:'']);tp+=p;tr+=r;}});
-      if(!dados.length)return;
-      const hr=ws.addRow([(AREAS[a]||a).toUpperCase()]);
-      ws.mergeCells(hr.number,1,hr.number,nCols);
-      const hc=hr.getCell(1);hc.font={bold:true,size:11,color:{argb:XLC.white}};
-      for(let c=1;c<=nCols;c++)hr.getCell(c).fill={type:'pattern',pattern:'solid',fgColor:{argb:XLC.navy2}};
-      hr.height=20;hc.alignment={vertical:'middle',indent:1};
-      dados.forEach((d,i)=>xlDataRow(ws,d,{zebra:i%2===1,numFrom:3,pctCols:[6],pctRed:a!=='REC'}));
-      xlDataRow(ws,['Total '+(AREAS[a]||a),'',r2x(tp),r2x(tr),r2x(tr-tp),tp>0?Math.round(tr/tp*1000)/10:''],{bold:true,fill:XLC.zebra,numFrom:3,pctCols:[6]});
-    });
-    ws.getColumn(1).width=32;ws.getColumn(2).width=46;
-    [3,4,5].forEach(c=>ws.getColumn(c).width=15);ws.getColumn(6).width=9;
-  }
-  // ============ 4. PENDENTES ============
-  {
-    const pend=alocacaoRows().pend;
-    const nCols=6;
-    const ws=wb.addWorksheet('Pendentes',{views:[{state:'frozen',ySplit:4}]});
-    xlBand(ws,'LANÇAMENTOS PENDENTES DE ALOCAÇÃO — exigem grupo e linha',per,nCols);
-    xlHeader(ws,4,['Mês','Data','Favorecido','Descrição','Entrada','Saída'],5);
-    let te=0,ts=0;
-    pend.forEach((p,i)=>{te+=p.entrada||0;ts+=p.saida||0;
-      xlDataRow(ws,[p.mes_nome||p.mes,p.data,p.favorecido,(p.descricao||'')+(p.documento?' · '+p.documento:''),p.entrada||0,p.saida||0],{zebra:i%2===1,numFrom:5});});
-    if(!pend.length)xlDataRow(ws,['—','—','Nenhum lançamento pendente.','',0,0],{numFrom:5});
-    xlDataRow(ws,['TOTAL','','','',r2x(te),r2x(ts)],{bold:true,fill:XLC.navy2,fontColor:XLC.white,numFrom:5});
-    ws.autoFilter={from:{row:4,column:1},to:{row:4,column:4}};
-    ws.getColumn(1).width=9;ws.getColumn(2).width=12;ws.getColumn(3).width=34;ws.getColumn(4).width=52;
-    [5,6].forEach(c=>ws.getColumn(c).width=14);
-  }
-  return wb;
-}
-const REALIZADO_DEPTS=[
-  {a:'LNB',n:'SUPERINTENDÊNCIA'},{a:'TOP',n:'TÉCNICO OPERACIONAL'},{a:'COM',n:'COMUNICAÇÃO'},
-  {a:'A&F',n:'ADMINISTRATIVO & FINANCEIRO'},{a:'MKT',n:'MARKETING'}
-];
-const RECEITA_GRUPOS_PADRAO=['Patrocinadores','Receitas de Outras Competições','Outras Receitas','Permuta','Fundo de Reservas','Crédito dos Clubes em Poder da LNB'];
 function r2(v){return Math.round((Number(v)||0)*100)/100;}
 function seasonWeeks(){
   const out=[];
@@ -5811,16 +5672,6 @@ async function buildRealizadoWorkbook(){
   SUPS.forEach(sup=>{ if(sup.k!=='FILIADOS') addNivel3Sheet(wb,sup,rows); });
   return wb;
 }
-document.getElementById('btn-xlsx-exec').onclick=async()=>{try{
-  await ensureExcelJS();
-  const wb=await buildExecWorkbook();
-  const buf=await wb.xlsx.writeBuffer();
-  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='LNB_Relatorio_Executivo_'+new Date().toISOString().slice(0,10)+'.xlsx';
-  document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
-}catch(e){alert('Falha ao gerar o relatório: '+e.message);}};
 document.getElementById('btn-xlsx-realizado-premium').onclick=async()=>{try{
   await ensureExcelJS();
   const wb=await buildRealizadoWorkbook();
@@ -5831,7 +5682,6 @@ document.getElementById('btn-xlsx-realizado-premium').onclick=async()=>{try{
   document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),3000);
 }catch(e){alert('Falha ao gerar o realizado premium: '+e.message);}};
-document.getElementById('btn-xlsx-alocados').onclick=async()=>{try{await ensureXLSX();const wb=XLSX.utils.book_new();const {rows,pend,transferencias}=alocacaoRows();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Alocados');XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(pend),'Pendentes');XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(transferencias||[]),'Transferencias fora realizado');const resumo=[];months.forEach(m=>{const r=realized(m);Object.keys(AREAS).filter(a=>a!=='TRF').forEach(a=>resumo.push({mes:m,departamento_codigo:a,departamento:AREAS[a],orcado:budP(m,a),realizado:r.A[a]||0,diferenca:(r.A[a]||0)-budP(m,a)}));});XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(resumo),'Resumo área mês');const linhas=[];months.forEach(m=>{const r=realized(m);DB.lines.forEach(l=>{const p=l.prev[m]||0,rr=r.L[l.id]||0;if(p||rr)linhas.push({mes:m,departamento_codigo:l.area,departamento:AREAS[l.area]||l.area,grupo:l.g,linha_id:l.id,linha:l.n,orcado:p,realizado:rr,diferenca:rr-p});});});XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(linhas),'Resumo linhas');const plan=[];customPlan.forEach(x=>nextBudgetMonths.forEach(m=>plan.push({temporada:x.temporada||'',area_codigo:x.area,area_nome:x.areaName||AREAS[x.area]||x.area,tipo:x.type||'despesa',grupo:x.g,linha_id:x.id,linha:x.n,codigo_contabil:x.cod||'',mes:m,orcado:(x.prev||{})[m]||0})));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(plan),'Novo orçado');const banco=[];bankList().forEach(b=>{bankProofRows(b.k).forEach(r=>banco.push({banco:b.n,mes:r.m,saldo_inicial:r.ini,entradas:r.entradas,saidas:r.saidas,saldo_calculado:r.calc,saldo_final_extrato:r.fim,diferenca:r.dif,status:r.ok?'confere':'divergente',alertas_possivel_inversao:r.susp}));});XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(banco),'Conciliacao bancaria');XLSX.writeFile(wb,'LNB_orcado_realizado_alocacoes.xlsx');}catch(err){alert(err.message);}};
 
 
 // ===== V37: integridade, governança do orçamento e backup =====
@@ -6231,37 +6081,37 @@ async function importNewBudgetSpreadsheet(file, raw){
     return {...emptyStats,error:e.message};
   }
 }
+// Arquiva e zera a temporada atual direto na base central (Supabase) —
+// substitui o fluxo antigo, que baixava um novo index.html pra subir manualmente
+// no GitHub e não tocava no Supabase (achado durante revisão dos exports).
 async function endSeasonAndReset(){
-  if(!confirm('Isso vai arquivar e depois ZERAR todo o realizado, orçado e saldos bancários da temporada atual (as regras de classificação aprendidas são mantidas). Um arquivo de backup completo será baixado antes. Deseja continuar?'))return;
-  const archive={app:'Orçado x Realizado LNB — arquivo de temporada encerrada',createdAt:new Date().toISOString(),txs:DB.txs.concat(imported),saldos:DB.saldos,saldosBanks:DB.saldosBanks,budget:DB.budget,lines:DB.lines};
-  downloadText(`LNB_arquivo_temporada_encerrada_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(archive,null,2),'application/json');
-  await new Promise(r=>setTimeout(r,400));
-  DB.txs=[];
-  DB.saldos={};
-  DB.budget={};
-  DB.lines=DB.lines.map(l=>({...l,prev:{}}));
-  DB.saldosBanks=Object.fromEntries(Object.entries(DB.saldosBanks).map(([k,v])=>[k,{...v,saldos:{}}]));
-  store.removeItem('lnb3_imported');
-  store.removeItem('lnb3_decisions');
-  store.removeItem('lnb3_budgetlines');
+  const temporada=lnbCurrentTemporada();
+  if(!temporada){ alert('Não consegui identificar a temporada atual pelo título da página. Cancelando.'); return; }
+  const confirmText=prompt('Isso vai ARQUIVAR e depois ZERAR todo o Realizado e Orçado da temporada '+temporada+' salvos na base central (Supabase) — vale para todo mundo que usa o painel. As regras de classificação por favorecido são mantidas. Uma cópia de segurança fica guardada no Supabase antes de apagar, e outra é baixada neste navegador. Para confirmar, digite a temporada exatamente: '+temporada);
+  if(confirmText!==temporada){ if(confirmText!==null)alert('Temporada não confere. Nada foi alterado.'); return; }
   try{
-    const liveHtml=document.documentElement.outerHTML;
-    const openTag='<script id="db" type="application/json">';
-    const openIdx=liveHtml.indexOf(openTag);
-    if(openIdx===-1)throw new Error('bloco de dados não encontrado no HTML');
-    const contentStart=openIdx+openTag.length;
-    const closeIdx=liveHtml.indexOf('<'+'/script>',contentStart);
-    if(closeIdx===-1)throw new Error('fechamento do bloco de dados não encontrado');
-    const newDbJson=JSON.stringify(DB).replace(/<\/script/gi,'<\\/script');
-    const html='<!DOCTYPE html>\n'+liveHtml.slice(0,openIdx)+openTag+newDbJson+liveHtml.slice(closeIdx);
-    const blob=new Blob([html],{type:'text/html'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='index.html';
-    document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+    const [realizadoRows,orcadoRows,estadoCompartilhado]=await Promise.all([
+      supaSelectFiltered('realizado','temporada=eq.'+encodeURIComponent(temporada)),
+      supaSelectFiltered('orcado','temporada=eq.'+encodeURIComponent(temporada)),
+      lnbBuildDailyBackupSnapshot()
+    ]);
+    const snapshot={app:'Orçado x Realizado LNB — arquivo de temporada encerrada',temporada,archivedAt:new Date().toISOString(),realizado:realizadoRows||[],orcado:orcadoRows||[],estadoCompartilhado};
+    downloadText(`LNB_arquivo_temporada_${temporada.replace('/','-')}_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(snapshot,null,2),'application/json');
+    await new Promise(r=>setTimeout(r,300));
+    const res=await fetch(SUPABASE_URL+'/rest/v1/season_archives',{method:'POST',headers:Object.assign({},supaHeaders(),{'Prefer':'return=minimal'}),body:JSON.stringify([{temporada,snapshot,archived_by:(AUTH_SESSION&&AUTH_SESSION.role)||'admin'}])});
+    if(!res.ok){ const t=await res.text(); throw new Error('Falha ao gravar o arquivo da temporada no Supabase: '+res.status+' '+t); }
+    // decisões de classificação são por lançamento: como os lançamentos desta
+    // temporada estão sendo apagados, as decisões deles também são removidas
+    // (as regras por favorecido, que são o "aprendizado" reaproveitável, ficam).
+    const idsToRemove=imported.map(t=>t.id).filter(id=>decisions[id]);
+    if(idsToRemove.length)await supaDelete('tx_decisions','tx_id=in.('+idsToRemove.map(id=>'"'+id+'"').join(',')+')');
+    await supaDelete('realizado','temporada=eq.'+encodeURIComponent(temporada));
+    await supaDelete('orcado','temporada=eq.'+encodeURIComponent(temporada));
+    alert('Temporada '+temporada+' arquivada e zerada na base central. Uma cópia de segurança também foi baixada neste navegador. A página vai recarregar agora.');
+    location.reload();
   }catch(e){
-    alert('Não foi possível gerar o novo index.html automaticamente: '+e.message+'\nO arquivo de arquivo/histórico já foi baixado; refaça a publicação manualmente se necessário.');
+    alert('Falha ao encerrar a temporada: '+e.message+'\n\nSe a exclusão não rodou, os dados originais continuam intactos no Supabase — confira antes de tentar de novo.');
   }
-  alert('Temporada encerrada. 2 arquivos foram baixados: o arquivo de arquivo/histórico (guarde-o) e um novo index.html. Suba esse novo index.html no repositório do GitHub, substituindo o atual, para publicar a temporada zerada. Depois, use o botão "Baixar modelo de orçado" para lançar o orçamento da nova temporada.');
 }
 document.getElementById('imp').addEventListener('change',async ev=>{
   const f=ev.target.files[0];if(!f)return;
