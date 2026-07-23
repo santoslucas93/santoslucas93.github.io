@@ -6882,7 +6882,7 @@ function iaGeminiContext(q){
   };
   return JSON.stringify(context,null,2);
 }
-async // Faz o streaming de uma chamada ao Gemini via /api/gemini (proxy do próprio
+// Faz o streaming de uma chamada ao Gemini via /api/gemini (proxy do próprio
 // Worker). A chave da API nunca chega ao navegador: fica só no servidor
 // (Cloudflare Worker secret GEMINI_API_KEY). onDelta é chamado a cada pedaço
 // de texto recebido, com o texto acumulado até aquele ponto.
