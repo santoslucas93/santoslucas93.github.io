@@ -5018,6 +5018,7 @@ async function savePlanCarryForward(area){
     if(msg) msg.textContent=(msg.textContent||'')+' | Aviso: falhou ao salvar no Supabase: '+e.message;
   }
   await new Promise(r=>setTimeout(r,900));
+  sessionStorage.removeItem('gsheet_synced_this_session');
   location.reload();
 }
 function refreshPlanLineDatalistFor(area,g){
@@ -5063,6 +5064,10 @@ function planDeptFormHTML(area){
   const name=AREAS[area]||area,groups=planGroupsForArea(area);
   const groupOptions=groups.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')+'<option value="__new__">+ Cadastrar novo grupo</option>';
   const rows=customPlan.filter(x=>norm(x.area)===norm(area));
+  // 'Cadastradas' mostra toda linha com orçado neste departamento (não só as
+  // criadas por aqui) — pra dar pra editar/excluir qualquer uma direto na
+  // aba do departamento, sem precisar ir no Resumo.
+  const deptLinesWithBudget=DB.lines.filter(l=>l.area===area&&!isTotalizerLine(l)&&Object.values(l.prev||{}).some(v=>Number(v)));
   const isReceita=['REC','OREC'].includes(area);
   const ownerInfo=planDeptOwners()[area]||{};
   const ownerBarHTML=`<div class="panel">
@@ -5077,7 +5082,7 @@ function planDeptFormHTML(area){
   const subtabs=[
     {k:'ref',n:'Estrutura atual',c:groups.length},
     {k:'new',n:'Nova linha',c:null},
-    {k:'list',n:'Cadastradas',c:rows.length},
+    {k:'list',n:'Cadastradas',c:deptLinesWithBudget.length},
   ];
   const subtabsHTML=`<div class="plan-subtabs">${subtabs.map(t=>`<button class="${t.k===curPlanSubTab?'on':''}" onclick="curPlanSubTab='${t.k}';renderPlanBody();">${esc(t.n)}${t.c!=null?' <span class=\'plan-subtab-count\'>'+t.c+'</span>':''}</button>`).join('')}</div>`;
   let body='';
@@ -5115,8 +5120,9 @@ function planDeptFormHTML(area){
   </div>`;
   } else if(curPlanSubTab==='list'){
     body=`<div class="panel">
-    <h2>Linhas já cadastradas em ${esc(name)} para o próximo orçado</h2>
-    <div id="plan-list">${planRowsTableHTML(rows)}</div>
+    <h2>Linhas com orçado em ${esc(name)}</h2>
+    <div class="desc">Toda linha com orçado cadastrado neste departamento — pode editar ou remover qualquer uma direto aqui.</div>
+    <div id="plan-list">${planSummaryRowsTableHTML(deptLinesWithBudget)}</div>
   </div>`;
   } else {
     body=`<div class="panel">
@@ -5241,6 +5247,7 @@ async function addPlanLine(mode){
     if(msgEl)msgEl.textContent=existingStructLine?'Linha existente atualizada no orçado.':'Linha salva no orçado.';
   }catch(e){ console.error('Falha ao salvar os valores desta linha no orçado (Supabase):',e); }
   if(!existingStructLine)await saveCustomPlan();
+  sessionStorage.removeItem('gsheet_synced_this_session');
   location.reload();
 }
 async function removePlanLine(id){
@@ -5253,7 +5260,7 @@ async function removePlanLine(id){
       await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha));
     }catch(e){ console.error('Falha ao remover os valores desta linha do orçado (Supabase):',e); }
   }
-  await saveCustomPlan();location.reload();
+  await saveCustomPlan();sessionStorage.removeItem('gsheet_synced_this_session');location.reload();
 }
 function editAnyPlanLine(id){
   const l=DB.lines.find(x=>String(x.id)===String(id));if(!l)return;
