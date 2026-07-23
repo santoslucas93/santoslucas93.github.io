@@ -2566,6 +2566,20 @@ function lnbSlugId(parts){
   const s=norm(parts.join('-')).replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'');
   return s || ('linha-'+Date.now());
 }
+async function resolveIdLinha(area, grupo, linha){
+  // Evita criar uma linha duplicada quando já existe uma de verdade na
+  // estrutura (DB.lines) com o mesmo departamento/grupo/linha — nesse caso
+  // usamos o ID real dela, em vez de gerar um slug novo e acabar com duas
+  // linhas de mesmo nome (uma 'antiga' e uma 'nova' por baixo dos panos).
+  if(area){
+    const existing=DB.lines.find(l=>l.area===area&&norm(l.g)===norm(grupo)&&norm(l.n)===norm(linha)&&!isTotalizerLine(l));
+    if(existing) return String(existing.id);
+  }
+  let idLinha=await lnbFetchIdLinha(grupo, linha);
+  if(idLinha) return idLinha;
+  const dep=area?(AREAS[area]||area):'';
+  return lnbSlugId([dep,grupo,linha]);
+}
 let lnbLineIndexCache=null;
 async function lnbGetLineIndex(force){
   if(lnbLineIndexCache && !force) return lnbLineIndexCache;
@@ -2616,8 +2630,7 @@ async function lnbSaveManualRealizado(){
   if(btn){ btn.disabled=true; btn.textContent='Salvando...'; }
   try{
     const dep=depEl.value, grp=grpEl.value.trim(), lin=linEl.value.trim();
-    let idLinha=await lnbFetchIdLinha(grp, lin);
-    if(!idLinha) idLinha=lnbSlugId([dep,grp,lin]);
+    const idLinha=await resolveIdLinha(dep,grp,lin);
     const row={
       data: dataEl.value,
       favorecido: favEl.value.trim(),
@@ -4016,7 +4029,7 @@ function renderHome(){
   const mxr=Math.max(...gset.map(g=>Math.max(recG[g]||0,rg[g]||0)),1);
   document.getElementById('g-rec').innerHTML=gset.sort((a,b)=>(rg[b]||0)-(rg[a]||0)).slice(0,7).map(g=>`<div class="hbar click" onclick="curV='rec';render();window.scrollTo(0,0)"><div title="${esc(g)}">${esc(g.slice(0,24))}</div>
     <div class="tk"><div class="p" style="width:${(recG[g]||0)/mxr*100}%"></div><div class="rz" style="width:${(rg[g]||0)/mxr*100}%"></div></div>
-    <div class="nums">${fmt(rg[g]||0)} / ${recG[g]?fmt(recG[g]):'—'}</div></div>`).join('')||'<div class="desc">Sem receitas no período.</div>';
+    <div class="nums">${recG[g]?fmt(recG[g]):'—'} / ${fmt(rg[g]||0)}</div></div>`).join('')||'<div class="desc">Sem receitas no período.</div>';
 }
 function renderRec(){
   const r=realized(curM);
@@ -4989,8 +5002,7 @@ async function savePlanCarryForward(area){
       const valInput=document.querySelector(`.plan-carry-val[data-line-id="${chk.dataset.lineId}"]`);
       const v=valInput?moneyVal(valInput.value):0;
       if(!v) continue;
-      let idLinha=await lnbFetchIdLinha(g, n);
-      if(!idLinha) idLinha=lnbSlugId([dep,g,n]);
+      let idLinha=await resolveIdLinha(area,g,n);
       nextBudgetMonths.forEach(function(m){
         rowsToSave.push({id_linha:idLinha, departamento:dep, grupo:g, linha_orcamento:n, mes:m, valor:v, temporada:temporada});
       });
@@ -5024,7 +5036,7 @@ function planSummaryRowsTableHTML(lines){
   if(!lines.length)return '<div class="desc">Nenhuma linha com orçado nesta área.</div>';
   return `<table><thead><tr><th>Grupo</th><th>Linha</th><th class="num">Total</th><th></th></tr></thead><tbody>${lines.map(l=>{
     const t=linePrev(l,'ALL');
-    const actions=l._custom?`<button class="act" onclick="editPlanLine('${esc(String(l.id))}')">editar</button> <button class="act" onclick="removePlanLine('${esc(String(l.id))}')">remover</button>`:'<span class="how">já cadastrado na estrutura</span>';
+    const actions=l._custom?`<button class="act" onclick="editPlanLine('${esc(String(l.id))}')">editar</button> <button class="act" onclick="removePlanLine('${esc(String(l.id))}')">remover</button>`:`<button class="act" onclick="editAnyPlanLine('${esc(String(l.id))}')">editar</button> <button class="act" onclick="removeAnyPlanLine('${esc(String(l.id))}')">remover</button>`;
     return `<tr><td>${esc(l.g)}</td><td>${esc(l.n)}${l.cod?'<div class="how">cód. '+esc(l.cod)+'</div>':''}</td><td class="num">${fmt(t)}</td><td style="white-space:nowrap">${actions}</td></tr>`;
   }).join('')}</tbody></table>`;
 }
@@ -5207,21 +5219,29 @@ async function addPlanLine(mode){
   if(!area||!g||!n){if(msgEl)msgEl.textContent='Informe pelo menos área/departamento, grupo e linha do orçamento.';return;}
   if(type==='receita' && !['REC','OREC'].includes(area)){if(msgEl)msgEl.textContent='Para receitas, prefira usar a área REC para que apareça na aba Receitas. A linha não foi salva.';return;}
   const prev={};document.querySelectorAll('#plan-months input').forEach(i=>{const v=moneyVal(i.value);if(v)prev[i.dataset.planMonth]=v;});
-  const exists=customPlan.find(x=>norm(x.area)===norm(area)&&norm(x.g)===norm(g)&&norm(x.n)===norm(n));
-  if(exists){exists.areaName=areaName;exists.type=type;exists.cod=cod;exists.prev=prev;exists.temporada=temporada;if(msgEl)msgEl.textContent='Linha atualizada no próximo orçado.';}
-  else customPlan.push({id:nextCustomId(area),area,areaName,type,g,n,cod,prev,temporada});
-  store.setItem('lnb3_plan_season',temporada);
+  // Se já existe uma linha de verdade na estrutura com essa área/grupo/linha,
+  // é ela que deve ser atualizada — não cria uma linha nova/duplicada no
+  // Novo Orçado por baixo. customPlan só é usado para linhas realmente novas.
+  const existingStructLine=DB.lines.find(l=>l.area===area&&norm(l.g)===norm(g)&&norm(l.n)===norm(n)&&!isTotalizerLine(l));
+  if(!existingStructLine){
+    const exists=customPlan.find(x=>norm(x.area)===norm(area)&&norm(x.g)===norm(g)&&norm(x.n)===norm(n));
+    if(exists){exists.areaName=areaName;exists.type=type;exists.cod=cod;exists.prev=prev;exists.temporada=temporada;if(msgEl)msgEl.textContent='Linha atualizada no próximo orçado.';}
+    else customPlan.push({id:nextCustomId(area),area,areaName,type,g,n,cod,prev,temporada});
+    store.setItem('lnb3_plan_season',temporada);
+  }
   try{
     if(Object.keys(prev).length){
       if(msgEl)msgEl.textContent='Salvando valores no orçado (Supabase)...';
       const dep=AREAS[area]||area;
-      let idLinha=await lnbFetchIdLinha(g,n);
-      if(!idLinha)idLinha=lnbSlugId([dep,g,n]);
+      const idLinha=await resolveIdLinha(area,g,n);
       const rowsToSave=Object.keys(prev).map(m=>({id_linha:idLinha,departamento:dep,grupo:g,linha_orcamento:n,mes:m,valor:prev[m],temporada}));
       await supaUpsert('orcado',rowsToSave,'id_linha,mes');
+      if(existingStructLine)existingStructLine.prev=Object.assign({},existingStructLine.prev,prev);
     }
+    if(msgEl)msgEl.textContent=existingStructLine?'Linha existente atualizada no orçado.':'Linha salva no orçado.';
   }catch(e){ console.error('Falha ao salvar os valores desta linha no orçado (Supabase):',e); }
-  await saveCustomPlan();location.reload();
+  if(!existingStructLine)await saveCustomPlan();
+  location.reload();
 }
 async function removePlanLine(id){
   if(!confirm('Remover esta linha do próximo orçado?'))return;
@@ -5229,13 +5249,36 @@ async function removePlanLine(id){
   customPlan=customPlan.filter(x=>String(x.id)!==String(id));
   if(x&&x.prev&&Object.keys(x.prev).length){
     try{
-      const dep=AREAS[x.area]||x.area;
-      let idLinha=await lnbFetchIdLinha(x.g,x.n);
-      if(!idLinha)idLinha=lnbSlugId([dep,x.g,x.n]);
+      const idLinha=await resolveIdLinha(x.area,x.g,x.n);
       await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha));
     }catch(e){ console.error('Falha ao remover os valores desta linha do orçado (Supabase):',e); }
   }
   await saveCustomPlan();location.reload();
+}
+function editAnyPlanLine(id){
+  const l=DB.lines.find(x=>String(x.id)===String(id));if(!l)return;
+  curV='plan';curPlanArea=l.area;curPlanSubTab='new';render();
+  const seasonEl=document.getElementById('plan-season');
+  if(seasonEl&&!seasonEl.value)seasonEl.value=store.getItem('lnb3_plan_season')||lnbNextTemporada()||'';
+  nextBudgetMonths=computeNextBudgetMonths();renderPlanMonths();
+  const gsel=document.getElementById('plan-group-select');
+  if(gsel){const hasGroup=[...gsel.options].some(o=>o.value===l.g);gsel.value=hasGroup?l.g:'__new__';if(gsel.onchange)gsel.onchange();}
+  const groupTextInput=document.getElementById('plan-group');if(groupTextInput)groupTextInput.value=l.g||'';
+  const lineInput=document.getElementById('plan-line');if(lineInput)lineInput.value=l.n||'';
+  const codInput=document.getElementById('plan-cod');if(codInput)codInput.value=l.cod||'';
+  const typeSel=document.getElementById('plan-type');if(typeSel)typeSel.value=['REC','OREC'].includes(l.area)?'receita':'despesa';
+  document.querySelectorAll('#plan-months input').forEach(i=>{i.value=(l.prev&&l.prev[i.dataset.planMonth])?String(l.prev[i.dataset.planMonth]).replace('.',','):'';});
+  const msgEl=document.getElementById('plan-msg');if(msgEl)msgEl.textContent='Editando linha já existente na estrutura — ao salvar, os valores dela são atualizados (não cria uma linha nova).';
+  window.scrollTo(0,0);
+}
+async function removeAnyPlanLine(id){
+  const l=DB.lines.find(x=>String(x.id)===String(id));if(!l)return;
+  if(!confirm('Remover os valores de orçado da linha "'+l.n+'"? A linha continua existindo na estrutura (para lançamentos de realizado); só o orçado dela é zerado.'))return;
+  try{
+    await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(String(l.id)));
+  }catch(e){ alert('Falha ao remover no Supabase: '+e.message); return; }
+  l.prev={};
+  location.reload();
 }
 function editPlanLine(id){
   const x=customPlan.find(x=>String(x.id)===String(id));if(!x)return;
