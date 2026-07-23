@@ -2229,6 +2229,19 @@ function lnbCurrentTemporada(){
   const m=(document.querySelector('.hero h1')?.textContent||'').match(/Temporada\s+([0-9]{4}\/[0-9]{4})/);
   return m ? m[1] : '';
 }
+function lnbNextTemporada(){
+  const m=String(lnbCurrentTemporada()||'').match(/^(\d{4})\/(\d{4})$/);
+  return m ? (Number(m[1])+1)+'/'+(Number(m[2])+1) : '';
+}
+function temporadaToMonths(temporada){
+  const m=String(temporada||'').match(/^(\d{4})\/(\d{4})$/);
+  if(!m) return [];
+  const y1=Number(m[1]), y2=Number(m[2]);
+  const out=[];
+  for(let mo=10; mo<=12; mo++) out.push(y1+'-'+String(mo).padStart(2,'0'));
+  for(let mo=1; mo<=9; mo++) out.push(y2+'-'+String(mo).padStart(2,'0'));
+  return out;
+}
 
 // ==== Estado compartilhado (Novo Orçado, Conciliação, regras por favorecido) ====
 // Antes ficava só em localStorage (por navegador). Agora Supabase é a fonte de
@@ -3342,7 +3355,15 @@ function renderClubCredit(){
   </div>`;
 }
 const budgetMonths=[...new Set(Object.keys(DB.budget||{}))].sort();
-const nextBudgetMonths=(budgetMonths.length?budgetMonths:[]).map(m=>{const y=Number(m.slice(0,4))+1;return y+'-'+m.slice(5);});
+function computeNextBudgetMonths(){
+  const seasonEl=(typeof document!=='undefined')?document.getElementById('plan-season'):null;
+  const temporada=(seasonEl&&seasonEl.value&&seasonEl.value.trim())||store.getItem('lnb3_plan_season')||lnbNextTemporada()||'';
+  const bySeason=temporadaToMonths(temporada);
+  if(bySeason.length) return bySeason;
+  // fallback: sem temporada válida digitada ainda, usa o método antigo (meses do orçado atual +1 ano)
+  return (budgetMonths.length?budgetMonths:[]).map(m=>{const y=Number(m.slice(0,4))+1;return y+'-'+m.slice(5);});
+}
+let nextBudgetMonths=computeNextBudgetMonths();
 async function saveCustomPlan(){store.setItem('lnb3_custom_plan_v56',JSON.stringify(customPlan));await pushCustomPlanToSupabase().catch(e=>console.error(e));}
 function applyCustomPlan(){
   customPlan.forEach(x=>{
@@ -5174,8 +5195,9 @@ function editPlanLine(id){
 function exportPlanCSV(){let out='temporada;area_codigo;area_nome;tipo;grupo;linha_id;linha;codigo_contabil;mes;orcado\n';customPlan.forEach(x=>{nextBudgetMonths.forEach(m=>{out+=[csvq(x.temporada||''),x.area,csvq(x.areaName||AREAS[x.area]||x.area),x.type||'despesa',csvq(x.g),x.id,csvq(x.n),csvq(x.cod||''),m,csvn((x.prev||{})[m]||0)].join(';')+'\n';});});dl('estrutura_proximo_orcado.csv',out);}
 function renderPlan(){
   const seasonInput=document.getElementById('plan-season');
-  if(seasonInput&&!seasonInput.value)seasonInput.value=store.getItem('lnb3_plan_season')||'2026/2027';
-  if(seasonInput)seasonInput.oninput=()=>store.setItem('lnb3_plan_season',seasonInput.value);
+  if(seasonInput&&!seasonInput.value)seasonInput.value=store.getItem('lnb3_plan_season')||lnbNextTemporada()||'';
+  nextBudgetMonths=computeNextBudgetMonths();
+  if(seasonInput)seasonInput.oninput=()=>{store.setItem('lnb3_plan_season',seasonInput.value);nextBudgetMonths=computeNextBudgetMonths();renderPlanMonths();};
   const deptSearch=document.getElementById('plan-dept-search');
   if(deptSearch){deptSearch.value=planDeptFilter;deptSearch.oninput=()=>{planDeptFilter=deptSearch.value;renderPlanTabs();};}
   const btnTpl=document.getElementById('btn-plan-template');
