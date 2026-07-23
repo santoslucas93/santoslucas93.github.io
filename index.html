@@ -2829,34 +2829,10 @@ async function syncRealizadoFileToSupabase(file){
     var iData=colIdx('Data'), iFav=colIdx('Favorecido'), iDesc=colIdx('Descrição'), iDoc=colIdx('Documento'),
         iEnt=colIdx('Entrada'), iSai=colIdx('Saída'),
         iId=headers.findIndex(function(h){return norm(h).indexOf(norm('ID'))===0;}),
-        iDep=colIdx('Departamento'), iGrp=colIdx('Grupo'), iLin=colIdx('Linha do orçamento'),
         iTemp=colIdx('Temporada'),
         iComp=colIdx('Competição'),
-        iCompo=headers.findIndex(function(h){return norm(h).indexOf(norm('Composição'))===0;}),
         iAbat=headers.findIndex(function(h){return norm(h).indexOf(norm('Abatimento'))===0;}),
         iTipoR=headers.findIndex(function(h){return norm(h).indexOf(norm('Tipo de reembolso'))===0;});
-    var idMap={};
-    var snIds=wb.SheetNames.find(function(n){return norm(n)===norm('IDs');});
-    if(snIds){
-      var idsArr=XLSX.utils.sheet_to_json(wb.Sheets[snIds],{header:1,defval:''});
-      var idsHeaderIdx=-1;
-      for(var k=0;k<idsArr.length;k++){
-        var rn2=idsArr[k].map(function(cc){return norm(String(cc||''));});
-        if(rn2.indexOf(norm('ID'))>-1 && rn2.indexOf(norm('Departamento'))>-1){idsHeaderIdx=k;break;}
-      }
-      if(idsHeaderIdx>-1){
-        var idsHeaders=idsArr[idsHeaderIdx].map(function(h){return String(h||'').trim();});
-        var iiId=idsHeaders.findIndex(function(h){return norm(h)===norm('ID');});
-        var iiDep=idsHeaders.findIndex(function(h){return norm(h)===norm('Departamento');});
-        var iiGrp=idsHeaders.findIndex(function(h){return norm(h)===norm('Grupo');});
-        var iiLin=idsHeaders.findIndex(function(h){return norm(h)===norm('Linha do orçamento');});
-        for(var r=idsHeaderIdx+1;r<idsArr.length;r++){
-          var row=idsArr[r];
-          var key=String(row[iiId]||'').trim();
-          if(key) idMap[key]={dep:row[iiDep]||'',grp:row[iiGrp]||'',lin:row[iiLin]||''};
-        }
-      }
-    }
     function toISODate(v){
       if(v==null||v==='') return null;
       if(v instanceof Date) return v.toISOString().slice(0,10);
@@ -2879,17 +2855,13 @@ async function syncRealizadoFileToSupabase(file){
       var dataV=row[iData], favV=row[iFav], entV=row[iEnt], saiV=row[iSai];
       if(!dataV && !favV && !entV && !saiV) continue;
       var idVal=iId>-1?String(row[iId]||'').trim():'';
-      var dep=iDep>-1?row[iDep]:'', grp=iGrp>-1?row[iGrp]:'', lin=iLin>-1?row[iLin]:'';
-      if((!dep||!grp||!lin) && idVal && idMap[idVal]){
-        dep=dep||idMap[idVal].dep; grp=grp||idMap[idVal].grp; lin=lin||idMap[idVal].lin;
-      }
       rows.push({
         data: toISODate(dataV), favorecido: String(favV||'').trim(),
         descricao: iDesc>-1?String(row[iDesc]||''):'', documento: iDoc>-1?String(row[iDoc]||''):'',
         entrada: toNum(entV), saida: toNum(saiV), id_linha: idVal,
         temporada: (iTemp>-1 && String(row[iTemp]||'').trim())?String(row[iTemp]).trim():lnbCurrentTemporada(),
-        departamento: dep||'', grupo: grp||'', linha_orcamento: lin||'',
-        competicao: iComp>-1?String(row[iComp]||''):'', composicao: iCompo>-1?String(row[iCompo]||''):'',
+        departamento: '', grupo: '', linha_orcamento: '',
+        competicao: iComp>-1?String(row[iComp]||''):'', composicao: '',
         abatimento: iAbat>-1?String(row[iAbat]||''):'', tipo_reembolso: iTipoR>-1?String(row[iTipoR]||''):''
       });
     }
