@@ -2021,11 +2021,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
           <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
         </select>
       </div>
-      <div class="toolbar" style="margin-bottom:8px">
-        <input type="password" id="ia-key" placeholder="cole sua chave Gemini API" style="flex:1;min-width:190px">
-        <button class="act" id="ia-savekey" type="button">Salvar chave</button>
-      </div>
-      <div class="how" style="margin:-2px 0 8px">A chave fica salva somente neste navegador. Para uso interno amplo, prefira depois um Apps Script/proxy para não expor a chave no HTML.</div>
+      <div class="how" style="margin:-2px 0 8px">A chave da API Gemini fica protegida no servidor (Cloudflare Worker) — nunca é enviada nem salva no navegador de quem usa o painel.</div>
       <div id="ia-chat" class="ia-chatbox"></div>
       <div class="toolbar" style="margin-bottom:6px">
         <input type="text" id="ia-q" placeholder="ex.: resuma a temporada; explique receitas; por que TOP estourou?" style="flex:1" onkeydown="if(event.key==='Enter')iaSend()">
@@ -6698,15 +6694,13 @@ const IA_SUGS=[
 function iaInit(){
   const sug=document.getElementById('ia-sug');
   if(sug)sug.innerHTML=IA_SUGS.map(s=>`<span class="chip big gy" style="cursor:pointer" onclick="document.getElementById('ia-q').value=this.textContent;iaSend()">${s}</span>`).join(' ');
-  const prov=document.getElementById('ia-provider'), model=document.getElementById('ia-model'), key=document.getElementById('ia-key'), saveBtn=document.getElementById('ia-savekey');
+  const prov=document.getElementById('ia-provider'), model=document.getElementById('ia-model');
   if(prov)prov.value=store.getItem('lnb_ia_provider')||'local';
   if(model)model.value=store.getItem('lnb_ia_model')||'gemini-flash-latest';
-  if(key)key.value=store.getItem('lnb_gemini_key')||'';
-  if(prov)prov.onchange=()=>{store.setItem('lnb_ia_provider',prov.value);iaBubble('ai',prov.value==='gemini'?'Modo Gemini API ativado. Cole/salve sua chave para usar a IA online.':'Modo local gratuito ativado.');};
+  if(prov)prov.onchange=()=>{store.setItem('lnb_ia_provider',prov.value);iaBubble('ai',prov.value==='gemini'?'Modo Gemini API ativado.':'Modo local gratuito ativado.');};
   if(model)model.onchange=()=>store.setItem('lnb_ia_model',model.value);
-  if(saveBtn)saveBtn.onclick=()=>{store.setItem('lnb_gemini_key',(key&&key.value||'').trim());store.setItem('lnb_ia_provider','gemini');if(prov)prov.value='gemini';iaBubble('ai','Chave Gemini salva neste navegador. Vou usar Gemini API nas próximas perguntas.');};
   const chat=document.getElementById('ia-chat');
-  if(chat&&!chat.children.length)iaBubble('ai','Olá! Posso responder em modo local gratuito ou usar Gemini API quando você salvar a chave. Para segurança, envio apenas um resumo estruturado dos dados relevantes à pergunta, não o HTML inteiro.');
+  if(chat&&!chat.children.length)iaBubble('ai','Olá! Posso responder em modo local gratuito ou usar Gemini API. Para segurança, envio apenas um resumo estruturado dos dados relevantes à pergunta, não o HTML inteiro, e a chave da IA fica protegida no servidor.');
 }
 function iaBubble(who,txt){
   const c=document.getElementById('ia-chat');
@@ -6888,11 +6882,51 @@ function iaGeminiContext(q){
   };
   return JSON.stringify(context,null,2);
 }
-async function iaGeminiAnswer(q){
-  const key=(document.getElementById('ia-key')?.value||store.getItem('lnb_gemini_key')||'').trim();
-  if(!key)throw new Error('Cole e salve a chave Gemini API ou altere o modo para Local gratuito.');
+async // Faz o streaming de uma chamada ao Gemini via /api/gemini (proxy do próprio
+// Worker). A chave da API nunca chega ao navegador: fica só no servidor
+// (Cloudflare Worker secret GEMINI_API_KEY). onDelta é chamado a cada pedaço
+// de texto recebido, com o texto acumulado até aquele ponto.
+async function callGeminiStream(text, model, history, onDelta){
+  const res=await fetch('/api/gemini',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      model, stream:true,
+      contents:[...history,{role:'user',parts:[{text}]}],
+      generationConfig:{temperature:0.2,maxOutputTokens:8192}
+    })
+  });
+  if(!res.ok||!res.body){
+    let msg='Erro HTTP '+res.status;
+    try{ const j=await res.json(); if(j&&j.error)msg=j.error.message||j.error||msg; }catch(e){}
+    throw new Error(msg);
+  }
+  const reader=res.body.getReader();
+  const decoder=new TextDecoder();
+  let buf='', full='', finishReason='';
+  while(true){
+    const {done,value}=await reader.read();
+    if(done)break;
+    buf+=decoder.decode(value,{stream:true});
+    let idx;
+    while((idx=buf.indexOf('\n\n'))>-1){
+      const frame=buf.slice(0,idx); buf=buf.slice(idx+2);
+      const line=frame.split('\n').find(l=>l.startsWith('data:'));
+      if(!line)continue;
+      const jsonStr=line.slice(5).trim();
+      if(!jsonStr||jsonStr==='[DONE]')continue;
+      let obj; try{ obj=JSON.parse(jsonStr); }catch(e){ continue; }
+      if(obj.error)throw new Error(obj.error.message||'Erro no streaming do Gemini');
+      const cand=(obj.candidates||[])[0]||{};
+      const delta=(cand.content?.parts||[]).map(p=>p.text||'').join('');
+      if(delta){ full+=delta; if(onDelta)onDelta(full); }
+      if(cand.finishReason)finishReason=cand.finishReason;
+    }
+  }
+  return {txt:full.trim(),finishReason};
+}
+async function iaGeminiAnswer(q,onDelta){
   const model=(document.getElementById('ia-model')?.value||store.getItem('lnb_ia_model')||'gemini-flash-latest');
-  const endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
   const prompt=`Você é o analista financeiro da Liga Nacional de Basquete (LNB) dentro de um sistema HTML de orçado x realizado.
 
 Regras de resposta:
@@ -6910,27 +6944,10 @@ ${q}`;
   // pesado do sistema em cada uma) pra perguntas de seguimento como "e em
   // fevereiro?" fazerem sentido sem precisar reexplicar tudo.
   const history=iaMsgs.slice(0,-1).slice(-8).map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}));
-  async function callGeminiOnce(text){
-    const res=await fetch(endpoint,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-goog-api-key':key},
-      body:JSON.stringify({
-        contents:[...history,{role:'user',parts:[{text}]}],
-        generationConfig:{
-          temperature:0.2,
-          maxOutputTokens:8192
-        }
-      })
-    });
-    const j=await res.json().catch(()=>({}));
-    if(!res.ok||j.error)throw new Error((j.error&&j.error.message)||('Erro HTTP '+res.status));
-    const cand=(j.candidates||[])[0]||{};
-    const txt=(cand.content?.parts||[]).map(p=>p.text||'').join('').trim();
-    return {txt,finishReason:cand.finishReason||'',raw:j};
-  }
 
   const parts=[];
-  let r=await callGeminiOnce(prompt);
+  const combined=streamingText=>parts.concat(streamingText?[streamingText]:[]).join('\n\n');
+  let r=await callGeminiStream(prompt,model,history,streamingText=>{ if(onDelta)onDelta(combined(streamingText)); });
   if(r.txt)parts.push(r.txt);
 
   // Evita resposta cortada: quando o Gemini encerra por limite de tokens,
@@ -6947,7 +6964,7 @@ RESPOSTA JÁ GERADA:
 ${parts.join('\n\n')}
 
 CONTINUE A RESPOSTA:`;
-    r=await callGeminiOnce(continuationPrompt);
+    r=await callGeminiStream(continuationPrompt,model,history,streamingText=>{ if(onDelta)onDelta(combined(streamingText)); });
     if(r.txt)parts.push(r.txt);
   }
 
@@ -6957,15 +6974,12 @@ CONTINUE A RESPOSTA:`;
   return txt;
 }
 async function callGeminiRaw(prompt, maxTokens){
-  const key=(document.getElementById('ia-key')?.value||store.getItem('lnb_gemini_key')||'').trim();
-  if(!key)throw new Error('Cole e salve a chave Gemini API no campo acima antes de classificar.');
   const model=(document.getElementById('ia-model')?.value||store.getItem('lnb_ia_model')||'gemini-flash-latest');
   async function callWith(m){
-    const endpoint=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`;
-    const res=await fetch(endpoint,{
+    const res=await fetch('/api/gemini',{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-goog-api-key':key},
-      body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.1,maxOutputTokens:maxTokens||8192}})
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:m,contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.1,maxOutputTokens:maxTokens||8192}})
     });
     const j=await res.json().catch(()=>({}));
     if(!res.ok||j.error)throw new Error((j.error&&j.error.message)||('Erro HTTP '+res.status));
@@ -7068,8 +7082,15 @@ async function iaSend(){
   iaBubble('eu',q);inp.value='';iaMsgs.push({role:'user',content:q});
   const provider=document.getElementById('ia-provider')?.value||store.getItem('lnb_ia_provider')||'local';
   const wait=iaBubble('ai',provider==='gemini'?'Consultando Gemini API com resumo dos dados relevantes…':'Analisando localmente os dados carregados…');
+  const chatEl=document.getElementById('ia-chat');
+  let streamStarted=false;
+  const onDelta=partial=>{
+    streamStarted=true;
+    wait.textContent=partial;
+    if(chatEl)chatEl.scrollTop=chatEl.scrollHeight;
+  };
   try{
-    const txt=provider==='gemini'?await iaGeminiAnswer(q):iaLocalAnswer(q);
+    const txt=provider==='gemini'?await iaGeminiAnswer(q,onDelta):iaLocalAnswer(q);
     iaMsgs.push({role:'assistant',content:txt});
     wait.textContent=txt;
   }catch(err){
