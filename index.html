@@ -308,7 +308,7 @@ body{
   letter-spacing:-.01em;
 }
 .nav button:before{font-size:14px;opacity:.95;filter:drop-shadow(0 1px 0 rgba(0,0,0,.12))}
-.nav button[data-v="home"]:before{content:"⌂"}.nav button[data-v="rec"]:before{content:"💰"}.nav button[data-v="dept"]:before{content:none}.nav button[data-v="sup"]:before{content:none}.nav button[data-v="club"]:before{content:none}.nav button[data-v="conc"]:before{content:"🧩"}.nav button[data-v="bank"]:before{content:"🏦"}.nav button[data-v="audit"]:before{content:"🛡️"}.nav button[data-v="charts"]:before{content:"◒"}.nav button[data-v="budget"]:before{content:"＋"}.nav button[data-v="rules"]:before{content:"📋"}.nav button[data-v="guia"]:before{content:"🧭"}.nav button[data-v="exp"]:before{content:"📤"}
+.nav button[data-v="home"]:before{content:"⌂"}.nav button[data-v="rec"]:before{content:"💰"}.nav button[data-v="dept"]:before{content:none}.nav button[data-v="sup"]:before{content:none}.nav button[data-v="club"]:before{content:none}.nav button[data-v="charts"]:before{content:none}.nav button[data-v="budget"]:before{content:none}
 .nav button:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
 .nav button.on{
   background:linear-gradient(180deg,var(--bg),color-mix(in srgb,var(--bg) 93%,var(--card)));
@@ -462,7 +462,7 @@ tr.focus-row{outline:3px solid var(--ac);outline-offset:-3px;background:var(--ac
 .hero:before{background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent),repeating-linear-gradient(90deg,transparent 0 118px,rgba(255,255,255,.035) 119px 120px),radial-gradient(circle at 50% 125%,transparent 0 84px,rgba(255,255,255,.11) 85px 87px,transparent 88px),radial-gradient(circle at 88% 0%,rgba(255,209,0,.24),transparent 28%)}
 .nav{justify-content:center}
 .nav button[data-v="comp"]:before{content:"🏆"}
-.nav button[data-v="structure"]:before{content:"🛠️"}
+@media(min-width:901px){.nav{display:grid;grid-template-columns:repeat(11,auto);justify-content:center;column-gap:6px}}
 .wrap:before{content:"";position:fixed;z-index:-1;inset:0;pointer-events:none;background:linear-gradient(90deg,transparent 49.85%,color-mix(in srgb,var(--ac) 5%,transparent) 50%,transparent 50.15%),radial-gradient(circle at 50% 56%,transparent 0 118px,color-mix(in srgb,var(--ac) 5%,transparent) 119px 121px,transparent 122px)}
 .structure-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:14px 0}
 .structure-grid label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--tx2);font-weight:700}
@@ -2697,31 +2697,6 @@ async function syncRealizadoFileToSupabase(file){
     if(msg) msg.textContent += ' | Erro ao enviar para a base central: '+e.message;
     console.error('syncRealizadoFileToSupabase', e);
   }
-}
-function fetchGSheetJSONP(sheetId, timeoutMs){
-  return new Promise((resolve,reject)=>{
-    const cbName='__gsheetCb_'+Math.random().toString(36).slice(2);
-    let done=false;
-    const script=document.createElement('script');
-    const timer=setTimeout(()=>{ if(done)return; done=true; cleanup(); reject(new Error('timeout')); }, timeoutMs||8000);
-    function cleanup(){ clearTimeout(timer); delete window[cbName]; if(script.parentNode)script.parentNode.removeChild(script); }
-    window[cbName]=function(resp){ if(done)return; done=true; cleanup(); resolve(resp); };
-    script.onerror=()=>{ if(done)return; done=true; cleanup(); reject(new Error('load error')); };
-    script.src='https://docs.google.com/spreadsheets/d/'+sheetId+'/gviz/tq?tqx=out:json;responseHandler:'+cbName+'&headers=1';
-    document.head.appendChild(script);
-  });
-}
-function gvizToRows(resp){
-  if(!resp||!resp.table)return [];
-  const cols=resp.table.cols.map(c=>c.label||c.id);
-  return (resp.table.rows||[]).map(r=>{
-    const o={};
-    cols.forEach((label,i)=>{
-      const cell=r.c&&r.c[i];
-      o[label]= cell? (cell.f!=null? cell.f : cell.v) : '';
-    });
-    return o;
-  });
 }
 function setGsheetStatus(text){
   const el=document.getElementById('gsheet-status-text');
