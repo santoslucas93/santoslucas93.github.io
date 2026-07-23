@@ -6163,7 +6163,6 @@ async function importNewBudgetSpreadsheet(file, raw){
     const months=newBudgetMonthCols();
     const monthKeyByHeader={};
     months.forEach(m=>{monthKeyByHeader[norm(mlabel(m))]=m;monthKeyByHeader[norm(m)]=m;});
-    const monthCols=headerKeys.filter(h=>monthKeyByHeader[norm(h)]);
     let created=0,updated=0,skipped=0;const monthsTouched=new Set();
     raw.forEach(row=>{
       const idRaw=kID?String(row[kID]||'').trim():'';
@@ -6171,8 +6170,15 @@ async function importNewBudgetSpreadsheet(file, raw){
       const areaTxt=kArea?String(row[kArea]||'').trim():'';
       const grupoTxt=kGrupo?String(row[kGrupo]||'').trim():'';
       const linhaTxt=kLinha?String(row[kLinha]||'').trim():'';
+      // As colunas de mês eram calculadas uma única vez a partir da primeira
+      // linha da planilha — no caminho ao vivo (Supabase -> orçado), cada
+      // linha do orçamento pode ter um conjunto diferente de meses
+      // preenchidos, então usar sempre as colunas da primeira linha cortava
+      // silenciosamente os meses das demais linhas. Agora cada linha usa suas
+      // próprias colunas.
+      const rowMonthCols=Object.keys(row).filter(h=>monthKeyByHeader[norm(h)]);
       const prevVals={};
-      monthCols.forEach(h=>{
+      rowMonthCols.forEach(h=>{
         const cell=row[h];
         if(cell===''||cell==null)return;
         prevVals[monthKeyByHeader[norm(h)]]=r2(numCell(cell));
