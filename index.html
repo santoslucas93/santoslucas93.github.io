@@ -3774,8 +3774,19 @@ function realized(m){
 }
 function areaOfTx(t){const c=classify(t);if(!c.splits)return[];return [...new Set(c.splits.map(s=>s.a))];}
 function recebTrf(m){let s=0;txs.forEach(t=>{if(m!=='ALL'&&t.m!==m)return;if(t.e>0){const c=classify(t);(c.splits||[]).forEach(x=>{if(x.a==='TRF')s+=x.v;});}});return s;}
-function budP(m,a){const base=mm=>(((DB.budget[mm]||{})[a]||{}).p||0)+DB.lines.filter(l=>l._custom&&l.area===a).reduce((s,l)=>s+(l.prev[mm]||0),0);if(m!=='ALL')return base(m);return months.reduce((s,mm)=>s+base(mm),0);}
-function linePrev(l,m){if(m!=='ALL')return l.prev[m]||0;return months.reduce((s,mm)=>s+(l.prev[mm]||0),0);}
+function allBudgetMonths(){
+  // 'months' só reflete meses com lançamentos de Realizado (extrato). Numa
+  // temporada nova, sem realizado ainda, isso deixava o orçado (ALL) somando
+  // zero meses mesmo com valores já cadastrados no Novo Orçado/orçado. Aqui
+  // juntamos os meses do extrato com os meses que já têm orçado (DB.budget e
+  // DB.lines[].prev, que cobre linhas do orçado antigo e do Novo Orçado).
+  const s=new Set(months);
+  Object.keys(DB.budget||{}).forEach(mm=>s.add(mm));
+  DB.lines.forEach(l=>{ if(l.prev)Object.keys(l.prev).forEach(mm=>s.add(mm)); });
+  return [...s];
+}
+function budP(m,a){const base=mm=>(((DB.budget[mm]||{})[a]||{}).p||0)+DB.lines.filter(l=>l._custom&&l.area===a).reduce((s,l)=>s+(l.prev[mm]||0),0);if(m!=='ALL')return base(m);return allBudgetMonths().reduce((s,mm)=>s+base(mm),0);}
+function linePrev(l,m){if(m!=='ALL')return l.prev[m]||0;return allBudgetMonths().reduce((s,mm)=>s+(l.prev[mm]||0),0);}
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
 const cssid=s=>s.replace(/[^a-z0-9]/gi,'_');
 function supFilter(s){return t=> s.type==='ev' ? t.ev===s.v : (t.tg||[]).includes(s.v);}
