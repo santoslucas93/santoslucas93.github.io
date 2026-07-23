@@ -3730,6 +3730,7 @@ const months=[...new Set(txs.map(t=>t.m))].sort();
 const MN={'01':'jan','02':'fev','03':'mar','04':'abr','05':'mai','06':'jun','07':'jul','08':'ago','09':'set','10':'out','11':'nov','12':'dez'};
 const mlabel=m=>MN[m.slice(5)]+'/'+m.slice(2,4);
 let curV='home', curM='ALL', curDept='LNB', curSup='FILIADOS', page=1, openLineId=null, openGroupKey=null, focusTxId=null, openRecType=null; const PAGE=60;
+let curEditingLineId=null, planDeptLineFilter='';
 document.getElementById('bdg-per').textContent=(months.length?('Extrato: '+mlabel(months[0])+' a '+mlabel(months[months.length-1])):'Extrato: sem lançamentos');
 function classify(t){
   const c=classifyCore(t);
@@ -5041,6 +5042,37 @@ function planSummaryRowsTableHTML(lines){
     return `<tr><td>${esc(l.g)}</td><td>${esc(l.n)}${l.cod?'<div class="how">cód. '+esc(l.cod)+'</div>':''}</td><td class="num">${fmt(t)}</td><td style="white-space:nowrap">${actions}</td></tr>`;
   }).join('')}</tbody></table>`;
 }
+function planListSearchAndGroupHTML(lines, idPrefix){
+  if(!lines.length)return '<div class="desc">Nenhuma linha com orçado nesta área.</div>';
+  const byGroup={};lines.forEach(l=>{(byGroup[l.g]=byGroup[l.g]||[]).push(l);});
+  const groupKeys=Object.keys(byGroup).sort();
+  return `<div class="toolbar" style="margin-bottom:10px">
+    <input type="search" id="${idPrefix}-search" placeholder="Buscar linha ou grupo..." style="flex:1;min-width:160px">
+    <button class="act" type="button" onclick="document.querySelectorAll('#${idPrefix}-groups details').forEach(d=>d.open=true)">Expandir tudo</button>
+    <button class="act" type="button" onclick="document.querySelectorAll('#${idPrefix}-groups details').forEach(d=>d.open=false)">Recolher tudo</button>
+  </div>
+  <div id="${idPrefix}-groups">${groupKeys.map(g=>{
+    const rows=byGroup[g].sort((a,b)=>a.n.localeCompare(b.n));
+    const tot=rows.reduce((s,l)=>s+linePrev(l,'ALL'),0);
+    return `<details class="plan-group" open data-search="${esc(norm(g))}"><summary><b>${esc(g)}</b> <span class="how">${rows.length} linha(s) · ${fmt(tot)}</span></summary>${planSummaryRowsTableHTML(rows)}</details>`;
+  }).join('')}</div>`;
+}
+function bindPlanListSearch(idPrefix){
+  const el=document.getElementById(idPrefix+'-search');if(!el)return;
+  el.oninput=()=>{
+    const q=norm(el.value||'');
+    document.querySelectorAll('#'+idPrefix+'-groups .plan-group').forEach(det=>{
+      let anyVisible=false;
+      det.querySelectorAll('tbody tr').forEach(row=>{
+        const match=!q||norm(row.textContent).includes(q);
+        row.style.display=match?'':'none';
+        if(match)anyVisible=true;
+      });
+      det.style.display=anyVisible?'':'none';
+      if(q&&anyVisible)det.open=true;
+    });
+  };
+}
 function planAllSummaryHTML(){
   // Antes esta tela só listava linhas cadastradas aqui mesmo (customPlan),
   // então uma linha com orçado real (já existente na estrutura, ou salva por
@@ -5084,7 +5116,7 @@ function planDeptFormHTML(area){
     {k:'new',n:'Nova linha',c:null},
     {k:'list',n:'Cadastradas',c:deptLinesWithBudget.length},
   ];
-  const subtabsHTML=`<div class="plan-subtabs">${subtabs.map(t=>`<button class="${t.k===curPlanSubTab?'on':''}" onclick="curPlanSubTab='${t.k}';renderPlanBody();">${esc(t.n)}${t.c!=null?' <span class=\'plan-subtab-count\'>'+t.c+'</span>':''}</button>`).join('')}</div>`;
+  const subtabsHTML=`<div class="plan-subtabs">${subtabs.map(t=>`<button class="${t.k===curPlanSubTab?'on':''}" onclick="${t.k==='new'?'curEditingLineId=null;':''}curPlanSubTab='${t.k}';renderPlanBody();">${esc(t.n)}${t.c!=null?' <span class=\'plan-subtab-count\'>'+t.c+'</span>':''}</button>`).join('')}</div>`;
   let body='';
   if(curPlanSubTab==='new'){
     body=`<div class="panel">
@@ -5115,14 +5147,15 @@ function planDeptFormHTML(area){
       <button class="act pri" id="btn-plan-add" type="button">Adicionar linha em ${esc(name)}</button>
       <button class="act" id="btn-plan-clear" type="button">Limpar campos</button>
       <button class="act" id="btn-plan-export" type="button">CSV — estrutura do próximo orçado (todas as áreas)</button>
+      ${planEditDeleteBarHTML()}
     </div>
     <div id="plan-msg" class="desc"></div>
   </div>`;
   } else if(curPlanSubTab==='list'){
     body=`<div class="panel">
     <h2>Linhas com orçado em ${esc(name)}</h2>
-    <div class="desc">Toda linha com orçado cadastrado neste departamento — pode editar ou remover qualquer uma direto aqui.</div>
-    <div id="plan-list">${planSummaryRowsTableHTML(deptLinesWithBudget)}</div>
+    <div class="desc">Toda linha com orçado cadastrado neste departamento, agrupada por grupo — pode buscar, editar ou remover qualquer uma direto aqui.</div>
+    <div id="plan-list">${planListSearchAndGroupHTML(deptLinesWithBudget,'plan-dept-list')}</div>
   </div>`;
   } else {
     body=`<div class="panel">
@@ -5181,6 +5214,7 @@ function bindPlanDeptHandlers(area){
   const ba=document.getElementById('btn-plan-add');if(ba)ba.onclick=()=>addPlanLine(area);
   const bc=document.getElementById('btn-plan-clear');if(bc)bc.onclick=clearPlanForm;
   const be=document.getElementById('btn-plan-export');if(be)be.onclick=exportPlanCSV;
+  bindPlanListSearch('plan-dept-list');
 }
 function bindPlanNewDeptHandlers(){
   renderPlanMonths();
@@ -5196,11 +5230,8 @@ function renderPlanBody(){
   bindPlanDeptHandlers(curPlanArea);
 }
 function clearPlanForm(){
-  ['plan-area','plan-area-name','plan-group','plan-line','plan-cod'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.querySelectorAll('#plan-months input').forEach(i=>i.value='');
-  const msg=document.getElementById('plan-msg');if(msg)msg.textContent='';
-  const gsel=document.getElementById('plan-group-select');
-  if(gsel){gsel.value=gsel.options.length?gsel.options[0].value:'';if(gsel.onchange)gsel.onchange();}
+  curEditingLineId=null;
+  renderPlanBody();
 }
 function renderPlanMonths(){const box=document.getElementById('plan-months');if(!box)return;box.innerHTML=nextBudgetMonths.map(m=>`<label>${mlabel(m)}<input type="text" data-plan-month="${m}" placeholder="0,00"></label>`).join('');}
 async function addPlanLine(mode){
@@ -5262,8 +5293,18 @@ async function removePlanLine(id){
   }
   await saveCustomPlan();sessionStorage.removeItem('gsheet_synced_this_session');location.reload();
 }
+async function removeCurrentEditingLine(){
+  if(!curEditingLineId)return;
+  if(curEditingLineId.kind==='custom')await removePlanLine(curEditingLineId.id);
+  else await removeAnyPlanLine(curEditingLineId.id);
+}
+function planEditDeleteBarHTML(){
+  if(!curEditingLineId)return '';
+  return `<button class="act" type="button" onclick="removeCurrentEditingLine()" style="background:var(--er);color:#fff;border-color:var(--er)">Remover esta linha</button>`;
+}
 function editAnyPlanLine(id){
   const l=DB.lines.find(x=>String(x.id)===String(id));if(!l)return;
+  curEditingLineId={id:String(l.id),kind:'base'};
   curV='plan';curPlanArea=l.area;curPlanSubTab='new';render();
   const seasonEl=document.getElementById('plan-season');
   if(seasonEl&&!seasonEl.value)seasonEl.value=store.getItem('lnb3_plan_season')||lnbNextTemporada()||'';
@@ -5299,7 +5340,8 @@ async function removeAnyPlanLine(id){
 }
 function editPlanLine(id){
   const x=customPlan.find(x=>String(x.id)===String(id));if(!x)return;
-  curV='plan';curPlanArea=x.area;render();
+  curEditingLineId={id:String(x.id),kind:'custom'};
+  curV='plan';curPlanArea=x.area;curPlanSubTab='new';render();
   const seasonEl=document.getElementById('plan-season');if(seasonEl)seasonEl.value=x.temporada||store.getItem('lnb3_plan_season')||'';
   const gsel=document.getElementById('plan-group-select');
   if(gsel){const hasGroup=[...gsel.options].some(o=>o.value===x.g);gsel.value=hasGroup?x.g:'__new__';if(gsel.onchange)gsel.onchange();}
