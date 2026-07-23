@@ -5174,9 +5174,32 @@ async function addPlanLine(mode){
   if(exists){exists.areaName=areaName;exists.type=type;exists.cod=cod;exists.prev=prev;exists.temporada=temporada;if(msgEl)msgEl.textContent='Linha atualizada no próximo orçado.';}
   else customPlan.push({id:nextCustomId(area),area,areaName,type,g,n,cod,prev,temporada});
   store.setItem('lnb3_plan_season',temporada);
+  try{
+    if(Object.keys(prev).length){
+      if(msgEl)msgEl.textContent='Salvando valores no orçado (Supabase)...';
+      const dep=AREAS[area]||area;
+      let idLinha=await lnbFetchIdLinha(g,n);
+      if(!idLinha)idLinha=lnbSlugId([dep,g,n]);
+      const rowsToSave=Object.keys(prev).map(m=>({id_linha:idLinha,departamento:dep,grupo:g,linha_orcamento:n,mes:m,valor:prev[m],temporada}));
+      await supaUpsert('orcado',rowsToSave,'id_linha,mes');
+    }
+  }catch(e){ console.error('Falha ao salvar os valores desta linha no orçado (Supabase):',e); }
   await saveCustomPlan();location.reload();
 }
-async function removePlanLine(id){if(!confirm('Remover esta linha do próximo orçado?'))return;customPlan=customPlan.filter(x=>String(x.id)!==String(id));await saveCustomPlan();location.reload();}
+async function removePlanLine(id){
+  if(!confirm('Remover esta linha do próximo orçado?'))return;
+  const x=customPlan.find(x=>String(x.id)===String(id));
+  customPlan=customPlan.filter(x=>String(x.id)!==String(id));
+  if(x&&x.prev&&Object.keys(x.prev).length){
+    try{
+      const dep=AREAS[x.area]||x.area;
+      let idLinha=await lnbFetchIdLinha(x.g,x.n);
+      if(!idLinha)idLinha=lnbSlugId([dep,x.g,x.n]);
+      await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha));
+    }catch(e){ console.error('Falha ao remover os valores desta linha do orçado (Supabase):',e); }
+  }
+  await saveCustomPlan();location.reload();
+}
 function editPlanLine(id){
   const x=customPlan.find(x=>String(x.id)===String(id));if(!x)return;
   curV='plan';curPlanArea=x.area;render();
