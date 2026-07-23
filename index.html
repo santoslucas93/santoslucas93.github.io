@@ -3486,13 +3486,20 @@ function saveDeletedLineIds(){
   pushDeletedLinesToSupabase().catch(e=>console.error(e));
 }
 function applyLineOverlay(){
-  customLines.forEach(obj=>{if(obj.status!=='desativada'&&!DB.lines.some(l=>String(l.id)===String(obj.id)))DB.lines.push({...obj,_custom:true});});
+  customLines.forEach(obj=>{if(!DB.lines.some(l=>String(l.id)===String(obj.id)))DB.lines.push({...obj,_custom:true});});
   if(deletedLineIds.length){const del=new Set(deletedLineIds.map(String));DB.lines=DB.lines.filter(l=>!del.has(String(l.id)));}
   Object.keys(groupOverrides).forEach(key=>{
     const sep=key.indexOf('|'),area=key.slice(0,sep),oldG=key.slice(sep+1),newG=groupOverrides[key];
     DB.lines.forEach(l=>{if(l.area===area&&l.g===oldG)l.g=newG;});
   });
   DB.lines.forEach(l=>{const ov=lineOverrides[String(l.id)];if(ov){if(ov.n!=null)l.n=ov.n;if(ov.g!=null)l.g=ov.g;if(ov.area!=null)l.area=ov.area;}});
+  // Guarda uma cópia com TODAS as linhas (inclusive desativadas) só para o
+  // seletor da tela de Editar Estrutura poder reativar depois. O DB.lines
+  // "de verdade", usado no resto do painel (orçado, classificação etc.),
+  // continua sem as desativadas.
+  window.ALL_STRUCTURE_LINES = DB.lines.slice();
+  const deactivatedIds=new Set(Object.keys(lineOverrides).filter(k=>lineOverrides[k]&&lineOverrides[k].status==='desativada'));
+  if(deactivatedIds.size) DB.lines=DB.lines.filter(l=>!deactivatedIds.has(String(l.id)));
 }
 applyLineOverlay();
 function nextLineId(area){return nextBudgetId(area);}
@@ -3528,11 +3535,14 @@ function deleteStructureLine(id){
   return{ok:true};
 }
 function toggleDeactivateStructureLine(id){
-  const obj=customLines.find(l=>String(l.id)===String(id));
-  if(!obj)return{ok:false,msg:'Só é possível desativar linhas criadas por aqui.'};
-  obj.status = obj.status==='desativada' ? 'ativa' : 'desativada';
-  saveCustomLines();
-  return{ok:true,status:obj.status};
+  const key=String(id);
+  const exists=(window.ALL_STRUCTURE_LINES||DB.lines).some(x=>String(x.id)===key)||customLines.some(x=>String(x.id)===key);
+  if(!exists)return{ok:false,msg:'Linha não encontrada.'};
+  const cur=lineOverrides[key]||{};
+  const newStatus = cur.status==='desativada' ? 'ativa' : 'desativada';
+  lineOverrides[key]=Object.assign({},cur,{status:newStatus});
+  saveLineOverrides();
+  return{ok:true,status:newStatus};
 }
 function restoreDeletedLine(id){
   const key=String(id);
@@ -6510,7 +6520,10 @@ function structureOptions(){
  if(type==='area')return Object.keys(STRUCTURE_DEFAULTS.areas).map(k=>({k,n:areaLabel(k)}));
  if(type==='support')return SUPS.map(x=>({k:x.k,n:supportLabel(x.k)}));
  if(type==='group'){const seen=new Set();return DB.lines.filter(x=>!seen.has(x.area+'|'+x.g)&&seen.add(x.area+'|'+x.g)).map(x=>({k:x.area+'|'+x.g,n:`${areaLabel(x.area)} › ${x.g}`})).sort((a,b)=>a.n.localeCompare(b.n));}
- return DB.lines.slice().sort((a,b)=>compareBudgetIds(a.id,b.id)).map(x=>({k:String(x.id),n:`${x.id} · ${areaLabel(x.area)} › ${x.g} › ${x.n}`}));
+ return (window.ALL_STRUCTURE_LINES||DB.lines).slice().sort((a,b)=>compareBudgetIds(a.id,b.id)).map(x=>{
+   const deac=lineOverrides[String(x.id)]&&lineOverrides[String(x.id)].status==='desativada';
+   return {k:String(x.id),n:`${x.id} · ${areaLabel(x.area)} › ${x.g} › ${x.n}`+(deac?' (desativada)':'')};
+ });
 }
 function refreshStructureItems(){
  const type=document.getElementById('structure-type').value,item=document.getElementById('structure-item'),opts=structureOptions();
@@ -6528,15 +6541,16 @@ function loadStructureItem(){
  else if(type==='support'){name.value=supportLabel(k);document.getElementById('structure-parent').value=supportParent(k);}
  else if(type==='group')name.value=(k.split('|').slice(1).join('|'));
  else {
-   const l=DB.lines.find(x=>String(x.id)===k);
+   const l=(window.ALL_STRUCTURE_LINES||DB.lines).find(x=>String(x.id)===k);
    name.value=l?.n||'';
    const idEl=document.getElementById('structure-id');if(idEl)idEl.value=l?l.id:'';
    const custom=customLines.find(c=>String(c.id)===k);
    if(delWrap)delWrap.style.display=custom?'flex':'none';
    if(deactWrap){
-     deactWrap.style.display=custom?'flex':'none';
+     deactWrap.style.display=l?'flex':'none';
      const btn=document.getElementById('structure-deactivate-btn');
-     if(btn&&custom)btn.textContent=custom.status==='desativada'?'Reativar':'Desativar';
+     const curDeactivated=lineOverrides[k]&&lineOverrides[k].status==='desativada';
+     if(btn)btn.textContent=curDeactivated?'Reativar':'Desativar';
    }
    if(k)loadLineHistory(k);
  }
@@ -6577,7 +6591,14 @@ function resetStructureEdit(){
  if(type==='area')delete structureCfg.areas[k];
  else if(type==='support'){delete structureCfg.supports[k];delete structureCfg.parents[k];}
  else if(type==='group'){const [area,...rest]=k.split('|'),old=rest.join('|');delete groupOverrides[area+'|'+old];saveGroupOverrides();}
- else {delete lineOverrides[k];saveLineOverrides();}
+ else if(lineOverrides[k]){
+   // Preserva o status (ativa/desativada) e mexe só no nome/grupo/area
+   // que "Restaurar nome original" deveria afetar.
+   const kept={};
+   if(lineOverrides[k].status)kept.status=lineOverrides[k].status;
+   if(Object.keys(kept).length)lineOverrides[k]=kept; else delete lineOverrides[k];
+   saveLineOverrides();
+ }
  persistStructure();document.getElementById('structure-msg').textContent='Alteração original restaurada (recarregue a página para ver o efeito completo).';
 }
 function deactivateSelectedStructureLine(){
