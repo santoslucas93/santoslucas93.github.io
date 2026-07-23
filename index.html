@@ -6903,16 +6903,19 @@ async function callGeminiStream(text, model, history, onDelta){
   }
   const reader=res.body.getReader();
   const decoder=new TextDecoder();
+  // Processa linha a linha (não bloco a bloco) porque o Gemini separa os
+  // eventos SSE com CRLF (\r\n\r\n), então procurar só por \n\n falha e
+  // a resposta nunca aparece. Assim funciona com \n ou \r\n.
   let buf='', full='', finishReason='';
   while(true){
     const {done,value}=await reader.read();
     if(done)break;
     buf+=decoder.decode(value,{stream:true});
     let idx;
-    while((idx=buf.indexOf('\n\n'))>-1){
-      const frame=buf.slice(0,idx); buf=buf.slice(idx+2);
-      const line=frame.split('\n').find(l=>l.startsWith('data:'));
-      if(!line)continue;
+    while((idx=buf.indexOf('\n'))>-1){
+      let line=buf.slice(0,idx); buf=buf.slice(idx+1);
+      if(line.endsWith('\r'))line=line.slice(0,-1);
+      if(!line.startsWith('data:'))continue;
       const jsonStr=line.slice(5).trim();
       if(!jsonStr||jsonStr==='[DONE]')continue;
       let obj; try{ obj=JSON.parse(jsonStr); }catch(e){ continue; }
