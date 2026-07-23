@@ -6608,7 +6608,8 @@ function deleteSelectedStructureLine(){
  customLines.splice(idx,1);
  const dlIdx=DB.lines.findIndex(l=>String(l.id)===String(k));
  if(dlIdx>=0)DB.lines.splice(dlIdx,1);
- renderStructureEditor();
+ refreshStructureItems();
+ renderTrashList();
  const msg=document.getElementById('structure-msg');
  let seconds=10;
  const renderMsg=()=>{ if(msg)msg.innerHTML='Linha "'+esc(nome)+'" excluída. <a href="#" id="lnb-undo-delete" style="color:#2563eb;text-decoration:underline;cursor:pointer;">Desfazer</a> ('+seconds+'s)'; };
@@ -6638,7 +6639,6 @@ function deleteSelectedStructureLine(){
    customLines.splice(idx,0,custom);
    DB.lines.push(custom);
    if(msg)msg.textContent='Exclusão desfeita.';
-   renderStructureEditor();
    refreshStructureItems();
    lnbPendingDelete=null;
  };
