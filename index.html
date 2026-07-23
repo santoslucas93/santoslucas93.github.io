@@ -3330,7 +3330,8 @@ function isInternalBankTransferTx(t){
 }
 function isLdbTaxReceipt(t){
   const x=norm([t.f,t.ds,t.dc].join(' '));
-  return Number(t.e)>0 && x.includes('ldb') && x.includes('taxa inscricao') && !isInternalBankTransferTx(t);
+  const isLdbContext=t.ev==='LDB'||(x.includes('ldb') && x.includes('taxa inscricao'));
+  return Number(t.e)>0 && isLdbContext && !isInternalBankTransferTx(t);
 }
 function ldbClubFromTx(t){
   const ds=String(t.ds||''), dc=String(t.dc||''), f=String(t.f||'');
@@ -5841,41 +5842,33 @@ async function downloadNewSeasonTemplate(){
   [
     '','Como preencher',
     '1. Uma linha por lançamento bancário: Data, Favorecido, Descrição, Documento e Entrada OU Saída (nunca as duas).',
-    '2. Coluna "ID" (chave do lançamento): é o identificador único de cada linha do orçamento (departamento + grupo + linha), igual ao mostrado na aba "IDs". Preencha o ID correto e as colunas Departamento, Grupo e Linha do orçamento se preenchem sozinhas.',
-    '3. As colunas Departamento/Grupo/Linha vêm automaticamente do ID, mas podem ser sobrescritas a qualquer momento: apague e escolha manualmente nas listas (consulte também a aba "Referência"). O que estiver preenchido em Departamento/Grupo/Linha na hora de importar tem prioridade sobre o ID.',
-    '4. Se deixar ID e Departamento em branco, o sistema tenta classificar sozinho na importação, com a mesma lógica de hoje: regra por favorecido, prestadores de RH, regra soberana da LDB (receitas e despesas de taxa de inscrição), rateio por colaborador e palavra-chave.',
-    '5. Rateio por colaborador (RH): não divida manualmente. Lance o valor total pago em UMA linha (ex.: fatura do plano de saúde, contribuição sindical), com o Favorecido correto, e deixe ID/Departamento/Grupo/Linha em branco — o rateio entre colaboradores e departamentos é automático na importação, desde que a Composição de Pessoal da temporada já tenha sido importada no sistema (painel logo abaixo do botão de importar extrato).',
-    '6. Pagamento único que precisa ser dividido entre departamentos com valores diferentes (ex.: um pagamento de Ranking de R$ 100.000 que na verdade é passagens + comunicação + marketing, cada parte com um valor próprio): preencha a coluna "Composição" do lançamento com um marcador (ex.: *1) e detalhe a divisão na aba "Composição" — Departamento, Grupo, Linha e Valor de cada parte, cuja soma deve bater com o total do lançamento. A Composição tem prioridade sobre o ID.',
-    '7. Coluna "Abatimento (Sim/Não)": marque "Sim" quando o lançamento for estorno, ressarcimento ou devolução que deve REDUZIR o total já lançado de um departamento/grupo/linha, em vez de entrar como receita nova. O valor entra com sinal negativo na linha/departamento informado (via ID ou via Departamento/Grupo/Linha). Não combine Abatimento com Composição no mesmo lançamento.',
-    '8. Coluna "Tipo de reembolso" (opcional): quando o lançamento for reembolso de funcionário, identifique a categoria (Refeição, Pedágio, Transporte, Combustível, Estacionamento) para aparecer separado nos relatórios por tipo de reembolso. Se não preencher, o sistema tenta identificar sozinho pela descrição; o que não for identificado fica agrupado em "Reembolso de funcionários" (geral).',
-    '9. Competição (opcional): preencha se souber (NBB, LDB, Liga Ouro, NBB Trio, Jogo das Estrelas, Copa Super 8, Interligas) — também costuma ser detectada sozinha pela descrição. Quando fica em branco, o lançamento cai como despesa/receita geral da LNB (sem competição vinculada).',
-    '10. Temporada (opcional): preencha se a despesa/receita for de uma temporada diferente da atual (ex: uma conta atrasada da 2025/2026). Se ficar em branco, entra na temporada atual.',
-    '11. Pode reimportar a mesma planilha quantas vezes precisar, acrescentando linhas novas: lançamentos já importados (mesma data, favorecido, entrada e saída) não duplicam — por isso importações semanais são cumulativas e formam o acumulado mensal/trimestral/anual automaticamente, sem precisar refazer nada.',
+    '2. Coluna "ID" (chave do lançamento): é o identificador único de cada linha do orçamento (departamento + grupo + linha), igual ao mostrado na aba "IDs". O ID sozinho já aloca o lançamento no departamento, grupo e linha corretos — não existem mais colunas de Departamento/Grupo/Linha para preencher à mão.',
+    '3. Se deixar o ID em branco (ou digitar um ID que não existe), o sistema tenta classificar sozinho na importação e o lançamento fica pendente para revisão na Conciliação: regra por favorecido, prestadores de RH, regra soberana da LDB, rateio por colaborador e palavra-chave.',
+    '4. Rateio por colaborador (RH): não divida manualmente. Lance o valor total pago em UMA linha (ex.: fatura do plano de saúde, contribuição sindical), com o Favorecido correto, e deixe o ID em branco — o rateio entre colaboradores e departamentos é automático na importação, desde que a Composição de Pessoal da temporada já tenha sido importada no sistema (painel logo abaixo do botão de importar extrato).',
+    '5. Pagamento único que na verdade é a soma de vários lançamentos menores (ex.: fatura de cartão de crédito, pagamento total de Ranking, guia de impostos federais): não existe mais divisão por marcador de Composição — lance cada parte em sua própria linha, com o ID correto de cada uma. Ex.: fatura de R$ 5.000 com 5 despesas de R$ 1.000 vira 5 linhas na planilha, cada uma com Data, Favorecido, Valor e ID próprios.',
+    '6. Coluna "Abatimento (Sim/Não)": marque "Sim" quando o lançamento for estorno, ressarcimento ou devolução que deve REDUZIR o total já lançado de uma linha, em vez de entrar como receita nova. O valor entra com sinal negativo na linha indicada pelo ID.',
+    '7. Coluna "Tipo de reembolso" (opcional): quando o lançamento for reembolso de funcionário, identifique a categoria (Refeição, Pedágio, Transporte, Combustível, Estacionamento) para aparecer separado nos relatórios por tipo de reembolso. Se não preencher, o sistema tenta identificar sozinho pela descrição; o que não for identificado fica agrupado em "Reembolso de funcionários" (geral).',
+    '8. Competição (opcional): preencha se souber (NBB, LDB, Liga Ouro, NBB Trio, Jogo das Estrelas, Copa Super 8, Interligas). Quando informar LDB, receitas de taxa de inscrição entram em Receitas › Taxas de Inscrição LDB e despesas abatem esse crédito do clube automaticamente. Quando fica em branco, o lançamento entra como "LNB" — despesa/receita geral de escritório, comum a todos os departamentos.',
+    '9. Temporada (opcional): preencha se a despesa/receita for de uma temporada diferente da atual (ex: uma conta atrasada da 2025/2026). Se ficar em branco, entra na temporada atual.',
+    '10. Pode reimportar a mesma planilha quantas vezes precisar, acrescentando linhas novas: lançamentos já importados (mesma data, favorecido, entrada e saída) não duplicam — por isso importações semanais são cumulativas e formam o acumulado mensal/trimestral/anual automaticamente, sem precisar refazer nada.',
     '11. Datas podem ser digitadas como AAAA-MM-DD ou DD/MM/AAAA.',
     '12. A estrutura de IDs (criar, renomear ou excluir departamento/grupo/linha, e reordenar os IDs) é totalmente editável na aba "Estrutura" do sistema, sem mexer em código — a aba "IDs" desta planilha é sempre gerada com a estrutura mais atual no momento do download.'
   ].forEach((t,i)=>{const rr=wsCapa.addRow([t]);rr.getCell(1).font=i===1?{bold:true,size:12,color:{argb:XLC.navy}}:{size:10.5,color:{argb:XLC.ink}};});
   wsCapa.getColumn(1).width=112;
-  const nCols=14;
+  const nCols=11;
   const ws=wb.addWorksheet('Lançamentos',{views:[{state:'frozen',ySplit:4}]});
   xlBand(ws,'LANÇAMENTOS — TEMPORADA 2026/2027',per,nCols);
-  xlHeader(ws,4,['ID (chave do lançamento)','Data','Favorecido','Descrição','Documento','Entrada','Saída','Departamento','Grupo','Linha do orçamento','Competição','Composição (marcador, ex: *1)','Abatimento (Sim/Não)','Tipo de reembolso (opcional)','Temporada (opcional, ex: 2026/2027)'],6);
+  xlHeader(ws,4,['ID (chave do lançamento)','Data','Favorecido','Descrição','Documento','Entrada','Saída','Competição','Abatimento (Sim/Não)','Tipo de reembolso (opcional)','Temporada (opcional, ex: 2026/2027)'],6);
   for(let i=0;i<80;i++){
-    const dr=xlDataRow(ws,Array(15).fill(''),{numFrom:6});
-    const deptRef='$H'+dr.number, idRef='$A'+dr.number;
+    const dr=xlDataRow(ws,Array(11).fill(''),{numFrom:6});
     dr.getCell(1).dataValidation={type:'list',allowBlank:true,formulae:['IDS_ID']};
-    dr.getCell(8).value={formula:`IF(${idRef}="","",IFERROR(INDEX(IDS_AREA,MATCH(${idRef},IDS_ID,0)),""))`};
-    dr.getCell(8).dataValidation={type:'list',allowBlank:true,formulae:[`"${CLASSIF_AREAS.join(',')}"`]};
-    dr.getCell(9).value={formula:`IF(${idRef}="","",IFERROR(INDEX(IDS_GROUP,MATCH(${idRef},IDS_ID,0)),""))`};
-    dr.getCell(9).dataValidation={type:'list',allowBlank:true,formulae:[cascadeGrupoValidation(deptRef)]};
-    dr.getCell(10).value={formula:`IF(${idRef}="","",IFERROR(INDEX(IDS_LINE,MATCH(${idRef},IDS_ID,0)),""))`};
-    dr.getCell(10).dataValidation={type:'list',allowBlank:true,formulae:[cascadeLinhaValidation(deptRef)]};
-    dr.getCell(11).dataValidation={type:'list',allowBlank:true,formulae:[`"${NEWSEASON_EVENTOS.join(',')}"`]};
-    dr.getCell(13).dataValidation={type:'list',allowBlank:true,formulae:[`"Sim,Não"`]};
-    dr.getCell(14).dataValidation={type:'list',allowBlank:true,formulae:[`"Refeição,Pedágio,Transporte,Combustível,Estacionamento"`]};
+    dr.getCell(8).dataValidation={type:'list',allowBlank:true,formulae:[`"${NEWSEASON_EVENTOS.join(',')}"`]};
+    dr.getCell(9).dataValidation={type:'list',allowBlank:true,formulae:[`"Sim,Não"`]};
+    dr.getCell(10).dataValidation={type:'list',allowBlank:true,formulae:[`"Refeição,Pedágio,Transporte,Combustível,Estacionamento"`]};
   }
-  ws.autoFilter={from:{row:4,column:1},to:{row:4,column:14}};
+  ws.autoFilter={from:{row:4,column:1},to:{row:4,column:11}};
   ws.getColumn(1).width=10;ws.getColumn(1).numFmt='@';ws.getColumn(2).width=12;ws.getColumn(3).width=28;ws.getColumn(4).width=42;ws.getColumn(5).width=16;
-  ws.getColumn(6).width=13;ws.getColumn(7).width=13;ws.getColumn(8).width=16;ws.getColumn(9).width=26;ws.getColumn(10).width=30;ws.getColumn(11).width=16;ws.getColumn(12).width=22;ws.getColumn(13).width=16;ws.getColumn(14).width=22;
+  ws.getColumn(6).width=13;ws.getColumn(7).width=13;ws.getColumn(8).width=16;ws.getColumn(9).width=16;ws.getColumn(10).width=22;ws.getColumn(11).width=22;
   const wsIds=wb.addWorksheet('IDs',{views:[{state:'frozen',ySplit:4}]});
   xlBand(wsIds,'IDs — CHAVE DE CADA LINHA DO ORÇAMENTO',per+' · '+idRefRows.length+' linha(s)',4);
   xlHeader(wsIds,4,['ID','Departamento','Grupo','Linha do orçamento'],99);
@@ -5899,18 +5892,6 @@ async function downloadNewSeasonTemplate(){
   });
   wsRef.autoFilter={from:{row:4,column:1},to:{row:4,column:3}};
   wsRef.getColumn(1).width=16;wsRef.getColumn(2).width=30;wsRef.getColumn(3).width=44;
-  const wsComp=wb.addWorksheet('Composição',{views:[{state:'frozen',ySplit:4}]});
-  xlBand(wsComp,'COMPOSIÇÃO — DIVISÃO DE LANÇAMENTOS ÚNICOS ENTRE DEPARTAMENTOS',per,5);
-  xlHeader(wsComp,4,['Marcador (ex: *1)','Departamento','Grupo','Linha do orçamento','Valor desta parte'],5);
-  for(let i=0;i<40;i++){
-    const dr=xlDataRow(wsComp,['','','','',''],{numFrom:5});
-    const deptRef='$B'+dr.number;
-    dr.getCell(2).dataValidation={type:'list',allowBlank:true,formulae:[`"${CLASSIF_AREAS.join(',')}"`]};
-    dr.getCell(3).dataValidation={type:'list',allowBlank:true,formulae:[cascadeGrupoValidation(deptRef)]};
-    dr.getCell(4).dataValidation={type:'list',allowBlank:true,formulae:[cascadeLinhaValidation(deptRef)]};
-  }
-  wsComp.autoFilter={from:{row:4,column:1},to:{row:4,column:5}};
-  wsComp.getColumn(1).width=16;wsComp.getColumn(2).width=16;wsComp.getColumn(3).width=26;wsComp.getColumn(4).width=30;wsComp.getColumn(5).width=16;
   addListasSheet(wb);
   const buf=await wb.xlsx.writeBuffer();
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
@@ -5924,7 +5905,7 @@ async function importNewSeasonRealizado(file, raw){
   const msg=document.getElementById('newseason-msg');
   const live=!!raw;
   if(msg&&!live)msg.textContent='Lendo planilha…';
-  const emptyStats={added:0,decided:0,duplicated:0,skipped:0,composed:0,abatidos:0,composicaoDivergente:0,monthsTouched:[]};
+  const emptyStats={added:0,decided:0,duplicated:0,skipped:0,abatidos:0,monthsTouched:[]};
   try{
     let wb=null;
     if(!raw){
@@ -5937,38 +5918,13 @@ async function importNewSeasonRealizado(file, raw){
     const headerKeys=Object.keys(raw[0]);
     const findKey=(...cands)=>headerKeys.find(h=>cands.some(c=>norm(h)===norm(c)));
     const kData=findKey('Data'),kFav=findKey('Favorecido'),kDesc=findKey('Descrição','Descricao'),kDoc=findKey('Documento'),
-      kEnt=findKey('Entrada'),kSai=findKey('Saída','Saida'),kID=findKey('ID','ID chave','Id'),kTipo=findKey('TIPO (1-8)','TIPO','Tipo'),kArea=findKey('Departamento'),kGrupo=findKey('Grupo'),
-      kLinha=findKey('Linha do orçamento','Linha'),kComp=findKey('Competição','Competicao'),kMarc=findKey('Composição (marcador, ex: *1)','Composição','Marcador','Composicao'),
+      kEnt=findKey('Entrada'),kSai=findKey('Saída','Saida'),kID=findKey('ID','ID chave','Id'),kTipo=findKey('TIPO (1-8)','TIPO','Tipo'),
+      kComp=findKey('Competição','Competicao'),
       kAbat=findKey('Abatimento (Sim/Não)','Abatimento'),kTipoReemb=findKey('Tipo de reembolso (opcional)','Tipo de reembolso');
     if(!kData||!kFav||(!kEnt&&!kSai)){if(msg&&!live)msg.textContent='Planilha fora do modelo: verifique as colunas Data, Favorecido e Entrada/Saída.';return emptyStats;}
     const TIPO_REEMB_MAP={'refeicao':'REEMB_REFEICAO','pedagio':'REEMB_PEDAGIO','transporte':'REEMB_TRANSPORTE','combustivel':'REEMB_COMBUSTIVEL','estacionamento':'REEMB_ESTACIONAMENTO'};
-    const snComp=wb?wb.SheetNames.find(n=>norm(n)==='composicao'||norm(n)==='composição'):null;
-    const composicaoMap={};
-    if(snComp){
-      const rawComp=XLSX.utils.sheet_to_json(wb.Sheets[snComp],{defval:''});
-      if(rawComp.length){
-        const chKeys=Object.keys(rawComp[0]);
-        const cf=(...cands)=>chKeys.find(h=>cands.some(c=>norm(h)===norm(c)));
-        const cMarc=cf('Marcador (ex: *1)','Marcador'),cArea=cf('Departamento'),cGrupo=cf('Grupo'),cLinha=cf('Linha do orçamento','Linha'),cVal=cf('Valor desta parte','Valor');
-        rawComp.forEach(r=>{
-          const marc=cMarc?String(r[cMarc]||'').trim():'';
-          const areaTxt=cArea?String(r[cArea]||'').trim():'';
-          if(!marc||!areaTxt)return;
-          const area=resolveClassifArea(areaTxt);
-          if(!area)return;
-          const grupo=cGrupo?String(r[cGrupo]||'').trim():'';
-          const linhaTxt=cLinha?String(r[cLinha]||'').trim():'';
-          const lid=linhaTxt?resolveClassifLineId(area,grupo,linhaTxt):null;
-          const val=numCell(cVal?r[cVal]:0);
-          if(!val)return;
-          const key=norm(marc);
-          if(!composicaoMap[key])composicaoMap[key]=[];
-          composicaoMap[key].push({a:area,g:grupo||null,l:lid,v:r2(val)});
-        });
-      }
-    }
     const existingKeys=new Set(txs.map(existingTxKey));
-    let added=0,decided=0,duplicated=0,skipped=0,composed=0,composicaoDivergente=0,abatidos=0,monthsTouched=new Set();
+    let added=0,decided=0,duplicated=0,skipped=0,abatidos=0,monthsTouched=new Set();
     let nextIdx=DB.txs.length+imported.length;
     raw.forEach(row=>{
       const d=parseFlexDate(row[kData]);
@@ -5991,22 +5947,14 @@ async function importNewSeasonRealizado(file, raw){
       normalizeBankFlow(nt);
       nt.sug=jsSuggest(nt);
       const compRaw=kComp?String(row[kComp]||'').trim():'';
-      if(compRaw){const hit=NEWSEASON_EVENTOS.find(ev=>norm(ev)===norm(compRaw));if(hit)nt.ev=hit;}
+      if(compRaw){const hit=NEWSEASON_EVENTOS.find(ev=>norm(ev)===norm(compRaw));nt.ev=hit||compRaw;}
+      else{nt.ev='LNB';}
       nt.id=nt.m+'|'+nt.d+'|'+norm(nt.f).slice(0,18)+'|'+nt.e+'|'+nt.s+'|'+nextIdx;
       nextIdx++;
       imported.push(nt);added++;monthsTouched.add(m);
       if(isAbat)abatidos++;
-      const marcRaw=kMarc?String(row[kMarc]||'').trim():'';
-      const marcKey=marcRaw?norm(marcRaw):'';
-      if(marcKey&&composicaoMap[marcKey]){
-        const parts=composicaoMap[marcKey];
-        const total=Math.round(parts.reduce((sum,p)=>sum+p.v,0)*100)/100;
-        const alvo=r2(s>0?s:e);
-        if(Math.abs(total-alvo)>0.02)composicaoDivergente++;
-        decisions[nt.id]=parts.map(p=>({...p}));
-        decided++;composed++;
-        return;
-      }
+      // Único alocador de departamento/grupo/linha: o ID. Sem ID (ou ID inválido),
+      // o lançamento fica sem decisão salva e cai no motor de sugestão da Conciliação.
       const idCellRaw=kID?row[kID]:'';
       const idRaw=String(idCellRaw==null?'':idCellRaw).trim();
       if(idRaw){
@@ -6014,27 +5962,15 @@ async function importNewSeasonRealizado(file, raw){
         if(idLine){
           decisions[nt.id]=[{a:idLine.area,g:idLine.g||null,l:idLine.id,v:r2(s>0?s:e)}];
           decided++;
-          return;
-        }
-      }
-      const areaRaw=kArea?String(row[kArea]||'').trim():'';
-      if(areaRaw){
-        const area=resolveClassifArea(areaRaw);
-        if(area){
-          const grupo=kGrupo?String(row[kGrupo]||'').trim():'';
-          const linhaTxt=kLinha?String(row[kLinha]||'').trim():'';
-          const lid=linhaTxt?resolveClassifLineId(area,grupo,linhaTxt):null;
-          decisions[nt.id]=[{a:area,g:grupo||null,l:lid,v:r2(s>0?s:e)}];
-          decided++;
         }
       }
     });
-    const stats={added,decided,duplicated,skipped,composed,abatidos,composicaoDivergente,monthsTouched:[...monthsTouched]};
+    const stats={added,decided,duplicated,skipped,abatidos,monthsTouched:[...monthsTouched]};
     if(!added&&!duplicated&&!skipped){if(msg&&!live)msg.textContent='Nenhuma linha válida encontrada.';return stats;}
     store.setItem('lnb3_imported',JSON.stringify(imported));
     save('decisions',decisions);
     if(!live){
-      alert(`Importação da temporada 2026/2027 concluída:\n${added} lançamento(s) novo(s) adicionado(s) (${[...monthsTouched].sort().map(mlabel).join(', ')||'-'}).\n${decided} já entraram totalmente classificados (sem precisar de conciliação)${composed?`, sendo ${composed} via Composição`:''}.\n${duplicated} já existiam e foram ignorados (evita duplicidade).\n${skipped} linha(s) ignorada(s) por falta de Data/Favorecido/Entrada-Saída ou por ter as duas preenchidas.${abatidos?`\n${abatidos} lançamento(s) marcado(s) como Abatimento (entram com sinal negativo na linha de destino).`:''}${composicaoDivergente?`\nAtenção: ${composicaoDivergente} lançamento(s) com Composição cuja soma não bate com o valor total — revise na aba Composição.`:''}`);
+      alert(`Importação da temporada 2026/2027 concluída:\n${added} lançamento(s) novo(s) adicionado(s) (${[...monthsTouched].sort().map(mlabel).join(', ')||'-'}).\n${decided} já entraram classificados pelo ID informado.\n${added-decided} sem ID válido — ficaram pendentes para revisão na Conciliação.\n${duplicated} já existiam e foram ignorados (evita duplicidade).\n${skipped} linha(s) ignorada(s) por falta de Data/Favorecido/Entrada-Saída ou por ter as duas preenchidas.${abatidos?`\n${abatidos} lançamento(s) marcado(s) como Abatimento (entram com sinal negativo na linha do ID informado).`:''}`);
       location.reload();
     }
     return stats;
