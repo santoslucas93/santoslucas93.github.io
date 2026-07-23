@@ -2278,10 +2278,56 @@ async function pushFavRulesToSupabase(){
     if(rows.length)await supaUpsert('fav_rules',rows,'favorecido_norm');
   }catch(e){ console.error('pushFavRulesToSupabase falhou:',e); }
 }
+// ==== Segunda leva: Editar Estrutura, créditos manuais dos clubes, e
+// donos/exclusões do Novo Orçado. Mesmo princípio: Supabase manda, localStorage
+// é só cache local. Requer as tabelas de supabase_novas_tabelas_2.sql.
+function structureOverrideRows(){
+  const rows=[];
+  Object.keys(lineOverrides).forEach(k=>rows.push({kind:'line',key:k,value:JSON.stringify(lineOverrides[k])}));
+  Object.keys(groupOverrides).forEach(k=>rows.push({kind:'group',key:k,value:groupOverrides[k]}));
+  return rows.map(r=>({...r,updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',updated_at:new Date().toISOString()}));
+}
+async function pushStructureOverridesToSupabase(){
+  try{
+    const rows=structureOverrideRows();
+    if(rows.length)await supaUpsert('structure_overrides',rows,'kind,key');
+  }catch(e){ console.error('pushStructureOverridesToSupabase falhou:',e); }
+}
+async function pushCustomLinesToSupabase(){
+  try{
+    const rows=customLines.map(x=>({id:String(x.id),area:x.area,g:x.g||'',n:x.n,created_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido'}));
+    if(rows.length)await supaUpsert('custom_lines',rows,'id');
+    const ids=customLines.map(x=>String(x.id));
+    const filter=ids.length?`id=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'';
+    if(filter)await supaDelete('custom_lines',filter);
+  }catch(e){ console.error('pushCustomLinesToSupabase falhou:',e); }
+}
+async function pushDeletedLinesToSupabase(){
+  try{
+    const rows=deletedLineIds.map(id=>({id:String(id),deleted_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido'}));
+    if(rows.length)await supaUpsert('deleted_lines',rows,'id');
+  }catch(e){ console.error('pushDeletedLinesToSupabase falhou:',e); }
+}
+async function pushClubDebitsToSupabase(){
+  try{
+    const rows=clubDebits.map(x=>({id:String(x.id),club:x.club,descricao:x.d||x.descricao||'',valor:Number(x.v||x.valor||0),data:x.data||null,updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',updated_at:new Date().toISOString()}));
+    if(rows.length)await supaUpsert('club_debits',rows,'id');
+    const ids=clubDebits.map(x=>String(x.id));
+    const filter=ids.length?`id=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'';
+    if(filter)await supaDelete('club_debits',filter);
+  }catch(e){ console.error('pushClubDebitsToSupabase falhou:',e); }
+}
+async function pushPlanMetaToSupabase(key,value){
+  try{
+    await supaUpsert('plan_meta',[{key,value,updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',updated_at:new Date().toISOString()}],'key');
+  }catch(e){ console.error('pushPlanMetaToSupabase falhou ('+key+'):',e); }
+}
 async function loadSharedStateFromSupabase(){
   try{
-    const [planRows, decRows, favRows]=await Promise.all([
-      supaSelect('custom_plan'), supaSelect('tx_decisions'), supaSelect('fav_rules')
+    const [planRows, decRows, favRows, structRows, custLineRows, delLineRows, clubDebitRows, planMetaRows]=await Promise.all([
+      supaSelect('custom_plan'), supaSelect('tx_decisions'), supaSelect('fav_rules'),
+      supaSelect('structure_overrides'), supaSelect('custom_lines'), supaSelect('deleted_lines'),
+      supaSelect('club_debits'), supaSelect('plan_meta')
     ]);
     if(Array.isArray(planRows)&&planRows.length){
       customPlan=planRows.map(planRowToCustomPlan);
@@ -2296,6 +2342,32 @@ async function loadSharedStateFromSupabase(){
       const fromSupa={};favRows.forEach(r=>{fromSupa[r.favorecido_norm]={a:r.a,g:r.g,l:r.l};});
       favRules=Object.assign({},favRules,fromSupa);
       store.setItem('lnb3_favrules',JSON.stringify(favRules));
+    }
+    if(Array.isArray(structRows)&&structRows.length){
+      structRows.forEach(r=>{
+        if(r.kind==='line'){try{lineOverrides[r.key]=JSON.parse(r.value);}catch(e){}}
+        else if(r.kind==='group')groupOverrides[r.key]=r.value;
+      });
+      store.setItem('lnb3_line_overrides_v56',JSON.stringify(lineOverrides));
+      store.setItem('lnb3_group_overrides_v56',JSON.stringify(groupOverrides));
+    }
+    if(Array.isArray(custLineRows)&&custLineRows.length){
+      customLines=custLineRows.map(r=>({id:r.id,area:r.area,g:r.g,n:r.n}));
+      store.setItem('lnb3_custom_lines_v56',JSON.stringify(customLines));
+    }
+    if(Array.isArray(delLineRows)&&delLineRows.length){
+      deletedLineIds=delLineRows.map(r=>r.id);
+      store.setItem('lnb3_deleted_lines_v56',JSON.stringify(deletedLineIds));
+    }
+    if(Array.isArray(clubDebitRows)&&clubDebitRows.length){
+      clubDebits=clubDebitRows.map(r=>({id:r.id,club:r.club,d:r.descricao,v:Number(r.valor||0),data:r.data}));
+      store.setItem('lnb3_club_debits',JSON.stringify(clubDebits));
+    }
+    if(Array.isArray(planMetaRows)&&planMetaRows.length){
+      planMetaRows.forEach(r=>{
+        if(r.key==='dept_owners')store.setItem('lnb3_plan_dept_owners',JSON.stringify(r.value||{}));
+        else if(r.key==='excluded'){planExcluded=r.value||[];store.setItem('lnb3_plan_excluded',JSON.stringify(planExcluded));}
+      });
     }
   }catch(e){
     console.error('loadSharedStateFromSupabase falhou — usando cache local deste navegador:',e);
@@ -2414,10 +2486,12 @@ async function lnbInitTemporadaManager(force){
   const bi=document.getElementById('btn-tp-iniciar'); if(bi) bi.onclick=lnbIniciarNovaTemporada;
 }
 async function lnbBuildDailyBackupSnapshot(){
-  const [planRows, decRows, favRows]=await Promise.all([
-    supaSelect('custom_plan'), supaSelect('tx_decisions'), supaSelect('fav_rules')
+  const [planRows, decRows, favRows, structRows, custLineRows, delLineRows, clubDebitRows, planMetaRows]=await Promise.all([
+    supaSelect('custom_plan'), supaSelect('tx_decisions'), supaSelect('fav_rules'),
+    supaSelect('structure_overrides'), supaSelect('custom_lines'), supaSelect('deleted_lines'),
+    supaSelect('club_debits'), supaSelect('plan_meta')
   ]);
-  return {custom_plan:planRows||[],tx_decisions:decRows||[],fav_rules:favRows||[]};
+  return {custom_plan:planRows||[],tx_decisions:decRows||[],fav_rules:favRows||[],structure_overrides:structRows||[],custom_lines:custLineRows||[],deleted_lines:delLineRows||[],club_debits:clubDebitRows||[],plan_meta:planMetaRows||[]};
 }
 async function lnbEnsureDailyBackup(){
   try{
@@ -2443,7 +2517,7 @@ async function lnbRestoreBackup(){
   const msg=document.getElementById('backup-msg');
   const date=sel&&sel.value;
   if(!date){ if(msg)msg.textContent='Escolha uma data de backup primeiro.'; return; }
-  if(!confirm(`Isso vai substituir o Novo Orçado, as classificações da Conciliação e as regras por favorecido pelo estado salvo em ${date}. Lançamentos de Realizado e Orçado da temporada não são afetados. Deseja continuar?`))return;
+  if(!confirm(`Isso vai substituir o Novo Orçado, a Conciliação, as regras por favorecido, o Editar Estrutura, os créditos manuais dos clubes e os donos/exclusões do Novo Orçado pelo estado salvo em ${date}. Lançamentos de Realizado e Orçado da temporada não são afetados. Deseja continuar?`))return;
   if(msg)msg.textContent='Restaurando…';
   try{
     const rows=await supaSelectFiltered('daily_backups','select=snapshot&backup_date=eq.'+date);
@@ -2459,6 +2533,11 @@ async function lnbRestoreBackup(){
     await restoreTable('custom_plan','id',snap.custom_plan);
     await restoreTable('tx_decisions','tx_id',snap.tx_decisions);
     await restoreTable('fav_rules','favorecido_norm',snap.fav_rules);
+    await restoreTable('custom_lines','id',snap.custom_lines);
+    await restoreTable('deleted_lines','id',snap.deleted_lines);
+    await restoreTable('club_debits','id',snap.club_debits);
+    if((snap.structure_overrides||[]).length)await supaUpsert('structure_overrides',snap.structure_overrides,'kind,key');
+    if((snap.plan_meta||[]).length)await supaUpsert('plan_meta',snap.plan_meta,'key');
     if(msg)msg.textContent='Restaurado. Recarregando…';
     location.reload();
   }catch(e){ if(msg)msg.textContent='Erro ao restaurar: '+e.message; }
@@ -3077,7 +3156,7 @@ if(store.getItem('lnb3_club_credit_season')!=='2026/2027'){
 }
 let clubDebits=JSON.parse(store.getItem('lnb3_club_debits')||'[]');
 let openClubCredit=store.getItem('lnb3_open_club_credit')||'';
-function saveClubDebits(){store.setItem('lnb3_club_debits',JSON.stringify(clubDebits));}
+function saveClubDebits(){store.setItem('lnb3_club_debits',JSON.stringify(clubDebits));pushClubDebitsToSupabase().catch(e=>console.error(e));}
 function clubNames(){return Object.keys(CLUB_CREDIT_BASE).sort();}
 function normClub(s){return norm(s).replace(/basquete cearense/g,'fortaleza - basquete cearense').replace(/sao jose/g,'sao jose').replace(/cruzeiro/g,'cruzeiros');}
 function clubFromText(txt){
@@ -3336,10 +3415,10 @@ let lineOverrides=JSON.parse(store.getItem('lnb3_line_overrides_v56')||'{}');
 let groupOverrides=JSON.parse(store.getItem('lnb3_group_overrides_v56')||'{}');
 let customLines=JSON.parse(store.getItem('lnb3_custom_lines_v56')||'[]');
 let deletedLineIds=JSON.parse(store.getItem('lnb3_deleted_lines_v56')||'[]');
-function saveLineOverrides(){store.setItem('lnb3_line_overrides_v56',JSON.stringify(lineOverrides));}
-function saveGroupOverrides(){store.setItem('lnb3_group_overrides_v56',JSON.stringify(groupOverrides));}
-function saveCustomLines(){store.setItem('lnb3_custom_lines_v56',JSON.stringify(customLines));}
-function saveDeletedLineIds(){store.setItem('lnb3_deleted_lines_v56',JSON.stringify(deletedLineIds));}
+function saveLineOverrides(){store.setItem('lnb3_line_overrides_v56',JSON.stringify(lineOverrides));pushStructureOverridesToSupabase().catch(e=>console.error(e));}
+function saveGroupOverrides(){store.setItem('lnb3_group_overrides_v56',JSON.stringify(groupOverrides));pushStructureOverridesToSupabase().catch(e=>console.error(e));}
+function saveCustomLines(){store.setItem('lnb3_custom_lines_v56',JSON.stringify(customLines));pushCustomLinesToSupabase().catch(e=>console.error(e));}
+function saveDeletedLineIds(){store.setItem('lnb3_deleted_lines_v56',JSON.stringify(deletedLineIds));pushDeletedLinesToSupabase().catch(e=>console.error(e));}
 function applyLineOverlay(){
   customLines.forEach(obj=>{if(!DB.lines.some(l=>String(l.id)===String(obj.id)))DB.lines.push({...obj,_custom:true});});
   if(deletedLineIds.length){const del=new Set(deletedLineIds.map(String));DB.lines=DB.lines.filter(l=>!del.has(String(l.id)));}
@@ -4848,7 +4927,7 @@ let planDeptFilter = '';
 let planExcluded = JSON.parse(store.getItem('lnb3_plan_excluded')||'[]');
 function planExcludeKey(area,g,n){return norm(area)+'|'+norm(g)+'|'+norm(n);}
 function isPlanExcluded(area,g,n){return planExcluded.includes(planExcludeKey(area,g,n));}
-function savePlanExcluded(){store.setItem('lnb3_plan_excluded',JSON.stringify(planExcluded));}
+function savePlanExcluded(){store.setItem('lnb3_plan_excluded',JSON.stringify(planExcluded));pushPlanMetaToSupabase('excluded',planExcluded).catch(e=>console.error(e));}
 function planTabsList(){
   const extra=[...new Set(customPlan.map(x=>x.area))].filter(a=>a&&!PLAN_BASE_DEPTS.includes(a));
   const tabs=[{k:'ALL',n:'Resumo'},...PLAN_BASE_DEPTS.map(a=>({k:a,n:AREAS[a]||a})),...extra.map(a=>{const x=customPlan.find(y=>y.area===a);return {k:a,n:(x&&x.areaName)||a};})];
@@ -4882,6 +4961,7 @@ function savePlanDeptOwner(area){
   if(name)owners[area]={owner:name,updatedAt:new Date().toISOString()};
   else delete owners[area];
   store.setItem('lnb3_plan_dept_owners',JSON.stringify(owners));
+  pushPlanMetaToSupabase('dept_owners',owners).catch(e=>console.error(e));
   const msg=document.getElementById('plan-dept-owner-msg');
   if(msg){msg.textContent='Responsável salvo.';setTimeout(()=>{const m=document.getElementById('plan-dept-owner-msg');if(m)m.textContent='';},2500);}
   renderPlanTabs();
@@ -6958,12 +7038,16 @@ ${iaGeminiContext(q)}
 
 PERGUNTA DO USUÁRIO:
 ${q}`;
+  // Manda as últimas perguntas/respostas da conversa (sem repetir o contexto
+  // pesado do sistema em cada uma) pra perguntas de seguimento como "e em
+  // fevereiro?" fazerem sentido sem precisar reexplicar tudo.
+  const history=iaMsgs.slice(0,-1).slice(-8).map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}));
   async function callGeminiOnce(text){
     const res=await fetch(endpoint,{
       method:'POST',
       headers:{'Content-Type':'application/json','x-goog-api-key':key},
       body:JSON.stringify({
-        contents:[{role:'user',parts:[{text}]}],
+        contents:[...history,{role:'user',parts:[{text}]}],
         generationConfig:{
           temperature:0.2,
           maxOutputTokens:8192
