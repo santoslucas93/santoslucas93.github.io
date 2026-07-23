@@ -4865,7 +4865,7 @@ function renderPlanTabs(){
   const owners=planDeptOwners();
   box.innerHTML=list.map(t=>{
     const isSpecial=t.k==='ALL'||t.k==='__new__';
-    const count=isSpecial?null:customPlan.filter(x=>x.area===t.k).length;
+    const count=isSpecial?null:DB.lines.filter(l=>l.area===t.k&&!isTotalizerLine(l)&&Object.values(l.prev||{}).some(v=>Number(v))).length;
     const badge=(count!=null)?`<span class="plan-dept-badge">${count}</span>`:'';
     const ownerInfo=!isSpecial?owners[t.k]:null;
     const dot=ownerInfo?'<span class="plan-dept-owner-dot"></span>':'';
@@ -5020,15 +5020,31 @@ function planRowsTableHTML(rows){
     return `<tr><td>${esc(x.temporada||'—')}</td><td>${esc(x.g)}</td><td>${esc(x.n)}${x.cod?'<div class="how">cód. '+esc(x.cod)+'</div>':''}</td><td class="num">${fmt(t)}</td><td style="white-space:nowrap"><button class="act" onclick="editPlanLine(${x.id})">editar</button> <button class="act" onclick="removePlanLine(${x.id})">remover</button></td></tr>`;
   }).join('')}</tbody></table>`;
 }
+function planSummaryRowsTableHTML(lines){
+  if(!lines.length)return '<div class="desc">Nenhuma linha com orçado nesta área.</div>';
+  return `<table><thead><tr><th>Grupo</th><th>Linha</th><th class="num">Total</th><th></th></tr></thead><tbody>${lines.map(l=>{
+    const t=linePrev(l,'ALL');
+    const actions=l._custom?`<button class="act" onclick="editPlanLine('${esc(String(l.id))}')">editar</button> <button class="act" onclick="removePlanLine('${esc(String(l.id))}')">remover</button>`:'<span class="how">já cadastrado na estrutura</span>';
+    return `<tr><td>${esc(l.g)}</td><td>${esc(l.n)}${l.cod?'<div class="how">cód. '+esc(l.cod)+'</div>':''}</td><td class="num">${fmt(t)}</td><td style="white-space:nowrap">${actions}</td></tr>`;
+  }).join('')}</tbody></table>`;
+}
 function planAllSummaryHTML(){
-  if(!customPlan.length)return '<div class="panel"><h2>Resumo do próximo orçado</h2><div class="desc">Nenhuma linha nova cadastrada ainda em nenhum departamento. Escolha uma aba de departamento acima para começar.</div></div>';
-  const byArea={};customPlan.forEach(x=>{(byArea[x.area]=byArea[x.area]||[]).push(x);});
-  const totalGeral=customPlan.reduce((s,x)=>s+Object.values(x.prev||{}).reduce((a,v)=>a+(Number(v)||0),0),0);
-  return `<div class="panel"><h2>Resumo do próximo orçado — todas as áreas</h2>
-    <div class="kpis"><div class="kpi"><div class="l">Total cadastrado</div><div class="v">${fmt(totalGeral)}</div><div class="d">${customPlan.length} linha(s) em ${Object.keys(byArea).length} departamento(s)</div></div></div>
+  // Antes esta tela só listava linhas cadastradas aqui mesmo (customPlan),
+  // então uma linha com orçado real (já existente na estrutura, ou salva por
+  // este formulário e já incorporada em DB.lines) desaparecia do resumo assim
+  // que a página recarregava. Agora ela mostra o orçado real da temporada
+  // inteira — toda linha de DB.lines com algum valor preenchido — para bater
+  // com o que as abas de Receitas/departamentos já mostram.
+  const linesAll=DB.lines.filter(l=>!isTotalizerLine(l));
+  const withBudget=linesAll.filter(l=>Object.values(l.prev||{}).some(v=>Number(v)));
+  if(!withBudget.length)return '<div class="panel"><h2>Resumo do orçado da temporada</h2><div class="desc">Nenhuma linha com orçado cadastrado ainda. Escolha uma aba de departamento acima para começar.</div></div>';
+  const byArea={};withBudget.forEach(l=>{(byArea[l.area]=byArea[l.area]||[]).push(l);});
+  const totalGeral=withBudget.reduce((s,l)=>s+linePrev(l,'ALL'),0);
+  return `<div class="panel"><h2>Resumo do orçado da temporada — todas as áreas</h2>
+    <div class="kpis"><div class="kpi"><div class="l">Total cadastrado</div><div class="v">${fmt(totalGeral)}</div><div class="d">${withBudget.length} linha(s) em ${Object.keys(byArea).length} departamento(s)</div></div></div>
     ${Object.keys(byArea).sort().map(a=>{
-      const rows=byArea[a],tot=rows.reduce((s,x)=>s+Object.values(x.prev||{}).reduce((aa,v)=>aa+(Number(v)||0),0),0);
-      return `<h3 style="margin-top:16px">${esc(AREAS[a]||a)} <span class="how">${fmt(tot)}</span></h3>${planRowsTableHTML(rows)}`;
+      const rows=byArea[a],tot=rows.reduce((s,l)=>s+linePrev(l,'ALL'),0);
+      return `<h3 style="margin-top:16px">${esc(AREAS[a]||a)} <span class="how">${fmt(tot)}</span></h3>${planSummaryRowsTableHTML(rows)}`;
     }).join('')}</div>`;
 }
 function planDeptFormHTML(area){
