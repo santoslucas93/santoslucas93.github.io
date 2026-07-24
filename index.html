@@ -3519,6 +3519,7 @@ function lineHasLinkedRealizado(id){
 function createStructureLine(area,g,n,idRaw){
   area=String(area||'').trim().toUpperCase();g=String(g||'').trim();n=String(n||'').trim();
   if(!area||!g||!n)return{ok:false,msg:'Preencha departamento, grupo e nome da linha.'};
+  if((window.ALL_STRUCTURE_LINES||DB.lines).some(l=>!isTotalizerLine(l)&&l.area===area&&norm(l.g)===norm(g)&&norm(l.n)===norm(n)))return{ok:false,msg:'Já existe uma linha com esse nome neste grupo/departamento — edite a existente em vez de criar uma duplicada.'};
   const idKey=String(idRaw||nextLineId(area)).trim();
   if(!/^\d+\.\d+$/.test(idKey))return{ok:false,msg:'ID inválido — use o padrão da planilha, por exemplo 2.88 ou 5.60.'};
   if(DB.lines.some(l=>String(l.id)===idKey)||customPlan.some(l=>String(l.id)===idKey)||customLines.some(l=>String(l.id)===idKey))return{ok:false,msg:'Esse ID já está em uso — escolha outro.'};
@@ -5275,8 +5276,13 @@ async function quickSaveLineValues(rk,kind,id){
   const msgEl=document.getElementById('qe-msg-'+rk);
   const l=kind==='custom'?customPlan.find(x=>String(x.id)===String(id)):DB.lines.find(x=>String(x.id)===String(id));
   if(!l){if(msgEl)msgEl.textContent='Linha não encontrada (pode ter sido alterada por outra pessoa — recarregue a página).';return;}
+  const monthInputsList=[...row.querySelectorAll('.qe-month-input')];
+  const invalidMonths=monthInputsList.filter(inp=>{const raw=(inp.value||'').trim();return raw&&!/^-?[\d.,]+$/.test(raw);}).map(inp=>mlabel(inp.dataset.qeMonth));
+  if(invalidMonths.length){if(msgEl)msgEl.textContent='Valor inválido em: '+invalidMonths.join(', ')+'. Use apenas números (ex.: 1234,56).';return;}
   const prevNovo={};
-  row.querySelectorAll('.qe-month-input').forEach(inp=>{prevNovo[inp.dataset.qeMonth]=moneyVal(inp.value);});
+  monthInputsList.forEach(inp=>{prevNovo[inp.dataset.qeMonth]=moneyVal(inp.value);});
+  const negMonths=Object.keys(prevNovo).filter(m=>prevNovo[m]<0).map(mlabel);
+  if(negMonths.length && !confirm('Você informou valor negativo em: '+negMonths.join(', ')+'. Confirma que é intencional (ex.: estorno/ajuste)?'))return;
   const nInput=row.querySelector('.qe-field-n');
   const novoNome=nInput?nInput.value.trim():l.n;
   const gInput=row.querySelector('.qe-field-g');
@@ -5284,6 +5290,12 @@ async function quickSaveLineValues(rk,kind,id){
   const typeInput=row.querySelector('.qe-field-type');
   const codInput=row.querySelector('.qe-field-cod');
   if(!novoNome){if(msgEl)msgEl.textContent='O nome da linha não pode ficar em branco.';return;}
+  if(kind==='custom'&&!novoGrupo){if(msgEl)msgEl.textContent='O grupo não pode ficar em branco.';return;}
+  if((novoNome!==l.n||novoGrupo!==l.g)){
+    const dupBase=DB.lines.some(x=>!isTotalizerLine(x)&&x.area===l.area&&norm(x.g)===norm(novoGrupo)&&norm(x.n)===norm(novoNome)&&!(kind==='base'&&String(x.id)===String(l.id)));
+    const dupCustom=customPlan.some(x=>norm(x.area)===norm(l.area)&&norm(x.g)===norm(novoGrupo)&&norm(x.n)===norm(novoNome)&&!(kind==='custom'&&String(x.id)===String(l.id)));
+    if(dupBase||dupCustom){if(msgEl)msgEl.textContent='Já existe uma linha com esse nome neste grupo/departamento — escolha outro nome ou edite a existente.';return;}
+  }
   if(msgEl)msgEl.textContent='Salvando no sistema (Supabase)...';
   try{
     const dep=AREAS[l.area]||l.area;
@@ -5549,7 +5561,15 @@ async function addPlanLine(mode){
   if(!temporada){if(msgEl)msgEl.textContent='Informe a temporada do novo orçamento antes de cadastrar a linha.';return;}
   if(!area||!g||!n){if(msgEl)msgEl.textContent='Informe pelo menos área/departamento, grupo e linha do orçamento.';return;}
   if(type==='receita' && !['REC','OREC'].includes(area)){if(msgEl)msgEl.textContent='Para receitas, prefira usar a área REC para que apareça na aba Receitas. A linha não foi salva.';return;}
-  const prev={};document.querySelectorAll('#plan-months input').forEach(i=>{prev[i.dataset.planMonth]=moneyVal(i.value);});
+  const monthInputsList=[...document.querySelectorAll('#plan-months input')];
+  const invalidMonths=monthInputsList.filter(i=>{const raw=(i.value||'').trim();return raw&&!/^-?[\d.,]+$/.test(raw);}).map(i=>mlabel(i.dataset.planMonth));
+  if(invalidMonths.length){if(msgEl)msgEl.textContent='Valor inválido em: '+invalidMonths.join(', ')+'. Use apenas números (ex.: 1234,56).';return;}
+  const prev={};monthInputsList.forEach(i=>{prev[i.dataset.planMonth]=moneyVal(i.value);});
+  const negMonths=Object.keys(prev).filter(m=>prev[m]<0).map(mlabel);
+  if(negMonths.length && !confirm('Você informou valor negativo em: '+negMonths.join(', ')+'. Isso é incomum (normalmente usado para estornos/ajustes). Confirma que é intencional?'))return;
+  if(!curEditingLineId && !Object.values(prev).some(v=>v)){
+    if(!confirm('Nenhum valor foi preenchido para os meses — deseja cadastrar mesmo assim, com o orçado zerado?'))return;
+  }
   // Se já existe uma linha de verdade na estrutura com essa área/grupo/linha,
   // é ela que deve ser atualizada — não cria uma linha nova/duplicada no
   // Novo Orçado por baixo. customPlan só é usado para linhas realmente novas.
