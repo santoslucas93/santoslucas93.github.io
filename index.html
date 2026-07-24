@@ -5215,9 +5215,60 @@ function planSummaryRowsTableHTML(lines){
   if(!lines.length)return '<div class="desc">Nenhuma linha com orçado nesta área.</div>';
   return `<table><thead><tr><th>Grupo</th><th>Linha</th><th class="num">Total</th><th></th></tr></thead><tbody>${lines.map(l=>{
     const t=linePrev(l,'ALL');
+    const rk=quickEditRowKey(l);
     const actions=l._custom?`<button class="act" onclick="editPlanLine('${esc(String(l.id))}')">editar</button> <button class="act" onclick="removePlanLine('${esc(String(l.id))}')">remover</button>`:`<button class="act" onclick="editAnyPlanLine('${esc(String(l.id))}')">editar</button> <button class="act" onclick="removeAnyPlanLine('${esc(String(l.id))}')">remover</button>`;
-    return `<tr><td>${esc(l.g)}</td><td>${esc(l.n)}${l.cod?'<div class="how">cód. '+esc(l.cod)+'</div>':''}</td><td class="num">${fmt(t)}</td><td style="white-space:nowrap">${actions}</td></tr>`;
+    const quickBtn=`<button class="act" type="button" onclick="toggleQuickEditRow('${rk}')" title="Editar valores mensais direto na tabela, sem abrir o formulário completo">editar valores</button>`;
+    return `<tr><td>${esc(l.g)}</td><td>${esc(l.n)}${l.cod?'<div class="how">cód. '+esc(l.cod)+'</div>':''}</td><td class="num">${fmt(t)}</td><td style="white-space:nowrap">${quickBtn} ${actions}</td></tr>`
+      +quickEditRowHTML(l,rk);
   }).join('')}</tbody></table>`;
+}
+function quickEditRowKey(l){return cssid((l._custom?'c_':'b_')+String(l.id));}
+function quickEditMonthsForLine(l){
+  const ms=Object.keys(l.prev||{}).filter(m=>Number(l.prev[m])||l.prev[m]===0);
+  const base=ms.length?ms:(nextBudgetMonths&&nextBudgetMonths.length?nextBudgetMonths:allBudgetMonths());
+  return [...new Set(base)].sort();
+}
+function quickEditRowHTML(l,rk){
+  const months=quickEditMonthsForLine(l);
+  const inputs=months.map(m=>`<label>${esc(mlabel(m))}<input type="text" class="qe-month-input" data-qe-month="${esc(m)}" placeholder="0,00" value="${(l.prev&&l.prev[m])?String(l.prev[m]).replace('.',','):''}"></label>`).join('');
+  return `<tr id="qe-${rk}" class="qe-row" style="display:none"><td colspan="4">
+    <div class="panel" style="margin:0;background:transparent">
+      <div class="how">Edição rápida de valores mensais — não altera departamento, grupo, linha ou responsável. Para isso, use "editar".</div>
+      <div class="month-budget">${inputs}</div>
+      <div class="toolbar">
+        <button class="act pri" type="button" onclick="quickSaveLineValues('${rk}','${esc(l._custom?'custom':'base')}','${esc(String(l.id))}')">Salvar</button>
+        <button class="act" type="button" onclick="toggleQuickEditRow('${rk}')">Cancelar</button>
+      </div>
+      <div id="qe-msg-${rk}" class="desc"></div>
+    </div>
+  </td></tr>`;
+}
+function toggleQuickEditRow(rk){
+  const row=document.getElementById('qe-'+rk);if(!row)return;
+  row.style.display=row.style.display==='none'?'':'none';
+}
+async function quickSaveLineValues(rk,kind,id){
+  const row=document.getElementById('qe-'+rk);if(!row)return;
+  const msgEl=document.getElementById('qe-msg-'+rk);
+  const l=kind==='custom'?customPlan.find(x=>String(x.id)===String(id)):DB.lines.find(x=>String(x.id)===String(id));
+  if(!l){if(msgEl)msgEl.textContent='Linha não encontrada (pode ter sido alterada por outra pessoa — recarregue a página).';return;}
+  const prevNovo={};
+  row.querySelectorAll('.qe-month-input').forEach(inp=>{prevNovo[inp.dataset.qeMonth]=moneyVal(inp.value);});
+  if(msgEl)msgEl.textContent='Salvando no sistema (Supabase)...';
+  try{
+    const dep=AREAS[l.area]||l.area;
+    const idLinha=await resolveIdLinha(l.area,l.g,l.n);
+    const rowsToSave=Object.keys(prevNovo).map(m=>({id_linha:idLinha,departamento:dep,grupo:l.g,linha_orcamento:l.n,mes:m,valor:prevNovo[m],temporada:l.temporada||store.getItem('lnb3_plan_season')||lnbCurrentTemporada()||''}));
+    await supaUpsert('orcado',rowsToSave,'id_linha,mes');
+    l.prev=Object.assign({},l.prev,prevNovo);
+    if(kind==='custom')await saveCustomPlan();
+    sessionStorage.removeItem('gsheet_synced_this_session');
+    if(msgEl)msgEl.innerHTML='Valores salvos com sucesso e sincronizados para todos os usuários.'+savedStampHTML();
+    setTimeout(()=>renderPlanBody(),900);
+  }catch(e){
+    console.error('Falha ao salvar edição rápida de valores:',e);
+    if(msgEl)msgEl.textContent='Falha ao salvar no Supabase: '+e.message;
+  }
 }
 function planListSearchAndGroupHTML(lines, idPrefix){
   if(!lines.length)return '<div class="desc">Nenhuma linha com orçado nesta área.</div>';
