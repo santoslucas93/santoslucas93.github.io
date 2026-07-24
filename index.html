@@ -1723,6 +1723,14 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   </div>
   <div class="audit-grid" id="integrity-kpis"></div>
   <div class="panel"><h2>Resultado detalhado</h2><div id="integrity-results"></div></div>
+  <div class="panel">
+    <h2>Teste automático de persistência</h2>
+    <div class="note">Cria uma linha fictícia de teste (não aparece no orçamento real), edita, confirma no Supabase, exclui, confirma a remoção e depois apaga todo o rastro do teste — sem usar nomes de colaboradores reais.</div>
+    <div class="toolbar">
+      <button class="act pri" type="button" onclick="runOrcamentoSelfTest()">Rodar teste agora</button>
+    </div>
+    <div id="selftest-results"></div>
+  </div>
 </div>
 
 <div id="v-structure" class="hide">
@@ -6101,6 +6109,74 @@ function renderIntegrity(force){
 function csvCell(v){return '"'+String(v??'').replace(/"/g,'""')+'"';}
 function downloadText(name,text,type){const b=new Blob([text],{type:type||'text/plain;charset=utf-8'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
 function downloadIntegrityReport(){const rows=integrityScan();downloadText(`LNB_integridade_${new Date().toISOString().slice(0,10)}.csv`,'Nível;Tipo;Data;Descrição;Detalhe\n'+rows.map(x=>[x.nivel,x.tipo,x.data,x.descricao,x.detalhe].map(csvCell).join(';')).join('\n'),'text/csv;charset=utf-8');}
+function nextFreeTestLineId(){
+  for(let n=900001;n<900999;n++){
+    const cand=n+'.1';
+    if(!DB.lines.some(l=>String(l.id)===cand)&&!customLines.some(l=>String(l.id)===cand)&&!deletedLineIds.map(String).includes(cand)&&!customPlan.some(l=>String(l.id)===cand))return cand;
+  }
+  return null;
+}
+async function runOrcamentoSelfTest(){
+  const out=document.getElementById('selftest-results');
+  const steps=[];
+  const renderSteps=()=>{
+    if(!out)return;
+    out.innerHTML='<table><thead><tr><th>Passo</th><th></th><th>Detalhe</th></tr></thead><tbody>'+
+      steps.map(s=>`<tr><td>${esc(s.step)}</td><td>${s.ok?'✅':'❌'}</td><td class="desc">${esc(s.detail||'')}</td></tr>`).join('')+
+      '</tbody></table>';
+  };
+  const log=(step,ok,detail)=>{steps.push({step,ok,detail:detail||''});renderSteps();};
+  if(out)out.innerHTML='<div class="desc">Rodando teste…</div>';
+  const testId=nextFreeTestLineId();
+  if(!testId){log('Escolher ID de teste',false,'Não foi possível encontrar um ID de teste livre.');return;}
+  const area='ZZZ_TESTE_AUTOMATICO',group='Teste automático (não é orçamento real)';
+  const name='Linha de teste — '+new Date().toISOString();
+  const who=(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido';
+  // Importante: este teste grava e lê direto no Supabase, sem tocar no estado
+  // local da página (DB.lines, customLines etc.) — assim ele não aparece em
+  // nenhuma tela enquanto roda, e os erros reais do Supabase (permissão,
+  // validação etc.) aparecem no relatório em vez de serem escondidos.
+  try{
+    await supaUpsert('custom_lines',[{id:testId,area,g:group,n:name,status:'ativa',created_by:who}],'id');
+    log('Criar linha de teste',true,'ID '+testId+' enviado ao Supabase (estado local da página não é alterado).');
+
+    const rows1=await supaSelectFiltered('custom_lines','id=eq.'+encodeURIComponent(testId));
+    const okCreate=Array.isArray(rows1)&&rows1.length===1&&rows1[0].n===name;
+    log('Confirmar persistência da criação',okCreate,okCreate?'Linha encontrada no Supabase com o nome esperado (consulta nova, sem cache local).':'Consulta ao Supabase não confirmou a criação: '+JSON.stringify(rows1));
+    if(!okCreate)throw new Error('Falha ao confirmar persistência da criação.');
+
+    const newName=name+' (editado)';
+    await supaUpsert('structure_overrides',[{kind:'line',key:testId,value:JSON.stringify({n:newName}),updated_by:who,updated_at:new Date().toISOString()}],'kind,key');
+    log('Editar linha de teste',true,'Nome alterado para "'+newName+'".');
+
+    const rows2=await supaSelectFiltered('structure_overrides','kind=eq.line&key=eq.'+encodeURIComponent(testId));
+    let okEdit=false;
+    try{okEdit=Array.isArray(rows2)&&rows2.length===1&&JSON.parse(rows2[0].value).n===newName;}catch(e){}
+    log('Confirmar persistência da edição',okEdit,okEdit?'Alteração encontrada no Supabase.':'Consulta ao Supabase não confirmou a edição: '+JSON.stringify(rows2));
+    if(!okEdit)throw new Error('Falha ao confirmar persistência da edição.');
+
+    await supaDelete('custom_lines','id=eq.'+encodeURIComponent(testId));
+    log('Excluir linha de teste',true,'Linha removida de custom_lines no Supabase.');
+
+    const rows3=await supaSelectFiltered('custom_lines','id=eq.'+encodeURIComponent(testId));
+    const okDel=Array.isArray(rows3)&&rows3.length===0;
+    log('Confirmar remoção',okDel,okDel?'Linha não existe mais em custom_lines no Supabase.':'Linha ainda aparece em custom_lines no Supabase.');
+    if(!okDel)throw new Error('Falha ao confirmar a remoção.');
+  }catch(e){
+    log('Teste interrompido',false,e.message);
+  }finally{
+    try{
+      await supaDelete('custom_lines','id=eq.'+encodeURIComponent(testId)).catch(e=>console.error('limpeza custom_lines:',e));
+      await supaDelete('structure_overrides','kind=eq.line&key=eq.'+encodeURIComponent(testId)).catch(e=>console.error('limpeza structure_overrides:',e));
+      await supaDelete('deleted_lines','id=eq.'+encodeURIComponent(testId)).catch(e=>console.error('limpeza deleted_lines:',e));
+      await supaDelete('orcamento_auditoria','registro_id=eq.'+encodeURIComponent(testId)).catch(e=>console.error('limpeza orcamento_auditoria:',e));
+      log('Limpar rastro do teste',true,'Nenhum dado de teste permanece no Supabase (o histórico de auditoria da criação/exclusão pode registrar o teste — é esperado e não afeta dados reais).');
+    }catch(e2){
+      log('Limpar rastro do teste',false,e2.message);
+    }
+  }
+}
+
 function planGovernance(){try{return JSON.parse(store.getItem('lnb3_plan_governance')||'{}')}catch(e){return{}}}
 async function savePlanGovernance(){
   const v={status:document.getElementById('plan-status')?.value||'Base copiada',owner:document.getElementById('plan-owner')?.value||'',justification:document.getElementById('plan-justification')?.value||'',updatedAt:new Date().toISOString()};
