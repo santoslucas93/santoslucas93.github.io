@@ -317,7 +317,7 @@ body{
   letter-spacing:-.01em;
 }
 .nav button:before{font-size:14px;opacity:.95;filter:drop-shadow(0 1px 0 rgba(0,0,0,.12))}
-.nav button[data-v="home"]:before{content:"⌂"}.nav button[data-v="rec"]:before{content:"💰"}.nav button[data-v="dept"]:before{content:none}.nav button[data-v="sup"]:before{content:none}.nav button[data-v="club"]:before{content:none}.nav button[data-v="charts"]:before{content:none}.nav button[data-v="budget"]:before{content:none}.nav button[data-v="conc"]:before{content:"🧩"}.nav button[data-v="bank"]:before{content:"🏦"}.nav button[data-v="structure"]:before{content:"🛠️"}.nav button[data-v="guia"]:before{content:"🧭"}.nav button[data-v="rules"]:before{content:"📋"}.nav button[data-v="audit"]:before{content:"🛡️"}.nav button[data-v="exp"]:before{content:"📤"}
+.nav button[data-v="home"]:before{content:"⌂"}.nav button[data-v="rec"]:before{content:"💰"}.nav button[data-v="dept"]:before{content:none}.nav button[data-v="sup"]:before{content:none}.nav button[data-v="club"]:before{content:none}.nav button[data-v="charts"]:before{content:none}.nav button[data-v="budget"]:before{content:none}.nav button[data-v="real"]:before{content:"🧾"}.nav button[data-v="conc"]:before{content:"🧩"}.nav button[data-v="bank"]:before{content:"🏦"}.nav button[data-v="structure"]:before{content:"🛠️"}.nav button[data-v="guia"]:before{content:"🧭"}.nav button[data-v="rules"]:before{content:"📋"}.nav button[data-v="audit"]:before{content:"🛡️"}.nav button[data-v="exp"]:before{content:"📤"}
 .nav button:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
 .nav button.on{
   background:linear-gradient(180deg,var(--bg),color-mix(in srgb,var(--bg) 93%,var(--card)));
@@ -1545,6 +1545,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <button data-v="sup" data-sup="TRHO"><span style="opacity:.65;margin-right:5px;font-size:12px">🚌🏨</span>Transporte e Hospedagem</button>
     <button data-v="sup" data-sup="REFU"><span style="opacity:.65;margin-right:5px;font-size:12px">👨‍💼</span>Reemb. Funcionários</button>
     <button data-v="dash"><span style="opacity:.65;margin-right:5px;font-size:12px">📊</span>Gráficos</button>
+    <button data-v="real">Realizado</button>
     <button data-v="conc">Conciliação</button>
     <button data-v="bank">Conciliação Bancária</button>
     <button data-v="plan"><span style="opacity:.65;margin-right:5px;font-size:12px">➕</span>Novo Orçado</button>
@@ -1931,6 +1932,20 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     </details>
   </div>
 
+  <div class="panel admin-only" id="new-budget-panel" style="margin:14px 0">
+    <h2>Orçado da nova temporada — importar por planilha</h2>
+    <div class="note">Os dados são carregados automaticamente do banco de dados sempre que a página é aberta.</div>
+    <div class="toolbar" style="margin-top:10px">
+      <button class="act pri" type="button" id="btn-newbudget-template">Baixar modelo de orçado (.xlsx)</button>
+      <button class="act pri" type="button" id="btn-newbudget-import">Importar planilha de orçado preenchida</button>
+      <input type="file" id="newbudget-import-file" accept=".xlsx,.xls" class="hide">
+    </div>
+    <div id="newbudget-msg" class="foot"></div>
+    <div class="toolbar" style="margin-top:14px;border-top:1px dashed var(--bd);padding-top:14px">
+      <button class="act" type="button" id="btn-end-season" style="border-color:var(--er);color:var(--er)">Encerrar temporada e começar nova</button>
+    </div>
+  </div>
+
   <div class="plan-layout">
     <aside class="plan-sidebar">
       <div class="plan-sidebar-head">
@@ -1964,6 +1979,10 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <input type="file" id="backup-file" accept=".json" class="hide">
     <button class="act" id="btn-reset">Limpar decisões salvas</button>
   </div>
+  </div>
+</div>
+
+<div id="v-real" class="hide">
   <div class="panel admin-only" id="new-season-panel" style="margin:14px 0">
     <h2>Realizado da nova temporada (2026/2027) — com classificação embutida <span class="how">reduz a conciliação desde a entrada</span></h2>
     <div class="note">Os dados são carregados automaticamente do banco de dados sempre que a página é aberta. Você também pode atualizar manualmente a qualquer momento.</div>
@@ -2000,29 +2019,19 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <datalist id="dl-ml-grupos"></datalist>
       <datalist id="dl-ml-linhas"></datalist>
       <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
-        <input type="text" id="ml-competicao" placeholder="Competição (opcional)" style="flex:1;min-width:160px">
+        <input type="text" id="ml-competicao" placeholder="Competição (opcional)" list="dl-ml-competicao" style="flex:1;min-width:160px">
+        <datalist id="dl-ml-competicao"></datalist>
         <label style="display:flex;gap:6px;align-items:center;font-size:13px;white-space:nowrap"><input type="checkbox" id="ml-abatimento">Abatimento</label>
         <button class="act pri" type="button" id="btn-ml-save">Salvar lançamento no sistema</button>
       </div>
       <div id="ml-msg" class="foot"></div>
     </div>
-    <div class="toolbar" style="margin-top:10px">
-      <button class="act" type="button" id="btn-end-season" style="border-color:var(--er);color:var(--er)">Encerrar temporada e começar nova</button>
-    </div>
   </div>
-  <div class="panel admin-only" id="new-budget-panel" style="margin:14px 0">
-    <h2>Orçado da nova temporada — importar por planilha</h2>
-    <div class="note">Os dados são carregados automaticamente do banco de dados sempre que a página é aberta.</div>
-    <div class="toolbar" style="margin-top:10px">
-      <button class="act pri" type="button" id="btn-newbudget-template">Baixar modelo de orçado (.xlsx)</button>
-      <button class="act pri" type="button" id="btn-newbudget-import">Importar planilha de orçado preenchida</button>
-      <input type="file" id="newbudget-import-file" accept=".xlsx,.xls" class="hide">
-    </div>
-    <div id="newbudget-msg" class="foot"></div>
-  </div>
-  <div class="note">Importar novo extrato (.xls/.xlsx no mesmo layout, abas MÊS-ANO, ex.: AGO-2026). A coluna B agora é o ID exato da linha orçamentária (ex.: 1.1, 1.10, 2.3, 5.10). Mantenha essa coluna formatada como texto. Com ID válido, o lançamento cai diretamente no departamento, grupo e linha; sem ID, continua pelo motor de regras existente. Requer internet na primeira importação.</div>
-  <input type="file" id="imp" accept=".xls,.xlsx">
-  <div id="imp-msg" class="foot"></div>
+  <div class="panel" style="margin:14px 0">
+    <h2>Importar novo extrato de Realizado</h2>
+    <div class="note">Importar novo extrato (.xls/.xlsx no mesmo layout, abas MÊS-ANO, ex.: AGO-2026). A coluna B agora é o ID exato da linha orçamentária (ex.: 1.1, 1.10, 2.3, 5.10). Mantenha essa coluna formatada como texto. Com ID válido, o lançamento cai diretamente no departamento, grupo e linha; sem ID, continua pelo motor de regras existente. Requer internet na primeira importação.</div>
+    <input type="file" id="imp" accept=".xls,.xlsx">
+    <div id="imp-msg" class="foot"></div>
   </div>
 </div>
 
@@ -2748,6 +2757,7 @@ async function lnbSaveManualRealizado(){
 async function lnbInitManualEntryForm(){
   const depEl=document.getElementById('ml-departamento');
   if(!depEl) return;
+  const grpEl=document.getElementById('ml-grupo');
   const tempEl=document.getElementById('ml-temporada');
   if(tempEl && !tempEl.value) tempEl.value=lnbCurrentTemporada();
   if(depEl.options.length<=1){
@@ -2757,19 +2767,38 @@ async function lnbInitManualEntryForm(){
       depEl.appendChild(opt);
     });
   }
+  const dlComp=document.getElementById('dl-ml-competicao');
+  if(dlComp && !dlComp.options.length){
+    const competicoes=[...new Set(EVS.map(function(e){return e[1];}))];
+    dlComp.innerHTML=competicoes.map(function(v){return '<option value="'+String(v).replace(/"/g,'&quot;')+'">';}).join('');
+  }
   const idx=await lnbGetLineIndex();
-  function refreshLists(){
+  function rowsForCurrentDept(){
     const dep=depEl.value;
-    const rowsForDept=idx.byDept[AREAS[dep]||dep] || idx.byDept[dep] || [];
-    const grupos=[...new Set(rowsForDept.map(function(r){return r.grupo;}).filter(Boolean))];
-    const linhas=[...new Set(rowsForDept.map(function(r){return r.linha_orcamento;}).filter(Boolean))];
+    return idx.byDept[AREAS[dep]||dep] || idx.byDept[dep] || [];
+  }
+  function refreshGrupos(){
+    const grupos=[...new Set(rowsForCurrentDept().map(function(r){return r.grupo;}).filter(Boolean))];
     const dlG=document.getElementById('dl-ml-grupos');
-    const dlL=document.getElementById('dl-ml-linhas');
     if(dlG) dlG.innerHTML=grupos.map(function(g){return '<option value="'+String(g).replace(/"/g,'&quot;')+'">';}).join('');
+  }
+  function refreshLinhas(){
+    const rows=rowsForCurrentDept();
+    const grupoAtual=(grpEl&&grpEl.value||'').trim();
+    // Se o grupo digitado bater com algum existente, restringe as linhas a esse
+    // grupo (drill-down real). Se não bater com nada (grupo novo/em digitação
+    // ou vazio), mostra as linhas de todo o departamento como antes.
+    const rowsFiltradas=grupoAtual&&rows.some(function(r){return norm(r.grupo)===norm(grupoAtual);})
+      ? rows.filter(function(r){return norm(r.grupo)===norm(grupoAtual);})
+      : rows;
+    const linhas=[...new Set(rowsFiltradas.map(function(r){return r.linha_orcamento;}).filter(Boolean))];
+    const dlL=document.getElementById('dl-ml-linhas');
     if(dlL) dlL.innerHTML=linhas.map(function(l){return '<option value="'+String(l).replace(/"/g,'&quot;')+'">';}).join('');
   }
-  depEl.onchange=refreshLists;
-  refreshLists();
+  depEl.onchange=function(){refreshGrupos();refreshLinhas();};
+  if(grpEl) grpEl.oninput=refreshLinhas;
+  refreshGrupos();
+  refreshLinhas();
   const btn=document.getElementById('btn-ml-save');
   if(btn) btn.onclick=lnbSaveManualRealizado;
 }
@@ -4127,7 +4156,7 @@ function groupsHTML(a,r,showZero=false){
 function render(){
   renderMtabs();renderSubnav();
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===curV && (!b.dataset.area||b.dataset.area===curDept) && (!b.dataset.sup||b.dataset.sup===curSup)));
-  ['home','rec','club','dept','sup','conc','bank','audit','rules','guia','dash','plan','exp','ia'].forEach(v=>document.getElementById('v-'+v).classList.toggle('hide',v!==curV));
+  ['home','rec','club','dept','sup','conc','bank','audit','rules','guia','dash','plan','exp','real','ia'].forEach(v=>document.getElementById('v-'+v).classList.toggle('hide',v!==curV));
   const provaOk=months.every(m=>{const sal=DB.saldos[m]||{};if(sal.fim==null)return true;
     const mtx=txs.filter(t=>t.m===m&&!t.imp);const calc=(sal.ini||0)+mtx.reduce((s,t)=>s+t.e,0)-mtx.reduce((s,t)=>s+t.s,0);
     return Math.abs(calc-sal.fim)<0.02;});
