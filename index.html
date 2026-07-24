@@ -1890,20 +1890,6 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
         <button class="act pri" type="button" id="btn-tp-iniciar">🚀 Iniciar nova temporada (copiar Orçado)</button>
       </div>
       <div id="temporada-msg" class="foot" style="margin:0"></div>
-      <div style="border-top:1px dashed var(--bd);padding-top:12px;display:flex;flex-direction:column;gap:10px">
-        <div>
-          <h3 style="margin:0 0 4px;font-size:15px">🗄️ Backups diários</h3>
-          <div class="note" style="margin:0">Todo início de dia o sistema salva um retrato do Novo Orçado, das classificações da Conciliação e das regras por favorecido de antes das alterações do dia. Escolha uma data pra voltar a esse estado.</div>
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-          <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Data do backup
-            <select id="backup-select" style="min-width:200px"></select>
-          </label>
-          <button class="act" type="button" id="btn-backup-refresh">🔄 Ver backups disponíveis</button>
-          <button class="act" type="button" id="btn-backup-restore" style="border-color:var(--er);color:var(--er)">♻️ Restaurar este backup</button>
-        </div>
-        <div id="backup-msg" class="foot" style="margin:0"></div>
-      </div>
     </div>
     <div id="plan-compare-summary" class="kpis"></div>
     <details class="plan-gov-details">
@@ -1978,6 +1964,18 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <button class="act" id="btn-backup-import">Restaurar backup</button>
     <input type="file" id="backup-file" accept=".json" class="hide">
     <button class="act" id="btn-reset">Limpar decisões salvas</button>
+  </div>
+  <div class="panel admin-only" style="margin:14px 0">
+    <h3 style="margin:0 0 4px;font-size:15px">🗄️ Backups diários</h3>
+    <div class="note" style="margin:0 0 10px">Todo início de dia o sistema salva um retrato do Novo Orçado, das classificações da Conciliação, das regras por favorecido e do Realizado + Orçado da temporada em curso, de antes das alterações do dia. Escolha uma data pra voltar exatamente a esse estado — útil se algo foi lançado ou editado errado.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Data do backup
+        <select id="backup-select" style="min-width:200px"></select>
+      </label>
+      <button class="act" type="button" id="btn-backup-refresh">🔄 Ver backups disponíveis</button>
+      <button class="act" type="button" id="btn-backup-restore" style="border-color:var(--er);color:var(--er)">♻️ Restaurar este backup</button>
+    </div>
+    <div id="backup-msg" class="foot" style="margin:0"></div>
   </div>
   </div>
 </div>
@@ -2574,12 +2572,15 @@ async function lnbInitTemporadaManager(force){
   const bi=document.getElementById('btn-tp-iniciar'); if(bi) bi.onclick=lnbIniciarNovaTemporada;
 }
 async function lnbBuildDailyBackupSnapshot(){
-  const [planRows, decRows, favRows, structRows, custLineRows, delLineRows, clubDebitRows, planMetaRows]=await Promise.all([
+  const temporada=lnbCurrentTemporada();
+  const [planRows, decRows, favRows, structRows, custLineRows, delLineRows, clubDebitRows, planMetaRows, realizadoRows, orcadoRows]=await Promise.all([
     supaSelect('custom_plan'), supaSelect('tx_decisions'), supaSelect('fav_rules'),
     supaSelect('structure_overrides'), supaSelect('custom_lines'), supaSelect('deleted_lines'),
-    supaSelect('club_debits'), supaSelect('plan_meta')
+    supaSelect('club_debits'), supaSelect('plan_meta'),
+    temporada?supaSelectFiltered('realizado','temporada=eq.'+encodeURIComponent(temporada)):Promise.resolve([]),
+    temporada?supaSelectFiltered('orcado','temporada=eq.'+encodeURIComponent(temporada)):Promise.resolve([])
   ]);
-  return {custom_plan:planRows||[],tx_decisions:decRows||[],fav_rules:favRows||[],structure_overrides:structRows||[],custom_lines:custLineRows||[],deleted_lines:delLineRows||[],club_debits:clubDebitRows||[],plan_meta:planMetaRows||[]};
+  return {custom_plan:planRows||[],tx_decisions:decRows||[],fav_rules:favRows||[],structure_overrides:structRows||[],custom_lines:custLineRows||[],deleted_lines:delLineRows||[],club_debits:clubDebitRows||[],plan_meta:planMetaRows||[],temporada:temporada||'',realizado:realizadoRows||[],orcado:orcadoRows||[]};
 }
 async function lnbEnsureDailyBackup(){
   try{
@@ -2605,7 +2606,7 @@ async function lnbRestoreBackup(){
   const msg=document.getElementById('backup-msg');
   const date=sel&&sel.value;
   if(!date){ if(msg)msg.textContent='Escolha uma data de backup primeiro.'; return; }
-  if(!confirm(`Isso vai substituir o Novo Orçado, a Conciliação, as regras por favorecido, o Editar Estrutura, os créditos manuais dos clubes e os donos/exclusões do Novo Orçado pelo estado salvo em ${date}. Lançamentos de Realizado e Orçado da temporada não são afetados. Deseja continuar?`))return;
+  if(!confirm(`Isso vai substituir o Novo Orçado, a Conciliação, as regras por favorecido, o Editar Estrutura, os créditos manuais dos clubes, os donos/exclusões do Novo Orçado e o Realizado + Orçado da temporada da época do backup pelo estado salvo em ${date}, para todo mundo que usa o painel. Deseja continuar?`))return;
   if(msg)msg.textContent='Restaurando…';
   try{
     const rows=await supaSelectFiltered('daily_backups','select=snapshot&backup_date=eq.'+date);
@@ -2626,6 +2627,22 @@ async function lnbRestoreBackup(){
     await restoreTable('club_debits','id',snap.club_debits);
     if((snap.structure_overrides||[]).length)await supaUpsert('structure_overrides',snap.structure_overrides,'kind,key');
     if((snap.plan_meta||[]).length)await supaUpsert('plan_meta',snap.plan_meta,'key');
+    // Realizado e Orçado guardados no snapshot são só da temporada que estava
+    // ativa no dia do backup — restaura só essa temporada (substituição total:
+    // apaga o que tem hoje pra ela e recoloca exatamente o que foi salvo).
+    const backupTemporada=snap.temporada||'';
+    if(backupTemporada){
+      await supaDelete('orcado','temporada=eq.'+encodeURIComponent(backupTemporada));
+      if((snap.orcado||[]).length)await supaUpsert('orcado',snap.orcado,'id_linha,mes');
+      await supaDelete('realizado','temporada=eq.'+encodeURIComponent(backupTemporada));
+      if((snap.realizado||[]).length){
+        // tira o id (chave interna gerada pelo Supabase) antes de reinserir —
+        // o valor antigo não importa pra nada no app, e reenviar pode falhar
+        // se a coluna for identity-only.
+        const realizadoParaInserir=snap.realizado.map(function(r){const c2=Object.assign({},r);delete c2.id;return c2;});
+        await supaInsertIgnoreDup('realizado',realizadoParaInserir);
+      }
+    }
     if(msg)msg.textContent='Restaurado. Recarregando…';
     location.reload();
   }catch(e){ if(msg)msg.textContent='Erro ao restaurar: '+e.message; }
