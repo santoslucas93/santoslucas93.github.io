@@ -1764,8 +1764,8 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       </label>
     </div>
     <div class="toolbar">
-      <button class="act pri" type="button" onclick="saveStructureEdit()">Salvar alteração</button>
-      <button class="act" type="button" onclick="resetStructureEdit()">Restaurar nome original</button>
+      <button class="act pri admin-only" type="button" onclick="saveStructureEdit()">Salvar alteração</button>
+      <button class="act admin-only" type="button" onclick="resetStructureEdit()">Restaurar nome original</button>
       <button class="act" type="button" onclick="exportStructureConfig()">Exportar configuração</button>
       <span id="structure-deactivate-wrap" style="display:none"><button class="act" type="button" id="structure-deactivate-btn" onclick="deactivateSelectedStructureLine()">Desativar</button></span>
       <span id="structure-delete-wrap" style="display:none"><button class="act danger" type="button" onclick="deleteSelectedStructureLine()">Excluir esta linha</button></span>
@@ -1774,7 +1774,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <div id="structure-msg" class="desc"></div>
     <div id="structure-history" class="desc" style="margin-top:10px;"></div>
   </div>
-  <div class="panel">
+  <div class="panel admin-only">
     <h2>Nova linha do orçamento (ID)</h2>
     <div class="note">Cria uma linha nova já com um ID próprio — use esse ID nas planilhas de importação do realizado e do orçado para apontar lançamentos direto para ela.</div>
     <div class="structure-grid">
@@ -1942,7 +1942,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       </div>
       <div class="plan-import-block">
         <button class="act" type="button" id="btn-plan-template">Baixar modelo (.xlsx)</button>
-        <button class="act pri" type="button" id="btn-plan-import">Importar planilha preenchida</button>
+        <button class="act pri admin-only" type="button" id="btn-plan-import">Importar planilha preenchida</button>
         <input type="file" id="plan-import-file" accept=".xlsx,.xls" class="hide">
         <div id="plan-import-msg" class="foot"></div>
       </div>
@@ -2211,6 +2211,14 @@ function lnbShowAuthBadge(){
   }catch(e){ console.error('lnbShowAuthBadge falhou:', e); }
 }
 
+function isReadOnlyUser(){ return !!(AUTH_SESSION && AUTH_SESSION.role && AUTH_SESSION.role!=='admin'); }
+function guardReadOnly(){
+  if(isReadOnlyUser()){
+    alert('Seu perfil é somente leitura — peça a um administrador para fazer esta alteração.');
+    return true;
+  }
+  return false;
+}
 function lnbShowOverlay(msg){
   const ov = document.getElementById('lnb-auth-overlay');
   if(ov) ov.style.display='flex';
@@ -2275,6 +2283,7 @@ async function supaSelect(table){
   return await res.json();
 }
 async function supaInsertIgnoreDup(table, rows){
+  if(isReadOnlyUser()) return {inserted:0};
   if(!rows.length) return {inserted:0};
   const headers=Object.assign({}, supaHeaders(), {'Prefer':'resolution=ignore-duplicates,return=minimal'});
   const res=await fetch(SUPABASE_URL+'/rest/v1/'+table, {method:'POST', headers: headers, body: JSON.stringify(rows)});
@@ -2282,6 +2291,7 @@ async function supaInsertIgnoreDup(table, rows){
   return {inserted: rows.length};
 }
 async function supaUpsert(table, rows, onConflict){
+  if(isReadOnlyUser()) return {upserted:0};
   if(!rows.length) return {upserted:0};
   const headers=Object.assign({}, supaHeaders(), {'Prefer':'resolution=merge-duplicates,return=minimal'});
   const url=SUPABASE_URL+'/rest/v1/'+table+(onConflict?('?on_conflict='+onConflict):'');
@@ -2291,6 +2301,7 @@ async function supaUpsert(table, rows, onConflict){
 }
 
 async function supaDelete(table, filterQuery){
+  if(isReadOnlyUser()) return {ok:false};
   const url=SUPABASE_URL+'/rest/v1/'+table+'?'+filterQuery;
   const res=await fetch(url, {method:'DELETE', headers: supaHeaders()});
   if(!res.ok){ const t=await res.text(); throw new Error('Supabase delete '+table+' falhou: '+res.status+' '+t); }
@@ -5144,6 +5155,7 @@ function renderPlanTabs(){
 }
 function planDeptOwners(){try{return JSON.parse(store.getItem('lnb3_plan_dept_owners')||'{}')}catch(e){return{}}}
 function savePlanDeptOwner(area){
+  if(guardReadOnly())return;
   const input=document.getElementById('plan-dept-owner-input');if(!input)return;
   const owners=planDeptOwners();
   const name=(input.value||'').trim();
@@ -5172,11 +5184,15 @@ function planRowsTableHTML(rows){
 }
 function planSummaryRowsTableHTML(lines){
   if(!lines.length)return '<div class="desc">Nenhuma linha com orçado nesta área.</div>';
-  return `<table class="plan-rows-table plan-rows-table-bulk"><colgroup><col class="c-chk"><col class="c-g"><col class="c-n"><col class="c-t"><col class="c-a"></colgroup><thead><tr><th><input type="checkbox" title="Selecionar todas as linhas visíveis" onchange="toggleBulkSelectAllVisible(this)"></th><th>Grupo</th><th>Linha</th><th class="num">Total</th><th></th></tr></thead><tbody>${lines.map(l=>{
+  const ro=isReadOnlyUser();
+  return `<table class="plan-rows-table plan-rows-table-bulk"><colgroup><col class="c-chk"><col class="c-g"><col class="c-n"><col class="c-t"><col class="c-a"></colgroup><thead><tr><th>${ro?'':'<input type="checkbox" title="Selecionar todas as linhas visíveis" onchange="toggleBulkSelectAllVisible(this)">'}</th><th>Grupo</th><th>Linha</th><th class="num">Total</th><th></th></tr></thead><tbody>${lines.map(l=>{
     const t=linePrev(l,'ALL');
     const rk=quickEditRowKey(l);
     const isCustom=!!l._custom;
     const bk=bulkKey(isCustom?'custom':'base',String(l.id));
+    if(ro){
+      return `<tr><td></td><td>${esc(l.g)}</td><td>${esc(l.n)}${l.cod?'<div class="how">cód. '+esc(l.cod)+'</div>':''}</td><td class="num">${fmt(t)}</td><td></td></tr>`;
+    }
     const removeBtn=isCustom?`<button class="act" onclick="removePlanLine('${esc(String(l.id))}')">remover</button>`:`<button class="act" onclick="removeAnyPlanLine('${esc(String(l.id))}')">remover</button>`;
     const editBtn=`<button class="act" type="button" onclick="toggleQuickEditRow('${rk}')" title="Editar esta linha direto na tabela, sem abrir o formulário completo">editar</button>`;
     const chk=`<input type="checkbox" class="bulk-chk" data-kind="${isCustom?'custom':'base'}" data-id="${esc(String(l.id))}" onchange="toggleBulkSelectLine(this)" ${bulkSelectedLines.has(bk)?'checked':''}>`;
@@ -5208,6 +5224,7 @@ function updateBulkToolbar(){
   if(span)span.textContent=bulkSelectedLines.size+' linha(s) selecionada(s)';
 }
 function planBulkToolbarHTML(){
+  if(isReadOnlyUser())return '';
   return `<div class="toolbar" id="bulk-toolbar" style="margin-bottom:10px;${bulkSelectedLines.size?'':'display:none'}">
     <span class="how bulk-count">${bulkSelectedLines.size} linha(s) selecionada(s)</span>
     <button class="act" type="button" onclick="bulkZeroSelected()" title="Zera os valores mensais das linhas selecionadas (mantém a linha cadastrada)">Zerar valores</button>
@@ -5225,6 +5242,7 @@ function bulkResolveLines(){
   }).filter(Boolean);
 }
 async function bulkZeroSelected(){
+  if(guardReadOnly())return;
   const items=bulkResolveLines();
   if(!items.length)return;
   if(!confirm('Zerar os valores mensais de '+items.length+' linha(s) selecionada(s)? A linha continua cadastrada, só os valores mensais ficam zerados.'))return;
@@ -5243,21 +5261,37 @@ async function bulkZeroSelected(){
   renderPlanBody();
 }
 async function bulkAdjustPercentSelected(){
+  if(guardReadOnly())return;
   const items=bulkResolveLines();
   if(!items.length)return;
   const pctRaw=prompt('Aplicar qual percentual de reajuste nos valores mensais das '+items.length+' linha(s) selecionada(s)? Ex.: 10 para +10%, -5 para -5%.');
   if(pctRaw===null)return;
   const pct=Number(String(pctRaw).replace(',','.'));
   if(!isFinite(pct)){alert('Percentual inválido.');return;}
-  if(!confirm('Aplicar reajuste de '+pct+'% em '+items.length+' linha(s) selecionada(s)?'))return;
+  // Monta a pre-visualizacao (antes vs depois) sem alterar nada ainda, pra
+  // pedir confirmacao com base no que realmente vai mudar.
+  const preview=items.map(({l})=>{
+    const oldTotal=Object.values(l.prev||{}).reduce((s,v)=>s+(Number(v)||0),0);
+    const newPrev={};
+    Object.keys(l.prev||{}).forEach(m=>{ newPrev[m]=Math.round((Number(l.prev[m])||0)*(1+pct/100)*100)/100; });
+    const newTotal=Object.values(newPrev).reduce((s,v)=>s+v,0);
+    return {l,newPrev,oldTotal,newTotal};
+  });
+  const grandOld=preview.reduce((s,p)=>s+p.oldTotal,0);
+  const grandNew=preview.reduce((s,p)=>s+p.newTotal,0);
+  let confirmMsg='Aplicar reajuste de '+pct+'% em '+items.length+' linha(s) selecionada(s)?\n\nTotal (soma do ano): '+fmt(grandOld)+' → '+fmt(grandNew);
+  const sample=preview.slice(0,5);
+  confirmMsg+='\n\nPor linha (total do ano):';
+  sample.forEach(p=>{ confirmMsg+='\n'+p.l.n+': '+fmt(p.oldTotal)+' → '+fmt(p.newTotal); });
+  if(preview.length>sample.length) confirmMsg+='\n... e mais '+(preview.length-sample.length)+' linha(s).';
+  if(!confirm(confirmMsg))return;
   const rowsToSave=[];
-  for(const {l} of items){
+  for(const {l,newPrev} of preview){
     const dep=AREAS[l.area]||l.area;
     const idLinha=await resolveIdLinha(l.area,l.g,l.n);
-    Object.keys(l.prev||{}).forEach(m=>{
-      const novo=Math.round((Number(l.prev[m])||0)*(1+pct/100)*100)/100;
-      rowsToSave.push({id_linha:idLinha,departamento:dep,grupo:l.g,linha_orcamento:l.n,mes:m,valor:novo,temporada:l.temporada||store.getItem('lnb3_plan_season')||lnbCurrentTemporada()||''});
-      l.prev[m]=novo;
+    Object.keys(newPrev).forEach(m=>{
+      rowsToSave.push({id_linha:idLinha,departamento:dep,grupo:l.g,linha_orcamento:l.n,mes:m,valor:newPrev[m],temporada:l.temporada||store.getItem('lnb3_plan_season')||lnbCurrentTemporada()||''});
+      l.prev[m]=newPrev[m];
     });
   }
   if(rowsToSave.length)await supaUpsert('orcado',rowsToSave,'id_linha,mes');
@@ -5267,6 +5301,7 @@ async function bulkAdjustPercentSelected(){
   renderPlanBody();
 }
 async function bulkDeactivateSelected(){
+  if(guardReadOnly())return;
   const items=bulkResolveLines().filter(x=>x.kind==='base');
   if(!items.length){alert('Nenhuma linha da estrutura oficial está selecionada (linhas criadas por aqui não têm "desativar" — use "Excluir").');return;}
   if(!confirm('Desativar '+items.length+' linha(s) selecionada(s)? Elas somem das listas de classificação, mas o histórico é preservado.'))return;
@@ -5279,6 +5314,7 @@ async function bulkDeactivateSelected(){
   setTimeout(()=>location.reload(),600);
 }
 async function bulkDeleteSelected(){
+  if(guardReadOnly())return;
   const items=bulkResolveLines().filter(x=>x.kind==='custom');
   if(!items.length){alert('Nenhuma linha criada por aqui está selecionada — só é possível excluir linhas criadas na tela (as demais podem ser desativadas).');return;}
   // Mesma regra de seguranca da exclusao individual (removePlanLine): so e
@@ -5348,7 +5384,17 @@ function toggleQuickEditRow(rk){
   const row=document.getElementById('qe-'+rk);if(!row)return;
   row.style.display=row.style.display==='none'?'':'none';
 }
+function formatMonthDiff(oldPrev,newPrev){
+  const months=[...new Set([...Object.keys(oldPrev||{}),...Object.keys(newPrev||{})])].sort();
+  const out=[];
+  months.forEach(m=>{
+    const ov=Number((oldPrev||{})[m])||0, nv=Number((newPrev||{})[m])||0;
+    if(ov!==nv) out.push(mlabel(m)+': '+fmt(ov)+' → '+fmt(nv));
+  });
+  return out;
+}
 async function quickSaveLineValues(rk,kind,id){
+  if(guardReadOnly())return;
   const row=document.getElementById('qe-'+rk);if(!row)return;
   const msgEl=document.getElementById('qe-msg-'+rk);
   const l=kind==='custom'?customPlan.find(x=>String(x.id)===String(id)):DB.lines.find(x=>String(x.id)===String(id));
@@ -5372,6 +5418,16 @@ async function quickSaveLineValues(rk,kind,id){
     const dupBase=DB.lines.some(x=>!isTotalizerLine(x)&&x.area===l.area&&norm(x.g)===norm(novoGrupo)&&norm(x.n)===norm(novoNome)&&!(kind==='base'&&String(x.id)===String(l.id)));
     const dupCustom=customPlan.some(x=>norm(x.area)===norm(l.area)&&norm(x.g)===norm(novoGrupo)&&norm(x.n)===norm(novoNome)&&!(kind==='custom'&&String(x.id)===String(l.id)));
     if(dupBase||dupCustom){if(msgEl)msgEl.textContent='Já existe uma linha com esse nome neste grupo/departamento — escolha outro nome ou edite a existente.';return;}
+  }
+  const nameChanged0=novoNome!==l.n;
+  const groupChanged0=kind==='custom'&&novoGrupo!==l.g;
+  const diffLines0=formatMonthDiff(l.prev,prevNovo);
+  if(diffLines0.length||nameChanged0||groupChanged0){
+    let confirmMsg='Confirma salvar as seguintes alterações?\n';
+    if(nameChanged0)confirmMsg+='\nNome: "'+l.n+'" → "'+novoNome+'"';
+    if(groupChanged0)confirmMsg+='\nGrupo: "'+(l.g||'')+'" → "'+novoGrupo+'"';
+    if(diffLines0.length)confirmMsg+='\n\nValores mensais:\n'+diffLines0.join('\n');
+    if(!confirm(confirmMsg)){if(msgEl)msgEl.textContent='Alteração cancelada.';return;}
   }
   if(msgEl)msgEl.textContent='Salvando no sistema (Supabase)...';
   try{
@@ -5481,10 +5537,14 @@ function planDeptFormHTML(area){
     </div>
     <div id="plan-dept-owner-msg" class="foot"></div>
   </div>`;
-  const subtabs=[
+  const roDept=isReadOnlyUser();
+  const subtabs=roDept?[
+    {k:'list',n:'Cadastradas',c:deptLinesWithBudget.length},
+  ]:[
     {k:'new',n:'Nova linha',c:null},
     {k:'list',n:'Cadastradas',c:deptLinesWithBudget.length},
   ];
+  if(roDept&&curPlanSubTab==='new')curPlanSubTab='list';
   const subtabsHTML=`<div class="plan-subtabs">${subtabs.map(t=>`<button class="${t.k===curPlanSubTab?'on':''}" onclick="${t.k==='new'?'curEditingLineId=null;':''}curPlanSubTab='${t.k}';renderPlanBody();">${esc(t.n)}${t.c!=null?' <span class=\'plan-subtab-count\'>'+t.c+'</span>':''}</button>`).join('')}</div>`;
   let body='';
   if(curPlanSubTab==='new'){
@@ -5613,6 +5673,7 @@ function clearPlanForm(){
 }
 function renderPlanMonths(){const box=document.getElementById('plan-months');if(!box)return;box.innerHTML=nextBudgetMonths.map(m=>`<label>${mlabel(m)}<input type="text" data-plan-month="${m}" placeholder="0,00"></label>`).join('');}
 async function addPlanLine(mode){
+  if(guardReadOnly())return;
   let area,areaName;
   const type=document.getElementById('plan-type').value;
   if(mode==='__new__'){
@@ -5642,6 +5703,13 @@ async function addPlanLine(mode){
   if(!curEditingLineId && !Object.values(prev).some(v=>v)){
     if(!confirm('Nenhum valor foi preenchido para os meses — deseja cadastrar mesmo assim, com o orçado zerado?'))return;
   }
+  if(curEditingLineId){
+    const oldLineForDiff=DB.lines.find(l=>l.area===area&&norm(l.g)===norm(g)&&norm(l.n)===norm(n)&&!isTotalizerLine(l))||customPlan.find(x=>norm(x.area)===norm(area)&&norm(x.g)===norm(g)&&norm(x.n)===norm(n));
+    const diffLinesEdit=oldLineForDiff?formatMonthDiff(oldLineForDiff.prev,prev):[];
+    if(diffLinesEdit.length){
+      if(!confirm('Confirma salvar as seguintes alterações de valores mensais?\n\n'+diffLinesEdit.join('\n'))){if(msgEl)msgEl.textContent='Alteração cancelada.';return;}
+    }
+  }
   // Se já existe uma linha de verdade na estrutura com essa área/grupo/linha,
   // é ela que deve ser atualizada — não cria uma linha nova/duplicada no
   // Novo Orçado por baixo. customPlan só é usado para linhas realmente novas.
@@ -5669,6 +5737,7 @@ async function addPlanLine(mode){
   location.reload();
 }
 async function removePlanLine(id){
+  if(guardReadOnly())return;
   const x=customPlan.find(x=>String(x.id)===String(id));
   if(!x){alert('Linha não encontrada.');return;}
   const blockReason=lineDeleteBlockedReason(x,id);
@@ -5717,6 +5786,7 @@ function editAnyPlanLine(id){
   window.scrollTo(0,0);
 }
 async function removeAnyPlanLine(id){
+  if(guardReadOnly())return;
   const l=DB.lines.find(x=>String(x.id)===String(id));if(!l)return;
   // Linhas marcadas _orphanImport não são estrutura de verdade — só existem
   // porque a sincronização (planilha ou ao vivo) achou um valor de orçado
@@ -5946,6 +6016,7 @@ function parsePlanRowsGeneric(raw,fixedArea,temporada,counters){
   });
 }
 async function importPlanSpreadsheet(file){
+  if(guardReadOnly())return;
   const msg=document.getElementById('plan-import-msg');
   const temporada=(document.getElementById('plan-season').value||'').trim();
   if(!temporada){if(msg)msg.textContent='Informe a temporada (topo da barra lateral) antes de importar.';return;}
@@ -6980,9 +7051,9 @@ function loadStructureItem(){
    name.value=l?.n||'';
    const idEl=document.getElementById('structure-id');if(idEl)idEl.value=l?l.id:'';
    const custom=customLines.find(c=>String(c.id)===k);
-   if(delWrap)delWrap.style.display=custom?'flex':'none';
+   if(delWrap)delWrap.style.display=(custom&&!isReadOnlyUser())?'flex':'none';
    if(deactWrap){
-     deactWrap.style.display=l?'flex':'none';
+     deactWrap.style.display=(l&&!isReadOnlyUser())?'flex':'none';
      const btn=document.getElementById('structure-deactivate-btn');
      const curDeactivated=lineOverrides[k]&&lineOverrides[k].status==='desativada';
      if(btn)btn.textContent=curDeactivated?'Reativar':'Desativar';
@@ -7014,6 +7085,7 @@ function currentUserLabel(){
 function nowStampBR(){return new Date().toLocaleString('pt-BR');}
 function savedStampHTML(){return '<div class="how">Última atualização: '+esc(nowStampBR())+' por '+esc(currentUserLabel())+'</div>';}
 async function saveStructureEdit(){
+ if(guardReadOnly())return;
  const type=document.getElementById('structure-type').value,k=document.getElementById('structure-item').value,n=document.getElementById('structure-name').value.trim();if(!k||!n)return;
  const msgEl0=document.getElementById('structure-msg');
  if(type==='line'||type==='group'){
@@ -7040,6 +7112,7 @@ async function saveStructureEdit(){
  if(type==='line'||type==='group')setTimeout(()=>captureStructureEditWatermark(type,k),400);
 }
 function resetStructureEdit(){
+ if(guardReadOnly())return;
  const type=document.getElementById('structure-type').value,k=document.getElementById('structure-item').value;
  if(type==='area')delete structureCfg.areas[k];
  else if(type==='support'){delete structureCfg.supports[k];delete structureCfg.parents[k];}
@@ -7055,6 +7128,7 @@ function resetStructureEdit(){
  persistStructure();document.getElementById('structure-msg').textContent='Alteração original restaurada (recarregue a página para ver o efeito completo).';
 }
 function deactivateSelectedStructureLine(){
+ if(guardReadOnly())return;
  const k=document.getElementById('structure-item').value;if(!k)return;
  const r=toggleDeactivateStructureLine(k);
  const msg=document.getElementById('structure-msg');
@@ -7066,6 +7140,7 @@ function deactivateSelectedStructureLine(){
 }
 let lnbPendingDelete=null;
 function deleteSelectedStructureLine(){
+ if(guardReadOnly())return;
  const k=document.getElementById('structure-item').value;if(!k)return;
  const custom=customLines.find(l=>String(l.id)===String(k));
  if(!custom){const msg=document.getElementById('structure-msg');if(msg)msg.textContent='Só é possível excluir linhas criadas por aqui — linhas originais do orçamento podem ser renomeadas, mas não excluídas (para preservar o histórico).';return;}
@@ -7128,6 +7203,7 @@ function deleteSelectedStructureLine(){
  lnbPendingDelete={timer,finish,done:false};
 }
 function createNewStructureLine(){
+ if(guardReadOnly())return;
  const area=document.getElementById('structure-new-area').value;
  const g=document.getElementById('structure-new-group').value.trim();
  const n=document.getElementById('structure-new-name').value.trim();
