@@ -2160,6 +2160,7 @@ async function lnbLoginWithPassword(email, password){
     if(!sess){ sess = await lnbTryLogin(AUTH_READONLY_EMAIL, password); role='readonly'; }
     if(!sess) return false;
     sess.role = role;
+    await lnbAttachProfile(sess);
   }
   AUTH_SESSION = sess;
   lnbSaveSession();
@@ -5474,10 +5475,11 @@ async function addPlanLine(mode){
       await supaUpsert('orcado',rowsToSave,'id_linha,mes');
       if(existingStructLine)existingStructLine.prev=Object.assign({},existingStructLine.prev,prev);
     }
-    if(msgEl)msgEl.textContent=existingStructLine?'Linha existente atualizada no orçado.':'Linha salva no orçado.';
-  }catch(e){ console.error('Falha ao salvar os valores desta linha no orçado (Supabase):',e); }
+    if(msgEl)msgEl.innerHTML='Alterações salvas com sucesso e sincronizadas para todos os usuários.'+savedStampHTML();
+  }catch(e){ console.error('Falha ao salvar os valores desta linha no orçado (Supabase):',e); if(msgEl)msgEl.textContent='Falha ao salvar no Supabase: '+e.message; }
   if(!existingStructLine)await saveCustomPlan();
   sessionStorage.removeItem('gsheet_synced_this_session');
+  await new Promise(r=>setTimeout(r,900));
   location.reload();
 }
 async function removePlanLine(id){
@@ -6722,6 +6724,12 @@ async function loadLineHistory(lineId){
     }).join('<br>');
   }catch(e){ el.textContent='Não foi possível carregar o histórico agora.'; }
 }
+function currentUserLabel(){
+  if(!AUTH_SESSION)return 'desconhecido';
+  return AUTH_SESSION.nome||AUTH_SESSION.dbRole||AUTH_SESSION.role||'desconhecido';
+}
+function nowStampBR(){return new Date().toLocaleString('pt-BR');}
+function savedStampHTML(){return '<div class="how">Última atualização: '+esc(nowStampBR())+' por '+esc(currentUserLabel())+'</div>';}
 function saveStructureEdit(){
  const type=document.getElementById('structure-type').value,k=document.getElementById('structure-item').value,n=document.getElementById('structure-name').value.trim();if(!k||!n)return;
  if(type==='area')structureCfg.areas[k]=n;
@@ -6735,7 +6743,10 @@ function saveStructureEdit(){
    const l=DB.lines.find(x=>String(x.id)===k);
    if(l){l.n=n;lineOverrides[k]=Object.assign({},lineOverrides[k],{n});saveLineOverrides();}
  }
- persistStructure();document.getElementById('structure-msg').textContent='Alteração salva na base central (Supabase) — vale para todo mundo que usa o painel.';renderStructureEditor();
+ persistStructure();
+ const msgEl2=document.getElementById('structure-msg');
+ if(msgEl2)msgEl2.innerHTML='Alterações salvas com sucesso e sincronizadas para todos os usuários.'+savedStampHTML();
+ renderStructureEditor();
 }
 function resetStructureEdit(){
  const type=document.getElementById('structure-type').value,k=document.getElementById('structure-item').value;
