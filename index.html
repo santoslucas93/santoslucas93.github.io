@@ -4977,6 +4977,58 @@ const PLAN_BASE_DEPTS = ['REC','LNB','TOP','COM','A&F','MKT','EQP'];
 let curPlanArea = 'ALL';
 let curPlanSubTab = 'ref';
 let planDeptFilter = '';
+let planListDeptFilter='';
+let planListGroupFilter='';
+let planListActiveFilter='ativas';
+let planListValueFilter='todos';
+let planListSort='valor';
+function lineIsDeactivated(l){return !!(lineOverrides[String(l.id)]&&lineOverrides[String(l.id)].status==='desativada');}
+function planApplyListFilters(lines){
+  let out=lines.slice();
+  if(planListDeptFilter) out=out.filter(l=>l.area===planListDeptFilter);
+  if(planListGroupFilter) out=out.filter(l=>l.g===planListGroupFilter);
+  if(planListActiveFilter==='ativas') out=out.filter(l=>!lineIsDeactivated(l));
+  else if(planListActiveFilter==='desativadas') out=out.filter(l=>lineIsDeactivated(l));
+  if(planListValueFilter==='com') out=out.filter(l=>Object.values(l.prev||{}).some(v=>Number(v)));
+  else if(planListValueFilter==='zero') out=out.filter(l=>!Object.values(l.prev||{}).some(v=>Number(v)));
+  out=out.slice().sort((a,b)=> planListSort==='nome' ? String(a.n||'').localeCompare(String(b.n||'')) : (linePrev(b,'ALL')-linePrev(a,'ALL')));
+  return out;
+}
+function planFilterToolbarHTML(opts){
+  opts=opts||{};
+  const deptSelectHTML=opts.deptOptions?`<select id="plan-filter-dept" style="min-width:170px">
+    <option value="">Todos os departamentos</option>
+    ${opts.deptOptions.map(d=>`<option value="${esc(d.k)}" ${planListDeptFilter===d.k?'selected':''}>${esc(d.n)}</option>`).join('')}
+  </select>`:'';
+  const groupOpts='<option value="">Todos os grupos</option>'+(opts.groupOptions||[]).map(g=>`<option value="${esc(g)}" ${planListGroupFilter===g?'selected':''}>${esc(g)}</option>`).join('');
+  return `<div class="toolbar" style="margin-bottom:10px;flex-wrap:wrap">
+    ${deptSelectHTML}
+    <select id="plan-filter-group" style="min-width:160px">${groupOpts}</select>
+    <select id="plan-filter-active">
+      <option value="ativas" ${planListActiveFilter==='ativas'?'selected':''}>Somente ativas</option>
+      <option value="desativadas" ${planListActiveFilter==='desativadas'?'selected':''}>Somente desativadas</option>
+      <option value="todas" ${planListActiveFilter==='todas'?'selected':''}>Ativas e desativadas</option>
+    </select>
+    <select id="plan-filter-value">
+      <option value="todos" ${planListValueFilter==='todos'?'selected':''}>Todos os valores</option>
+      <option value="com" ${planListValueFilter==='com'?'selected':''}>Com orçado</option>
+      <option value="zero" ${planListValueFilter==='zero'?'selected':''}>Zerado / sem orçado</option>
+    </select>
+    <select id="plan-filter-sort">
+      <option value="valor" ${planListSort==='valor'?'selected':''}>Ordenar: maior valor</option>
+      <option value="nome" ${planListSort==='nome'?'selected':''}>Ordenar: nome</option>
+    </select>
+  </div>`;
+}
+function bindPlanFilterToolbar(onChange){
+  const d=document.getElementById('plan-filter-dept'),g=document.getElementById('plan-filter-group'),a=document.getElementById('plan-filter-active'),v=document.getElementById('plan-filter-value'),s=document.getElementById('plan-filter-sort');
+  if(d)d.onchange=()=>{planListDeptFilter=d.value;planListGroupFilter='';onChange();};
+  if(g)g.onchange=()=>{planListGroupFilter=g.value;onChange();};
+  if(a)a.onchange=()=>{planListActiveFilter=a.value;onChange();};
+  if(v)v.onchange=()=>{planListValueFilter=v.value;onChange();};
+  if(s)s.onchange=()=>{planListSort=s.value;onChange();};
+}
+
 let planExcluded = JSON.parse(store.getItem('lnb3_plan_excluded')||'[]');
 function planExcludeKey(area,g,n){return norm(area)+'|'+norm(g)+'|'+norm(n);}
 function isPlanExcluded(area,g,n){return planExcluded.includes(planExcludeKey(area,g,n));}
@@ -5196,13 +5248,21 @@ function planAllSummaryHTML(){
   // que a página recarregava. Agora ela mostra o orçado real da temporada
   // inteira — toda linha de DB.lines com algum valor preenchido — para bater
   // com o que as abas de Receitas/departamentos já mostram.
-  const linesAll=DB.lines.filter(l=>!isTotalizerLine(l));
-  const withBudget=linesAll.filter(l=>Object.values(l.prev||{}).some(v=>Number(v)));
-  if(!withBudget.length)return '<div class="panel"><h2>Resumo do orçado da temporada</h2><div class="desc">Nenhuma linha com orçado cadastrado ainda. Escolha uma aba de departamento acima para começar.</div></div>';
-  const byArea={};withBudget.forEach(l=>{(byArea[l.area]=byArea[l.area]||[]).push(l);});
-  const totalGeral=withBudget.reduce((s,l)=>s+linePrev(l,'ALL'),0);
+  // Também aceita filtro por departamento/grupo/status/valor e ordenação,
+  // olhando para todas as linhas da estrutura (inclusive desativadas), não
+  // só as que já têm orçado — assim dá pra usar esta tela como visão geral
+  // mesmo vindo de dentro de um departamento específico.
+  const linesAllBase=(window.ALL_STRUCTURE_LINES||DB.lines).filter(l=>!isTotalizerLine(l));
+  const deptOptions=[...new Set(linesAllBase.map(l=>l.area))].sort().map(a=>({k:a,n:AREAS[a]||a}));
+  const groupsForFilter=[...new Set(linesAllBase.filter(l=>!planListDeptFilter||l.area===planListDeptFilter).map(l=>l.g))].filter(Boolean).sort();
+  const filtered=planApplyListFilters(linesAllBase);
+  const toolbar=planFilterToolbarHTML({deptOptions,groupOptions:groupsForFilter});
+  if(!filtered.length)return `<div class="panel"><h2>Resumo do orçado da temporada</h2>${toolbar}<div class="desc">Nenhuma linha encontrada com esses filtros.</div></div>`;
+  const byArea={};filtered.forEach(l=>{(byArea[l.area]=byArea[l.area]||[]).push(l);});
+  const totalGeral=filtered.reduce((s,l)=>s+linePrev(l,'ALL'),0);
   return `<div class="panel"><h2>Resumo do orçado da temporada — todas as áreas</h2>
-    <div class="kpis"><div class="kpi"><div class="l">Total cadastrado</div><div class="v">${fmt(totalGeral)}</div><div class="d">${withBudget.length} linha(s) em ${Object.keys(byArea).length} departamento(s)</div></div></div>
+    ${toolbar}
+    <div class="kpis"><div class="kpi"><div class="l">Total no filtro</div><div class="v">${fmt(totalGeral)}</div><div class="d">${filtered.length} linha(s) em ${Object.keys(byArea).length} departamento(s)</div></div></div>
     ${Object.keys(byArea).sort().map(a=>{
       const rows=byArea[a],tot=rows.reduce((s,l)=>s+linePrev(l,'ALL'),0);
       return `<h3 style="margin-top:16px">${esc(AREAS[a]||a)} <span class="how">${fmt(tot)}</span></h3>${planSummaryRowsTableHTML(rows)}`;
@@ -5268,10 +5328,14 @@ function planDeptFormHTML(area){
     <div id="plan-msg" class="desc"></div>
   </div>`;
   } else if(curPlanSubTab==='list'){
+    const deptAllLines=(window.ALL_STRUCTURE_LINES||DB.lines).filter(l=>l.area===area&&!isTotalizerLine(l));
+    const groupsForFilter=[...new Set(deptAllLines.map(l=>l.g))].filter(Boolean).sort();
+    const filteredDeptLines=planApplyListFilters(deptAllLines);
     body=`<div class="panel">
-    <h2>Linhas com orçado em ${esc(name)}</h2>
-    <div class="desc">Toda linha com orçado cadastrado neste departamento, agrupada por grupo — pode buscar, editar ou remover qualquer uma direto aqui.</div>
-    <div id="plan-list">${planListSearchAndGroupHTML(deptLinesWithBudget,'plan-dept-list')}</div>
+    <h2>Linhas cadastradas em ${esc(name)}</h2>
+    <div class="desc">Toda linha cadastrada neste departamento — filtre por grupo, status ou valor, busque por nome, e edite ou remova qualquer uma direto aqui.</div>
+    ${planFilterToolbarHTML({groupOptions:groupsForFilter})}
+    <div id="plan-list">${planListSearchAndGroupHTML(filteredDeptLines,'plan-dept-list')}</div>
   </div>`;
   } else {
     body=`<div class="panel">
@@ -5331,6 +5395,7 @@ function bindPlanDeptHandlers(area){
   const bc=document.getElementById('btn-plan-clear');if(bc)bc.onclick=clearPlanForm;
   const be=document.getElementById('btn-plan-export');if(be)be.onclick=exportPlanCSV;
   bindPlanListSearch('plan-dept-list');
+  bindPlanFilterToolbar(()=>renderPlanBody());
 }
 function bindPlanNewDeptHandlers(){
   renderPlanMonths();
@@ -5340,7 +5405,7 @@ function bindPlanNewDeptHandlers(){
 }
 function renderPlanBody(){
   const box=document.getElementById('plan-dept-body');if(!box)return;
-  if(curPlanArea==='ALL'){box.innerHTML=planAllSummaryHTML();return;}
+  if(curPlanArea==='ALL'){box.innerHTML=planAllSummaryHTML();bindPlanFilterToolbar(()=>renderPlanBody());return;}
   if(curPlanArea==='__new__'){box.innerHTML=planNewDeptFormHTML();bindPlanNewDeptHandlers();return;}
   box.innerHTML=planDeptFormHTML(curPlanArea);
   bindPlanDeptHandlers(curPlanArea);
