@@ -317,7 +317,7 @@ body{
   letter-spacing:-.01em;
 }
 .nav button:before{font-size:14px;opacity:.95;filter:drop-shadow(0 1px 0 rgba(0,0,0,.12))}
-.nav button[data-v="home"]:before{content:"⌂"}.nav button[data-v="rec"]:before{content:"💰"}.nav button[data-v="dept"]:before{content:none}.nav button[data-v="sup"]:before{content:none}.nav button[data-v="club"]:before{content:none}.nav button[data-v="charts"]:before{content:none}.nav button[data-v="budget"]:before{content:none}.nav button[data-v="real"]:before{content:"🧾"}.nav button[data-v="conc"]:before{content:"🧩"}.nav button[data-v="bank"]:before{content:"🏦"}.nav button[data-v="structure"]:before{content:"🛠️"}.nav button[data-v="guia"]:before{content:"🧭"}.nav button[data-v="rules"]:before{content:"📋"}.nav button[data-v="audit"]:before{content:"🛡️"}.nav button[data-v="exp"]:before{content:"📤"}
+.nav button[data-v="home"]:before{content:"⌂"}.nav button[data-v="rec"]:before{content:"💰"}.nav button[data-v="dept"]:before{content:none}.nav button[data-v="sup"]:before{content:none}.nav button[data-v="club"]:before{content:none}.nav button[data-v="charts"]:before{content:none}.nav button[data-v="budget"]:before{content:none}.nav button[data-v="real"]:before{content:"✅"}.nav button[data-v="conc"]:before{content:"🧩"}.nav button[data-v="bank"]:before{content:"🏦"}.nav button[data-v="structure"]:before{content:"🛠️"}.nav button[data-v="guia"]:before{content:"🧭"}.nav button[data-v="rules"]:before{content:"📋"}.nav button[data-v="audit"]:before{content:"🛡️"}.nav button[data-v="exp"]:before{content:"📤"}
 .nav button:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
 .nav button.on{
   background:linear-gradient(180deg,var(--bg),color-mix(in srgb,var(--bg) 93%,var(--card)));
@@ -2585,8 +2585,12 @@ async function lnbBuildDailyBackupSnapshot(){
 async function lnbEnsureDailyBackup(){
   try{
     const today=new Date().toISOString().slice(0,10);
-    const existing=await supaSelectFiltered('daily_backups','select=backup_date&backup_date=eq.'+today);
-    if(Array.isArray(existing)&&existing.length)return; // já existe um backup de hoje, não sobrescreve
+    const existing=await supaSelectFiltered('daily_backups','select=backup_date,snapshot&backup_date=eq.'+today);
+    const jaTemHoje=Array.isArray(existing)&&existing.length;
+    // Se já existe um backup de hoje mas foi gerado antes deste recurso (não
+    // tem Realizado/Orçado guardados), regrava agora — não espera até amanhã
+    // pra começar a cobrir isso. Se já é um backup completo, não mexe.
+    if(jaTemHoje && existing[0].snapshot && 'temporada' in existing[0].snapshot) return;
     const snapshot=await lnbBuildDailyBackupSnapshot();
     await supaUpsert('daily_backups',[{backup_date:today,snapshot}],'backup_date');
   }catch(e){ console.error('lnbEnsureDailyBackup falhou (sem backup automático hoje):',e); }
@@ -2642,6 +2646,9 @@ async function lnbRestoreBackup(){
         const realizadoParaInserir=snap.realizado.map(function(r){const c2=Object.assign({},r);delete c2.id;return c2;});
         await supaInsertIgnoreDup('realizado',realizadoParaInserir);
       }
+    }
+    if(!backupTemporada){
+      alert('Restaurado, mas o backup escolhido foi feito antes de o sistema guardar Realizado/Orçado — só as demais informações (Novo Orçado, Conciliação, regras, Estrutura, clubes) foram restauradas. Realizado e Orçado continuam como estão agora.');
     }
     if(msg)msg.textContent='Restaurado. Recarregando…';
     location.reload();
