@@ -6683,6 +6683,40 @@ function refreshStructureItems(){
  item.innerHTML=opts.map(x=>`<option value="${esc(x.k)}">${esc(x.n)}</option>`).join('');
  document.getElementById('structure-parent-wrap').style.display=type==='support'?'flex':'none';loadStructureItem();
 }
+let structureEditWatermark=null;
+function structureOverrideKindKey(type,k){
+ if(type==='line')return {kind:'line',key:k};
+ if(type==='group'){const [area,...rest]=k.split('|'),old=rest.join('|');return {kind:'group',key:area+'|'+old};}
+ return null;
+}
+async function fetchStructureOverrideMeta(kind,key){
+ try{
+   const rows=await supaSelectFiltered('structure_overrides','kind=eq.'+encodeURIComponent(kind)+'&key=eq.'+encodeURIComponent(key)+'&select=updated_by,updated_at');
+   return (Array.isArray(rows)&&rows[0])?rows[0]:null;
+ }catch(e){ console.error('fetchStructureOverrideMeta falhou:',e); return null; }
+}
+async function captureStructureEditWatermark(type,k){
+ const kk=structureOverrideKindKey(type,k);
+ if(!kk){structureEditWatermark=null;return;}
+ const meta=await fetchStructureOverrideMeta(kk.kind,kk.key);
+ structureEditWatermark={type,key:k,kind:kk.kind,overrideKey:kk.key,updatedAt:meta?meta.updated_at:null,updatedBy:meta?meta.updated_by:null};
+}
+async function checkConcurrentStructureEdit(type,k){
+ const kk=structureOverrideKindKey(type,k);
+ if(!kk)return true; // tipos sem sincronização (área/suporte) não têm risco de edição simultânea hoje
+ const before=structureEditWatermark&&structureEditWatermark.type===type&&structureEditWatermark.key===k?structureEditWatermark:null;
+ const meta=await fetchStructureOverrideMeta(kk.kind,kk.key);
+ const nowAt=meta?meta.updated_at:null, nowBy=meta?meta.updated_by:null;
+ const beforeAt=before?before.updatedAt:null, beforeBy=before?before.updatedBy:null;
+ const changed = nowAt!==beforeAt || nowBy!==beforeBy;
+ const meLabel=currentUserLabel();
+ if(changed && nowBy && nowBy!==meLabel){
+   const quando=nowAt?new Date(nowAt).toLocaleString('pt-BR'):'agora há pouco';
+   const ok=confirm('Atenção: este item foi alterado por "'+nowBy+'" em '+quando+' enquanto você editava (possível edição simultânea).\n\nClique OK para sobrescrever com a sua versão, ou Cancelar para recarregar a página e ver a versão mais recente antes de continuar.');
+   if(!ok){ location.reload(); return false; }
+ }
+ return true;
+}
 function loadStructureItem(){
  const type=document.getElementById('structure-type').value,k=document.getElementById('structure-item').value,name=document.getElementById('structure-name');
  const idWrap=document.getElementById('structure-id-wrap'),delWrap=document.getElementById('structure-delete-wrap'),deactWrap=document.getElementById('structure-deactivate-wrap');
@@ -6707,6 +6741,7 @@ function loadStructureItem(){
    }
    if(k)loadLineHistory(k);
  }
+ if(type==='line'||type==='group')captureStructureEditWatermark(type,k); else structureEditWatermark=null;
 }
 async function loadLineHistory(lineId){
   const el=document.getElementById('structure-history');
@@ -6730,8 +6765,15 @@ function currentUserLabel(){
 }
 function nowStampBR(){return new Date().toLocaleString('pt-BR');}
 function savedStampHTML(){return '<div class="how">Última atualização: '+esc(nowStampBR())+' por '+esc(currentUserLabel())+'</div>';}
-function saveStructureEdit(){
+async function saveStructureEdit(){
  const type=document.getElementById('structure-type').value,k=document.getElementById('structure-item').value,n=document.getElementById('structure-name').value.trim();if(!k||!n)return;
+ const msgEl0=document.getElementById('structure-msg');
+ if(type==='line'||type==='group'){
+   if(msgEl0)msgEl0.textContent='Verificando se alguém mais alterou este item...';
+   const podeContinuar=await checkConcurrentStructureEdit(type,k);
+   if(!podeContinuar)return;
+   if(msgEl0)msgEl0.textContent='';
+ }
  if(type==='area')structureCfg.areas[k]=n;
  else if(type==='support'){structureCfg.supports[k]=n;structureCfg.parents[k]=document.getElementById('structure-parent').value;}
  else if(type==='group'){
@@ -6747,6 +6789,7 @@ function saveStructureEdit(){
  const msgEl2=document.getElementById('structure-msg');
  if(msgEl2)msgEl2.innerHTML='Alterações salvas com sucesso e sincronizadas para todos os usuários.'+savedStampHTML();
  renderStructureEditor();
+ if(type==='line'||type==='group')setTimeout(()=>captureStructureEditWatermark(type,k),400);
 }
 function resetStructureEdit(){
  const type=document.getElementById('structure-type').value,k=document.getElementById('structure-item').value;
