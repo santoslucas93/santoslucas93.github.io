@@ -5057,7 +5057,7 @@ function moneyVal(v){const n=String(v||'').replace(/\./g,'').replace(',','.').re
 function numCell(v){if(v==null||v==='')return 0;if(typeof v==='number')return Math.round(v*100)/100;return moneyVal(v);}
 const PLAN_BASE_DEPTS = ['REC','LNB','TOP','COM','A&F','MKT','EQP'];
 let curPlanArea = 'ALL';
-let curPlanSubTab = 'ref';
+let curPlanSubTab = 'list';
 let planDeptFilter = '';
 let planListDeptFilter='';
 let planListGroupFilter='';
@@ -5137,7 +5137,7 @@ function renderPlanTabs(){
     const cls=['plan-dept-item'];
     if(t.k===curPlanArea)cls.push('on');
     if(t.k==='__new__')cls.push('plan-dept-new');
-    return `<button class="${cls.join(' ')}"${titleAttr} onclick="curPlanArea='${t.k}';curPlanSubTab='ref';renderPlanTabs();renderPlanBody();"><span class="plan-dept-name-wrap">${dot}<span class="plan-dept-name">${esc(t.n)}</span></span>${badge}</button>`;
+    return `<button class="${cls.join(' ')}"${titleAttr} onclick="curPlanArea='${t.k}';curPlanSubTab='list';renderPlanTabs();renderPlanBody();"><span class="plan-dept-name-wrap">${dot}<span class="plan-dept-name">${esc(t.n)}</span></span>${badge}</button>`;
   }).join('');
 }
 function planDeptOwners(){try{return JSON.parse(store.getItem('lnb3_plan_dept_owners')||'{}')}catch(e){return{}}}
@@ -5155,122 +5155,6 @@ function savePlanDeptOwner(area){
 }
 function planGroupsForArea(area){
   return [...new Set([...DB.lines.filter(l=>l.area===area).map(l=>l.g),...customPlan.filter(x=>norm(x.area)===norm(area)).map(x=>x.g)].filter(Boolean))].sort();
-}
-function planReferenceHTML(area){
-  const lines=DB.lines.filter(l=>l.area===area);
-  if(!lines.length)return '<div class="desc">Nenhuma linha cadastrada ainda para este departamento na planilha atual.</div>';
-  const byGroup={};lines.forEach(l=>{(byGroup[l.g]=byGroup[l.g]||[]).push(l);});
-  const groupKeys=Object.keys(byGroup).sort();
-  return `<div class="toolbar plan-ref-toolbar" style="margin-bottom:10px">
-    <input type="search" id="plan-line-search" placeholder="Buscar linha..." style="flex:1;min-width:160px">
-    <button class="act" type="button" onclick="document.querySelectorAll('.plan-carry-chk').forEach(c=>c.checked=true)">Marcar todos</button>
-    <button class="act" type="button" onclick="document.querySelectorAll('.plan-carry-chk').forEach(c=>c.checked=false)">Desmarcar todos</button>
-    <button class="act" type="button" onclick="document.querySelectorAll('#plan-ref-groups details').forEach(d=>d.open=true)">Expandir tudo</button>
-    <button class="act" type="button" onclick="document.querySelectorAll('#plan-ref-groups details').forEach(d=>d.open=false)">Recolher tudo</button>
-  </div>
-  <div id="plan-ref-groups">
-  ${groupKeys.map((g,gi)=>{
-    const rows=byGroup[g];
-    const filled=rows.filter(l=>{
-      const existing=customPlan.find(x=>norm(x.area)===norm(area)&&norm(x.g)===norm(g)&&norm(x.n)===norm(l.n));
-      return existing&&Object.values(existing.prev||{}).some(v=>Number(v));
-    }).length;
-    const lineRows=rows.map(l=>{
-      const vals=Object.values(l.prev||{});
-      const avgAtual=vals.length?vals.reduce((s,v)=>s+(Number(v)||0),0)/vals.length:0;
-      const existing=customPlan.find(x=>norm(x.area)===norm(area)&&norm(x.g)===norm(g)&&norm(x.n)===norm(l.n));
-      const nextVal=existing?Object.values(existing.prev||{})[0]:'';
-      const excluded=isPlanExcluded(area,g,l.n);
-      return `<tr class="plan-line-row" data-search="${esc(norm(l.n))}">
-        <td><input type="checkbox" class="plan-carry-chk" data-line-id="${l.id}" data-g="${esc(g)}" data-n="${esc(l.n)}" ${excluded?'':'checked'}></td>
-        <td>${esc(l.n)}${l.cod?'<div class="how">cód. '+esc(l.cod)+'</div>':''}</td>
-        <td class="num how">${fmt(avgAtual)}</td>
-        <td class="num"><input type="text" class="plan-carry-val" data-line-id="${l.id}" placeholder="0,00" value="${nextVal?String(nextVal).replace('.',','):''}"></td>
-      </tr>`;
-    }).join('');
-    return `<details class="plan-group" data-group="${esc(norm(g))}" ${gi===0?'open':''}>
-      <summary><b>${esc(g)}</b><span class="plan-group-meta">${rows.length} linha(s)${filled?' · '+filled+' preenchida(s)':''}</span></summary>
-      <table><thead><tr><th style="width:34px">Manter</th><th>Linha</th><th class="num">Ano vigente (média/mês)</th><th class="num">Próxima temporada (valor/mês)</th></tr></thead><tbody>${lineRows}</tbody></table>
-    </details>`;
-  }).join('')}
-  </div>
-  <div class="toolbar" style="margin-top:10px">
-    <button class="act pri" type="button" onclick="savePlanCarryForward('${esc(area)}')">Salvar estrutura de ${esc(AREAS[area]||area)} para a próxima temporada</button>
-  </div>
-  <div class="desc">Marcado = a linha entra no próximo orçado (preencha o valor mensal). Desmarcado = a linha fica de fora da próxima temporada — nada é apagado do ano vigente.</div>`;
-}
-function bindPlanReferenceSearch(){
-  const el=document.getElementById('plan-line-search');if(!el)return;
-  el.oninput=()=>{
-    const q=norm(el.value||'');
-    document.querySelectorAll('#plan-ref-groups .plan-group').forEach(det=>{
-      let anyVisible=false;
-      det.querySelectorAll('.plan-line-row').forEach(row=>{
-        const match=!q||(row.dataset.search||'').includes(q);
-        row.style.display=match?'':'none';
-        if(match)anyVisible=true;
-      });
-      det.style.display=anyVisible?'':'none';
-      if(q&&anyVisible)det.open=true;
-    });
-  };
-}
-async function savePlanCarryForward(area){
-  const temporada=(document.getElementById('plan-season').value||'').trim();
-  const msg=document.getElementById('plan-msg');
-  if(!temporada){if(msg)msg.textContent='Informe a temporada (barra lateral, no topo) antes de salvar a estrutura.';return;}
-  const chks=[...document.querySelectorAll('.plan-carry-chk')];
-  let created=0,updated=0,excludedN=0;
-  chks.forEach(chk=>{
-    const g=chk.dataset.g,n=chk.dataset.n;
-    const key=planExcludeKey(area,g,n);
-    const valInput=document.querySelector(`.plan-carry-val[data-line-id="${chk.dataset.lineId}"]`);
-    const v=valInput?moneyVal(valInput.value):0;
-    if(!chk.checked){
-      if(!planExcluded.includes(key))planExcluded.push(key);
-      const idx=customPlan.findIndex(x=>norm(x.area)===norm(area)&&norm(x.g)===norm(g)&&norm(x.n)===norm(n));
-      if(idx>=0){customPlan.splice(idx,1);excludedN++;}
-      return;
-    }
-    planExcluded=planExcluded.filter(k=>k!==key);
-    if(!v)return;
-    const line=DB.lines.find(l=>l.area===area&&l.g===g&&l.n===n);
-    const prev={};nextBudgetMonths.forEach(m=>prev[m]=v);
-    const exists=customPlan.find(x=>norm(x.area)===norm(area)&&norm(x.g)===norm(g)&&norm(x.n)===norm(n));
-    if(exists){exists.prev=prev;exists.temporada=temporada;updated++;}
-    else{customPlan.push({id:nextCustomId(area),area,areaName:AREAS[area]||area,type:['REC','OREC'].includes(area)?'receita':'despesa',g,n,cod:line?line.cod:'',prev,temporada});created++;}
-  });
-  savePlanExcluded();
-  store.setItem('lnb3_plan_season',temporada);
-  saveCustomPlan();
-  try{
-    if(msg) msg.textContent='Salvando no sistema (Supabase)...';
-    const dep=AREAS[area]||area;
-    const rowsToSave=[];
-    for(const chk of chks){
-      if(!chk.checked) continue;
-      const g=chk.dataset.g,n=chk.dataset.n;
-      const valInput=document.querySelector(`.plan-carry-val[data-line-id="${chk.dataset.lineId}"]`);
-      const v=valInput?moneyVal(valInput.value):0;
-      if(!v) continue;
-      let idLinha=await resolveIdLinha(area,g,n);
-      nextBudgetMonths.forEach(function(m){
-        rowsToSave.push({id_linha:idLinha, departamento:dep, grupo:g, linha_orcamento:n, mes:m, valor:v, temporada:temporada});
-      });
-    }
-    if(rowsToSave.length){
-      await supaUpsert('orcado', rowsToSave, 'id_linha,mes');
-      if(msg) msg.textContent='Salvo no sistema (Supabase) e neste navegador.';
-    } else if(msg){
-      msg.textContent='Nenhum valor preenchido para salvar no Supabase.';
-    }
-  }catch(e){
-    console.error('Falha ao salvar orçado no Supabase:', e);
-    if(msg) msg.textContent=(msg.textContent||'')+' | Aviso: falhou ao salvar no Supabase: '+e.message;
-  }
-  await new Promise(r=>setTimeout(r,900));
-  sessionStorage.removeItem('gsheet_synced_this_session');
-  location.reload();
 }
 function refreshPlanLineDatalistFor(area,g){
   const dlEl=document.getElementById('dl-plan-existing-lines');if(!dlEl)return;
@@ -5475,7 +5359,6 @@ function planDeptFormHTML(area){
     <div id="plan-dept-owner-msg" class="foot"></div>
   </div>`;
   const subtabs=[
-    {k:'ref',n:'Estrutura atual',c:groups.length},
     {k:'new',n:'Nova linha',c:null},
     {k:'list',n:'Cadastradas',c:deptLinesWithBudget.length},
   ];
@@ -5533,11 +5416,6 @@ function planDeptFormHTML(area){
     ${planFilterToolbarHTML({groupOptions:groupsForFilter})}
     <div id="plan-list">${planListSearchAndGroupHTML(filteredDeptLines,'plan-dept-list')}</div>
   </div>`;
-  } else {
-    body=`<div class="panel">
-    <h2>${esc(name)} <span class="how">${groups.length} grupo(s) já existentes — marque o que continua na próxima temporada</span></h2>
-    ${planReferenceHTML(area)}
-  </div>`;
   }
   return ownerBarHTML+subtabsHTML+body;
 }
@@ -5581,7 +5459,6 @@ function planNewDeptFormHTML(){
 }
 function bindPlanDeptHandlers(area){
   renderPlanMonths();
-  bindPlanReferenceSearch();
   const gsel=document.getElementById('plan-group-select'),wrap=document.getElementById('plan-group-new-wrap');
   if(gsel){
     gsel.onchange=()=>{const isNew=gsel.value==='__new__';if(wrap)wrap.style.display=isNew?'':'none';refreshPlanLineDatalistFor(area,isNew?'':gsel.value);};
