@@ -3608,6 +3608,27 @@ Object.values(favRules||{}).forEach(fix);
 if(typeof render==='function')render();},0);
 let imported=JSON.parse(store.getItem('lnb3_imported')||'[]');
 let budgetLines=JSON.parse(store.getItem('lnb3_budgetlines')||'[]');
+// Bug real corrigido: a sincronizacao ao vivo (importNewBudgetSpreadsheet em
+// modo live, chamada a cada carregamento por loadLiveGoogleSheets) gerava um
+// novo ID "NOVO-<area>-N" toda vez que não reconhecia uma linha órfã do
+// orçado que já tinha sido adicionada aqui num carregamento anterior — cada
+// tentativa de excluir/salvar (que recarrega a página) acabava criando MAIS
+// uma cópia da mesma linha fantasma, em vez de reconhecer a existente.
+// Aqui a gente limpa duplicatas que já se acumularam no navegador (mesma
+// área/grupo/nome), mantendo só a primeira, antes de mesclar em DB.lines.
+(function dedupeBudgetLines(){
+  const seen=new Set();
+  const deduped=budgetLines.filter(bl=>{
+    const key=norm(bl.area||'')+'|'+norm(bl.g||'')+'|'+norm(bl.n||'');
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
+  if(deduped.length!==budgetLines.length){
+    budgetLines=deduped;
+    store.setItem('lnb3_budgetlines',JSON.stringify(budgetLines));
+  }
+})();
 budgetLines.forEach(bl=>{
   const line=DB.lines.find(l=>String(l.id)===String(bl.id));
   if(line){
@@ -6644,6 +6665,13 @@ async function importNewBudgetSpreadsheet(file, raw){
     const monthKeyByHeader={};
     months.forEach(m=>{monthKeyByHeader[norm(mlabel(m))]=m;monthKeyByHeader[norm(m)]=m;});
     let created=0,updated=0,skipped=0;const monthsTouched=new Set();
+    // Todos os ids vistos nesta passada ao vivo (vindos do Supabase agora) —
+    // usado abaixo pra limpar do navegador qualquer entrada de budgetLines
+    // que nao existe mais no Supabase (ex.: depois que alguem apaga os
+    // valores direto no banco, ou depois que o resolveIdLinha corrigido
+    // dedupilca uma linha fantasma). Sem isso, uma linha excluida na origem
+    // continuava aparecendo pra sempre neste navegador.
+    const liveIdsSeen=new Set();
     raw.forEach(row=>{
       const idRaw=kID?String(row[kID]||'').trim():'';
       const existingLine=idRaw?DB.lines.find(l=>norm(String(l.id))===norm(idRaw)):null;
@@ -6672,11 +6700,21 @@ async function importNewBudgetSpreadsheet(file, raw){
       }else if(areaTxt&&linhaTxt){
         const area=resolveClassifArea(areaTxt);
         if(!area){skipped++;return;}
-        // Novas linhas recebem um ID no formato "NOVO-<area>-<sequencial>", checado contra
-        // DB.lines e budgetLines para nunca colidir com um ID existente (mais simples e seguro
-        // do que tentar reaproveitar a numeração decimal ja usada pela estrutura original).
-        let seq=1,newId;
-        do{newId='NOVO-'+area+'-'+seq;seq++;}while(DB.lines.some(l=>String(l.id)===newId)||budgetLines.some(b=>String(b.id)===newId));
+        let newId;
+        if(idRaw){
+          // Bug real corrigido: quando a linha vem da sincronizacao ao vivo
+          // (Supabase -> orçado) e não bate com nenhuma linha da estrutura,
+          // o idRaw já é um identificador real e estável (o id_linha salvo
+          // no Supabase). Reaproveitar esse valor em vez de inventar um novo
+          // "NOVO-<area>-N" garante que, no próximo carregamento, esta mesma
+          // linha vai ser reconhecida de novo (em vez de virar outra cópia).
+          newId=idRaw;
+        }else{
+          // Só quando não há nenhum ID de origem (ex.: linha nova vinda de
+          // planilha sem coluna ID) é que faz sentido inventar um sequencial.
+          let seq=1;
+          do{newId='NOVO-'+area+'-'+seq;seq++;}while(DB.lines.some(l=>String(l.id)===newId)||budgetLines.some(b=>String(b.id)===newId));
+        }
         targetId=newId;targetArea=area;targetG=grupoTxt;targetN=linhaTxt;
       }else{
         skipped++;return;
@@ -6686,10 +6724,23 @@ async function importNewBudgetSpreadsheet(file, raw){
       entry.area=targetArea;entry.g=targetG;entry.n=targetN;
       Object.assign(entry.prev,prevVals);
       Object.keys(prevVals).forEach(m=>monthsTouched.add(m));
+      liveIdsSeen.add(String(targetId));
       if(existingLine)updated++;else created++;
     });
     const stats={created,updated,skipped,monthsTouched:[...monthsTouched]};
-    if(!created&&!updated){if(msg&&!live)msg.textContent='Nenhuma linha válida encontrada.';return stats;}
+    if(live){
+      // Auto-cura: qualquer linha do cache local (budgetLines) criada por
+      // este mesmo mecanismo de sincronização ao vivo (seja por importação
+      // manual de planilha — que também grava no Supabase logo em seguida —
+      // seja pela sincronização automática) só continua existindo se ainda
+      // aparecer nos dados atuais do Supabase. Se sumiu de lá (por exemplo,
+      // depois de uma limpeza direta no banco), some também daqui — em vez
+      // de ficar reaparecendo pra sempre neste navegador.
+      const before=budgetLines.length;
+      budgetLines=budgetLines.filter(b=>liveIdsSeen.has(String(b.id)));
+      if(budgetLines.length!==before)stats.pruned=before-budgetLines.length;
+    }
+    if(!created&&!updated&&!stats.pruned){if(msg&&!live)msg.textContent='Nenhuma linha válida encontrada.';return stats;}
     save('budgetlines',budgetLines);
     if(!live){
       alert(`Importação do orçado concluída:\n${created} linha(s) nova(s) criada(s).\n${updated} linha(s) existente(s) atualizada(s).\n${skipped} linha(s) ignorada(s) por falta de ID/Departamento/Linha.\nMeses afetados: ${[...monthsTouched].sort().map(mlabel).join(', ')||'-'}`);
