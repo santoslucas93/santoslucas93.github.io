@@ -6131,64 +6131,46 @@ async function runOrcamentoSelfTest(){
   if(!testId){log('Escolher ID de teste',false,'Não foi possível encontrar um ID de teste livre.');return;}
   const area='ZZZ_TESTE_AUTOMATICO',group='Teste automático (não é orçamento real)';
   const name='Linha de teste — '+new Date().toISOString();
-  let created=false,overrideSet=false;
+  const who=(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido';
+  // Importante: este teste grava e lê direto no Supabase, sem tocar no estado
+  // local da página (DB.lines, customLines etc.) — assim ele não aparece em
+  // nenhuma tela enquanto roda, e os erros reais do Supabase (permissão,
+  // validação etc.) aparecem no relatório em vez de serem escondidos.
   try{
-    const r=createStructureLine(area,group,name,testId);
-    if(!r.ok){log('Criar linha de teste',false,r.msg);return;}
-    created=true;
-    store.setItem('lnb3_custom_lines_v56',JSON.stringify(customLines));
-    await pushCustomLinesToSupabase();
-    log('Criar linha de teste',true,'ID '+testId+' criado e enviado ao Supabase.');
+    await supaUpsert('custom_lines',[{id:testId,area,g:group,n:name,status:'ativa',created_by:who}],'id');
+    log('Criar linha de teste',true,'ID '+testId+' enviado ao Supabase (estado local da página não é alterado).');
 
     const rows1=await supaSelectFiltered('custom_lines','id=eq.'+encodeURIComponent(testId));
     const okCreate=Array.isArray(rows1)&&rows1.length===1&&rows1[0].n===name;
-    log('Confirmar persistência da criação',okCreate,okCreate?'Linha encontrada no Supabase com o nome esperado (consulta nova, sem cache local).':'Linha não encontrada (ou divergente) no Supabase.');
+    log('Confirmar persistência da criação',okCreate,okCreate?'Linha encontrada no Supabase com o nome esperado (consulta nova, sem cache local).':'Consulta ao Supabase não confirmou a criação: '+JSON.stringify(rows1));
     if(!okCreate)throw new Error('Falha ao confirmar persistência da criação.');
 
     const newName=name+' (editado)';
-    lineOverrides[testId]=Object.assign({},lineOverrides[testId],{n:newName});
-    overrideSet=true;
-    const lineObj=DB.lines.find(l=>String(l.id)===testId);if(lineObj)lineObj.n=newName;
-    store.setItem('lnb3_line_overrides_v56',JSON.stringify(lineOverrides));
-    await pushStructureOverridesToSupabase();
+    await supaUpsert('structure_overrides',[{kind:'line',key:testId,value:JSON.stringify({n:newName}),updated_by:who,updated_at:new Date().toISOString()}],'kind,key');
     log('Editar linha de teste',true,'Nome alterado para "'+newName+'".');
 
     const rows2=await supaSelectFiltered('structure_overrides','kind=eq.line&key=eq.'+encodeURIComponent(testId));
     let okEdit=false;
     try{okEdit=Array.isArray(rows2)&&rows2.length===1&&JSON.parse(rows2[0].value).n===newName;}catch(e){}
-    log('Confirmar persistência da edição',okEdit,okEdit?'Alteração encontrada no Supabase.':'Alteração não encontrada (ou divergente) no Supabase.');
+    log('Confirmar persistência da edição',okEdit,okEdit?'Alteração encontrada no Supabase.':'Consulta ao Supabase não confirmou a edição: '+JSON.stringify(rows2));
     if(!okEdit)throw new Error('Falha ao confirmar persistência da edição.');
 
-    const rDel=deleteStructureLine(testId);
-    if(!rDel.ok){log('Excluir linha de teste',false,rDel.msg);throw new Error('Falha ao excluir a linha de teste.');}
-    store.setItem('lnb3_custom_lines_v56',JSON.stringify(customLines));
-    store.setItem('lnb3_deleted_lines_v56',JSON.stringify(deletedLineIds));
-    store.setItem('lnb3_trash_meta_v56',JSON.stringify(trashMeta));
-    await pushCustomLinesToSupabase();
-    await pushDeletedLinesToSupabase();
-    log('Excluir linha de teste',true,'Linha removida do cadastro e movida para a lixeira.');
+    await supaDelete('custom_lines','id=eq.'+encodeURIComponent(testId));
+    log('Excluir linha de teste',true,'Linha removida de custom_lines no Supabase.');
 
     const rows3=await supaSelectFiltered('custom_lines','id=eq.'+encodeURIComponent(testId));
     const okDel=Array.isArray(rows3)&&rows3.length===0;
     log('Confirmar remoção',okDel,okDel?'Linha não existe mais em custom_lines no Supabase.':'Linha ainda aparece em custom_lines no Supabase.');
+    if(!okDel)throw new Error('Falha ao confirmar a remoção.');
   }catch(e){
     log('Teste interrompido',false,e.message);
   }finally{
     try{
-      const didx0=deletedLineIds.map(String).indexOf(testId);
-      if(didx0>=0){deletedLineIds.splice(didx0,1);delete trashMeta[testId];}
-      if(overrideSet)delete lineOverrides[testId];
-      const cidx=customLines.findIndex(l=>String(l.id)===testId);if(cidx>=0)customLines.splice(cidx,1);
-      const didx=DB.lines.findIndex(l=>String(l.id)===testId);if(didx>=0)DB.lines.splice(didx,1);
-      store.setItem('lnb3_custom_lines_v56',JSON.stringify(customLines));
-      store.setItem('lnb3_deleted_lines_v56',JSON.stringify(deletedLineIds));
-      store.setItem('lnb3_trash_meta_v56',JSON.stringify(trashMeta));
-      store.setItem('lnb3_line_overrides_v56',JSON.stringify(lineOverrides));
-      await pushCustomLinesToSupabase().catch(e=>console.error(e));
-      await pushDeletedLinesToSupabase().catch(e=>console.error(e));
-      await supaDelete('structure_overrides','kind=eq.line&key=eq.'+encodeURIComponent(testId)).catch(e=>console.error(e));
-      await supaDelete('orcamento_auditoria','registro_id=eq.'+encodeURIComponent(testId)).catch(e=>console.error(e));
-      log('Limpar rastro do teste',true,'Linha, lixeira e alteração de teste removidos do Supabase (o histórico de auditoria da criação/exclusão pode registrar o teste — é esperado e não afeta dados reais).');
+      await supaDelete('custom_lines','id=eq.'+encodeURIComponent(testId)).catch(e=>console.error('limpeza custom_lines:',e));
+      await supaDelete('structure_overrides','kind=eq.line&key=eq.'+encodeURIComponent(testId)).catch(e=>console.error('limpeza structure_overrides:',e));
+      await supaDelete('deleted_lines','id=eq.'+encodeURIComponent(testId)).catch(e=>console.error('limpeza deleted_lines:',e));
+      await supaDelete('orcamento_auditoria','registro_id=eq.'+encodeURIComponent(testId)).catch(e=>console.error('limpeza orcamento_auditoria:',e));
+      log('Limpar rastro do teste',true,'Nenhum dado de teste permanece no Supabase (o histórico de auditoria da criação/exclusão pode registrar o teste — é esperado e não afeta dados reais).');
     }catch(e2){
       log('Limpar rastro do teste',false,e2.message);
     }
