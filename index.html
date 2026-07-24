@@ -2651,6 +2651,15 @@ async function resolveIdLinha(area, grupo, linha){
   if(area){
     const existing=DB.lines.find(l=>l.area===area&&norm(l.g)===norm(grupo)&&norm(l.n)===norm(linha)&&!isTotalizerLine(l));
     if(existing) return String(existing.id);
+    // Bug real corrigido: uma linha recém-criada em "Nova linha" entra em
+    // customPlan (com um ID de verdade, tipo "5.61") antes de DB.lines ser
+    // atualizado (isso só acontece no próximo carregamento da página). Sem
+    // checar customPlan aqui, esta função gerava um ID diferente (slug) só
+    // para gravar os valores no Supabase — a linha e os valores ficavam com
+    // IDs diferentes, causando linhas fantasmas duplicadas e exclusões que
+    // não apagavam o registro certo.
+    const existingPlan=customPlan.find(x=>norm(x.area)===norm(area)&&norm(x.g)===norm(grupo)&&norm(x.n)===norm(linha));
+    if(existingPlan) return String(existingPlan.id);
   }
   let idLinha=await lnbFetchIdLinha(grupo, linha);
   if(idLinha) return idLinha;
