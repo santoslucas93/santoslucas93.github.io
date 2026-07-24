@@ -182,6 +182,13 @@ button.act:hover,input[type=text]:focus,select:focus,input[list]:focus{box-shado
 .plan-group[open] summary:before{transform:rotate(90deg)}
 .plan-group-meta{font-size:11.5px;color:var(--tx3);font-weight:400}
 .plan-group table{margin:0}
+.plan-rows-table{table-layout:fixed}
+.plan-rows-table col.c-g{width:16%}
+.plan-rows-table col.c-n{width:auto}
+.plan-rows-table col.c-t{width:110px}
+.plan-rows-table col.c-a{width:150px}
+.plan-rows-table th,.plan-rows-table td{overflow:hidden;text-overflow:ellipsis}
+.plan-rows-table td:last-child,.plan-rows-table th:last-child{text-align:right;white-space:nowrap;overflow:visible}
 .plan-ref-toolbar input[type="search"]{padding:6px 10px;border:1px solid var(--bd2);border-radius:8px;background:var(--card);color:var(--tx);font-size:12.5px}
 .plan-gov-details summary{cursor:pointer;font-size:12.5px;color:var(--ac);margin:6px 0 10px;list-style:none}
 .plan-gov-details summary::-webkit-details-marker{display:none}
@@ -5279,7 +5286,7 @@ function planRowsTableHTML(rows){
 }
 function planSummaryRowsTableHTML(lines){
   if(!lines.length)return '<div class="desc">Nenhuma linha com orçado nesta área.</div>';
-  return `<table><thead><tr><th>Grupo</th><th>Linha</th><th class="num">Total</th><th></th></tr></thead><tbody>${lines.map(l=>{
+  return `<table class="plan-rows-table"><colgroup><col class="c-g"><col class="c-n"><col class="c-t"><col class="c-a"></colgroup><thead><tr><th>Grupo</th><th>Linha</th><th class="num">Total</th><th></th></tr></thead><tbody>${lines.map(l=>{
     const t=linePrev(l,'ALL');
     const rk=quickEditRowKey(l);
     const removeBtn=l._custom?`<button class="act" onclick="removePlanLine('${esc(String(l.id))}')">remover</button>`:`<button class="act" onclick="removeAnyPlanLine('${esc(String(l.id))}')">remover</button>`;
