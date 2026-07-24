@@ -189,6 +189,8 @@ button.act:hover,input[type=text]:focus,select:focus,input[list]:focus{box-shado
 .plan-rows-table col.c-a{width:150px}
 .plan-rows-table th,.plan-rows-table td{overflow:hidden;text-overflow:ellipsis}
 .plan-rows-table td:last-child,.plan-rows-table th:last-child{text-align:right;white-space:nowrap;overflow:visible}
+.plan-rows-table-bulk col.c-chk{width:30px}
+.plan-rows-table-bulk td:first-child,.plan-rows-table-bulk th:first-child{text-align:center;overflow:visible}
 .plan-ref-toolbar input[type="search"]{padding:6px 10px;border:1px solid var(--bd2);border-radius:8px;background:var(--card);color:var(--tx);font-size:12.5px}
 .plan-gov-details summary{cursor:pointer;font-size:12.5px;color:var(--ac);margin:6px 0 10px;list-style:none}
 .plan-gov-details summary::-webkit-details-marker{display:none}
@@ -5170,15 +5172,134 @@ function planRowsTableHTML(rows){
 }
 function planSummaryRowsTableHTML(lines){
   if(!lines.length)return '<div class="desc">Nenhuma linha com orçado nesta área.</div>';
-  return `<table class="plan-rows-table"><colgroup><col class="c-g"><col class="c-n"><col class="c-t"><col class="c-a"></colgroup><thead><tr><th>Grupo</th><th>Linha</th><th class="num">Total</th><th></th></tr></thead><tbody>${lines.map(l=>{
+  return `<table class="plan-rows-table plan-rows-table-bulk"><colgroup><col class="c-chk"><col class="c-g"><col class="c-n"><col class="c-t"><col class="c-a"></colgroup><thead><tr><th><input type="checkbox" title="Selecionar todas as linhas visíveis" onchange="toggleBulkSelectAllVisible(this)"></th><th>Grupo</th><th>Linha</th><th class="num">Total</th><th></th></tr></thead><tbody>${lines.map(l=>{
     const t=linePrev(l,'ALL');
     const rk=quickEditRowKey(l);
-    const removeBtn=l._custom?`<button class="act" onclick="removePlanLine('${esc(String(l.id))}')">remover</button>`:`<button class="act" onclick="removeAnyPlanLine('${esc(String(l.id))}')">remover</button>`;
+    const isCustom=!!l._custom;
+    const bk=bulkKey(isCustom?'custom':'base',String(l.id));
+    const removeBtn=isCustom?`<button class="act" onclick="removePlanLine('${esc(String(l.id))}')">remover</button>`:`<button class="act" onclick="removeAnyPlanLine('${esc(String(l.id))}')">remover</button>`;
     const editBtn=`<button class="act" type="button" onclick="toggleQuickEditRow('${rk}')" title="Editar esta linha direto na tabela, sem abrir o formulário completo">editar</button>`;
-    return `<tr><td>${esc(l.g)}</td><td>${esc(l.n)}${l.cod?'<div class="how">cód. '+esc(l.cod)+'</div>':''}</td><td class="num">${fmt(t)}</td><td style="white-space:nowrap">${editBtn} ${removeBtn}</td></tr>`
+    const chk=`<input type="checkbox" class="bulk-chk" data-kind="${isCustom?'custom':'base'}" data-id="${esc(String(l.id))}" onchange="toggleBulkSelectLine(this)" ${bulkSelectedLines.has(bk)?'checked':''}>`;
+    return `<tr><td>${chk}</td><td>${esc(l.g)}</td><td>${esc(l.n)}${l.cod?'<div class="how">cód. '+esc(l.cod)+'</div>':''}</td><td class="num">${fmt(t)}</td><td style="white-space:nowrap">${editBtn} ${removeBtn}</td></tr>`
       +quickEditRowHTML(l,rk);
   }).join('')}</tbody></table>`;
 }
+let bulkSelectedLines=new Set();
+function bulkKey(kind,id){return kind+':'+id;}
+function toggleBulkSelectLine(cb){
+  const k=bulkKey(cb.dataset.kind,cb.dataset.id);
+  if(cb.checked)bulkSelectedLines.add(k);else bulkSelectedLines.delete(k);
+  updateBulkToolbar();
+}
+function toggleBulkSelectAllVisible(headerCb){
+  document.querySelectorAll('.bulk-chk').forEach(cb=>{
+    const tr=cb.closest('tr');
+    if(tr && tr.style.display==='none')return;
+    cb.checked=headerCb.checked;
+    const k=bulkKey(cb.dataset.kind,cb.dataset.id);
+    if(cb.checked)bulkSelectedLines.add(k);else bulkSelectedLines.delete(k);
+  });
+  updateBulkToolbar();
+}
+function updateBulkToolbar(){
+  const el=document.getElementById('bulk-toolbar');if(!el)return;
+  el.style.display=bulkSelectedLines.size?'':'none';
+  const span=el.querySelector('.bulk-count');
+  if(span)span.textContent=bulkSelectedLines.size+' linha(s) selecionada(s)';
+}
+function planBulkToolbarHTML(){
+  return `<div class="toolbar" id="bulk-toolbar" style="margin-bottom:10px;${bulkSelectedLines.size?'':'display:none'}">
+    <span class="how bulk-count">${bulkSelectedLines.size} linha(s) selecionada(s)</span>
+    <button class="act" type="button" onclick="bulkZeroSelected()" title="Zera os valores mensais das linhas selecionadas (mantém a linha cadastrada)">Zerar valores</button>
+    <button class="act" type="button" onclick="bulkAdjustPercentSelected()" title="Aplica um reajuste percentual nos valores mensais atuais das linhas selecionadas">Aplicar reajuste %</button>
+    <button class="act" type="button" onclick="bulkDeactivateSelected()" title="Desativa as linhas selecionadas da estrutura oficial (preserva o histórico)">Desativar</button>
+    <button class="act" type="button" onclick="bulkDeleteSelected()" title="Exclui definitivamente as linhas selecionadas que foram criadas por aqui">Excluir</button>
+    <button class="act" type="button" onclick="bulkClearSelection()">Limpar seleção</button>
+  </div>`;
+}
+function bulkResolveLines(){
+  return [...bulkSelectedLines].map(k=>{
+    const idx=k.indexOf(':');const kind=k.slice(0,idx),id=k.slice(idx+1);
+    const l=kind==='custom'?customPlan.find(x=>String(x.id)===id):DB.lines.find(x=>String(x.id)===id);
+    return l?{kind,l}:null;
+  }).filter(Boolean);
+}
+async function bulkZeroSelected(){
+  const items=bulkResolveLines();
+  if(!items.length)return;
+  if(!confirm('Zerar os valores mensais de '+items.length+' linha(s) selecionada(s)? A linha continua cadastrada, só os valores mensais ficam zerados.'))return;
+  const rowsToSave=[];
+  for(const {l} of items){
+    const dep=AREAS[l.area]||l.area;
+    const idLinha=await resolveIdLinha(l.area,l.g,l.n);
+    const meses=Object.keys(l.prev||{});
+    meses.forEach(m=>rowsToSave.push({id_linha:idLinha,departamento:dep,grupo:l.g,linha_orcamento:l.n,mes:m,valor:0,temporada:l.temporada||store.getItem('lnb3_plan_season')||lnbCurrentTemporada()||''}));
+    meses.forEach(m=>{l.prev[m]=0;});
+  }
+  if(rowsToSave.length)await supaUpsert('orcado',rowsToSave,'id_linha,mes');
+  if(items.some(x=>x.kind==='custom'))await saveCustomPlan();
+  bulkSelectedLines.clear();
+  sessionStorage.removeItem('gsheet_synced_this_session');
+  renderPlanBody();
+}
+async function bulkAdjustPercentSelected(){
+  const items=bulkResolveLines();
+  if(!items.length)return;
+  const pctRaw=prompt('Aplicar qual percentual de reajuste nos valores mensais das '+items.length+' linha(s) selecionada(s)? Ex.: 10 para +10%, -5 para -5%.');
+  if(pctRaw===null)return;
+  const pct=Number(String(pctRaw).replace(',','.'));
+  if(!isFinite(pct)){alert('Percentual inválido.');return;}
+  if(!confirm('Aplicar reajuste de '+pct+'% em '+items.length+' linha(s) selecionada(s)?'))return;
+  const rowsToSave=[];
+  for(const {l} of items){
+    const dep=AREAS[l.area]||l.area;
+    const idLinha=await resolveIdLinha(l.area,l.g,l.n);
+    Object.keys(l.prev||{}).forEach(m=>{
+      const novo=Math.round((Number(l.prev[m])||0)*(1+pct/100)*100)/100;
+      rowsToSave.push({id_linha:idLinha,departamento:dep,grupo:l.g,linha_orcamento:l.n,mes:m,valor:novo,temporada:l.temporada||store.getItem('lnb3_plan_season')||lnbCurrentTemporada()||''});
+      l.prev[m]=novo;
+    });
+  }
+  if(rowsToSave.length)await supaUpsert('orcado',rowsToSave,'id_linha,mes');
+  if(items.some(x=>x.kind==='custom'))await saveCustomPlan();
+  bulkSelectedLines.clear();
+  sessionStorage.removeItem('gsheet_synced_this_session');
+  renderPlanBody();
+}
+async function bulkDeactivateSelected(){
+  const items=bulkResolveLines().filter(x=>x.kind==='base');
+  if(!items.length){alert('Nenhuma linha da estrutura oficial está selecionada (linhas criadas por aqui não têm "desativar" — use "Excluir").');return;}
+  if(!confirm('Desativar '+items.length+' linha(s) selecionada(s)? Elas somem das listas de classificação, mas o histórico é preservado.'))return;
+  items.forEach(({l})=>{
+    const k=String(l.id);
+    lineOverrides[k]=Object.assign({},lineOverrides[k],{status:'desativada'});
+  });
+  saveLineOverrides();
+  bulkSelectedLines.clear();
+  setTimeout(()=>location.reload(),600);
+}
+async function bulkDeleteSelected(){
+  const items=bulkResolveLines().filter(x=>x.kind==='custom');
+  if(!items.length){alert('Nenhuma linha criada por aqui está selecionada — só é possível excluir linhas criadas na tela (as demais podem ser desativadas).');return;}
+  // Mesma regra de seguranca da exclusao individual (removePlanLine): so e
+  // permitido excluir de vez uma linha sem nenhum valor lancado, seja em
+  // Orcado ou em Realizado.
+  const blocked=items.filter(({l})=>lineDeleteBlockedReason(l,l.id));
+  if(blocked.length){alert('Não é possível excluir '+blocked.length+' linha(s) selecionada(s) porque já têm valores lançados em Orçado ou Realizado. Desmarque-as (ou use "Desativar" para as da estrutura oficial).');return;}
+  if(!confirm('Excluir definitivamente '+items.length+' linha(s) selecionada(s) do próximo orçado?\n\nElas vão para a Lixeira (Editar Estrutura), podendo ser restauradas depois.'))return;
+  for(const {l} of items){
+    customPlan=customPlan.filter(x=>String(x.id)!==String(l.id));
+    trashMeta[String(l.id)]={area:l.area,g:l.g,n:l.n,deleted_at:new Date().toISOString()};
+    if(!deletedLineIds.map(String).includes(String(l.id)))deletedLineIds.push(l.id);
+    try{const idLinha=await resolveIdLinha(l.area,l.g,l.n);await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha));}catch(e){console.error('bulkDeleteSelected: falha ao remover orçado no Supabase:',e);}
+  }
+  saveDeletedLineIds();
+  await saveCustomPlan();
+  bulkSelectedLines.clear();
+  sessionStorage.removeItem('gsheet_synced_this_session');
+  renderPlanBody();
+}
+function bulkClearSelection(){bulkSelectedLines.clear();renderPlanBody();}
 function quickEditRowKey(l){return cssid((l._custom?'c_':'b_')+String(l.id));}
 function quickEditMonthsForLine(l){
   const ms=Object.keys(l.prev||{}).filter(m=>Number(l.prev[m])||l.prev[m]===0);
@@ -5290,6 +5411,7 @@ function planListSearchAndGroupHTML(lines, idPrefix){
     <button class="act" type="button" onclick="document.querySelectorAll('#${idPrefix}-groups details').forEach(d=>d.open=true)">Expandir tudo</button>
     <button class="act" type="button" onclick="document.querySelectorAll('#${idPrefix}-groups details').forEach(d=>d.open=false)">Recolher tudo</button>
   </div>
+  ${planBulkToolbarHTML()}
   <div id="${idPrefix}-groups">${groupKeys.map(g=>{
     const rows=byGroup[g].sort((a,b)=>a.n.localeCompare(b.n));
     const tot=rows.reduce((s,l)=>s+linePrev(l,'ALL'),0);
@@ -5334,6 +5456,7 @@ function planAllSummaryHTML(){
   return `<div class="panel"><h2>Resumo do orçado da temporada — todas as áreas</h2>
     ${toolbar}
     <div class="kpis"><div class="kpi"><div class="l">Total no filtro</div><div class="v">${fmt(totalGeral)}</div><div class="d">${filtered.length} linha(s) em ${Object.keys(byArea).length} departamento(s)</div></div></div>
+    ${planBulkToolbarHTML()}
     ${Object.keys(byArea).sort().map(a=>{
       const rows=byArea[a],tot=rows.reduce((s,l)=>s+linePrev(l,'ALL'),0);
       return `<h3 style="margin-top:16px">${esc(AREAS[a]||a)} <span class="how">${fmt(tot)}</span></h3>${planSummaryRowsTableHTML(rows)}`;
