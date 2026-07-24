@@ -5339,9 +5339,18 @@ function planDeptFormHTML(area){
     const deptAllLines=(window.ALL_STRUCTURE_LINES||DB.lines).filter(l=>l.area===area&&!isTotalizerLine(l));
     const groupsForFilter=[...new Set(deptAllLines.map(l=>l.g))].filter(Boolean).sort();
     const filteredDeptLines=planApplyListFilters(deptAllLines);
+    const deptTotalOrcado=deptAllLines.reduce((s,l)=>s+linePrev(l,'ALL'),0);
+    const deptZeradas=deptAllLines.filter(l=>!Object.values(l.prev||{}).some(v=>Number(v))).length;
     body=`<div class="panel">
     <h2>Linhas cadastradas em ${esc(name)}</h2>
     <div class="desc">Toda linha cadastrada neste departamento — filtre por grupo, status ou valor, busque por nome, e edite ou remova qualquer uma direto aqui.</div>
+    <div class="kpis" style="margin-bottom:10px">
+      <div class="kpi"><div class="l">Linhas cadastradas</div><div class="v">${deptAllLines.length}</div></div>
+      <div class="kpi"><div class="l">Total orçado</div><div class="v">${fmt(deptTotalOrcado)}</div></div>
+      <div class="kpi"><div class="l">Linhas zeradas</div><div class="v">${deptZeradas}</div></div>
+      <div class="kpi"><div class="l">Grupos</div><div class="v">${groupsForFilter.length}</div></div>
+      <div class="kpi"><div class="l">Última alteração</div><div class="v" id="dept-list-last-change" style="font-size:13px">Carregando…</div></div>
+    </div>
     ${planFilterToolbarHTML({groupOptions:groupsForFilter})}
     <div id="plan-list">${planListSearchAndGroupHTML(filteredDeptLines,'plan-dept-list')}</div>
   </div>`;
@@ -5404,6 +5413,7 @@ function bindPlanDeptHandlers(area){
   const be=document.getElementById('btn-plan-export');if(be)be.onclick=exportPlanCSV;
   bindPlanListSearch('plan-dept-list');
   bindPlanFilterToolbar(()=>renderPlanBody());
+  if(curPlanSubTab==='list')loadDeptLastChange(area);
 }
 function bindPlanNewDeptHandlers(){
   renderPlanMonths();
@@ -6847,6 +6857,25 @@ function restoreSelectedTrashLine(id){
   if(!r.ok){ if(el)el.insertAdjacentHTML('afterbegin','<div style="color:#f87171;">'+esc(r.msg)+'</div>'); return; }
   if(el)el.insertAdjacentHTML('afterbegin','<div>Linha restaurada. Recarregando…</div>');
   setTimeout(()=>location.reload(),500);
+}
+async function loadDeptLastChange(area){
+  const el=document.getElementById('dept-list-last-change');
+  if(!el)return;
+  try{
+    const ids=(window.ALL_STRUCTURE_LINES||DB.lines).filter(l=>l.area===area&&!isTotalizerLine(l)).map(l=>String(l.id));
+    if(!ids.length){el.textContent='—';return;}
+    const idsForQuery=ids.slice(0,150);
+    const filter='registro_id=in.('+idsForQuery.map(id=>'"'+id.replace(/"/g,'')+'"').join(',')+')&order=criado_em.desc&limit=1';
+    const rows=await supaSelectFiltered('orcamento_auditoria',filter);
+    if(!Array.isArray(rows)||!rows.length){el.textContent='Sem registro ainda';return;}
+    const r=rows[0];
+    const dt=r.criado_em?new Date(r.criado_em).toLocaleString('pt-BR'):'—';
+    const quem=r.usuario_nome||'desconhecido';
+    el.textContent=dt+' por '+quem;
+  }catch(e){
+    el.textContent='Não foi possível carregar';
+    console.error('loadDeptLastChange falhou:',e);
+  }
 }
 async function loadAuditHistory(){
   const el=document.getElementById('audit-history-list');if(!el)return;
