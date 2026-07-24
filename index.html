@@ -3637,7 +3637,13 @@ budgetLines.forEach(bl=>{
     if(bl.g!=null)line.g=bl.g;
     if(bl.n!=null)line.n=bl.n;
   }else{
-    DB.lines.push({area:bl.area,g:bl.g,n:bl.n,cod:bl.cod||'',prev:Object.assign({},bl.prev),id:bl.id,_base:1});
+    // _orphanImport marca que esta linha só existe por causa da sincronizacao
+    // (planilha importada ou sincronizacao ao vivo) e não tem nenhum registro
+    // correspondente na estrutura original — diferente de uma linha real da
+    // planilha base, que também recebe _base=1 mas representa estrutura de
+    // verdade. É usado pra permitir excluir de vez essas linhas órfãs quando
+    // não têm valor nenhum lançado (ver removeAnyPlanLine).
+    DB.lines.push({area:bl.area,g:bl.g,n:bl.n,cod:bl.cod||'',prev:Object.assign({},bl.prev),id:bl.id,_base:1,_orphanImport:1});
   }
 });
 // Bug real corrigido: o snapshot window.ALL_STRUCTURE_LINES (usado por
@@ -5705,6 +5711,28 @@ function editAnyPlanLine(id){
 }
 async function removeAnyPlanLine(id){
   const l=DB.lines.find(x=>String(x.id)===String(id));if(!l)return;
+  // Linhas marcadas _orphanImport não são estrutura de verdade — só existem
+  // porque a sincronização (planilha ou ao vivo) achou um valor de orçado
+  // sem linha correspondente e criou uma cópia local pra não perder o dado.
+  // Se essa cópia nunca teve valor nenhum (nem orçado, nem realizado), ela
+  // pode e deve ser excluída de vez — manter só "zerada" pra sempre é
+  // exatamente o comportamento que gerava a sensação de "não consigo
+  // excluir isso nunca".
+  if(l._orphanImport&&!lineDeleteBlockedReason(l,id)){
+    if(!confirm('Excluir definitivamente a linha "'+l.n+'"? Ela nunca teve valor lançado (nem orçado, nem realizado) — não é uma linha real da estrutura, só uma cópia órfã da sincronização. Isso remove ela de vez, em vez de só zerar os valores.'))return;
+    try{
+      const idLinha=await resolveIdLinha(l.area,l.g,l.n);
+      await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha));
+      if(String(idLinha)!==String(l.id))await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(String(l.id)));
+    }catch(e){ alert('Falha ao excluir no Supabase: '+e.message); return; }
+    budgetLines=budgetLines.filter(b=>String(b.id)!==String(l.id));
+    store.setItem('lnb3_budgetlines',JSON.stringify(budgetLines));
+    const dlIdx=DB.lines.findIndex(x=>String(x.id)===String(l.id));
+    if(dlIdx>=0)DB.lines.splice(dlIdx,1);
+    sessionStorage.removeItem('gsheet_synced_this_session');
+    location.reload();
+    return;
+  }
   if(!confirm('Remover os valores de orçado da linha "'+l.n+'"? A linha continua existindo na estrutura (para lançamentos de realizado); só o orçado dela é zerado.'))return;
   try{
     const dep=AREAS[l.area]||l.area;
