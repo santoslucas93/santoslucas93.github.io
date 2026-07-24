@@ -3525,6 +3525,25 @@ function lineHasLinkedRealizado(id){
   const key=String(id);
   return Object.values(decisions||{}).some(sp=>Array.isArray(sp)&&sp.some(s=>String(s.l)===key));
 }
+// Regra: só pode excluir definitivamente (some de tudo, sem chance de
+// recuperar de volta pela Lixeira) uma linha que NUNCA teve valor lançado —
+// nem em Orçado (l.prev) nem em Realizado (classificação em `decisions`).
+// Se tiver qualquer um dos dois, a única opção é desativar (esconde da
+// classificação, mas preserva histórico e dado).
+function lineHasOrcadoValues(l){
+  return !!(l && l.prev && Object.values(l.prev).some(v=>Number(v)));
+}
+function lineDeleteBlockedReason(l,id){
+  if(lineHasOrcadoValues(l))return 'orcado';
+  if(lineHasLinkedRealizado(id!=null?id:(l&&l.id)))return 'realizado';
+  return null;
+}
+function lineDeleteBlockedMsg(reason,nome){
+  const base='Não é possível excluir definitivamente a linha "'+esc(nome||'')+'": ';
+  if(reason==='orcado')return base+'ela já tem valores lançados em Orçado. Use "Desativar" para escondê-la sem perder o histórico.';
+  if(reason==='realizado')return base+'já existem lançamentos classificados nela em Realizado. Use "Desativar" para escondê-la sem perder o histórico.';
+  return '';
+}
 function createStructureLine(area,g,n,idRaw){
   area=String(area||'').trim().toUpperCase();g=String(g||'').trim();n=String(n||'').trim();
   if(!area||!g||!n)return{ok:false,msg:'Preencha departamento, grupo e nome da linha.'};
@@ -3600,6 +3619,16 @@ budgetLines.forEach(bl=>{
     DB.lines.push({area:bl.area,g:bl.g,n:bl.n,cod:bl.cod||'',prev:Object.assign({},bl.prev),id:bl.id,_base:1});
   }
 });
+// Bug real corrigido: o snapshot window.ALL_STRUCTURE_LINES (usado por
+// Cadastradas e Editar Estrutura) era tirado em applyLineOverlay(), ANTES
+// deste merge do lnb3_budgetlines/importação de planilha em modo live rodar.
+// Qualquer linha que só existisse por causa desse merge (ex.: linha antiga
+// órfã de um orçado sem estrutura vinculada) ficava visível em "Estrutura
+// atual" (que lê DB.lines direto) mas invisível em Cadastradas/Editar
+// Estrutura (que usavam o snapshot desatualizado) — dando a falsa impressão
+// de que a exclusão "não pegou". Atualizando o snapshot aqui garante que as
+// duas visões fiquem sempre consistentes.
+window.ALL_STRUCTURE_LINES = DB.lines.slice();
 const EVS=[['NBB','NBB'],['LDB','LDB'],['LOU','Liga Ouro'],['LIGA OURO','Liga Ouro'],['JDE','Jogo das Estrelas'],['CS8','Copa Super 8'],['SUPER 8','Copa Super 8'],['INTERLIGAS','Interligas'],['NBBTRIO','NBB Trio'],['NBB TRIO','NBB Trio']];
 function findLine(area,gsub,nsub){for(const l of DB.lines){if(l.area===area&&norm(l.g).includes(gsub)&&(!nsub||norm(l.n).includes(nsub)))return l.id;}return null;}
 const LREF={refN:findLine('TOP','logistica','refeicao arbitragem/staff depto - nbb'),refL:findLine('TOP','logistica','refeicao arbitragem/staff depto - l ouro'),traN:findLine('TOP','logistica','transporte aereo - arbitragem/staff depto - nbb'),traL:findLine('TOP','logistica','transporte aereo - arbitragem/staff depto - l ouro'),resN:findLine('TOP','logistica','restituicao arbitros nbb'),resL:findLine('TOP','logistica','restituicao arbitros l ouro'),jde:findLine('TOP','','jogo das estrelas - remuneracao'),cont:findLine('A&F','prestadores','contab')};
@@ -5606,15 +5635,25 @@ async function addPlanLine(mode){
   location.reload();
 }
 async function removePlanLine(id){
-  if(!confirm('Remover esta linha do próximo orçado?'))return;
   const x=customPlan.find(x=>String(x.id)===String(id));
-  customPlan=customPlan.filter(x=>String(x.id)!==String(id));
-  if(x&&x.prev&&Object.keys(x.prev).length){
-    try{
-      const idLinha=await resolveIdLinha(x.area,x.g,x.n);
-      await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha));
-    }catch(e){ console.error('Falha ao remover os valores desta linha do orçado (Supabase):',e); }
+  if(!x){alert('Linha não encontrada.');return;}
+  const blockReason=lineDeleteBlockedReason(x,id);
+  if(blockReason){
+    alert(lineDeleteBlockedMsg(blockReason,x.n||id).replace('excluir definitivamente','remover'));
+    return;
   }
+  if(!confirm('Excluir esta linha do próximo orçado?\n\nEla vai para a Lixeira (Editar Estrutura), podendo ser restaurada depois.'))return;
+  customPlan=customPlan.filter(x=>String(x.id)!==String(id));
+  // Mesma lixeira usada pelas linhas criadas em "Editar Estrutura" — antes,
+  // uma linha criada em "Nova linha" excluída por aqui simplesmente
+  // desaparecia sem passar pela Lixeira, sem chance de recuperação.
+  trashMeta[String(id)]={area:x.area,g:x.g,n:x.n,deleted_at:new Date().toISOString()};
+  if(!deletedLineIds.map(String).includes(String(id)))deletedLineIds.push(id);
+  saveDeletedLineIds();
+  try{
+    const idLinha=await resolveIdLinha(x.area,x.g,x.n);
+    await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha));
+  }catch(e){ console.error('Falha ao remover os valores desta linha do orçado (Supabase):',e); }
   await saveCustomPlan();sessionStorage.removeItem('gsheet_synced_this_session');location.reload();
 }
 async function removeCurrentEditingLine(){
@@ -6944,9 +6983,10 @@ function deleteSelectedStructureLine(){
  const k=document.getElementById('structure-item').value;if(!k)return;
  const custom=customLines.find(l=>String(l.id)===String(k));
  if(!custom){const msg=document.getElementById('structure-msg');if(msg)msg.textContent='Só é possível excluir linhas criadas por aqui — linhas originais do orçamento podem ser renomeadas, mas não excluídas (para preservar o histórico).';return;}
- if(lineHasLinkedRealizado(k)){
+ const blockReason=lineDeleteBlockedReason(custom,k);
+ if(blockReason){
    const msg=document.getElementById('structure-msg');
-   if(msg)msg.textContent='Não é possível excluir a linha "'+(custom.n||k)+'": já existem lançamentos classificados nela. Use "Desativar" para escondê-la sem perder o histórico.';
+   if(msg)msg.textContent=lineDeleteBlockedMsg(blockReason,custom.n||k);
    return;
  }
  const nome=custom.n||k;
@@ -6963,13 +7003,20 @@ function deleteSelectedStructureLine(){
  let seconds=10;
  const renderMsg=()=>{ if(msg)msg.innerHTML='Linha "'+esc(nome)+'" excluída. <a href="#" id="lnb-undo-delete" style="color:#2563eb;text-decoration:underline;cursor:pointer;">Desfazer</a> ('+seconds+'s)'; };
  renderMsg();
- const finish=function(){
+ const finish=async function(){
    if(!lnbPendingDelete||lnbPendingDelete.done)return;
    lnbPendingDelete.done=true;
    trashMeta[String(k)]={area:custom.area,g:custom.g,n:custom.n,deleted_at:new Date().toISOString()};
    if(!deletedLineIds.map(String).includes(String(k)))deletedLineIds.push(k);
    saveDeletedLineIds();
    saveCustomLines();
+   // Limpeza defensiva: mesmo já tendo checado que não há valor de orçado
+   // conhecido localmente, garante que nenhum resíduo fique órfão no
+   // Supabase (evita repetir o problema das linhas fantasma "(((TESTE)))").
+   try{
+     const idLinha=await resolveIdLinha(custom.area,custom.g,custom.n);
+     await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha));
+   }catch(e){ console.error('Falha ao limpar resíduos de orçado no Supabase:',e); }
    if(msg)msg.textContent='Linha excluída definitivamente. Recarregando…';
    setTimeout(()=>location.reload(),400);
  };
