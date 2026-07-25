@@ -317,7 +317,7 @@ body{
   letter-spacing:-.01em;
 }
 .nav button:before{font-size:14px;opacity:.95;filter:drop-shadow(0 1px 0 rgba(0,0,0,.12))}
-.nav button[data-v="home"]:before{content:"⌂"}.nav button[data-v="rec"]:before{content:"💰"}.nav button[data-v="dept"]:before{content:none}.nav button[data-v="sup"]:before{content:none}.nav button[data-v="club"]:before{content:"🤝"}.nav button[data-v="charts"]:before{content:none}.nav button[data-v="budget"]:before{content:none}.nav button[data-v="real"]:before{content:"✅"}.nav button[data-v="conc"]:before{content:"🧩"}.nav button[data-v="bank"]:before{content:"🏦"}.nav button[data-v="structure"]:before{content:"🛠️"}.nav button[data-v="guia"]:before{content:"🧭"}.nav button[data-v="rules"]:before{content:"📋"}.nav button[data-v="audit"]:before{content:"🛡️"}.nav button[data-v="exp"]:before{content:"📤"}
+.nav button[data-v="home"]:before{content:"⌂"}.nav button[data-v="rec"]:before{content:"💰"}.nav button[data-v="dept"]:before{content:none}.nav button[data-v="sup"]:before{content:none}.nav button[data-v="club"]:before{content:"🤝"}.nav button[data-v="charts"]:before{content:none}.nav button[data-v="budget"]:before{content:none}.nav button[data-v="real"]:before{content:"✅"}.nav button[data-v="conc"]:before{content:"🧩"}.nav button[data-v="bank"]:before{content:"🏦"}.nav button[data-v="structure"]:before{content:"🛠️"}.nav button[data-v="guia"]:before{content:"🧭"}.nav button[data-v="rules"]:before{content:"📋"}.nav button[data-v="audit"]:before{content:"🛡️"}.nav button[data-v="exp"]:before{content:"📤"}.nav button[data-v="trash"]:before{content:"🗑️"}
 .nav button:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
 .nav button.on{
   background:linear-gradient(180deg,var(--bg),color-mix(in srgb,var(--bg) 93%,var(--card)));
@@ -1554,6 +1554,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <button data-v="rules">Regras</button>
     <button data-v="audit">Integridade</button>
     <button data-v="exp">Exportar</button>
+    <button data-v="trash">Lixeira</button>
   </div>
 </div>
 <div class="subnav hide" id="subnav"></div>
@@ -1826,11 +1827,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     </div>
   </div>
   <div class="panel"><h2>Estrutura atual</h2><div id="structure-preview"></div></div>
-  <div class="panel">
-    <h2>Lixeira (linhas excluídas)</h2>
-    <div class="note">Linhas criadas por aqui que foram excluídas. Pode restaurar enquanto o ID ainda não foi reutilizado.</div>
-    <div id="trash-list" class="desc">Carregando…</div>
-  </div>
+  <div class="note">Linhas excluídas (com restaurar) agora ficam na aba 🗑️ Lixeira, no fim do menu — junto com Realizado e Orçado apagados.</div>
   <div class="panel">
     <h2>Histórico de alterações</h2>
     <div class="note">Últimas alterações registradas automaticamente (criação, edição e exclusão de linhas do orçamento).</div>
@@ -1939,17 +1936,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
           <button class="act" type="button" id="btn-rec-del-apagar" style="border-color:var(--er);color:var(--er)">🗑️ Apagar o que foi inserido nesse período</button>
         </div>
       </div>
-      <div style="border-top:1px dashed var(--bd);padding-top:12px;display:flex;flex-direction:column;gap:10px">
-        <div>
-          <h3 style="margin:0 0 4px;font-size:15px">🗑️ Lixeira</h3>
-          <div class="note" style="margin:0">Tudo que foi apagado (temporada inteira ou por horário) fica guardado aqui, agrupado por quando foi apagado — dá para restaurar em um clique, sem precisar reimportar planilha ou backup.</div>
-        </div>
-        <div class="toolbar" style="margin:0">
-          <button class="act" type="button" id="btn-trash-refresh">🔄 Ver lixeira</button>
-        </div>
-        <div id="trash-status" class="foot" style="margin:0"></div>
-        <div id="trash-list"></div>
-      </div>
+      <div class="note">O que for apagado aqui fica guardado na aba 🗑️ Lixeira, no fim do menu, agrupado por quando foi apagado — dá para restaurar em um clique.</div>
       <div style="border-top:1px dashed var(--bd);padding-top:12px;display:flex;flex-direction:column;gap:10px">
         <div>
           <h3 style="margin:0 0 4px;font-size:15px">📜 Log de atividades</h3>
@@ -2123,6 +2110,23 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   </div>
 </div>
 
+<div id="v-trash" class="hide">
+  <div class="note"><b>Lixeira:</b> tudo que for apagado no sistema (linhas do orçamento, Realizado, Orçado) fica guardado aqui, com o horário e quem apagou — dá para restaurar em um clique, sem precisar reimportar planilha ou backup.</div>
+  <div class="panel">
+    <h2>Linhas do orçamento excluídas</h2>
+    <div class="note">Linhas criadas em Editar Estrutura (ou em Novo Orçado) que foram excluídas. Pode restaurar enquanto o ID ainda não foi reutilizado.</div>
+    <div id="trash-list" class="desc">Carregando…</div>
+  </div>
+  <div class="panel">
+    <h2>Realizado e Orçado apagados</h2>
+    <div class="note">Apagados via "Gestão de temporadas" (Novo Orçado): temporada inteira, últimos N minutos, ou encerramento de temporada. Agrupado por quando foi apagado.</div>
+    <div class="toolbar">
+      <button class="act" type="button" id="btn-rdo-trash-refresh">🔄 Ver lixeira</button>
+    </div>
+    <div id="rdo-trash-status" class="foot"></div>
+    <div id="rdo-trash-list"></div>
+  </div>
+</div>
 <div id="v-ia" class="hide"></div>
 <div class="ia-float">
   <button class="ia-launch" id="ia-toggle" type="button" title="Abrir assistente IA">IA</button>
@@ -2734,7 +2738,7 @@ async function lnbApagarRecentes(){
   const ba=document.getElementById('btn-rec-del-apagar'); if(ba)ba.onclick=lnbApagarRecentes;
 })();
 async function lnbLoadTrash(){
-  const status=document.getElementById('trash-status'), box=document.getElementById('trash-list');
+  const status=document.getElementById('rdo-trash-status'), box=document.getElementById('rdo-trash-list');
   if(!box)return;
   if(status)status.textContent='Carregando...';
   try{
@@ -2769,7 +2773,7 @@ async function lnbLoadTrash(){
   }
 }
 async function lnbRestoreTrashBatch(deletedAtEncoded){
-  const status=document.getElementById('trash-status');
+  const status=document.getElementById('rdo-trash-status');
   const deletedAt=decodeURIComponent(deletedAtEncoded);
   if(!confirm('Restaurar tudo que foi apagado em '+new Date(deletedAt).toLocaleString('pt-BR')+'? Volta a aparecer para todo mundo que usa o painel.'))return;
   if(status)status.textContent='Restaurando...';
@@ -2786,7 +2790,7 @@ async function lnbRestoreTrashBatch(deletedAtEncoded){
   }
 }
 (function initTrashButton(){
-  const bt=document.getElementById('btn-trash-refresh'); if(bt)bt.onclick=lnbLoadTrash;
+  const bt=document.getElementById('btn-rdo-trash-refresh'); if(bt)bt.onclick=lnbLoadTrash;
 })();
 (function initActivityLogButton(){
   const bt=document.getElementById('btn-activity-log-refresh'); if(bt)bt.onclick=lnbLoadActivityLog;
@@ -4523,7 +4527,7 @@ function groupsHTML(a,r,showZero=false){
 function render(){
   renderMtabs();renderSubnav();
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===curV && (!b.dataset.area||b.dataset.area===curDept) && (!b.dataset.sup||b.dataset.sup===curSup)));
-  ['home','rec','club','dept','sup','conc','bank','audit','rules','guia','dash','plan','exp','real','ia'].forEach(v=>document.getElementById('v-'+v).classList.toggle('hide',v!==curV));
+  ['home','rec','club','dept','sup','conc','bank','audit','rules','guia','dash','plan','exp','real','ia','trash'].forEach(v=>document.getElementById('v-'+v).classList.toggle('hide',v!==curV));
   const provaOk=months.every(m=>{const sal=DB.saldos[m]||{};if(sal.fim==null)return true;
     const mtx=txs.filter(t=>t.m===m);const calc=(sal.ini||0)+mtx.reduce((s,t)=>s+t.e,0)-mtx.reduce((s,t)=>s+t.s,0);
     return Math.abs(calc-sal.fim)<0.02;});
@@ -4535,6 +4539,7 @@ function render(){
   if(curV==='sup')renderSup();
   if(curV==='conc'){renderStats();initBulkControls();renderTable();renderAreas();}
   if(curV==='audit'){renderSystemHealth();renderIntegrity();}
+  if(curV==='trash'){renderTrashList();lnbLoadTrash();}
   if(curV==='rules')renderRules();
   if(curV==='guia')renderGuia();
   if(curV==='dash')renderDash();
@@ -5841,7 +5846,7 @@ async function bulkDeleteSelected(){
     customPlan=customPlan.filter(x=>String(x.id)!==String(l.id));
     trashMeta[String(l.id)]={area:l.area,g:l.g,n:l.n,deleted_at:new Date().toISOString()};
     if(!deletedLineIds.map(String).includes(String(l.id)))deletedLineIds.push(l.id);
-    try{const idLinha=await resolveIdLinha(l.area,l.g,l.n);await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha));}catch(e){console.error('bulkDeleteSelected: falha ao remover orçado no Supabase:',e);}
+    try{const idLinha=await resolveIdLinha(l.area,l.g,l.n);await supaSoftDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha),trashMeta[String(l.id)].deleted_at);}catch(e){console.error('bulkDeleteSelected: falha ao remover orçado no Supabase:',e);}
   }
   saveDeletedLineIds();
   await saveCustomPlan();
@@ -6272,7 +6277,7 @@ async function removePlanLine(id){
   saveDeletedLineIds();
   try{
     const idLinha=await resolveIdLinha(x.area,x.g,x.n);
-    await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha));
+    await supaSoftDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha),trashMeta[String(id)].deleted_at);
   }catch(e){ console.error('Falha ao remover os valores desta linha do orçado (Supabase):',e); }
   await saveCustomPlan();sessionStorage.removeItem('gsheet_synced_this_session');location.reload();
 }
@@ -6316,8 +6321,9 @@ async function removeAnyPlanLine(id){
     if(!confirm('Excluir definitivamente a linha "'+l.n+'"? Ela nunca teve valor lançado (nem orçado, nem realizado) — não é uma linha real da estrutura, só uma cópia órfã da sincronização. Isso remove ela de vez, em vez de só zerar os valores.'))return;
     try{
       const idLinha=await resolveIdLinha(l.area,l.g,l.n);
-      await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha));
-      if(String(idLinha)!==String(l.id))await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(String(l.id)));
+      const orphanDeletedAt=new Date().toISOString();
+      await supaSoftDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha),orphanDeletedAt);
+      if(String(idLinha)!==String(l.id))await supaSoftDelete('orcado','id_linha=eq.'+encodeURIComponent(String(l.id)),orphanDeletedAt);
     }catch(e){ alert('Falha ao excluir no Supabase: '+e.message); return; }
     budgetLines=budgetLines.filter(b=>String(b.id)!==String(l.id));
     store.setItem('lnb3_budgetlines',JSON.stringify(budgetLines));
@@ -7788,7 +7794,7 @@ function deleteSelectedStructureLine(){
    // Supabase (evita repetir o problema das linhas fantasma "(((TESTE)))").
    try{
      const idLinha=await resolveIdLinha(custom.area,custom.g,custom.n);
-     await supaDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha));
+     await supaSoftDelete('orcado','id_linha=eq.'+encodeURIComponent(idLinha),trashMeta[String(k)].deleted_at);
    }catch(e){ console.error('Falha ao limpar resíduos de orçado no Supabase:',e); }
    if(msg)msg.textContent='Linha excluída definitivamente. Recarregando…';
    setTimeout(()=>location.reload(),400);
