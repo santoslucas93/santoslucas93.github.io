@@ -2454,6 +2454,7 @@ async function loadSharedStateFromSupabase(){
       planMetaRows.forEach(r=>{
         if(r.key==='dept_owners')store.setItem('lnb3_plan_dept_owners',JSON.stringify(r.value||{}));
         else if(r.key==='excluded'){planExcluded=r.value||[];store.setItem('lnb3_plan_excluded',JSON.stringify(planExcluded));}
+        else if(r.key==='season'&&r.value)store.setItem('lnb3_plan_season',String(r.value));
       });
     }
   }catch(e){
@@ -5178,6 +5179,7 @@ let planExcluded = JSON.parse(store.getItem('lnb3_plan_excluded')||'[]');
 function planExcludeKey(area,g,n){return norm(area)+'|'+norm(g)+'|'+norm(n);}
 function isPlanExcluded(area,g,n){return planExcluded.includes(planExcludeKey(area,g,n));}
 function savePlanExcluded(){store.setItem('lnb3_plan_excluded',JSON.stringify(planExcluded));pushPlanMetaToSupabase('excluded',planExcluded).catch(e=>console.error(e));}
+function savePlanSeason(temporada){store.setItem('lnb3_plan_season',temporada);pushPlanMetaToSupabase('season',temporada).catch(e=>console.error(e));}
 function planTabsList(){
   const extra=[...new Set(customPlan.map(x=>x.area))].filter(a=>a&&!PLAN_BASE_DEPTS.includes(a));
   const tabs=[{k:'ALL',n:'Resumo'},...PLAN_BASE_DEPTS.map(a=>({k:a,n:AREAS[a]||a})),...extra.map(a=>{const x=customPlan.find(y=>y.area===a);return {k:a,n:(x&&x.areaName)||a};})];
@@ -5772,7 +5774,7 @@ async function addPlanLine(mode){
     const exists=customPlan.find(x=>norm(x.area)===norm(area)&&norm(x.g)===norm(g)&&norm(x.n)===norm(n));
     if(exists){exists.areaName=areaName;exists.type=type;exists.cod=cod;exists.prev=prev;exists.temporada=temporada;if(msgEl)msgEl.textContent='Linha atualizada no próximo orçado.';}
     else customPlan.push({id:nextCustomId(area),area,areaName,type,g,n,cod,prev,temporada});
-    store.setItem('lnb3_plan_season',temporada);
+    savePlanSeason(temporada);
   }
   try{
     if(Object.keys(prev).length){
@@ -5902,7 +5904,7 @@ function renderPlan(){
   const seasonInput=document.getElementById('plan-season');
   if(seasonInput&&!seasonInput.value)seasonInput.value=store.getItem('lnb3_plan_season')||lnbNextTemporada()||'';
   nextBudgetMonths=computeNextBudgetMonths();
-  if(seasonInput)seasonInput.oninput=()=>{store.setItem('lnb3_plan_season',seasonInput.value);nextBudgetMonths=computeNextBudgetMonths();renderPlanMonths();};
+  if(seasonInput)seasonInput.oninput=()=>{savePlanSeason(seasonInput.value);nextBudgetMonths=computeNextBudgetMonths();renderPlanMonths();};
   const deptSearch=document.getElementById('plan-dept-search');
   if(deptSearch){deptSearch.value=planDeptFilter;deptSearch.oninput=()=>{planDeptFilter=deptSearch.value;renderPlanTabs();};}
   const btnTpl=document.getElementById('btn-plan-template');
@@ -6092,7 +6094,7 @@ async function importPlanSpreadsheet(file){
     });
     if(!sheetsUsed){if(msg)msg.textContent='Planilha fora do modelo: nenhuma aba reconhecida como departamento (ou "Orçado").';return;}
     saveCustomPlan();
-    store.setItem('lnb3_plan_season',temporada);
+    savePlanSeason(temporada);
     alert(`Importação concluída: ${counters.created} linha(s) criada(s), ${counters.updated} atualizada(s), ${counters.skipped} ignorada(s) (sem grupo/linha válidos ou sem nenhum valor de mês).`);
     location.reload();
   }catch(e){
@@ -6567,7 +6569,7 @@ async function initPlanGovernance(){
   const el=document.getElementById('plan-compare-summary');
   if(el)el.innerHTML=`<div class="kpi"><div class="l">Status</div><div class="v" style="font-size:18px">${esc(g.status||'Base copiada')}</div><div class="d">${esc(g.owner||'sem responsável')}</div></div>`;
 }
-function applyPlanAdjustment(){const pct=Number(document.getElementById('plan-adjust-pct')?.value||0);if(!Number.isFinite(pct)||pct===0){alert('Informe um percentual diferente de zero.');return;}const scope=document.getElementById('plan-adjust-scope')?.value||'ALL',area=curPlanArea;if(scope==='CURRENT'&&['ALL','__new__'].includes(area)){alert('Selecione um departamento específico.');return;}if(!confirm(`Aplicar reajuste de ${pct}% ${scope==='ALL'?'em todas as linhas':'no departamento atual'}?`))return;customPlan.forEach(x=>{if(scope==='CURRENT'&&x.area!==area)return;Object.keys(x.prev||{}).forEach(m=>x.prev[m]=Math.round((Number(x.prev[m])||0)*(1+pct/100)*100)/100);});store.setItem('lnb3_custom_plan_v56',JSON.stringify(customPlan));renderPlan();setTimeout(initPlanGovernance,0);}
+function applyPlanAdjustment(){const pct=Number(document.getElementById('plan-adjust-pct')?.value||0);if(!Number.isFinite(pct)||pct===0){alert('Informe um percentual diferente de zero.');return;}const scope=document.getElementById('plan-adjust-scope')?.value||'ALL',area=curPlanArea;if(scope==='CURRENT'&&['ALL','__new__'].includes(area)){alert('Selecione um departamento específico.');return;}if(!confirm(`Aplicar reajuste de ${pct}% ${scope==='ALL'?'em todas as linhas':'no departamento atual'}?`))return;customPlan.forEach(x=>{if(scope==='CURRENT'&&x.area!==area)return;Object.keys(x.prev||{}).forEach(m=>x.prev[m]=Math.round((Number(x.prev[m])||0)*(1+pct/100)*100)/100);});saveCustomPlan();renderPlan();setTimeout(initPlanGovernance,0);}
 function exportFullBackup(){const data={app:'Orçado x Realizado LNB',version:V30_VERSION,createdAt:new Date().toISOString(),localStorage:{}};for(let i=0;i<store.length;i++){const k=store.key(i);if(k&&k.startsWith('lnb3_'))data.localStorage[k]=store.getItem(k);}downloadText(`LNB_backup_V30_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(data,null,2),'application/json');}
 async function importFullBackup(file){try{const data=JSON.parse(await file.text());if(!data||!data.localStorage)throw new Error('Arquivo inválido');if(!confirm('Restaurar este backup substituirá os dados salvos neste navegador. Continuar?'))return;Object.keys(data.localStorage).forEach(k=>store.setItem(k,data.localStorage[k]));alert('Backup restaurado. O sistema será recarregado.');location.reload();}catch(e){alert('Não foi possível restaurar o backup: '+e.message);}}
 setTimeout(()=>{const ex=document.getElementById('btn-backup-export'),im=document.getElementById('btn-backup-import'),fi=document.getElementById('backup-file'),db=document.getElementById('btn-backup-db');if(ex)ex.onclick=exportFullBackup;if(im)im.onclick=()=>fi.click();if(fi)fi.onchange=e=>{if(e.target.files[0])importFullBackup(e.target.files[0]);};if(db)db.onclick=()=>lnbAutoSnapshot('manual').catch(e=>alert('Falha ao gerar backup do banco: '+e.message));},0);
