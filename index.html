@@ -2104,7 +2104,9 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <div class="note">Importar novo extrato (.xls/.xlsx no mesmo layout, abas MÊS-ANO, ex.: AGO-2026). A coluna B agora é o ID exato da linha orçamentária (ex.: 1.1, 1.10, 2.3, 5.10). Mantenha essa coluna formatada como texto. Com ID válido, o lançamento cai diretamente no departamento, grupo e linha; sem ID, continua pelo motor de regras existente. Requer internet na primeira importação. As linhas "SALDO INICIAL" e "SALDO A TRANSFERIR"/"TOTAL" de cada mês são lidas automaticamente para alimentar a Conciliação Bancária — não precisa digitar saldo à parte.</div>
     <div class="toolbar" style="margin-bottom:8px">
       <select id="imp-banco" style="min-width:200px"></select>
+      <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="imp-substituir"> Substituir tudo desta conta</label>
     </div>
+    <div class="note" style="margin-bottom:8px">Com <b>Substituir tudo desta conta</b> marcado, tudo o que já existe da conta selecionada (lançamentos e saldos, de qualquer mês) vai para a Lixeira antes de importar, e a conta fica exatamente igual ao arquivo. Use ao reimportar a mesma planilha corrigida — evita que importações anteriores se somem à nova. Desmarcado, a importação apenas acrescenta o que ainda não existe.</div>
     <input type="file" id="imp" accept=".xls,.xlsx">
     <div id="imp-msg" class="foot"></div>
   </div>
@@ -3043,6 +3045,7 @@ const ACTIVITY_LABELS={
   importar_orcado:'Importou planilha de Orçado',
   importar_extrato_banco:'Importou extrato bancário',
   remover_mes_conta:'Removeu um mês de uma conta',
+  substituir_conta:'Substituiu os dados de uma conta',
   lancamento_manual:'Lançou registro manual de Realizado',
   ajustar_saldo_banco:'Ajustou saldo do mês (Conciliação Bancária)',
   apagar_temporada:'Apagou temporada (foi para a Lixeira)',
@@ -7696,7 +7699,29 @@ document.getElementById('imp').addEventListener('change',async ev=>{
   const msg=document.getElementById('imp-msg');msg.textContent='Lendo…';
   const bankSel=document.getElementById('imp-banco');
   const bank=(bankSel&&bankSel.value)||'BRADESCO';
+  const substituir=!!document.getElementById('imp-substituir')?.checked;
+  if(substituir&&!confirm('Substituir tudo de '+bankLabel(bank)+': os lançamentos e saldos que já existem dessa conta (de qualquer mês) vão para a Lixeira, e a conta passa a refletir só o que estiver neste arquivo. Confirmar?')){ ev.target.value=''; msg.textContent='Importação cancelada.'; return; }
   try{
+    // Reimportar a mesma planilha corrigida somava-se ao que já estava na
+    // base, empilhando lançamentos de importações anteriores (inclusive de
+    // abas que pertenciam a outra conta). Com "substituir", a conta é
+    // limpa antes, e o resultado é exatamente o conteúdo do arquivo.
+    if(substituir){
+      msg.textContent='Limpando dados anteriores de '+bankLabel(bank)+'…';
+      const deletedAt=new Date().toISOString();
+      const filtroBanco=bank==='BRADESCO'
+        ? 'or=(banco.is.null,banco.eq.BRADESCO,banco.eq.)'
+        : 'banco=eq.'+encodeURIComponent(bank);
+      await supaSoftDelete('realizado', filtroBanco, deletedAt);
+      try{ await supaDelete('bank_saldos','bank=eq.'+encodeURIComponent(bank)); }
+      catch(eSal){ console.error('Falha ao limpar saldos da conta:',eSal); }
+      imported=imported.filter(t=>bankOf(t)!==bank);
+      store.setItem('lnb3_imported',JSON.stringify(imported));
+      if(bank==='BRADESCO')DB.saldos={};
+      else if(DB.saldosBanks&&DB.saldosBanks[bank])DB.saldosBanks[bank].saldos={};
+      lnbLogActivity('substituir_conta', bankLabel(bank)+' — dados anteriores enviados para a Lixeira antes de reimportar');
+      msg.textContent='Dados anteriores de '+bankLabel(bank)+' removidos. Lendo o arquivo…';
+    }
     if(!window.XLSX){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
     const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
     const MNI={'JAN':'01','FEV':'02','MAR':'03','ABR':'04','MAI':'05','JUN':'06','JUL':'07','AGO':'08','SET':'09','OUT':'10','NOV':'11','DEZ':'12'};
@@ -7721,7 +7746,11 @@ document.getElementById('imp').addEventListener('change',async ev=>{
     // já tem 2, entra só 1. Reimportar o mesmo arquivo continua não
     // duplicando nada, porque as contagens ficam iguais.
     const existingCounts=new Map();
-    txs.forEach(t=>{const k=existingTxKey(t);existingCounts.set(k,(existingCounts.get(k)||0)+1);});
+    // Quando a conta foi substituída logo acima, os lançamentos antigos dela
+    // ainda estão na lista em memória (txs só é montada no carregamento da
+    // página). Se entrassem na contagem, a importação nova seria toda
+    // descartada como "duplicada" e a conta ficaria vazia.
+    txs.forEach(t=>{ if(substituir&&bankOf(t)===bank)return; const k=existingTxKey(t);existingCounts.set(k,(existingCounts.get(k)||0)+1);});
     const seenThisFile=new Map();
     const abasDeOutraConta=[], abasSemCabecalho=[];
     const novosParaSupabase=[];
