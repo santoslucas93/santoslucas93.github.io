@@ -1725,12 +1725,20 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   <div class="panel">
     <h2>Movimentação do extrato bancário</h2>
     <div class="note" id="bank-ledger-note"></div>
-    <div class="toolbar"><input type="text" id="bank-ledger-q" placeholder="buscar favorecido ou descrição neste mês" style="flex:1"></div>
+    <div class="toolbar">
+      <input type="text" id="bank-ledger-doc" placeholder="filtrar por documento" style="flex:1;min-width:140px">
+      <input type="text" id="bank-ledger-desc" placeholder="filtrar por descrição" style="flex:1;min-width:140px">
+      <input type="text" id="bank-ledger-fav" placeholder="filtrar por favorecido" style="flex:1;min-width:140px">
+    </div>
     <div id="bank-ledger"></div>
   </div>
   <div class="panel">
     <h2>Lançamentos com alerta de possível inversão (não alterados)</h2>
-    <div class="toolbar"><input type="text" id="bank-q" placeholder="buscar favorecido, descrição, documento ou mês" style="flex:1"></div>
+    <div class="toolbar">
+      <input type="text" id="bank-doc" placeholder="filtrar por documento" style="flex:1;min-width:140px">
+      <input type="text" id="bank-desc" placeholder="filtrar por descrição" style="flex:1;min-width:140px">
+      <input type="text" id="bank-fav" placeholder="filtrar por favorecido" style="flex:1;min-width:140px">
+    </div>
     <div id="bank-flowfix"></div>
   </div>
 </div>
@@ -5110,13 +5118,15 @@ function renderBank(){
     <div class="kpi"><div class="l">Saídas bancárias</div><div class="v" style="color:var(--er)">${fmt(totSai)}</div><div class="d">conforme extrato bancário</div></div>
     <div class="kpi"><div class="l">Alertas de possível inversão</div><div class="v ${fixes.length?'bank-status-warn':''}">${fixes.length}</div><div class="d">descrição sugere sentido oposto ao extrato — não alterado</div></div>`;
   document.getElementById('bank-proof').innerHTML=rows.length?`<table><thead><tr><th>Mês</th><th class="num">Saldo inicial</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo calculado</th><th class="num">Saldo final extrato</th><th class="num">Diferença</th><th>Status</th><th class="num">Alertas</th></tr></thead><tbody>${rows.map(r=>`<tr class="${r.ok?'':'flowfix'}"><td><b>${mlabel(r.m)}</b></td><td class="num">${fmt(r.ini)}</td><td class="num">${fmt(r.entradas)}</td><td class="num">${fmt(r.saidas)}</td><td class="num">${fmt(r.calc)}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.ok?'bank-status-ok':'bank-status-er'}">${r.fim==null?'—':fmt(r.dif)}</td><td>${r.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td class="num">${r.susp||''}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem meses com saldo cadastrado para esta conta.</div>';
-  const q=norm(document.getElementById('bank-q')?.value||'');
-  const f=fixes.filter(t=>!q||[t.m,mlabel(t.m),t.f,t.ds,t.dc].some(v=>norm(v).includes(q))).slice(0,300);
+  const qDoc=norm(document.getElementById('bank-doc')?.value||'');
+  const qDesc=norm(document.getElementById('bank-desc')?.value||'');
+  const qFav=norm(document.getElementById('bank-fav')?.value||'');
+  const f=fixes.filter(t=>(!qDoc||norm(t.dc).includes(qDoc))&&(!qDesc||norm(t.ds).includes(qDesc))&&(!qFav||norm(t.f).includes(qFav))).slice(0,300);
   document.getElementById('bank-flowfix').innerHTML=f.length?`<table><thead><tr><th>Mês</th><th>Data</th><th>Documento</th><th>Lançamento</th><th class="num">Entrada (extrato)</th><th class="num">Saída (extrato)</th><th>Alerta</th><th></th></tr></thead><tbody>${f.map(t=>`<tr class="flowfix"><td class="date-cell">${mlabel(t.m)}</td><td class="date-cell">${t.d.slice(8)}/${t.d.slice(5,7)}/${t.d.slice(2,4)}</td><td>${esc(t.dc||'—')}</td><td><b>${esc(t.f)}</b><div class="desc">${esc(t.ds)}</div></td><td class="num" style="color:var(--ok)">${t.e?fmt2(t.e):''}</td><td class="num" style="color:var(--er)">${t.s?fmt2(t.s):''}</td><td><span class="chip wn">${t.flowSuspect==='entrada_deveria_ser_saida'?'descrição sugere saída, extrato diz entrada':'descrição sugere entrada, extrato diz saída'} — mantido conforme extrato</span></td><td>${txRealocBtn(t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Nenhum alerta de possível inversão para o filtro atual.</div>';
-  const qel=document.getElementById('bank-q'); if(qel&&!qel._bound){qel._bound=1;qel.oninput=renderBank;}
+  ['bank-doc','bank-desc','bank-fav'].forEach(id=>{const el=document.getElementById(id); if(el&&!el._bound){el._bound=1;el.oninput=renderBank;}});
   renderBankVerdict(rows,bankLabel);
   renderBankLedger();
-  const lqel=document.getElementById('bank-ledger-q'); if(lqel&&!lqel._bound){lqel._bound=1;lqel.oninput=renderBankLedger;}
+  ['bank-ledger-doc','bank-ledger-desc','bank-ledger-fav'].forEach(id=>{const el=document.getElementById(id); if(el&&!el._bound){el._bound=1;el.oninput=renderBankLedger;}});
 }
 function renderBankVerdict(rows,bankLabel){
   const el=document.getElementById('bank-verdict'); if(!el) return;
@@ -5142,7 +5152,9 @@ function renderBankLedger(){
   const note=document.getElementById('bank-ledger-note'), box=document.getElementById('bank-ledger');
   if(!box) return;
   const salAll=bankSaldos(curBank);
-  const q=norm(document.getElementById('bank-ledger-q')?.value||'');
+  const qDoc=norm(document.getElementById('bank-ledger-doc')?.value||'');
+  const qDesc=norm(document.getElementById('bank-ledger-desc')?.value||'');
+  const qFav=norm(document.getElementById('bank-ledger-fav')?.value||'');
   let rows=[], noteTxt='';
   const isAll=curM==='ALL';
   if(isAll){
@@ -5170,7 +5182,7 @@ function renderBankLedger(){
     noteTxt=`${mlabel(curM)} · saldo inicial ${fmt(Number(sal.ini)||0)} · ${rows.length} lançamento(s) do extrato, em ordem cronológica, com saldo corrido calculado a partir do saldo inicial.`;
   }
   if(note)note.textContent=noteTxt;
-  const filtered=q?rows.filter(r=>[r.t.f,r.t.ds,r.t.dc,mlabel(r.mes)].some(v=>norm(v).includes(q))):rows;
+  const filtered=rows.filter(r=>(!qDoc||norm(r.t.dc).includes(qDoc))&&(!qDesc||norm(r.t.ds).includes(qDesc))&&(!qFav||norm(r.t.f).includes(qFav)));
   box.innerHTML=filtered.length?`<table><thead><tr>${isAll?'<th>Mês</th>':''}<th>Data</th><th>Documento</th><th>Favorecido / descrição</th><th>Classificação</th><th class="num">Entrada</th><th class="num">Saída</th><th class="num">Saldo corrido</th><th></th></tr></thead><tbody>${filtered.map(r=>{
     const c=classify(r.t);
     return `<tr class="${r.t.flowSuspect?'bank-ledger-row-warn':''}">${isAll?`<td>${mlabel(r.mes)}</td>`:''}<td>${r.t.d}</td><td>${esc(r.t.dc||'—')}</td><td><b>${esc(r.t.f)}</b><div class="desc">${esc(r.t.ds)}</div></td><td>${destChip(c)}</td><td class="num" style="color:var(--ok)">${r.t.e?fmt2(r.t.e):''}</td><td class="num" style="color:var(--er)">${r.t.s?fmt2(r.t.s):''}</td><td class="num">${fmt2(r.saldo)}</td><td>${txRealocBtn(r.t)}</td></tr>`;
