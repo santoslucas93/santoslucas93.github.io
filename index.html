@@ -5442,6 +5442,8 @@ function renderGuia(){
   <p>Em <b>Novo Orçado › Linhas cadastradas</b>, o filtro "Ordenar: ordem da planilha (ID)" é o padrão e mostra grupos e linhas na mesma sequência da planilha oficial da estrutura. A coluna <b>ID</b> na tabela mostra o identificador de cada linha.</p>
   <h3>7. Créditos dos Clubes é automático</h3>
   <p>Não existe mais lançamento manual de crédito de clube. Todo crédito (Nota de Débito paga pelo clube) entra automaticamente quando o recebimento é classificado em Receitas › Créditos dos Clubes e alocado na linha do clube — segue a mesma lógica de FAVORECIDO/DESCRIÇÃO/TIPO explicada acima. Se um crédito não aparecer, confira a classificação do lançamento na Conciliação em vez de lançar por fora.</p>
+  <h3>8. Conciliação Bancária das 6 contas</h3>
+  <p>Toda importação de Realizado (planilha ou lançamento manual) tem um campo <b>Banco</b> — preencha com a conta de onde saiu/entrou o valor (Bradesco, CEF 2215-1, CEF 2246-1, Itaú, Ouribank ou Banco do Brasil). Sem isso preenchido, o lançamento é tratado como Bradesco por padrão. Em <b>Conciliação Bancária</b>, cada conta tem sua própria prova (saldo inicial + entradas − saídas = saldo final) e sua própria "Movimentação do extrato", selecionando a aba da conta desejada. Se o extrato da conta trouxer as linhas "SALDO INICIAL" e "SALDO A TRANSFERIR"/"TOTAL" de cada mês, o saldo é lido automaticamente ao importar (escolhendo o banco no seletor da importação); senão, use o "Ajustar saldo do mês" na própria aba da conta. A visão "as 6 contas juntas", no topo de Conciliação Bancária, mostra o resumo de todas de uma vez.</p>
   <h3>Regra de ouro</h3>
   <p>Se um lançamento cair em "pedem atenção", classifique-o uma vez na Conciliação — o sistema aprende o favorecido e nunca mais pergunta. Os mesmos padrões valem para os títulos no Hábil: um único de-para serve para os dois.</p>`;
 }
@@ -6824,8 +6826,12 @@ function addHomeSheet(wb,rows,pend,per){
   let banks=[{k:'BRADESCO',n:'Bradesco 38379-1'}];
   try{banks=bankList();}catch(e){ console.error('bankList() falhou, usando lista padrão de bancos:', e); }
   banks.forEach((b,i)=>{
-    const isBradesco=norm(b.k)==='bradesco';
-    xlDataRow(ws,[b.n,isBradesco?'Dados reais':'Aguardando extrato',isBradesco?'Fluxo semanal real do extrato importado (acima).':'Importe o extrato desta conta no sistema para ver o fluxo semanal aqui.','','',''],{zebra:i%2===1,numFrom:99});
+    // Antes só o Bradesco era tratado como "tem dados reais" — hoje as 6
+    // contas funcionam do mesmo jeito (extrato importado com o banco
+    // selecionado, ou saldo ajustado manualmente), então o status aqui
+    // reflete o que de fato existe para cada conta, não mais um valor fixo.
+    const temDados=Object.keys(bankSaldos(b.k)||{}).length>0 || txs.some(t=>bankOf(t)===b.k&&!t._base);
+    xlDataRow(ws,[b.n,temDados?'Dados reais':'Aguardando extrato',temDados?'Fluxo semanal real do extrato importado (acima, aba Conciliação Bancária).':'Importe o extrato desta conta (selecionando o banco) ou ajuste o saldo manual em Conciliação Bancária para ver o fluxo semanal aqui.','','',''],{zebra:i%2===1,numFrom:99});
   });
   ws.getColumn(1).width=34;ws.getColumn(2).width=16;ws.getColumn(3).width=15;ws.getColumn(4).width=15;ws.getColumn(5).width=16;ws.getColumn(6).width=16;
   return ws;
