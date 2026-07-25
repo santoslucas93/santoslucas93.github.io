@@ -1930,6 +1930,28 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
           <button class="act" type="button" id="btn-rec-del-apagar" style="border-color:var(--er);color:var(--er)">🗑️ Apagar o que foi inserido nesse período</button>
         </div>
       </div>
+      <div style="border-top:1px dashed var(--bd);padding-top:12px;display:flex;flex-direction:column;gap:10px">
+        <div>
+          <h3 style="margin:0 0 4px;font-size:15px">🗑️ Lixeira</h3>
+          <div class="note" style="margin:0">Tudo que foi apagado (temporada inteira ou por horário) fica guardado aqui, agrupado por quando foi apagado — dá para restaurar em um clique, sem precisar reimportar planilha ou backup.</div>
+        </div>
+        <div class="toolbar" style="margin:0">
+          <button class="act" type="button" id="btn-trash-refresh">🔄 Ver lixeira</button>
+        </div>
+        <div id="trash-status" class="foot" style="margin:0"></div>
+        <div id="trash-list"></div>
+      </div>
+      <div style="border-top:1px dashed var(--bd);padding-top:12px;display:flex;flex-direction:column;gap:10px">
+        <div>
+          <h3 style="margin:0 0 4px;font-size:15px">📜 Log de atividades</h3>
+          <div class="note" style="margin:0">Quem importou, apagou ou restaurou o quê, e quando — para dar rastreabilidade num painel usado por várias pessoas.</div>
+        </div>
+        <div class="toolbar" style="margin:0">
+          <button class="act" type="button" id="btn-activity-log-refresh">🔄 Ver log</button>
+        </div>
+        <div id="activity-log-status" class="foot" style="margin:0"></div>
+        <div id="activity-log-list"></div>
+      </div>
       <div style="border-top:1px dashed var(--bd);padding-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
         <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Copiar o Orçado de
           <select id="tp-origem-select" style="min-width:170px"></select>
@@ -2325,10 +2347,38 @@ function supaHeaders(){
   return {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json'};
 }
 
+// Tabelas com "lixeira": exclusão vira soft-delete (deleted_at preenchido)
+// em vez de apagar de vez, e toda leitura normal já ignora automaticamente
+// o que está na lixeira — sem precisar mexer em cada função que lê essas
+// tabelas.
+const SOFT_DELETE_TABLES=['realizado','orcado'];
 async function supaSelect(table){
-  const res=await fetch(SUPABASE_URL+'/rest/v1/'+table+'?select=*', {headers: supaHeaders()});
+  const filtro=SOFT_DELETE_TABLES.includes(table)?'&deleted_at=is.null':'';
+  const res=await fetch(SUPABASE_URL+'/rest/v1/'+table+'?select=*'+filtro, {headers: supaHeaders()});
   if(!res.ok) throw new Error('Supabase select '+table+' falhou: '+res.status);
   return await res.json();
+}
+// Usada só pela tela de Lixeira, que precisa enxergar justamente o que foi
+// soft-deletado — por isso não aplica o filtro deleted_at=is.null.
+async function supaSelectIncludeDeleted(table, filterQuery){
+  const url=SUPABASE_URL+'/rest/v1/'+table+'?select=*'+(filterQuery?('&'+filterQuery):'');
+  const res=await fetch(url, {headers: supaHeaders()});
+  if(!res.ok) throw new Error('Supabase select '+table+' falhou: '+res.status);
+  return await res.json();
+}
+async function supaSoftDelete(table, filterQuery, deletedAtISO){
+  if(isReadOnlyUser()) return {ok:false};
+  const url=SUPABASE_URL+'/rest/v1/'+table+'?'+filterQuery;
+  const res=await fetch(url, {method:'PATCH', headers: Object.assign({},supaHeaders(),{'Prefer':'return=minimal'}), body: JSON.stringify({deleted_at:deletedAtISO,deleted_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido'})});
+  if(!res.ok){ const t=await res.text(); throw new Error('Supabase soft-delete '+table+' falhou: '+res.status+' '+t); }
+  return {ok:true};
+}
+async function supaRestore(table, filterQuery){
+  if(isReadOnlyUser()) return {ok:false};
+  const url=SUPABASE_URL+'/rest/v1/'+table+'?'+filterQuery;
+  const res=await fetch(url, {method:'PATCH', headers: Object.assign({},supaHeaders(),{'Prefer':'return=minimal'}), body: JSON.stringify({deleted_at:null,deleted_by:null})});
+  if(!res.ok){ const t=await res.text(); throw new Error('Supabase restore '+table+' falhou: '+res.status+' '+t); }
+  return {ok:true};
 }
 async function supaInsertIgnoreDup(table, rows, onConflict){
   if(isReadOnlyUser()) return {inserted:0};
@@ -2362,7 +2412,8 @@ async function supaDelete(table, filterQuery){
   return {ok:true};
 }
 async function supaSelectFiltered(table, filterQuery){
-  const url=SUPABASE_URL+'/rest/v1/'+table+'?select=*'+(filterQuery?('&'+filterQuery):'');
+  const softFiltro=SOFT_DELETE_TABLES.includes(table)?'&deleted_at=is.null':'';
+  const url=SUPABASE_URL+'/rest/v1/'+table+'?select=*'+(filterQuery?('&'+filterQuery):'')+softFiltro;
   const res=await fetch(url, {headers: supaHeaders()});
   if(!res.ok) throw new Error('Supabase select '+table+' falhou: '+res.status);
   return await res.json();
@@ -2580,13 +2631,14 @@ async function lnbApagarTemporadaSelecionada(){
   if(!t){ if(msg) msg.textContent='Escolha uma temporada.'; return; }
   if(!chkR && !chkO){ if(msg) msg.textContent='Marque Realizado e/ou Orçado antes de apagar.'; return; }
   const partes=[]; if(chkR) partes.push('Realizado'); if(chkO) partes.push('Orçado');
-  const confirmText=prompt('Isso vai APAGAR '+partes.join(' e ')+' da temporada '+t+' do banco (para todo mundo) e também do rascunho salvo neste navegador. Um backup é baixado antes. Para confirmar, digite a temporada exatamente: '+t);
+  const confirmText=prompt('Isso vai ENVIAR PARA A LIXEIRA '+partes.join(' e ')+' da temporada '+t+' (para todo mundo) e também do rascunho salvo neste navegador. Fica guardado na Lixeira para restaurar depois, se precisar. Um backup também é baixado antes. Para confirmar, digite a temporada exatamente: '+t);
   if(confirmText!==t){ if(msg) msg.textContent='Não confere o texto digitado. Nada foi apagado.'; return; }
   if(msg) msg.textContent='Apagando '+partes.join(' e ')+' de '+t+'...';
   try{
     await lnbAutoSnapshot('antes de apagar '+partes.join(' e ')+' da temporada '+t);
+    const deletedAt=new Date().toISOString();
     if(chkR){
-      await supaDelete('realizado', 'temporada=eq.'+encodeURIComponent(t));
+      await supaSoftDelete('realizado', 'temporada=eq.'+encodeURIComponent(t), deletedAt);
       // Achado real: apagar no Supabase não bastava — o cache local do
       // navegador ('imported', localStorage) nunca era limpo aqui, então
       // os mesmos lançamentos continuavam aparecendo mesmo depois de
@@ -2596,13 +2648,14 @@ async function lnbApagarTemporadaSelecionada(){
       store.setItem('lnb3_imported','[]');
     }
     if(chkO){
-      await supaDelete('orcado', 'temporada=eq.'+encodeURIComponent(t));
+      await supaSoftDelete('orcado', 'temporada=eq.'+encodeURIComponent(t), deletedAt);
       if(typeof customPlan!=='undefined'){
         customPlan=customPlan.filter(function(x){ return x.temporada!==t; });
         if(typeof saveCustomPlan==='function') saveCustomPlan();
       }
     }
-    if(msg) msg.textContent=partes.join(' e ')+' da temporada '+t+' apagado(s) com sucesso. Recarregando a página...';
+    lnbLogActivity('apagar_temporada', partes.join(' e ')+' — temporada '+t);
+    if(msg) msg.textContent=partes.join(' e ')+' da temporada '+t+' enviado(s) para a Lixeira. Recarregando a página...';
     await new Promise(function(r){ setTimeout(r,1200); });
     location.reload();
   }catch(e){
@@ -2643,13 +2696,14 @@ async function lnbApagarRecentes(){
   if(!chkR&&!chkO&&!chkB){ if(status)status.textContent='Marque ao menos uma opção.'; return; }
   const cutoff=recDelCutoffISO();
   const partes=[]; if(chkR)partes.push('Realizado'); if(chkO)partes.push('Orçado'); if(chkB)partes.push('Saldo bancário');
-  if(!confirm('Isso vai apagar '+partes.join(', ')+' inserido(s) na base central nos últimos '+min+' minuto(s) (desde '+new Date(cutoff).toLocaleString('pt-BR')+'), para todo mundo que usa o painel. Um backup é baixado antes de apagar. Confirmar?'))return;
+  if(!confirm('Isso vai enviar para a Lixeira '+partes.join(', ')+' inserido(s) na base central nos últimos '+min+' minuto(s) (desde '+new Date(cutoff).toLocaleString('pt-BR')+'), para todo mundo que usa o painel. Dá para restaurar depois na Lixeira, se precisar. Um backup também é baixado antes. Confirmar?'))return;
   if(status)status.textContent='Apagando...';
   try{
     await lnbAutoSnapshot('antes de apagar lançamentos dos últimos '+min+' minuto(s)');
-    if(chkR)await supaDelete('realizado','created_at=gte.'+encodeURIComponent(cutoff));
+    const deletedAt=new Date().toISOString();
+    if(chkR)await supaSoftDelete('realizado','created_at=gte.'+encodeURIComponent(cutoff),deletedAt);
     if(chkO){
-      await supaDelete('orcado','created_at=gte.'+encodeURIComponent(cutoff));
+      await supaSoftDelete('orcado','created_at=gte.'+encodeURIComponent(cutoff),deletedAt);
     }
     if(chkB)await supaDelete('bank_saldos','updated_at=gte.'+encodeURIComponent(cutoff));
     // Mesmo achado de sempre: apagar no Supabase não basta — limpa também o
@@ -2657,7 +2711,8 @@ async function lnbApagarRecentes(){
     // de ser apagado continua aparecendo na tela.
     imported=[];
     store.setItem('lnb3_imported','[]');
-    if(status)status.textContent=partes.join(', ')+' dos últimos '+min+' minuto(s) apagado(s). Recarregando a página...';
+    lnbLogActivity('apagar_recentes', partes.join(', ')+' — últimos '+min+' min (desde '+new Date(cutoff).toLocaleString('pt-BR')+')');
+    if(status)status.textContent=partes.join(', ')+' dos últimos '+min+' minuto(s) enviado(s) para a Lixeira. Recarregando a página...';
     await new Promise(r=>setTimeout(r,1000));
     location.reload();
   }catch(e){
@@ -2668,6 +2723,64 @@ async function lnbApagarRecentes(){
 (function initRecDelButtons(){
   const bp=document.getElementById('btn-rec-del-preview'); if(bp)bp.onclick=lnbPreviewRecentDelete;
   const ba=document.getElementById('btn-rec-del-apagar'); if(ba)ba.onclick=lnbApagarRecentes;
+})();
+async function lnbLoadTrash(){
+  const status=document.getElementById('trash-status'), box=document.getElementById('trash-list');
+  if(!box)return;
+  if(status)status.textContent='Carregando...';
+  try{
+    const [realRows,orcRows]=await Promise.all([
+      supaSelectIncludeDeleted('realizado','deleted_at=not.is.null&order=deleted_at.desc&limit=3000'),
+      supaSelectIncludeDeleted('orcado','deleted_at=not.is.null&order=deleted_at.desc&limit=3000')
+    ]);
+    // Cada ação de apagar (temporada, últimos N minutos, encerrar temporada)
+    // usa um único horário (deleted_at) para todas as linhas que apagou de
+    // uma vez — por isso agrupar por deleted_at reconstrói exatamente os
+    // "lotes" que foram apagados juntos, para restaurar de uma vez só.
+    const batches={};
+    const addRow=(r,kind)=>{
+      const k=r.deleted_at;
+      if(!batches[k])batches[k]={deletedAt:k,deletedBy:r.deleted_by||'—',realizado:0,orcado:0,temporadas:new Set()};
+      batches[k][kind]++;
+      if(r.temporada)batches[k].temporadas.add(r.temporada);
+    };
+    realRows.forEach(r=>addRow(r,'realizado'));
+    orcRows.forEach(r=>addRow(r,'orcado'));
+    const list=Object.values(batches).sort((a,b)=>String(b.deletedAt).localeCompare(String(a.deletedAt)));
+    if(!list.length){
+      if(status)status.textContent='Lixeira vazia — nada apagado recentemente.';
+      box.innerHTML='';
+      return;
+    }
+    if(status)status.textContent=list.length+' lote(s) na lixeira.';
+    box.innerHTML=`<table><thead><tr><th>Apagado em</th><th>Por</th><th>Temporada(s)</th><th class="num">Realizado</th><th class="num">Orçado</th><th></th></tr></thead><tbody>${list.map(b=>`<tr><td>${new Date(b.deletedAt).toLocaleString('pt-BR')}</td><td>${esc(b.deletedBy)}</td><td>${esc([...b.temporadas].join(', ')||'—')}</td><td class="num">${b.realizado}</td><td class="num">${b.orcado}</td><td><button class="act pri" type="button" onclick="lnbRestoreTrashBatch('${encodeURIComponent(b.deletedAt)}')">↩️ Restaurar</button></td></tr>`).join('')}</tbody></table>`;
+  }catch(e){
+    console.error('lnbLoadTrash falhou:',e);
+    if(status)status.textContent='Falha ao carregar a lixeira: '+e.message;
+  }
+}
+async function lnbRestoreTrashBatch(deletedAtEncoded){
+  const status=document.getElementById('trash-status');
+  const deletedAt=decodeURIComponent(deletedAtEncoded);
+  if(!confirm('Restaurar tudo que foi apagado em '+new Date(deletedAt).toLocaleString('pt-BR')+'? Volta a aparecer para todo mundo que usa o painel.'))return;
+  if(status)status.textContent='Restaurando...';
+  try{
+    await supaRestore('realizado','deleted_at=eq.'+encodeURIComponent(deletedAt));
+    await supaRestore('orcado','deleted_at=eq.'+encodeURIComponent(deletedAt));
+    lnbLogActivity('restaurar_lixeira', 'lote de '+new Date(deletedAt).toLocaleString('pt-BR'));
+    if(status)status.textContent='Restaurado. Recarregando a página...';
+    await new Promise(r=>setTimeout(r,900));
+    location.reload();
+  }catch(e){
+    console.error('lnbRestoreTrashBatch falhou:',e);
+    if(status)status.textContent='Falha ao restaurar: '+e.message;
+  }
+}
+(function initTrashButton(){
+  const bt=document.getElementById('btn-trash-refresh'); if(bt)bt.onclick=lnbLoadTrash;
+})();
+(function initActivityLogButton(){
+  const bt=document.getElementById('btn-activity-log-refresh'); if(bt)bt.onclick=lnbLoadActivityLog;
 })();
 async function lnbIniciarNovaTemporada(){
   const msg=document.getElementById('temporada-msg');
@@ -2692,6 +2805,7 @@ async function lnbIniciarNovaTemporada(){
       return {id_linha:r.id_linha, departamento:r.departamento, grupo:r.grupo, linha_orcamento:r.linha_orcamento, mes:shiftYm(r.mes), valor:r.valor, temporada:destino};
     });
     await supaUpsert('orcado', newRows, 'id_linha,mes');
+    lnbLogActivity('iniciar_temporada', 'copiado de '+origem+' para '+destino+' — '+newRows.length+' valor(es)');
     if(msg) msg.textContent='Temporada '+destino+' criada com '+newRows.length+' valor(es) de orçado, a partir de '+origem+'.';
     await lnbInitTemporadaManager(true);
   }catch(e){
@@ -2861,6 +2975,41 @@ async function lnbGetLineIndex(force){
   lnbLineIndexCache={byDept:byDept};
   return lnbLineIndexCache;
 }
+// Log de atividades: registro simples de quem fez o quê, para dar
+// rastreabilidade num painel usado por várias pessoas. Nunca deve travar
+// a ação principal se falhar (tabela ainda não criada, rede etc.).
+async function lnbLogActivity(action, details){
+  try{
+    const row={actor:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',action,details:typeof details==='string'?details:JSON.stringify(details||{})};
+    await fetch(SUPABASE_URL+'/rest/v1/activity_log',{method:'POST',headers:Object.assign({},supaHeaders(),{'Prefer':'return=minimal'}),body:JSON.stringify([row])});
+  }catch(e){ console.error('lnbLogActivity falhou (ignorado):',e); }
+}
+async function lnbLoadActivityLog(){
+  const status=document.getElementById('activity-log-status'), box=document.getElementById('activity-log-list');
+  if(!box)return;
+  if(status)status.textContent='Carregando...';
+  try{
+    const rows=await supaSelectFiltered('activity_log','order=created_at.desc&limit=200');
+    if(!rows.length){ if(status)status.textContent='Nenhuma atividade registrada ainda.'; box.innerHTML=''; return; }
+    if(status)status.textContent=rows.length+' atividade(s) recente(s).';
+    box.innerHTML=`<table><thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${new Date(r.created_at).toLocaleString('pt-BR')}</td><td>${esc(r.actor||'—')}</td><td>${esc(ACTIVITY_LABELS[r.action]||r.action)}</td><td>${esc(r.details||'')}</td></tr>`).join('')}</tbody></table>`;
+  }catch(e){
+    console.error('lnbLoadActivityLog falhou:',e);
+    if(status)status.textContent='Falha ao carregar o log (rodou o SQL da tabela activity_log?): '+e.message;
+  }
+}
+const ACTIVITY_LABELS={
+  importar_realizado:'Importou planilha de Realizado',
+  importar_orcado:'Importou planilha de Orçado',
+  importar_extrato_banco:'Importou extrato bancário',
+  lancamento_manual:'Lançou registro manual de Realizado',
+  ajustar_saldo_banco:'Ajustou saldo do mês (Conciliação Bancária)',
+  apagar_temporada:'Apagou temporada (foi para a Lixeira)',
+  apagar_recentes:'Apagou lançamentos recentes (foi para a Lixeira)',
+  encerrar_temporada:'Encerrou e arquivou temporada',
+  iniciar_temporada:'Iniciou nova temporada',
+  restaurar_lixeira:'Restaurou um lote da Lixeira'
+};
 async function lnbAutoSnapshot(label){
   try{
     const realizado=await supaSelect('realizado');
@@ -2917,6 +3066,7 @@ async function lnbSaveManualRealizado(){
       tipo_reembolso: ''
     };
     await supaInsertIgnoreDup('realizado', [row], 'id_linha,data');
+    lnbLogActivity('lancamento_manual', favEl.value.trim()+' — '+(tipoEl.value==='entrada'?'entrada':'saída')+' '+valorNum);
     if(msg) msg.textContent='Lançamento salvo no sistema.';
     favEl.value=''; descEl.value=''; valorEl.value=''; docEl.value=''; compEl.value=''; abatEl.checked=false;
   }catch(e){
@@ -5098,6 +5248,7 @@ async function saveBankAdjSaldo(){
     if(curBank==='BRADESCO'){ DB.saldos[m]=Object.assign({},DB.saldos[m],{ini,fim}); }
     else{ DB.saldosBanks[curBank]=DB.saldosBanks[curBank]||{label:bankLabel(curBank),saldos:{}}; DB.saldosBanks[curBank].saldos[m]=Object.assign({},DB.saldosBanks[curBank].saldos[m],{ini,fim}); }
     await pushBankSaldosToSupabase(curBank,{[m]:{ini,fim}});
+    lnbLogActivity('ajustar_saldo_banco', bankLabel(curBank)+' — '+mlabel(m));
     if(msg)msg.textContent='Saldo salvo na base central.';
     renderBank();
   }catch(e){
@@ -7036,6 +7187,7 @@ async function importNewSeasonRealizado(file, raw){
     store.setItem('lnb3_imported',JSON.stringify(imported));
     save('decisions',decisions);
     if(!live){
+      lnbLogActivity('importar_realizado', added+' novo(s), '+decided+' classificado(s) por ID, '+duplicated+' duplicado(s) ignorado(s)');
       alert(`Importação da temporada 2026/2027 concluída:\n${added} lançamento(s) novo(s) adicionado(s) (${[...monthsTouched].sort().map(mlabel).join(', ')||'-'}).\n${decided} já entraram classificados pelo ID informado.\n${added-decided} sem ID válido — ficaram pendentes para revisão na Conciliação.\n${duplicated} já existiam e foram ignorados (evita duplicidade).\n${skipped} linha(s) ignorada(s) por falta de Data/Favorecido/Entrada-Saída ou por ter as duas preenchidas.${abatidos?`\n${abatidos} lançamento(s) marcado(s) como Abatimento (entram com sinal negativo na linha do ID informado).`:''}`);
       location.reload();
     }
@@ -7205,6 +7357,7 @@ async function importNewBudgetSpreadsheet(file, raw){
     if(!created&&!updated&&!stats.pruned){if(msg&&!live)msg.textContent='Nenhuma linha válida encontrada.';return stats;}
     save('budgetlines',budgetLines);
     if(!live){
+      lnbLogActivity('importar_orcado', created+' nova(s), '+updated+' atualizada(s)');
       alert(`Importação do orçado concluída:\n${created} linha(s) nova(s) criada(s).\n${updated} linha(s) existente(s) atualizada(s).\n${skipped} linha(s) ignorada(s) por falta de ID/Departamento/Linha.\nMeses afetados: ${[...monthsTouched].sort().map(mlabel).join(', ')||'-'}`);
       location.reload();
     }
@@ -7239,8 +7392,9 @@ async function endSeasonAndReset(){
     // (as regras por favorecido, que são o "aprendizado" reaproveitável, ficam).
     const idsToRemove=imported.map(t=>t.id).filter(id=>decisions[id]);
     if(idsToRemove.length)await supaDelete('tx_decisions','tx_id=in.('+idsToRemove.map(id=>'"'+id+'"').join(',')+')');
-    await supaDelete('realizado','temporada=eq.'+encodeURIComponent(temporada));
-    await supaDelete('orcado','temporada=eq.'+encodeURIComponent(temporada));
+    const deletedAt=new Date().toISOString();
+    await supaSoftDelete('realizado','temporada=eq.'+encodeURIComponent(temporada),deletedAt);
+    await supaSoftDelete('orcado','temporada=eq.'+encodeURIComponent(temporada),deletedAt);
     // Mesmo achado do "Apagar temporada selecionada": apagar no Supabase não
     // bastava — o cache local ('imported' e o rascunho de customPlan desta
     // temporada) nunca era limpo aqui, então o Realizado (e o Orçado, se
@@ -7252,6 +7406,7 @@ async function endSeasonAndReset(){
       customPlan=customPlan.filter(function(x){ return x.temporada!==temporada; });
       if(typeof saveCustomPlan==='function') saveCustomPlan();
     }
+    lnbLogActivity('encerrar_temporada', temporada);
     alert('Temporada '+temporada+' arquivada e zerada na base central. Uma cópia de segurança também foi baixada neste navegador. A página vai recarregar agora.');
     location.reload();
   }catch(e){
@@ -7328,6 +7483,7 @@ document.getElementById('imp').addEventListener('change',async ev=>{
       }
       await pushBankSaldosToSupabase(bank,saldosCapturados);
     }
+    if(added||duplicated||Object.keys(saldosCapturados).length)lnbLogActivity('importar_extrato_banco', bankLabel(bank)+' — '+added+' novo(s), '+duplicated+' duplicado(s), '+Object.keys(saldosCapturados).length+' mês(es) de saldo');
     msg.textContent=(added||duplicated||Object.keys(saldosCapturados).length)?added+' lançamento(s) novo(s) importado(s) para '+bankLabel(bank)+'. '+(duplicated?duplicated+' já existiam (mesma data/favorecido/valor) e foram ignorados, evitando duplicidade. ':'')+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto, no padrão da estrutura atual (ex.: 1.02.7 para departamentos com grupo, ou 9.1 para Receitas/Equipes). ':'')+(Object.keys(saldosCapturados).length?(Object.keys(saldosCapturados).length+' mês(es) com saldo inicial/final lido do extrato e salvo na base central. '):'')+'Recarregando…':'Nenhum mês novo encontrado.';
     if(added||duplicated||Object.keys(saldosCapturados).length)setTimeout(()=>location.reload(),900);
   }catch(err){msg.textContent='Falha ao ler o arquivo: '+err.message;}
