@@ -2547,7 +2547,16 @@ async function lnbApagarTemporadaSelecionada(){
   if(msg) msg.textContent='Apagando '+partes.join(' e ')+' de '+t+'...';
   try{
     await lnbAutoSnapshot('antes de apagar '+partes.join(' e ')+' da temporada '+t);
-    if(chkR) await supaDelete('realizado', 'temporada=eq.'+encodeURIComponent(t));
+    if(chkR){
+      await supaDelete('realizado', 'temporada=eq.'+encodeURIComponent(t));
+      // Achado real: apagar no Supabase não bastava — o cache local do
+      // navegador ('imported', localStorage) nunca era limpo aqui, então
+      // os mesmos lançamentos continuavam aparecendo mesmo depois de
+      // apagados no banco. Limpa e deixa recarregar do zero a partir do
+      // Supabase (agora sem esses lançamentos).
+      imported=[];
+      store.setItem('lnb3_imported','[]');
+    }
     if(chkO){
       await supaDelete('orcado', 'temporada=eq.'+encodeURIComponent(t));
       if(typeof customPlan!=='undefined'){
@@ -3990,7 +3999,7 @@ function jsSuggest(t){
   const parts=t.t?t.t.split('/').map(x=>TIPO_AREA[x.trim()]).filter(Boolean):[];
   const at=parts.length===1?parts[0]:null;
   const R=(a,g,l,how)=>({a,g,l:l==null?null:l,how:how||'chave'});
-  const g_of=id=>id!=null?lineById(id).g:null;
+  const g_of=id=>{if(id==null)return null;const ln=lineById(id);return ln?ln.g:null;};
   const rh= rhProviderSuggestion(t);
   if(rh)return R(rh.a,rh.g,rh.l,rh.how);
   if(nds.includes('ldb')&&(nds.includes('taxa inscricao')||nds.includes('inscricao')||nds.includes('taxa rateio')))return R('REC',LDB_TAX_GROUP,ldbLineId(ldbClubFromTx(t)),'taxa-ldb-clube');
@@ -4012,7 +4021,7 @@ function jsSuggest(t){
   }
   if(nds.includes('bet -'))return R('REC','Patrocinadores - NBB',324,'chave');
   if(nf==='lnb')return R('REC','Outras entradas',null,'nome');
-  if(DB.favline[nf]!=null){const l=lineById(DB.favline[nf]);return R(l.area,l.g,l.id,'nome');}
+  if(DB.favline[nf]!=null){const l=lineById(DB.favline[nf]);if(l)return R(l.area,l.g,l.id,'nome');}
   if((nds.includes('despesa')&&nds.includes('bancar'))||nds.includes('tarifa'))return R('A&F','Financeiras');
   if(nds.includes('transmiss')){
     if(nds.includes('cultura'))return R('COM','3. Transmissões NBB',116);
@@ -6901,7 +6910,7 @@ async function importNewSeasonRealizado(file, raw){
       if(existingKeys.has(key)){duplicated++;return;}
       existingKeys.add(key);
       normalizeBankFlow(nt);
-      nt.sug=jsSuggest(nt);
+      try{ nt.sug=jsSuggest(nt); }catch(e){ console.error('jsSuggest falhou para um lançamento — mantido pendente para revisão manual:', e, nt); nt.sug=null; }
       const compRaw=kComp?String(row[kComp]||'').trim():'';
       if(compRaw){const hit=NEWSEASON_EVENTOS.find(ev=>norm(ev)===norm(compRaw));nt.ev=hit||compRaw;}
       else{nt.ev='LNB';}
@@ -7131,6 +7140,17 @@ async function endSeasonAndReset(){
     if(idsToRemove.length)await supaDelete('tx_decisions','tx_id=in.('+idsToRemove.map(id=>'"'+id+'"').join(',')+')');
     await supaDelete('realizado','temporada=eq.'+encodeURIComponent(temporada));
     await supaDelete('orcado','temporada=eq.'+encodeURIComponent(temporada));
+    // Mesmo achado do "Apagar temporada selecionada": apagar no Supabase não
+    // bastava — o cache local ('imported' e o rascunho de customPlan desta
+    // temporada) nunca era limpo aqui, então o Realizado (e o Orçado, se
+    // ainda estivesse no rascunho local) continuavam aparecendo zerados só
+    // no banco, mas cheios na tela deste navegador.
+    imported=[];
+    store.setItem('lnb3_imported','[]');
+    if(typeof customPlan!=='undefined'){
+      customPlan=customPlan.filter(function(x){ return x.temporada!==temporada; });
+      if(typeof saveCustomPlan==='function') saveCustomPlan();
+    }
     alert('Temporada '+temporada+' arquivada e zerada na base central. Uma cópia de segurança também foi baixada neste navegador. A página vai recarregar agora.');
     location.reload();
   }catch(e){
@@ -7191,7 +7211,7 @@ document.getElementById('imp').addEventListener('change',async ev=>{
         if(existingKeysImp.has(keyImp)){duplicated++;return;}
         existingKeysImp.add(keyImp);
         normalizeBankFlow(nt);
-        nt.sug=jsSuggest(nt);
+        try{ nt.sug=jsSuggest(nt); }catch(e){ console.error('jsSuggest falhou para um lançamento — mantido pendente para revisão manual:', e, nt); nt.sug=null; }
         const idLine=resolveLineById(idChaveRaw);
         if(idLine)nt.sug={a:idLine.area,g:idLine.g||'',l:idLine.id,how:'id-chave'};
         else if(idChave)invalidIds++;
