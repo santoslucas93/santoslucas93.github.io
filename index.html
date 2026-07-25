@@ -4595,7 +4595,7 @@ function renderHome(){
   let pend=0;txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;const c=classify(t);if(isAttention(t,c))pend++;});
   const pct=despP?Math.round(despR/despP*100):0;
   const deptOverCount=DESP.filter(a=>{const p=budP(curM,a),rr=r.A[a]||0;return p>0&&rr>p;}).length;
-  const monthTag=curM!=='ALL'?` <span style="opacity:.55;font-weight:400;font-size:11px">(${MN[curM.slice(5)].toUpperCase()}/${curM.slice(0,4)})</span>`:'';
+  const monthTag=curM!=='ALL'?` <span style="opacity:.85;font-weight:700;font-size:11px">(${MN[curM.slice(5)].toUpperCase()}/${curM.slice(0,4)})</span>`:'';
   document.getElementById('kpis').innerHTML=`
    <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas orçadas${curM==='ALL'?' (período do extrato)':''}</div><div class="v">${fmt(despP)}${monthTag}</div></div>
    <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas realizadas</div><div class="v">${fmt(despR)}${monthTag}</div><div class="d">${pct}% do orçado</div></div>
@@ -7515,8 +7515,18 @@ document.getElementById('imp').addEventListener('change',async ev=>{
         if(i<5||typeof r[0]!=='number'||!r[3])return;
         const fav=String(r[3]).trim();const u=fav.toUpperCase();
         const e0=typeof r[6]==='number'?r[6]:0,s0=typeof r[7]==='number'?r[7]:0;
-        if(u==='SALDO INICIAL'){ saldosCapturados[mm]=saldosCapturados[mm]||{}; saldosCapturados[mm].ini=Math.round((e0||s0||0)*100)/100; return; }
-        if(u.includes('SALDO A TRANSFERIR')||u.startsWith('TOTAL')){ saldosCapturados[mm]=saldosCapturados[mm]||{}; saldosCapturados[mm].fim=Math.round((e0||s0||0)*100)/100; return; }
+        if(u==='SALDO INICIAL'){ saldosCapturados[mm]=saldosCapturados[mm]||{}; if(e0||s0)saldosCapturados[mm].ini=Math.round((e0||s0)*100)/100; return; }
+        // Achado real: "TOTAL ENTRADAS" e "TOTAL SAÍDAS" (subtotais por
+        // coluna, que também começam com "TOTAL") estavam sendo tratados
+        // como se fossem o saldo final do mês — cada um sobrescrevia o
+        // anterior, fazendo o "saldo final extrato" virar o total de uma
+        // das colunas em vez do saldo de verdade, e por isso quase todo
+        // mês aparecia como divergente. Só "SALDO A TRANSFERIR"/"SALDO
+        // FINAL"/um "TOTAL" isolado (sem falar de entrada/saída) conta
+        // como saldo final de fato.
+        const isColumnSubtotal=u.includes('TOTAL')&&(u.includes('ENTRADA')||u.includes('SAIDA')||u.includes('SAÍDA'));
+        if(isColumnSubtotal)return;
+        if(u.includes('SALDO A TRANSFERIR')||u.includes('SALDO FINAL')||u.startsWith('TOTAL')){ saldosCapturados[mm]=saldosCapturados[mm]||{}; if(e0||s0)saldosCapturados[mm].fim=Math.round((e0||s0)*100)/100; return; }
         const e=e0,s=s0;
         if(!e&&!s)return;
         const dt=new Date(Date.UTC(1899,11,30)+r[0]*864e5).toISOString().slice(0,10);
