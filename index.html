@@ -1703,6 +1703,10 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 </div>
 
 <div id="v-bank" class="hide">
+  <div class="panel">
+    <h2>Visão consolidada — as 6 contas juntas</h2>
+    <div id="bank-consolidado"></div>
+  </div>
   <div class="note"><b>Conciliação bancária mensal:</b> esta visão valida o básico do realizado, conta por conta: saldo inicial + entradas − saídas = saldo final do extrato. A planilha de bancos é soberana: entrada é o que veio na coluna de entrada, saída é o que veio na coluna de saída — o sistema nunca inverte isso. Lançamentos cuja descrição (ISS/DARF/FGTS/INSS/tarifas etc.) sugere sentido oposto ao do extrato aparecem abaixo apenas como <b>alerta para revisão manual</b>. O realizado consolidado (Home, Departamentos, Receitas, Gráficos) já soma todas as contas automaticamente.</div>
   <div class="mtabs" id="bank-tabs"></div>
   <div id="bank-verdict"></div>
@@ -1745,6 +1749,11 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 
 
 <div id="v-audit" class="hide">
+  <div class="panel">
+    <h2>🩺 Saúde do sistema</h2>
+    <div class="kpis" id="health-kpis"></div>
+    <div id="health-bancos" class="foot"></div>
+  </div>
   <div class="note"><b>Verificação de integridade:</b> confere rateios, linhas inexistentes, pendências, transferências internas, cartões e consistência do próximo orçamento. Os testes não alteram dados.</div>
   <div class="toolbar">
     <button class="act pri" type="button" onclick="renderIntegrity(true)">Executar verificação</button>
@@ -4525,12 +4534,12 @@ function render(){
   if(curV==='dept')renderDept();
   if(curV==='sup')renderSup();
   if(curV==='conc'){renderStats();initBulkControls();renderTable();renderAreas();}
-  if(curV==='audit')renderIntegrity();
+  if(curV==='audit'){renderSystemHealth();renderIntegrity();}
   if(curV==='rules')renderRules();
   if(curV==='guia')renderGuia();
   if(curV==='dash')renderDash();
   if(curV==='plan'){renderPlan();setTimeout(initPlanGovernance,0);}
-  if(curV==='bank'){renderBankTabs();renderBank();}
+  if(curV==='bank'){renderBankConsolidado();renderBankTabs();renderBank();}
   if(curV==='real')renderRealizado();
 }
 function renderMtabs(){
@@ -5194,6 +5203,18 @@ function bankOf(t){return t.bank||'BRADESCO';}
 function bankSaldos(bank){if(!bank||bank==='BRADESCO')return DB.saldos;return (DB.saldosBanks&&DB.saldosBanks[bank]&&DB.saldosBanks[bank].saldos)||{};}
 function bankList(){const list=BANK_ACCOUNTS.map(b=>({k:b.k,n:b.n}));Object.keys(DB.saldosBanks||{}).forEach(k=>{if(!list.find(x=>x.k===k))list.push({k,n:DB.saldosBanks[k].label||k});});return list;}
 let curBank='BRADESCO';
+function renderBankConsolidado(){
+  const box=document.getElementById('bank-consolidado'); if(!box)return;
+  const rows=bankList().map(b=>{
+    const proof=bankProofRows(b.k);
+    const totEnt=proof.reduce((s,r)=>s+r.entradas,0), totSai=proof.reduce((s,r)=>s+r.saidas,0);
+    const divergentes=proof.filter(r=>!r.ok).length;
+    return {n:b.n,k:b.k,meses:proof.length,entradas:totEnt,saidas:totSai,divergentes};
+  });
+  const totEnt=rows.reduce((s,r)=>s+r.entradas,0), totSai=rows.reduce((s,r)=>s+r.saidas,0), totDiv=rows.reduce((s,r)=>s+r.divergentes,0);
+  box.innerHTML=`<table><thead><tr><th>Banco</th><th class="num">Meses com saldo</th><th class="num">Entradas</th><th class="num">Saídas</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.n)}</td><td class="num">${r.meses}</td><td class="num" style="color:var(--ok)">${fmt(r.entradas)}</td><td class="num" style="color:var(--er)">${fmt(r.saidas)}</td><td>${!r.meses?'<span class="chip gy">sem saldo cadastrado</span>':r.divergentes?'<span class="chip er">'+r.divergentes+' mês(es) divergente(s)</span>':'<span class="chip ok">confere</span>'}</td><td><button class="act" type="button" onclick="curBank='${r.k}';document.getElementById('bank-tabs')?.scrollIntoView({behavior:'smooth'});renderBankTabs();renderBank();">Ver conta →</button></td></tr>`).join('')}</tbody></table>
+  <div class="foot" style="margin-top:8px">Total das 6 contas: entradas ${fmt(totEnt)} · saídas ${fmt(totSai)} · ${totDiv} mês(es) divergente(s) no total.</div>`;
+}
 function renderBankTabs(){
   const box=document.getElementById('bank-tabs');if(!box)return;
   box.innerHTML=bankList().map(b=>`<button class="${b.k===curBank?'on':''}" onclick="curBank='${b.k}';renderBankTabs();renderBank();">${esc(b.n)}</button>`).join('');
@@ -6889,6 +6910,27 @@ function integrityScan(){
     if(total===0)issues.push({nivel:'INFO',tipo:'Linha zerada 2026/2027',id:x.id,data:'',descricao:`${x.area} › ${x.g} › ${x.n}`,detalhe:'Linha mantida com valor anual zerado.'});
   });
   integrityLast=issues;return issues;
+}
+function renderSystemHealth(){
+  const kpis=document.getElementById('health-kpis'), bancosBox=document.getElementById('health-bancos');
+  if(!kpis)return;
+  const realTxs=txs.filter(t=>!isInternalBankTransferTx(t));
+  const pendentes=realTxs.filter(t=>!decisions[t.id]).length;
+  const bancos=bankList();
+  const divergentes=bancos.filter(b=>bankProofRows(b.k).some(r=>!r.ok));
+  kpis.innerHTML=`
+    <div class="kpi"><div class="l">Pendentes de classificação</div><div class="v ${pendentes?'bank-status-warn':''}">${pendentes}</div><div class="d">lançamentos do Realizado sem decisão salva</div></div>
+    <div class="kpi"><div class="l">Contas com saldo divergente</div><div class="v ${divergentes.length?'bank-status-er':'bank-status-ok'}">${divergentes.length}</div><div class="d">de ${bancos.length} conta(s) analisada(s)</div></div>
+    <div class="kpi" id="health-last-import"><div class="l">Última importação</div><div class="v">…</div></div>`;
+  bancosBox.textContent=divergentes.length?('Contas com divergência: '+divergentes.map(b=>b.n).join(', ')):'Todas as contas com saldo cadastrado conferem.';
+  supaSelectFiltered('activity_log',"action=in.(importar_realizado,importar_orcado,importar_extrato_banco)&order=created_at.desc&limit=1").then(rows=>{
+    const el=document.getElementById('health-last-import'); if(!el)return;
+    if(rows&&rows.length){
+      el.innerHTML=`<div class="l">Última importação</div><div class="v">${new Date(rows[0].created_at).toLocaleDateString('pt-BR')}</div><div class="d">${esc(ACTIVITY_LABELS[rows[0].action]||rows[0].action)} · ${esc(rows[0].actor||'')}</div>`;
+    }else{
+      el.innerHTML=`<div class="l">Última importação</div><div class="v">—</div><div class="d">sem registro no log ainda</div>`;
+    }
+  }).catch(e=>{ console.error('renderSystemHealth: falha ao buscar último import:',e); const el=document.getElementById('health-last-import'); if(el)el.innerHTML='<div class="l">Última importação</div><div class="v">—</div><div class="d">log indisponível</div>'; });
 }
 function renderIntegrity(force){
   const issues=integrityScan();
