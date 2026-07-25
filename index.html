@@ -209,7 +209,7 @@ button.act:hover,input[type=text]:focus,select:focus,input[list]:focus{box-shado
 .quickcard span{font-size:12px;color:var(--tx2)}
 
 .bank-status-ok{color:var(--ok);font-weight:700}
-.bank-status-warn{color:var(--wn);font-weight:700}.bank-verdict{padding:16px 20px;border-radius:12px;font-size:16px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:10px}.bank-verdict.ok{background:var(--okbg);color:var(--ok)}.bank-verdict.er{background:var(--erbg);color:var(--er)}.bank-ledger-row-warn{background:var(--wnbg)}
+.bank-status-warn{color:var(--wn);font-weight:700}.bank-verdict{padding:16px 20px;border-radius:12px;font-size:16px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:10px}.bank-verdict.ok{background:var(--okbg);color:var(--ok)}.bank-verdict.er{background:var(--erbg);color:var(--er)}.bank-verdict.wn{background:var(--wnbg);color:var(--wn)}.bank-ledger-row-warn{background:var(--wnbg)}
 .bank-status-er{color:var(--er);font-weight:700}
 .flowfix{border-left:3px solid var(--wn);background:var(--wnbg)}
 .audit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:12px}
@@ -2591,7 +2591,7 @@ async function loadSharedStateFromSupabase(){
     if(Array.isArray(bankSaldoRows)&&bankSaldoRows.length){
       bankSaldoRows.forEach(r=>{
         const bank=r.bank||'BRADESCO';
-        const entry={ini:r.saldo_ini==null?null:Number(r.saldo_ini),fim:r.saldo_fim==null?null:Number(r.saldo_fim)};
+        const entry={ini:r.saldo_ini==null?null:Number(r.saldo_ini),fim:r.saldo_fim==null?null:Number(r.saldo_fim),entExtrato:r.ent_extrato==null?null:Number(r.ent_extrato),saiExtrato:r.sai_extrato==null?null:Number(r.sai_extrato)};
         if(bank==='BRADESCO'){ DB.saldos[r.mes]=Object.assign({},DB.saldos[r.mes],entry); }
         else{ DB.saldosBanks[bank]=DB.saldosBanks[bank]||{label:bankLabel(bank),saldos:{}}; DB.saldosBanks[bank].saldos[r.mes]=Object.assign({},DB.saldosBanks[bank].saldos[r.mes],entry); }
       });
@@ -5214,15 +5214,34 @@ function bankList(){const list=BANK_ACCOUNTS.map(b=>({k:b.k,n:b.n}));Object.keys
 let curBank='BRADESCO';
 function renderBankConsolidado(){
   const box=document.getElementById('bank-consolidado'); if(!box)return;
-  const rows=bankList().map(b=>{
-    const proof=bankProofRows(b.k);
-    const totEnt=proof.reduce((s,r)=>s+r.entradas,0), totSai=proof.reduce((s,r)=>s+r.saidas,0);
-    const divergentes=proof.filter(r=>!r.ok).length;
-    return {n:b.n,k:b.k,meses:proof.length,entradas:totEnt,saidas:totSai,divergentes};
-  });
-  const totEnt=rows.reduce((s,r)=>s+r.entradas,0), totSai=rows.reduce((s,r)=>s+r.saidas,0), totDiv=rows.reduce((s,r)=>s+r.divergentes,0);
-  box.innerHTML=`<table><thead><tr><th>Banco</th><th class="num">Meses com saldo</th><th class="num">Entradas</th><th class="num">Saídas</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.n)}</td><td class="num">${r.meses}</td><td class="num" style="color:var(--ok)">${fmt(r.entradas)}</td><td class="num" style="color:var(--er)">${fmt(r.saidas)}</td><td>${!r.meses?'<span class="chip gy">sem saldo cadastrado</span>':r.divergentes?'<span class="chip er">'+r.divergentes+' mês(es) divergente(s)</span>':'<span class="chip ok">confere</span>'}</td><td><button class="act" type="button" onclick="curBank='${r.k}';document.getElementById('bank-tabs')?.scrollIntoView({behavior:'smooth'});renderBankTabs();renderBank();">Ver conta →</button></td></tr>`).join('')}</tbody></table>
-  <div class="foot" style="margin-top:8px">Total das 6 contas: entradas ${fmt(totEnt)} · saídas ${fmt(totSai)} · ${totDiv} mês(es) divergente(s) no total.</div>`;
+  // Espelho da planilha de controle bancário: saldo inicial, entradas,
+  // saídas e saldo final — para cada conta, no recorte selecionado lá em
+  // cima (temporada inteira ou um mês específico).
+  const isAll=curM==='ALL';
+  const rows=bankList().map(b=>Object.assign({n:b.n,k:b.k},bankPeriodSummary(b.k,isAll?null:curM)));
+  const comDados=rows.filter(r=>r.meses>0);
+  const totIni=comDados.reduce((s,r)=>s+(r.ini||0),0);
+  const totFim=comDados.reduce((s,r)=>s+(r.fim||0),0);
+  const totEnt=rows.reduce((s,r)=>s+r.entradas,0);
+  const totSai=rows.reduce((s,r)=>s+r.saidas,0);
+  const totDiv=rows.reduce((s,r)=>s+r.divergentes,0);
+  const totCalc=totIni+totEnt-totSai;
+  const totDif=totCalc-totFim;
+  const periodoTxt=isAll?'temporada inteira':mlabel(curM);
+  box.innerHTML=`<div class="desc" style="margin-bottom:8px">Período: <b>${esc(periodoTxt)}</b> — muda junto com a seleção de mês acima. Saldo inicial é o do primeiro mês do período e saldo final é o do último; entradas e saídas são a soma do período.</div>
+  <table><thead><tr><th>Banco</th><th class="num">Meses</th><th class="num">Saldo inicial</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo calculado</th><th class="num">Saldo final</th><th class="num">Diferença</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(r=>{
+    const chip=!r.meses?'<span class="chip gy">sem saldo cadastrado</span>'
+      :(r.fim==null?'<span class="chip wn">sem saldo final no extrato</span>'
+      :(r.ok?('<span class="chip ok">confere</span>'+(r.contiguo?'':' <span class="chip wn">mês a mês</span>'))
+            :'<span class="chip er">diferença de '+fmt(r.dif)+'</span>'));
+    const alertas=[];
+    if(r.divergentes)alertas.push(r.divergentes+' mês(es) divergente(s)');
+    if(r.encadeaProblemas)alertas.push(r.encadeaProblemas+' quebra(s) de encadeamento');
+    if(r.faltaLancamentos)alertas.push(r.faltaLancamentos+' mês(es) com lançamento faltando');
+    if(r.meses&&!r.contiguo)alertas.push('há mês sem extrato no meio do período — prova feita mês a mês');
+    return `<tr class="${r.meses&&!r.ok?'flowfix':''}"><td>${esc(r.n)}${alertas.length?'<div class="desc">'+esc(alertas.join(' · '))+'</div>':''}</td><td class="num">${r.meses}</td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num" style="color:var(--ok)">${fmt(r.entradas)}</td><td class="num" style="color:var(--er)">${fmt(r.saidas)}</td><td class="num">${r.calc==null?'—':fmt(r.calc)}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.meses&&r.fim!=null?(r.ok?'bank-status-ok':'bank-status-er'):''}">${r.dif==null?'—':fmt(r.dif)}</td><td>${chip}</td><td><button class="act" type="button" onclick="curBank='${r.k}';document.getElementById('bank-tabs')?.scrollIntoView({behavior:'smooth'});renderBankTabs();renderBank();">Ver conta →</button></td></tr>`;
+  }).join('')}<tr style="font-weight:700;border-top:2px solid var(--bd)"><td>TOTAL das ${rows.length} contas</td><td class="num">—</td><td class="num">${fmt(totIni)}</td><td class="num" style="color:var(--ok)">${fmt(totEnt)}</td><td class="num" style="color:var(--er)">${fmt(totSai)}</td><td class="num">${fmt(totCalc)}</td><td class="num">${fmt(totFim)}</td><td class="num ${Math.abs(totDif)<0.02?'bank-status-ok':'bank-status-er'}">${fmt(totDif)}</td><td>${Math.abs(totDif)<0.02?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td></td></tr></tbody></table>
+  <div class="foot" style="margin-top:8px">${totDiv?totDiv+' mês(es) divergente(s) somando todas as contas. ':'Nenhum mês divergente. '}Se o saldo inicial de algum mês estiver errado, corrija manualmente em <b>Ajustar saldo do mês</b>, dentro da conta — o saldo final volta a bater.</div>`;
 }
 function renderBankTabs(){
   const box=document.getElementById('bank-tabs');if(!box)return;
@@ -5232,17 +5251,77 @@ function bankProofRows(bank){
   bank=bank||'BRADESCO';
   const salAll=bankSaldos(bank);
   const bmonths=Object.keys(salAll).sort();
-  return bmonths.map(m=>{
+  const out=bmonths.map(m=>{
     const sal=salAll[m]||{};
     const mm=txs.filter(t=>t.m===m&&bankOf(t)===bank);
     const entradas=mm.reduce((s,t)=>s+(Number(t.e)||0),0);
     const saidas=mm.reduce((s,t)=>s+(Number(t.s)||0),0);
-    const calc=(Number(sal.ini)||0)+entradas-saidas;
+    const ini=sal.ini==null?null:Number(sal.ini)||0;
+    const calc=(ini||0)+entradas-saidas;
     const fim=sal.fim==null?null:Number(sal.fim)||0;
     const dif=fim==null?0:calc-fim;
     const susp=mm.filter(t=>t.flowSuspect).length;
-    return {m,ini:Number(sal.ini)||0,entradas,saidas,calc,fim,dif,ok:fim==null||Math.abs(dif)<0.02,susp};
+    // Totais que o próprio extrato declara na linha "SALDO A TRANSFERIR".
+    // Se baterem com o que somamos dos lançamentos, é prova de que nenhuma
+    // linha do extrato ficou de fora da importação.
+    const entExtrato=sal.entExtrato==null?null:Number(sal.entExtrato);
+    const saiExtrato=sal.saiExtrato==null?null:Number(sal.saiExtrato);
+    const difEnt=entExtrato==null?null:entradas-entExtrato;
+    const difSai=saiExtrato==null?null:saidas-saiExtrato;
+    const faltaLancamento=(difEnt!=null&&Math.abs(difEnt)>=0.02)||(difSai!=null&&Math.abs(difSai)>=0.02);
+    return {m,ini,iniNum:ini||0,entradas,saidas,calc,fim,dif,ok:fim==null||Math.abs(dif)<0.02,susp,
+            entExtrato,saiExtrato,difEnt,difSai,faltaLancamento,qtd:mm.length};
   });
+  // Encadeamento: na planilha de controle, o saldo final de um mês é
+  // exatamente o saldo inicial do mês seguinte. Se isso quebra, ou faltou
+  // um mês no meio, ou algum saldo foi digitado errado.
+  const mesSeguinte=(m)=>{
+    const y=Number(String(m).slice(0,4)), mo=Number(String(m).slice(5,7));
+    return mo===12?((y+1)+'-01'):(y+'-'+String(mo+1).padStart(2,'0'));
+  };
+  out.forEach((r,i)=>{
+    r.encadeaOk=true; r.encadeaDif=null;
+    if(i===0)return;
+    const ant=out[i-1];
+    // Só faz sentido cobrar encadeamento entre meses realmente seguidos.
+    // Esta planilha tem um vão real (set/24 direto para jan/26); nesse caso
+    // o saldo mudar de patamar é esperado, não é erro.
+    if(mesSeguinte(ant.m)!==r.m)return;
+    if(ant.fim==null||r.ini==null)return;
+    r.encadeaDif=r.ini-ant.fim;
+    r.encadeaOk=Math.abs(r.encadeaDif)<0.02;
+    r.mesAnterior=ant.m;
+  });
+  return out;
+}
+// Resumo de uma conta no recorte atual (temporada inteira ou um mês só).
+// Regra da planilha: saldo inicial = o do primeiro mês do recorte, saldo
+// final = o do último mês, entradas/saídas = soma do período.
+function bankPeriodSummary(bank,mes){
+  const all=bankProofRows(bank);
+  const rows=(mes&&mes!=='ALL')?all.filter(r=>r.m===mes):all;
+  if(!rows.length)return {bank,meses:0,ini:null,fim:null,entradas:0,saidas:0,calc:null,dif:null,ok:true,divergentes:0,rows:[],primeiro:null,ultimo:null,encadeaProblemas:0,faltaLancamentos:0};
+  const ini=rows[0].ini;
+  const fim=rows[rows.length-1].fim;
+  const entradas=rows.reduce((s,r)=>s+r.entradas,0);
+  const saidas=rows.reduce((s,r)=>s+r.saidas,0);
+  // Vãos: meses sem extrato no meio do período (esta planilha, por exemplo,
+  // vai de set/24 direto para jan/26). Quando existe vão, encadear o saldo
+  // inicial do primeiro mês até o saldo final do último não faz sentido —
+  // o dinheiro se movimentou num período que o extrato não cobre. Nesse
+  // caso a prova correta é mês a mês, e é isso que o status reflete.
+  const vaos=rows.filter(r=>r.encadeaDif===null&&r.mesAnterior===undefined).length-1;
+  let contiguo=true;
+  for(let i=1;i<rows.length;i++){ if(rows[i].mesAnterior===undefined){ contiguo=false; break; } }
+  const divergentes=rows.filter(r=>!r.ok).length;
+  const calc=contiguo?((ini||0)+entradas-saidas):null;
+  const dif=(contiguo&&fim!=null)?calc-fim:rows.reduce((s,r)=>s+(r.fim==null?0:r.dif),0);
+  return {bank,meses:rows.length,ini,fim,entradas,saidas,calc,dif,contiguo,vaos:Math.max(0,vaos),
+          ok:divergentes===0&&(contiguo?(fim!=null&&Math.abs(dif)<0.02):true),
+          divergentes,
+          encadeaProblemas:rows.filter(r=>r.encadeaOk===false).length,
+          faltaLancamentos:rows.filter(r=>r.faltaLancamento).length,
+          rows,primeiro:rows[0].m,ultimo:rows[rows.length-1].m};
 }
 function renderBankAdjForm(){
   const selMes=document.getElementById('bank-adj-mes');
@@ -5289,23 +5368,43 @@ async function saveBankAdjSaldo(){
 function renderBank(){
   renderBankAdjForm();
   const rows=bankProofRows(curBank);
-  const allOk=rows.every(r=>r.ok);
-  const fixes=txs.filter(t=>t.flowSuspect&&bankOf(t)===curBank);
-  const totEnt=rows.reduce((s,r)=>s+r.entradas,0), totSai=rows.reduce((s,r)=>s+r.saidas,0), divs=rows.filter(r=>!r.ok).length;
+  const per=bankPeriodSummary(curBank,curM==='ALL'?null:curM);
+  const periodoTxt=curM==='ALL'?'temporada inteira':mlabel(curM);
+  const allOk=per.meses?per.ok:true;
+  const fixes=txs.filter(t=>t.flowSuspect&&bankOf(t)===curBank&&(curM==='ALL'||t.m===curM));
   const bankLabel=(bankList().find(b=>b.k===curBank)||{}).n||curBank;
+  // Os quatro números que a planilha de controle bancário tem: saldo
+  // inicial, entradas, saídas e saldo final — no recorte selecionado.
   document.getElementById('bank-kpis').innerHTML=`
-    <div class="kpi"><div class="l">Status da prova bancária</div><div class="v ${allOk?'bank-status-ok':'bank-status-er'}">${allOk?'Confere':'Divergência'}</div><div class="d">${bankLabel} · ${rows.length} mês(es) analisado(s)</div></div>
-    <div class="kpi"><div class="l">Entradas bancárias</div><div class="v" style="color:var(--ok)">${fmt(totEnt)}</div><div class="d">conforme extrato bancário</div></div>
-    <div class="kpi"><div class="l">Saídas bancárias</div><div class="v" style="color:var(--er)">${fmt(totSai)}</div><div class="d">conforme extrato bancário</div></div>
+    <div class="kpi"><div class="l">Saldo inicial</div><div class="v">${per.ini==null?'—':fmt(per.ini)}</div><div class="d">${bankLabel} · ${periodoTxt}${per.primeiro&&curM==='ALL'?' (a partir de '+mlabel(per.primeiro)+')':''}</div></div>
+    <div class="kpi"><div class="l">Entradas</div><div class="v" style="color:var(--ok)">${fmt(per.entradas)}</div><div class="d">conforme extrato bancário</div></div>
+    <div class="kpi"><div class="l">Saídas</div><div class="v" style="color:var(--er)">${fmt(per.saidas)}</div><div class="d">conforme extrato bancário</div></div>
+    <div class="kpi"><div class="l">Saldo final</div><div class="v ${per.meses&&per.fim!=null?(allOk?'bank-status-ok':'bank-status-er'):''}">${per.fim==null?'—':fmt(per.fim)}</div><div class="d">${per.meses?(per.fim==null?'sem saldo final no extrato':(allOk?'confere com inicial + entradas − saídas':'difere em '+fmt(per.dif)+' do calculado')):'sem saldo cadastrado'}</div></div>
     <div class="kpi"><div class="l">Alertas de possível inversão</div><div class="v ${fixes.length?'bank-status-warn':''}">${fixes.length}</div><div class="d">descrição sugere sentido oposto ao extrato — não alterado</div></div>`;
-  document.getElementById('bank-proof').innerHTML=rows.length?`<table><thead><tr><th>Mês</th><th class="num">Saldo inicial</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo calculado</th><th class="num">Saldo final extrato</th><th class="num">Diferença</th><th>Status</th><th class="num">Alertas</th></tr></thead><tbody>${rows.map(r=>`<tr class="${r.ok?'':'flowfix'}"><td><b>${mlabel(r.m)}</b></td><td class="num">${fmt(r.ini)}</td><td class="num">${fmt(r.entradas)}</td><td class="num">${fmt(r.saidas)}</td><td class="num">${fmt(r.calc)}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.ok?'bank-status-ok':'bank-status-er'}">${r.fim==null?'—':fmt(r.dif)}</td><td>${r.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td class="num">${r.susp||''}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem meses com saldo cadastrado para esta conta.</div>';
+  // A tabela mostra apenas o recorte selecionado no topo (temporada ou mês),
+  // igual à visão consolidada, e traz duas conferências extras que a planilha
+  // de controle faz na mão: o encadeamento entre meses e a comparação com os
+  // totais que o próprio extrato declara.
+  const proofRows=curM==='ALL'?rows:rows.filter(r=>r.m===curM);
+  const linhaTotal=(()=>{
+    if(!proofRows.length)return '';
+    const p=bankPeriodSummary(curBank,curM==='ALL'?null:curM);
+    return `<tr style="font-weight:700;border-top:2px solid var(--bd)"><td>${curM==='ALL'?'TEMPORADA':'TOTAL'}</td><td class="num">${p.ini==null?'—':fmt(p.ini)}</td><td class="num">${fmt(p.entradas)}</td><td class="num">${fmt(p.saidas)}</td><td class="num">${fmt(p.calc)}</td><td class="num">${p.fim==null?'—':fmt(p.fim)}</td><td class="num ${p.ok?'bank-status-ok':'bank-status-er'}">${p.dif==null?'—':fmt(p.dif)}</td><td>${p.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td></td><td class="num"></td></tr>`;
+  })();
+  document.getElementById('bank-proof').innerHTML=proofRows.length?`<table><thead><tr><th>Mês</th><th class="num">Saldo inicial</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo calculado</th><th class="num">Saldo final extrato</th><th class="num">Diferença</th><th>Status</th><th>Conferências</th><th class="num">Alertas</th></tr></thead><tbody>${proofRows.map(r=>{
+    const confs=[];
+    if(r.encadeaOk===false)confs.push('<span class="chip er">saldo inicial não bate com o saldo final de '+mlabel(r.mesAnterior)+' ('+fmt(r.encadeaDif)+')</span>');
+    if(r.faltaLancamento)confs.push('<span class="chip wn">extrato declara '+(r.entExtrato!=null?fmt(r.entExtrato)+' de entradas':'')+(r.entExtrato!=null&&r.saiExtrato!=null?' e ':'')+(r.saiExtrato!=null?fmt(r.saiExtrato)+' de saídas':'')+' — pode faltar lançamento importado</span>');
+    if(!confs.length&&r.ok)confs.push('<span class="chip ok">ok</span>');
+    return `<tr class="${r.ok?'':'flowfix'}"><td><b>${mlabel(r.m)}</b><div class="desc">${r.qtd} lançamento(s)</div></td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num">${fmt(r.entradas)}</td><td class="num">${fmt(r.saidas)}</td><td class="num">${fmt(r.calc)}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.ok?'bank-status-ok':'bank-status-er'}">${r.fim==null?'—':fmt(r.dif)}</td><td>${r.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td>${confs.join(' ')}</td><td class="num">${r.susp||''}</td></tr>`;
+  }).join('')}${linhaTotal}</tbody></table>`:(curM==='ALL'?'<div class="desc">Sem meses com saldo cadastrado para esta conta.</div>':'<div class="desc">Sem saldo cadastrado para '+mlabel(curM)+' nesta conta. Use <b>Ajustar saldo do mês</b> abaixo para informar manualmente.</div>');
   const qDoc=norm(document.getElementById('bank-doc')?.value||'');
   const qDesc=norm(document.getElementById('bank-desc')?.value||'');
   const qFav=norm(document.getElementById('bank-fav')?.value||'');
   const f=fixes.filter(t=>(!qDoc||norm(t.dc).includes(qDoc))&&(!qDesc||norm(t.ds).includes(qDesc))&&(!qFav||norm(t.f).includes(qFav))).slice(0,300);
   document.getElementById('bank-flowfix').innerHTML=f.length?`<table><thead><tr><th>Mês</th><th>Data</th><th>Documento</th><th>Lançamento</th><th class="num">Entrada (extrato)</th><th class="num">Saída (extrato)</th><th>Alerta</th><th></th></tr></thead><tbody>${f.map(t=>`<tr class="flowfix"><td class="date-cell">${mlabel(t.m)}</td><td class="date-cell">${t.d.slice(8)}/${t.d.slice(5,7)}/${t.d.slice(2,4)}</td><td>${esc(t.dc||'—')}</td><td><b>${esc(t.f)}</b><div class="desc">${esc(t.ds)}</div></td><td class="num" style="color:var(--ok)">${t.e?fmt2(t.e):''}</td><td class="num" style="color:var(--er)">${t.s?fmt2(t.s):''}</td><td><span class="chip wn">${t.flowSuspect==='entrada_deveria_ser_saida'?'descrição sugere saída, extrato diz entrada':'descrição sugere entrada, extrato diz saída'} — mantido conforme extrato</span></td><td>${txRealocBtn(t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Nenhum alerta de possível inversão para o filtro atual.</div>';
   ['bank-doc','bank-desc','bank-fav'].forEach(id=>{const el=document.getElementById(id); if(el&&!el._bound){el._bound=1;el.oninput=renderBank;}});
-  renderBankVerdict(rows,bankLabel);
+  renderBankVerdict(curM==='ALL'?rows:rows.filter(r=>r.m===curM),bankLabel);
   renderBankLedger();
   ['bank-ledger-doc','bank-ledger-desc','bank-ledger-fav'].forEach(id=>{const el=document.getElementById(id); if(el&&!el._bound){el._bound=1;el.oninput=renderBankLedger;}});
 }
@@ -5315,10 +5414,15 @@ function renderBankVerdict(rows,bankLabel){
   const allOk=rows.every(r=>r.ok);
   const divergentes=rows.filter(r=>!r.ok);
   const totSusp=txs.filter(t=>t.flowSuspect&&bankOf(t)===curBank).length;
+  const quebras=rows.filter(r=>r.encadeaOk===false);
+  const faltando=rows.filter(r=>r.faltaLancamento);
+  const extras=[];
+  if(quebras.length)extras.push(` Atenção ao encadeamento: em ${quebras.map(r=>mlabel(r.m)).join(', ')} o saldo inicial não é igual ao saldo final do mês anterior — ou faltou importar um mês no meio, ou algum saldo foi digitado errado.`);
+  if(faltando.length)extras.push(` Em ${faltando.map(r=>mlabel(r.m)).join(', ')} os totais declarados pelo extrato não batem com a soma dos lançamentos importados — provavelmente alguma linha do extrato não entrou.`);
   if(allOk){
-    el.innerHTML=`<div class="bank-verdict ok">✓ Confere: as entradas e saídas de ${esc(bankLabel||curBank)} batem 100% com o saldo final informado pelo extrato em todos os ${rows.length} mês(es) analisados${totSusp?` — ${totSusp} lançamento(s) com descrição suspeita foram mantidos fiéis ao extrato e seguem sinalizados abaixo para revisão`:''}.</div>`;
+    el.innerHTML=`<div class="bank-verdict ${extras.length?'wn':'ok'}">${extras.length?'⚠':'✓'} ${extras.length?'Saldo fecha, mas há pontos a revisar':'Confere'}: as entradas e saídas de ${esc(bankLabel||curBank)} batem com o saldo final informado pelo extrato em todos os ${rows.length} mês(es) analisados${totSusp?` — ${totSusp} lançamento(s) com descrição suspeita foram mantidos fiéis ao extrato e seguem sinalizados abaixo para revisão`:''}.${extras.join('')}</div>`;
   } else {
-    el.innerHTML=`<div class="bank-verdict er">⚠ Divergência em ${divergentes.length} de ${rows.length} mês(es) de ${esc(bankLabel||curBank)}: ${divergentes.map(r=>mlabel(r.m)+' ('+fmt(r.dif)+')').join(', ')}. O saldo calculado (inicial + entradas − saídas) não bate com o saldo final do extrato — revise a prova bancária abaixo antes de fechar o mês.</div>`;
+    el.innerHTML=`<div class="bank-verdict er">⚠ Divergência em ${divergentes.length} de ${rows.length} mês(es) de ${esc(bankLabel||curBank)}: ${divergentes.map(r=>mlabel(r.m)+' ('+fmt(r.dif)+')').join(', ')}. O saldo calculado (inicial + entradas − saídas) não bate com o saldo final do extrato — revise a prova bancária abaixo antes de fechar o mês. Se o saldo inicial estiver errado, corrija em <b>Ajustar saldo do mês</b>.${extras.join('')}</div>`;
   }
 }
 function bankLedgerRows(m,bank){
@@ -7484,8 +7588,22 @@ async function pushBankSaldosToSupabase(bank,saldosByMonth){
   // o upsert falhava de verdade e a tabela bank_saldos ficava vazia.
   // Agora o erro é devolvido pra quem chamou poder avisar o usuário.
   try{
-    const rows=Object.keys(saldosByMonth).map(m=>({bank,mes:m,saldo_ini:(saldosByMonth[m].ini==null?null:saldosByMonth[m].ini),saldo_fim:(saldosByMonth[m].fim==null?null:saldosByMonth[m].fim),updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',updated_at:new Date().toISOString()}));
-    if(rows.length)await supaUpsert('bank_saldos',rows,'bank,mes');
+    const base=Object.keys(saldosByMonth).map(m=>({bank,mes:m,saldo_ini:(saldosByMonth[m].ini==null?null:saldosByMonth[m].ini),saldo_fim:(saldosByMonth[m].fim==null?null:saldosByMonth[m].fim),updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',updated_at:new Date().toISOString()}));
+    if(!base.length)return {ok:true};
+    // Totais declarados pelo próprio extrato (linha "SALDO A TRANSFERIR"):
+    // servem para acusar se algum lançamento deixou de ser importado. São
+    // colunas opcionais — se ainda não existirem na tabela, o upsert é
+    // refeito sem elas em vez de falhar a importação inteira.
+    const comTotais=base.map((r,i)=>{
+      const m=Object.keys(saldosByMonth)[i];
+      return Object.assign({},r,{ent_extrato:(saldosByMonth[m].entExtrato==null?null:saldosByMonth[m].entExtrato),sai_extrato:(saldosByMonth[m].saiExtrato==null?null:saldosByMonth[m].saiExtrato)});
+    });
+    try{
+      await supaUpsert('bank_saldos',comTotais,'bank,mes');
+    }catch(errCols){
+      console.warn('bank_saldos sem colunas ent_extrato/sai_extrato — salvando só saldo inicial/final:',errCols.message);
+      await supaUpsert('bank_saldos',base,'bank,mes');
+    }
     return {ok:true};
   }catch(e){ console.error('pushBankSaldosToSupabase falhou:',e); return {ok:false,error:e.message}; }
 }
@@ -7508,17 +7626,45 @@ document.getElementById('imp').addEventListener('change',async ev=>{
     // lançamento já tivesse entrado pela planilha de Realizado (import
     // classificado), subir o extrato bruto aqui duplicava tudo. Mesma chave
     // de deduplicação usada em importNewSeasonRealizado.
-    const existingKeysImp=new Set(txs.map(existingTxKey));
+    // Achado real, medido contra a planilha do Bradesco: a chave de
+    // deduplicação é mês+data+favorecido+entrada+saída, e num extrato é
+    // absolutamente normal existirem DUAS cobranças idênticas no mesmo dia
+    // para o mesmo favorecido (duas diárias iguais, duas tarifas iguais).
+    // Tratando toda repetição como duplicata, 206 lançamentos legítimos eram
+    // descartados e a conciliação não fechava — a diferença batia exatamente
+    // com o valor descartado. A correção é contar ocorrências em vez de
+    // marcar presença: se o extrato traz a mesma linha 3 vezes e o sistema
+    // já tem 2, entra só 1. Reimportar o mesmo arquivo continua não
+    // duplicando nada, porque as contagens ficam iguais.
+    const existingCounts=new Map();
+    txs.forEach(t=>{const k=existingTxKey(t);existingCounts.set(k,(existingCounts.get(k)||0)+1);});
+    const seenThisFile=new Map();
+    const novosParaSupabase=[];
+    const lancPorMes={};
     wb.SheetNames.forEach(sn=>{
       const mo=sn.trim().match(/^([A-Z]{3})\s*-?\s*(\d{4})$/);if(!mo||!MNI[mo[1]])return;
       const mm=mo[2]+'-'+MNI[mo[1]];
-      if(months.includes(mm))return;
+      // Antes havia aqui um "if(months.includes(mm))return;" que pulava a aba
+      // inteira quando o mês já existia no sistema — o que impedia justamente
+      // reimportar a planilha para corrigir/atualizar os saldos de um mês já
+      // carregado. A duplicidade de lançamentos já é barrada logo abaixo por
+      // existingKeysImp (mesma data/favorecido/valor), então esse atalho só
+      // atrapalhava.
       const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1});
       rows.forEach((r,i)=>{
         if(i<5||typeof r[0]!=='number'||!r[3])return;
         const fav=String(r[3]).trim();const u=fav.toUpperCase();
         const e0=typeof r[6]==='number'?r[6]:0,s0=typeof r[7]==='number'?r[7]:0;
-        if(u==='SALDO INICIAL'){ saldosCapturados[mm]=saldosCapturados[mm]||{}; if(e0||s0)saldosCapturados[mm].ini=Math.round((e0||s0)*100)/100; return; }
+        // Achado real (conferido na planilha do Bradesco): o saldo NÃO fica
+        // nas colunas ENTRADA/SAÍDA — fica na coluna I (SALDO, índice 8), que
+        // é o saldo corrido do extrato. Na linha "SALDO INICIAL" as colunas
+        // de entrada e saída vêm vazias e só a coluna SALDO tem valor; por
+        // isso o saldo inicial nunca era capturado. Na linha "SALDO A
+        // TRANSFERIR" a coluna SALDO traz o saldo final do mês, enquanto
+        // ENTRADA/SAÍDA trazem os totais do mês — que guardamos à parte para
+        // conferir se algum lançamento deixou de ser importado.
+        const sld=typeof r[8]==='number'?r[8]:null;
+        if(u==='SALDO INICIAL'){ saldosCapturados[mm]=saldosCapturados[mm]||{}; if(sld!=null)saldosCapturados[mm].ini=Math.round(sld*100)/100; return; }
         // Achado real: "TOTAL ENTRADAS" e "TOTAL SAÍDAS" (subtotais por
         // coluna, que também começam com "TOTAL") estavam sendo tratados
         // como se fossem o saldo final do mês — cada um sobrescrevia o
@@ -7529,7 +7675,13 @@ document.getElementById('imp').addEventListener('change',async ev=>{
         // como saldo final de fato.
         const isColumnSubtotal=u.includes('TOTAL')&&(u.includes('ENTRADA')||u.includes('SAIDA')||u.includes('SAÍDA'));
         if(isColumnSubtotal)return;
-        if(u.includes('SALDO A TRANSFERIR')||u.includes('SALDO FINAL')||u.startsWith('TOTAL')){ saldosCapturados[mm]=saldosCapturados[mm]||{}; if(e0||s0)saldosCapturados[mm].fim=Math.round((e0||s0)*100)/100; return; }
+        if(u.includes('SALDO A TRANSFERIR')||u.includes('SALDO FINAL')||u.startsWith('TOTAL')){
+          saldosCapturados[mm]=saldosCapturados[mm]||{};
+          if(sld!=null)saldosCapturados[mm].fim=Math.round(sld*100)/100;
+          if(e0)saldosCapturados[mm].entExtrato=Math.round(e0*100)/100;
+          if(s0)saldosCapturados[mm].saiExtrato=Math.round(s0*100)/100;
+          return;
+        }
         const e=e0,s=s0;
         if(!e&&!s)return;
         const dt=new Date(Date.UTC(1899,11,30)+r[0]*864e5).toISOString().slice(0,10);
@@ -7538,16 +7690,45 @@ document.getElementById('imp').addEventListener('change',async ev=>{
         const nt={m:mm,d:dt,t:idChave,idChave,f:fav,ds:String(r[4]||'').trim(),dc:String(r[5]||'').trim(),e:Math.round(e*100)/100,s:Math.round(s*100)/100,imp:1};
         if(bank&&bank!=='BRADESCO')nt.bank=bank;
         const keyImp=existingTxKey(nt);
-        if(existingKeysImp.has(keyImp)){duplicated++;return;}
-        existingKeysImp.add(keyImp);
+        const ocorrencia=(seenThisFile.get(keyImp)||0)+1;
+        seenThisFile.set(keyImp,ocorrencia);
+        if((existingCounts.get(keyImp)||0)>=ocorrencia){duplicated++;return;}
         normalizeBankFlow(nt);
         try{ nt.sug=jsSuggest(nt); }catch(e){ console.error('jsSuggest falhou para um lançamento — mantido pendente para revisão manual:', e, nt); nt.sug=null; }
         const idLine=resolveLineById(idChaveRaw);
         if(idLine)nt.sug={a:idLine.area,g:idLine.g||'',l:idLine.id,how:'id-chave'};
         else if(idChave)invalidIds++;
-        imported.push(nt);added++;});
+        lancPorMes[mm]=(lancPorMes[mm]||0)+1;
+        imported.push(nt);added++;novosParaSupabase.push(nt);});
+    });
+    // Abas de meses futuros já vêm criadas em branco na planilha (saldo
+    // inicial e final zerados, nenhum lançamento). Salvar esses meses só
+    // enche a conciliação de linhas vazias que aparecem como "confere" sem
+    // significar nada — então eles são descartados aqui.
+    Object.keys(saldosCapturados).forEach(m=>{
+      const s=saldosCapturados[m];
+      const vazio=!lancPorMes[m]&&!(s.ini)&&!(s.fim);
+      if(vazio)delete saldosCapturados[m];
     });
     store.setItem('lnb3_imported',JSON.stringify(imported));
+    // Achado real: este importador só gravava os lançamentos no localStorage
+    // deste navegador — nunca na base central. Resultado: quem abrisse o
+    // painel em outra máquina (ou depois de limpar o cache) via o extrato
+    // vazio, e a conciliação só existia para quem importou. Agora vai para a
+    // tabela realizado igual à importação de planilha classificada.
+    let syncErr='';
+    if(novosParaSupabase.length){
+      try{
+        const temporadaAtual=lnbCurrentTemporada();
+        await supaInsertIgnoreDup('realizado', novosParaSupabase.map(t=>({
+          data:t.d, favorecido:t.f, descricao:t.ds, documento:t.dc,
+          entrada:t.e||null, saida:t.s||null, id_linha:t.idChave||'',
+          banco:(bank&&bank!=='BRADESCO')?bank:'', temporada:temporadaAtual,
+          departamento:'', grupo:'', linha_orcamento:'',
+          competicao:'', composicao:'', abatimento:'', tipo_reembolso:''
+        })), 'id_linha,data');
+      }catch(eSync){ console.error('Falha ao enviar extrato para a base central:',eSync); syncErr=eSync.message; }
+    }
     if(Object.keys(saldosCapturados).length){
       if(bank==='BRADESCO'){
         Object.keys(saldosCapturados).forEach(m=>{DB.saldos[m]=Object.assign({},DB.saldos[m],saldosCapturados[m]);});
@@ -7560,8 +7741,8 @@ document.getElementById('imp').addEventListener('change',async ev=>{
     var saldoOk=!saldoPush||saldoPush.ok;
     var saldoErrTxt=(saldoPush&&!saldoPush.ok)?saldoPush.error:'';
     if(added||duplicated||Object.keys(saldosCapturados).length)lnbLogActivity('importar_extrato_banco', bankLabel(bank)+' — '+added+' novo(s), '+duplicated+' duplicado(s), '+Object.keys(saldosCapturados).length+' mês(es) de saldo'+(saldoOk?'':' — FALHA AO SALVAR SALDO: '+saldoErrTxt));
-    msg.textContent=(added||duplicated||Object.keys(saldosCapturados).length)?added+' lançamento(s) novo(s) importado(s) para '+bankLabel(bank)+'. '+(duplicated?duplicated+' já existiam (mesma data/favorecido/valor) e foram ignorados, evitando duplicidade. ':'')+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto, no padrão da estrutura atual (ex.: 1.02.7 para departamentos com grupo, ou 9.1 para Receitas/Equipes). ':'')+(Object.keys(saldosCapturados).length?(saldoOk?(Object.keys(saldosCapturados).length+' mês(es) com saldo inicial/final lido do extrato e salvo na base central. '):('ATENÇÃO: '+Object.keys(saldosCapturados).length+' mês(es) de saldo foram lidos do extrato mas FALHARAM ao salvar na base central — erro: '+saldoErrTxt+'. ')):'')+(saldoOk?'Recarregando…':'Não recarregando para você poder ver este erro.'):'Nenhum mês novo encontrado.';
-    if((added||duplicated||Object.keys(saldosCapturados).length)&&saldoOk)setTimeout(()=>location.reload(),900);
+    msg.textContent=(added||duplicated||Object.keys(saldosCapturados).length)?added+' lançamento(s) novo(s) importado(s) para '+bankLabel(bank)+'. '+(duplicated?duplicated+' já existiam (mesma data/favorecido/valor) e foram ignorados, evitando duplicidade. ':'')+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto, no padrão da estrutura atual (ex.: 1.02.7 para departamentos com grupo, ou 9.1 para Receitas/Equipes). ':'')+(Object.keys(saldosCapturados).length?(saldoOk?(Object.keys(saldosCapturados).length+' mês(es) com saldo inicial/final lido do extrato e salvo na base central. '):('ATENÇÃO: '+Object.keys(saldosCapturados).length+' mês(es) de saldo foram lidos do extrato mas FALHARAM ao salvar na base central — erro: '+saldoErrTxt+'. ')):'')+(syncErr?('ATENÇÃO: os lançamentos não foram enviados para a base central — erro: '+syncErr+'. '):'')+((saldoOk&&!syncErr)?'Recarregando…':'Não recarregando para você poder ver este erro.'):'Nenhum mês novo encontrado.';
+    if((added||duplicated||Object.keys(saldosCapturados).length)&&saldoOk&&!syncErr)setTimeout(()=>location.reload(),900);
   }catch(err){msg.textContent='Falha ao ler o arquivo: '+err.message;}
 });
 document.getElementById('dl-lines').innerHTML=splitPool().map(l=>`<option value="#${l.id} ${esc(l.area)} · ${esc(l.g)} · ${esc(l.n.slice(0,45))}"></option>`).join('');
