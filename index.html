@@ -2272,11 +2272,17 @@ async function supaSelect(table){
   if(!res.ok) throw new Error('Supabase select '+table+' falhou: '+res.status);
   return await res.json();
 }
-async function supaInsertIgnoreDup(table, rows){
+async function supaInsertIgnoreDup(table, rows, onConflict){
   if(isReadOnlyUser()) return {inserted:0};
   if(!rows.length) return {inserted:0};
+  // Bug real corrigido: 'resolution=ignore-duplicates' só funciona quando o
+  // Postgres sabe contra qual índice/constraint aplicar o ON CONFLICT DO
+  // NOTHING — sem 'on_conflict' na URL, uma linha já existente (mesmo
+  // id_linha+data) derrubava a inserção inteira com erro 409 (unique
+  // constraint), mesmo a intenção sendo justamente ignorar duplicatas.
   const headers=Object.assign({}, supaHeaders(), {'Prefer':'resolution=ignore-duplicates,return=minimal'});
-  const res=await fetch(SUPABASE_URL+'/rest/v1/'+table, {method:'POST', headers: headers, body: JSON.stringify(rows)});
+  const url=SUPABASE_URL+'/rest/v1/'+table+(onConflict?('?on_conflict='+onConflict):'');
+  const res=await fetch(url, {method:'POST', headers: headers, body: JSON.stringify(rows)});
   if(!res.ok){ const t=await res.text(); throw new Error('Supabase insert '+table+' falhou: '+res.status+' '+t); }
   return {inserted: rows.length};
 }
@@ -2646,7 +2652,7 @@ async function lnbRestoreBackup(){
         // o valor antigo não importa pra nada no app, e reenviar pode falhar
         // se a coluna for identity-only.
         const realizadoParaInserir=snap.realizado.map(function(r){const c2=Object.assign({},r);delete c2.id;return c2;});
-        await supaInsertIgnoreDup('realizado',realizadoParaInserir);
+        await supaInsertIgnoreDup('realizado',realizadoParaInserir,'id_linha,data');
       }
     }
     if(!backupTemporada){
@@ -2771,7 +2777,7 @@ async function lnbSaveManualRealizado(){
       abatimento: abatEl.checked?'Sim':'Não',
       tipo_reembolso: ''
     };
-    await supaInsertIgnoreDup('realizado', [row]);
+    await supaInsertIgnoreDup('realizado', [row], 'id_linha,data');
     if(msg) msg.textContent='Lançamento salvo no sistema.';
     favEl.value=''; descEl.value=''; valorEl.value=''; docEl.value=''; compEl.value=''; abatEl.checked=false;
   }catch(e){
@@ -3026,7 +3032,7 @@ async function syncRealizadoFileToSupabase(file){
     }
     if(!rows.length){ if(msg) msg.textContent += ' | Nada novo para enviar à base central.'; return; }
     if(msg) msg.textContent += ' | Enviando '+rows.length+' lançamento(s) para a base central...';
-    await supaInsertIgnoreDup('realizado', rows);
+    await supaInsertIgnoreDup('realizado', rows, 'id_linha,data');
     if(msg) msg.textContent += ' | Base central atualizada — todos que abrirem o painel já veem esta atualização.';
   }catch(e){
     if(msg) msg.textContent += ' | Erro ao enviar para a base central: '+e.message;
