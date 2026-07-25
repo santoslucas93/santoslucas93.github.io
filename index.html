@@ -1892,6 +1892,36 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <div class="toolbar" style="margin:0">
         <button class="act" type="button" id="btn-tp-apagar" style="border-color:var(--er);color:var(--er)">🗑️ Apagar o que estiver marcado acima</button>
       </div>
+      <div style="border-top:1px dashed var(--bd);padding-top:12px;display:flex;flex-direction:column;gap:10px">
+        <div>
+          <h3 style="margin:0 0 4px;font-size:15px">Desfazer uma importação recente (por horário)</h3>
+          <div class="note" style="margin:0">Para desfazer uma importação feita por engano sem apagar a temporada inteira: apaga só o que foi salvo na base central nos últimos X minutos.</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Apagar o que foi inserido nos últimos
+            <select id="rec-del-min" style="min-width:140px">
+              <option value="10">10 minutos</option>
+              <option value="20">20 minutos</option>
+              <option value="30">30 minutos</option>
+              <option value="40">40 minutos</option>
+              <option value="50">50 minutos</option>
+              <option value="60">60 minutos</option>
+              <option value="120">2 horas</option>
+              <option value="240">4 horas</option>
+            </select>
+          </label>
+          <button class="act" type="button" id="btn-rec-del-preview">🔍 Ver quantos serão apagados</button>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="rec-del-realizado" checked> Realizado</label>
+          <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="rec-del-orcado" checked> Orçado</label>
+          <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="rec-del-bancosaldo" checked> Saldo bancário (extrato)</label>
+        </div>
+        <div id="rec-del-status" class="foot" style="margin:0"></div>
+        <div class="toolbar" style="margin:0">
+          <button class="act" type="button" id="btn-rec-del-apagar" style="border-color:var(--er);color:var(--er)">🗑️ Apagar o que foi inserido nesse período</button>
+        </div>
+      </div>
       <div style="border-top:1px dashed var(--bd);padding-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
         <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Copiar o Orçado de
           <select id="tp-origem-select" style="min-width:170px"></select>
@@ -2572,6 +2602,65 @@ async function lnbApagarTemporadaSelecionada(){
     if(msg) msg.textContent='Falha ao apagar: '+e.message+' (confirme que rodou o supabase-rls-admin-update.sql no Supabase)';
   }
 }
+function recDelCutoffISO(){
+  const min=Number(document.getElementById('rec-del-min')?.value||10);
+  return new Date(Date.now()-min*60000).toISOString();
+}
+async function lnbPreviewRecentDelete(){
+  const status=document.getElementById('rec-del-status');
+  const chkR=document.getElementById('rec-del-realizado')?.checked;
+  const chkO=document.getElementById('rec-del-orcado')?.checked;
+  const chkB=document.getElementById('rec-del-bancosaldo')?.checked;
+  if(!chkR&&!chkO&&!chkB){ if(status)status.textContent='Marque ao menos uma opção (Realizado, Orçado ou Saldo bancário).'; return; }
+  const cutoff=recDelCutoffISO();
+  if(status)status.textContent='Verificando...';
+  try{
+    const [real,orc,bank]=await Promise.all([
+      chkR?supaSelectFiltered('realizado','created_at=gte.'+encodeURIComponent(cutoff)):Promise.resolve([]),
+      chkO?supaSelectFiltered('orcado','created_at=gte.'+encodeURIComponent(cutoff)):Promise.resolve([]),
+      chkB?supaSelectFiltered('bank_saldos','updated_at=gte.'+encodeURIComponent(cutoff)):Promise.resolve([])
+    ]);
+    if(status)status.textContent=`Desde ${new Date(cutoff).toLocaleTimeString('pt-BR')}: ${real.length} lançamento(s) de Realizado, ${orc.length} linha(s) de Orçado, ${bank.length} saldo(s) de mês/banco na base central seriam apagados.`;
+  }catch(e){
+    console.error('lnbPreviewRecentDelete falhou:',e);
+    if(status)status.textContent='Falha ao verificar: '+e.message;
+  }
+}
+async function lnbApagarRecentes(){
+  const status=document.getElementById('rec-del-status');
+  const min=Number(document.getElementById('rec-del-min')?.value||10);
+  const chkR=document.getElementById('rec-del-realizado')?.checked;
+  const chkO=document.getElementById('rec-del-orcado')?.checked;
+  const chkB=document.getElementById('rec-del-bancosaldo')?.checked;
+  if(!chkR&&!chkO&&!chkB){ if(status)status.textContent='Marque ao menos uma opção.'; return; }
+  const cutoff=recDelCutoffISO();
+  const partes=[]; if(chkR)partes.push('Realizado'); if(chkO)partes.push('Orçado'); if(chkB)partes.push('Saldo bancário');
+  if(!confirm('Isso vai apagar '+partes.join(', ')+' inserido(s) na base central nos últimos '+min+' minuto(s) (desde '+new Date(cutoff).toLocaleString('pt-BR')+'), para todo mundo que usa o painel. Um backup é baixado antes de apagar. Confirmar?'))return;
+  if(status)status.textContent='Apagando...';
+  try{
+    await lnbAutoSnapshot('antes de apagar lançamentos dos últimos '+min+' minuto(s)');
+    if(chkR)await supaDelete('realizado','created_at=gte.'+encodeURIComponent(cutoff));
+    if(chkO){
+      await supaDelete('orcado','created_at=gte.'+encodeURIComponent(cutoff));
+    }
+    if(chkB)await supaDelete('bank_saldos','updated_at=gte.'+encodeURIComponent(cutoff));
+    // Mesmo achado de sempre: apagar no Supabase não basta — limpa também o
+    // cache local deste navegador antes de recarregar, senão o que acabou
+    // de ser apagado continua aparecendo na tela.
+    imported=[];
+    store.setItem('lnb3_imported','[]');
+    if(status)status.textContent=partes.join(', ')+' dos últimos '+min+' minuto(s) apagado(s). Recarregando a página...';
+    await new Promise(r=>setTimeout(r,1000));
+    location.reload();
+  }catch(e){
+    console.error('lnbApagarRecentes falhou:',e);
+    if(status)status.textContent='Falha ao apagar: '+e.message;
+  }
+}
+(function initRecDelButtons(){
+  const bp=document.getElementById('btn-rec-del-preview'); if(bp)bp.onclick=lnbPreviewRecentDelete;
+  const ba=document.getElementById('btn-rec-del-apagar'); if(ba)ba.onclick=lnbApagarRecentes;
+})();
 async function lnbIniciarNovaTemporada(){
   const msg=document.getElementById('temporada-msg');
   const origemSel=document.getElementById('tp-origem-select');
