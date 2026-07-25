@@ -7484,7 +7484,7 @@ async function pushBankSaldosToSupabase(bank,saldosByMonth){
   // o upsert falhava de verdade e a tabela bank_saldos ficava vazia.
   // Agora o erro é devolvido pra quem chamou poder avisar o usuário.
   try{
-    const rows=Object.keys(saldosByMonth).map(m=>({bank,mes:m,saldo_ini:saldosByMonth[m].ini,saldo_fim:saldosByMonth[m].fim,updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',updated_at:new Date().toISOString()}));
+    const rows=Object.keys(saldosByMonth).map(m=>({bank,mes:m,saldo_ini:(saldosByMonth[m].ini==null?null:saldosByMonth[m].ini),saldo_fim:(saldosByMonth[m].fim==null?null:saldosByMonth[m].fim),updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',updated_at:new Date().toISOString()}));
     if(rows.length)await supaUpsert('bank_saldos',rows,'bank,mes');
     return {ok:true};
   }catch(e){ console.error('pushBankSaldosToSupabase falhou:',e); return {ok:false,error:e.message}; }
