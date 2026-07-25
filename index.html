@@ -5296,15 +5296,17 @@ function renderBankConsolidado(){
   box.innerHTML=`<div class="desc" style="margin-bottom:8px">Período: <b>${esc(periodoTxt)}</b> — muda junto com a seleção de mês acima. Saldo inicial é o do primeiro mês do período e saldo final é o do último; entradas e saídas são a soma do período.</div>
   <table><thead><tr><th>Banco</th><th class="num">Meses</th><th class="num">Saldo inicial</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo calculado</th><th class="num">Saldo final</th><th class="num">Diferença</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(r=>{
     const chip=!r.meses?'<span class="chip gy">sem saldo cadastrado</span>'
+      :((r.semSaldo&&r.semSaldo.length)?'<span class="chip wn">falta saldo</span>'
       :(r.fim==null?'<span class="chip wn">sem saldo final no extrato</span>'
       :(r.ok?('<span class="chip ok">confere</span>'+(r.contiguo?'':' <span class="chip wn">mês a mês</span>'))
-            :'<span class="chip er">diferença de '+fmt(r.dif)+'</span>'));
+            :'<span class="chip er">diferença de '+fmt(r.dif)+'</span>')));
     const alertas=[];
     if(r.divergentes)alertas.push(r.divergentes+' mês(es) divergente(s)');
     if(r.encadeaProblemas)alertas.push(r.encadeaProblemas+' quebra(s) de encadeamento');
     if(r.faltaLancamentos)alertas.push(r.faltaLancamentos+' mês(es) com lançamento faltando');
     if(r.meses&&!r.contiguo)alertas.push('há mês sem extrato no meio do período — prova feita mês a mês');
-    return `<tr class="${r.meses&&!r.ok?'flowfix':''}"><td>${esc(r.n)}${alertas.length?'<div class="desc">'+esc(alertas.join(' · '))+'</div>':''}</td><td class="num">${r.meses}</td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num" style="color:var(--ok)">${fmt(r.entradas)}</td><td class="num" style="color:var(--er)">${fmt(r.saidas)}</td><td class="num">${r.calc==null?'—':fmt(r.calc)}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.meses&&r.fim!=null?(r.ok?'bank-status-ok':'bank-status-er'):''}">${r.dif==null?'—':fmt(r.dif)}</td><td>${chip}</td><td><button class="act" type="button" onclick="curBank='${r.k}';document.getElementById('bank-tabs')?.scrollIntoView({behavior:'smooth'});renderBankTabs();renderBank();">Ver conta →</button></td></tr>`;
+    if(r.semSaldo&&r.semSaldo.length)alertas.push('falta informar saldo em '+r.semSaldo.map(mlabel).join(', ')+' — digite em "Ajustar saldo do mês"');
+    return `<tr class="${r.meses&&!r.ok?'flowfix':''}"><td>${esc(r.n)}${alertas.length?'<div class="desc">'+esc(alertas.join(' · '))+'</div>':''}</td><td class="num">${r.meses}</td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num" style="color:var(--ok)">${fmt(r.entradas)}</td><td class="num" style="color:var(--er)">${fmt(r.saidas)}</td><td class="num">${r.meses?fmt(r.calc==null?((r.ini||0)+r.entradas-r.saidas):r.calc):'—'}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.meses&&r.fim!=null?(r.ok?'bank-status-ok':'bank-status-er'):''}">${r.dif==null?'—':fmt(r.dif)}</td><td>${chip}</td><td><button class="act" type="button" onclick="curBank='${r.k}';document.getElementById('bank-tabs')?.scrollIntoView({behavior:'smooth'});renderBankTabs();renderBank();">Ver conta →</button></td></tr>`;
   }).join('')}<tr style="font-weight:700;border-top:2px solid var(--bd)"><td>TOTAL das ${rows.length} contas</td><td class="num">—</td><td class="num">${fmt(totIni)}</td><td class="num" style="color:var(--ok)">${fmt(totEnt)}</td><td class="num" style="color:var(--er)">${fmt(totSai)}</td><td class="num">${fmt(totCalc)}</td><td class="num">${fmt(totFim)}</td><td class="num ${Math.abs(totDif)<0.02?'bank-status-ok':'bank-status-er'}">${fmt(totDif)}</td><td>${Math.abs(totDif)<0.02?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td></td></tr></tbody></table>
   <div class="foot" style="margin-top:8px">${totDiv?totDiv+' mês(es) divergente(s) somando todas as contas. ':'Nenhum mês divergente. '}Se o saldo inicial de algum mês estiver errado, corrija manualmente em <b>Ajustar saldo do mês</b>, dentro da conta — o saldo final volta a bater.</div>`;
 }
@@ -5345,17 +5347,20 @@ function bankProofRows(bank){
     return mo===12?((y+1)+'-01'):(y+'-'+String(mo+1).padStart(2,'0'));
   };
   out.forEach((r,i)=>{
-    r.encadeaOk=true; r.encadeaDif=null;
+    r.encadeaOk=true; r.encadeaDif=null; r.mesAnterior=null; r.mesSeguido=(i===0);
     if(i===0)return;
     const ant=out[i-1];
-    // Só faz sentido cobrar encadeamento entre meses realmente seguidos.
-    // Esta planilha tem um vão real (set/24 direto para jan/26); nesse caso
-    // o saldo mudar de patamar é esperado, não é erro.
-    if(mesSeguinte(ant.m)!==r.m)return;
+    // "Meses seguidos" é só uma questão de calendário. Antes esta checagem
+    // também exigia que os dois saldos existissem, e um mês sem saldo
+    // informado passava a ser tratado como "vão sem extrato" — foi o que
+    // fez a linha da temporada mostrar "—" no lugar da conta em vez de
+    // apenas avisar que faltava digitar um saldo.
+    r.mesSeguido=(mesSeguinte(ant.m)===r.m);
+    if(!r.mesSeguido)return;
+    r.mesAnterior=ant.m;
     if(ant.fim==null||r.ini==null)return;
     r.encadeaDif=r.ini-ant.fim;
     r.encadeaOk=Math.abs(r.encadeaDif)<0.02;
-    r.mesAnterior=ant.m;
   });
   return out;
 }
@@ -5375,14 +5380,18 @@ function bankPeriodSummary(bank,mes){
   // inicial do primeiro mês até o saldo final do último não faz sentido —
   // o dinheiro se movimentou num período que o extrato não cobre. Nesse
   // caso a prova correta é mês a mês, e é isso que o status reflete.
-  const vaos=rows.filter(r=>r.encadeaDif===null&&r.mesAnterior===undefined).length-1;
   let contiguo=true;
-  for(let i=1;i<rows.length;i++){ if(rows[i].mesAnterior===undefined){ contiguo=false; break; } }
+  for(let i=1;i<rows.length;i++){ if(!rows[i].mesSeguido){ contiguo=false; break; } }
+  const vaos=rows.filter((r,i)=>i>0&&!r.mesSeguido).length;
+  const semSaldo=rows.filter(r=>r.ini==null||r.fim==null).map(r=>r.m);
   const divergentes=rows.filter(r=>!r.ok).length;
+  // A conta é sempre mostrada: saldo inicial + entradas − saídas. Um saldo
+  // inicial que ainda não foi informado entra como zero, mas o mês fica
+  // listado em semSaldo para o aviso dizer exatamente onde digitar.
   const calc=contiguo?((ini||0)+entradas-saidas):null;
   const dif=(contiguo&&fim!=null)?calc-fim:rows.reduce((s,r)=>s+(r.fim==null?0:r.dif),0);
-  return {bank,meses:rows.length,ini,fim,entradas,saidas,calc,dif,contiguo,vaos:Math.max(0,vaos),
-          ok:divergentes===0&&(contiguo?(fim!=null&&Math.abs(dif)<0.02):true),
+  return {bank,meses:rows.length,ini,fim,entradas,saidas,calc,dif,contiguo,vaos:Math.max(0,vaos),semSaldo,
+          ok:divergentes===0&&semSaldo.length===0&&(contiguo?(fim!=null&&Math.abs(dif)<0.02):true),
           divergentes,
           encadeaProblemas:rows.filter(r=>r.encadeaOk===false).length,
           faltaLancamentos:rows.filter(r=>r.faltaLancamento).length,
@@ -5491,8 +5500,10 @@ function renderBank(){
     const confs=[];
     if(r.encadeaOk===false)confs.push('<span class="chip er">saldo inicial não bate com o saldo final de '+mlabel(r.mesAnterior)+' ('+fmt(r.encadeaDif)+')</span>');
     if(r.faltaLancamento)confs.push('<span class="chip wn">extrato declara '+(r.entExtrato!=null?fmt(r.entExtrato)+' de entradas':'')+(r.entExtrato!=null&&r.saiExtrato!=null?' e ':'')+(r.saiExtrato!=null?fmt(r.saiExtrato)+' de saídas':'')+' — pode faltar lançamento importado</span>');
+    if(r.ini==null)confs.push('<span class="chip wn">saldo inicial não informado — digite em "Ajustar saldo do mês"</span>');
+    if(r.fim==null)confs.push('<span class="chip wn">saldo final não informado</span>');
     if(!confs.length&&r.ok)confs.push('<span class="chip ok">ok</span>');
-    return `<tr class="${r.ok?'':'flowfix'}"><td><b>${mlabel(r.m)}</b><div class="desc">${r.qtd} lançamento(s)</div></td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num">${fmt(r.entradas)}</td><td class="num">${fmt(r.saidas)}</td><td class="num">${fmt(r.calc)}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.ok?'bank-status-ok':'bank-status-er'}">${r.fim==null?'—':fmt(r.dif)}</td><td>${r.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td>${confs.join(' ')}</td><td class="num">${r.susp||''}</td><td><button class="act" type="button" title="Remover este mês desta conta (vai para a Lixeira)" onclick="lnbRemoverMesDaConta('${curBank}','${r.m}')">remover mês</button></td></tr>`;
+    return `<tr class="${r.ok?'':'flowfix'}"><td><b>${mlabel(r.m)}</b><div class="desc">${r.qtd} lançamento(s)</div></td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num">${fmt(r.entradas)}</td><td class="num">${fmt(r.saidas)}</td><td class="num">${fmt(r.calc)}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.ok?'bank-status-ok':'bank-status-er'}">${r.fim==null?'—':fmt(r.dif)}</td><td>${(r.ini==null||r.fim==null)?'<span class="chip wn">falta saldo</span>':(r.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>')}</td><td>${confs.join(' ')}</td><td class="num">${r.susp||''}</td><td><button class="act" type="button" title="Remover este mês desta conta (vai para a Lixeira)" onclick="lnbRemoverMesDaConta('${curBank}','${r.m}')">remover mês</button></td></tr>`;
   }).join('')}${linhaTotal}</tbody></table>`:(curM==='ALL'?'<div class="desc">Sem meses com saldo cadastrado para esta conta.</div>':'<div class="desc">Sem saldo cadastrado para '+mlabel(curM)+' nesta conta. Use <b>Ajustar saldo do mês</b> abaixo para informar manualmente.</div>');
   const qDoc=norm(document.getElementById('bank-doc')?.value||'');
   const qDesc=norm(document.getElementById('bank-desc')?.value||'');
@@ -7396,7 +7407,16 @@ async function importNewSeasonRealizado(file, raw){
       kAbat=findKey('Abatimento (Sim/Não)','Abatimento'),kTipoReemb=findKey('Tipo de reembolso (opcional)','Tipo de reembolso');
     if(!kData||!kFav||(!kEnt&&!kSai)){if(msg&&!live)msg.textContent='Planilha fora do modelo: verifique as colunas Data, Favorecido e Entrada/Saída.';return emptyStats;}
     const TIPO_REEMB_MAP={'refeicao':'REEMB_REFEICAO','pedagio':'REEMB_PEDAGIO','transporte':'REEMB_TRANSPORTE','combustivel':'REEMB_COMBUSTIVEL','estacionamento':'REEMB_ESTACIONAMENTO'};
-    const existingKeys=new Set(txs.map(existingTxKey));
+    // Mesmo achado do importador de extrato, e este é o caminho que carrega a
+    // base central na tela a cada abertura do painel: um extrato tem
+    // lançamentos legitimamente idênticos (6 pagamentos iguais de R$ 1.219
+    // no mesmo dia para o mesmo favorecido). Tratando repetição como
+    // duplicata, eles viravam um só na tela, e a conciliação nunca fechava
+    // por mais correta que a base estivesse. Aqui também a contagem é por
+    // ocorrência: se a origem traz 6 e a tela já tem 2, entram mais 4.
+    const existingCounts=new Map();
+    txs.forEach(t=>{const k=existingTxKey(t);existingCounts.set(k,(existingCounts.get(k)||0)+1);});
+    const seenThisRun=new Map();
     let added=0,decided=0,duplicated=0,skipped=0,abatidos=0,monthsTouched=new Set();
     let nextIdx=DB.txs.length+imported.length;
     raw.forEach(row=>{
@@ -7417,8 +7437,9 @@ async function importNewSeasonRealizado(file, raw){
       if(isAbat)nt.abat=1;
       if(tgManual)nt.tgManual=tgManual;
       const key=existingTxKey(nt);
-      if(existingKeys.has(key)){duplicated++;return;}
-      existingKeys.add(key);
+      const ocorrencia=(seenThisRun.get(key)||0)+1;
+      seenThisRun.set(key,ocorrencia);
+      if((existingCounts.get(key)||0)>=ocorrencia){duplicated++;return;}
       normalizeBankFlow(nt);
       try{ nt.sug=jsSuggest(nt); }catch(e){ console.error('jsSuggest falhou para um lançamento — mantido pendente para revisão manual:', e, nt); nt.sug=null; }
       const compRaw=kComp?String(row[kComp]||'').trim():'';
