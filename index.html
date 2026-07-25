@@ -1708,6 +1708,17 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   <div id="bank-verdict"></div>
   <div class="kpis" id="bank-kpis"></div>
   <div class="panel">
+    <h2>Ajustar saldo do mês (conferência manual)</h2>
+    <div class="note">Use quando o extrato importado não trouxe as linhas "SALDO INICIAL"/"SALDO A TRANSFERIR", ou para corrigir um valor. Salva na base central — vale para todo mundo que abre o painel.</div>
+    <div class="toolbar">
+      <select id="bank-adj-mes" style="min-width:120px"></select>
+      <input type="text" id="bank-adj-ini" placeholder="Saldo inicial (ex: 1234,56)" style="min-width:180px">
+      <input type="text" id="bank-adj-fim" placeholder="Saldo final (ex: 1234,56)" style="min-width:180px">
+      <button class="act pri" type="button" id="btn-bank-adj-save">Salvar saldo do mês</button>
+    </div>
+    <div id="bank-adj-msg" class="foot"></div>
+  </div>
+  <div class="panel">
     <h2>Prova bancária por mês</h2>
     <div id="bank-proof"></div>
   </div>
@@ -1982,6 +1993,11 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 </div>
 
 <div id="v-real" class="hide">
+  <div class="kpis" id="real-kpis"></div>
+  <div class="panel" style="margin:14px 0">
+    <h2>Realizado por banco (temporada atual)</h2>
+    <div id="real-por-banco"></div>
+  </div>
   <div class="panel admin-only" id="new-season-panel" style="margin:14px 0">
     <h2>Realizado da nova temporada (2026/2027) — com classificação embutida <span class="how">reduz a conciliação desde a entrada</span></h2>
     <div class="note">Os dados são carregados automaticamente do banco de dados sempre que a página é aberta. Você também pode atualizar manualmente a qualquer momento.</div>
@@ -2029,7 +2045,10 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   </div>
   <div class="panel" style="margin:14px 0">
     <h2>Importar novo extrato de Realizado</h2>
-    <div class="note">Importar novo extrato (.xls/.xlsx no mesmo layout, abas MÊS-ANO, ex.: AGO-2026). A coluna B agora é o ID exato da linha orçamentária (ex.: 1.1, 1.10, 2.3, 5.10). Mantenha essa coluna formatada como texto. Com ID válido, o lançamento cai diretamente no departamento, grupo e linha; sem ID, continua pelo motor de regras existente. Requer internet na primeira importação.</div>
+    <div class="note">Importar novo extrato (.xls/.xlsx no mesmo layout, abas MÊS-ANO, ex.: AGO-2026). A coluna B agora é o ID exato da linha orçamentária (ex.: 1.1, 1.10, 2.3, 5.10). Mantenha essa coluna formatada como texto. Com ID válido, o lançamento cai diretamente no departamento, grupo e linha; sem ID, continua pelo motor de regras existente. Requer internet na primeira importação. As linhas "SALDO INICIAL" e "SALDO A TRANSFERIR"/"TOTAL" de cada mês são lidas automaticamente para alimentar a Conciliação Bancária — não precisa digitar saldo à parte.</div>
+    <div class="toolbar" style="margin-bottom:8px">
+      <select id="imp-banco" style="min-width:200px"></select>
+    </div>
     <input type="file" id="imp" accept=".xls,.xlsx">
     <div id="imp-msg" class="foot"></div>
   </div>
@@ -2415,10 +2434,10 @@ async function pushPlanMetaToSupabase(key,value){
 }
 async function loadSharedStateFromSupabase(){
   try{
-    const [planRows, decRows, favRows, structRows, custLineRows, delLineRows, clubDebitRows, planMetaRows]=await Promise.all([
+    const [planRows, decRows, favRows, structRows, custLineRows, delLineRows, clubDebitRows, planMetaRows, bankSaldoRows]=await Promise.all([
       supaSelect('custom_plan'), supaSelect('tx_decisions'), supaSelect('fav_rules'),
       supaSelect('structure_overrides'), supaSelect('custom_lines'), supaSelect('deleted_lines'),
-      supaSelect('club_debits'), supaSelect('plan_meta')
+      supaSelect('club_debits'), supaSelect('plan_meta'), supaSelect('bank_saldos')
     ]);
     if(Array.isArray(planRows)&&planRows.length){
       customPlan=planRows.map(planRowToCustomPlan);
@@ -2462,6 +2481,17 @@ async function loadSharedStateFromSupabase(){
         if(r.key==='dept_owners')store.setItem('lnb3_plan_dept_owners',JSON.stringify(r.value||{}));
         else if(r.key==='excluded'){planExcluded=r.value||[];store.setItem('lnb3_plan_excluded',JSON.stringify(planExcluded));}
         else if(r.key==='season'&&r.value)store.setItem('lnb3_plan_season',String(r.value));
+      });
+    }
+    // Saldo inicial/final mensal de cada conta bancária: antes só existia em
+    // DB.saldos/DB.saldosBanks embutido no arquivo estático (nunca foi
+    // preenchido de fato) — agora vem da base central, igual a tudo mais.
+    if(Array.isArray(bankSaldoRows)&&bankSaldoRows.length){
+      bankSaldoRows.forEach(r=>{
+        const bank=r.bank||'BRADESCO';
+        const entry={ini:r.saldo_ini==null?null:Number(r.saldo_ini),fim:r.saldo_fim==null?null:Number(r.saldo_fim)};
+        if(bank==='BRADESCO'){ DB.saldos[r.mes]=Object.assign({},DB.saldos[r.mes],entry); }
+        else{ DB.saldosBanks[bank]=DB.saldosBanks[bank]||{label:bankLabel(bank),saldos:{}}; DB.saldosBanks[bank].saldos[r.mes]=Object.assign({},DB.saldosBanks[bank].saldos[r.mes],entry); }
       });
     }
   }catch(e){
@@ -4230,7 +4260,7 @@ function render(){
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===curV && (!b.dataset.area||b.dataset.area===curDept) && (!b.dataset.sup||b.dataset.sup===curSup)));
   ['home','rec','club','dept','sup','conc','bank','audit','rules','guia','dash','plan','exp','real','ia'].forEach(v=>document.getElementById('v-'+v).classList.toggle('hide',v!==curV));
   const provaOk=months.every(m=>{const sal=DB.saldos[m]||{};if(sal.fim==null)return true;
-    const mtx=txs.filter(t=>t.m===m&&!t.imp);const calc=(sal.ini||0)+mtx.reduce((s,t)=>s+t.e,0)-mtx.reduce((s,t)=>s+t.s,0);
+    const mtx=txs.filter(t=>t.m===m);const calc=(sal.ini||0)+mtx.reduce((s,t)=>s+t.e,0)-mtx.reduce((s,t)=>s+t.s,0);
     return Math.abs(calc-sal.fim)<0.02;});
   document.getElementById('bdg-prova').textContent=provaOk?'Prova real dos saldos: ✓ confere':'Prova real: divergência';
   if(curV==='home')renderHome();
@@ -4245,6 +4275,7 @@ function render(){
   if(curV==='dash')renderDash();
   if(curV==='plan'){renderPlan();setTimeout(initPlanGovernance,0);}
   if(curV==='bank'){renderBankTabs();renderBank();}
+  if(curV==='real')renderRealizado();
 }
 function renderMtabs(){
   document.getElementById('mtabs').innerHTML='<button class="all '+(curM==='ALL'?'on':'')+'" onclick="curM=\'ALL\';page=1;render()">Temporada (extrato)</button>'+
@@ -4530,7 +4561,7 @@ function renderStats(){
   mtx.forEach(t=>{const c=classify(t);if(c.st==='conf')conf++;else if(isAttention(t,c))att++;else auto++;});
   let prova='—';
   if(curM!=='ALL'){const sal=DB.saldos[curM]||{};
-    if(sal.fim!=null){const base=mtx.filter(t=>!t.imp);const calc=(sal.ini||0)+base.reduce((s,t)=>s+t.e,0)-base.reduce((s,t)=>s+t.s,0);
+    if(sal.fim!=null){const base=mtx;const calc=(sal.ini||0)+base.reduce((s,t)=>s+t.e,0)-base.reduce((s,t)=>s+t.s,0);
       prova=Math.abs(calc-sal.fim)<0.02?'<span class="chip ok">confere ✓ '+fmt2(sal.fim)+'</span>':'<span class="chip er">diverge</span>';}}
   document.getElementById('stats').innerHTML=`
   <div class="kpi"><div class="l">Lançamentos</div><div class="v">${mtx.length}</div></div>
@@ -4917,7 +4948,7 @@ function bankProofRows(bank){
   const bmonths=Object.keys(salAll).sort();
   return bmonths.map(m=>{
     const sal=salAll[m]||{};
-    const mm=txs.filter(t=>t.m===m&&!t.imp&&bankOf(t)===bank);
+    const mm=txs.filter(t=>t.m===m&&bankOf(t)===bank);
     const entradas=mm.reduce((s,t)=>s+(Number(t.e)||0),0);
     const saidas=mm.reduce((s,t)=>s+(Number(t.s)||0),0);
     const calc=(Number(sal.ini)||0)+entradas-saidas;
@@ -4927,7 +4958,49 @@ function bankProofRows(bank){
     return {m,ini:Number(sal.ini)||0,entradas,saidas,calc,fim,dif,ok:fim==null||Math.abs(dif)<0.02,susp};
   });
 }
+function renderBankAdjForm(){
+  const selMes=document.getElementById('bank-adj-mes');
+  if(!selMes)return;
+  if(!selMes._bound){
+    selMes._bound=1;
+    selMes.onchange=fillBankAdjFields;
+    const btn=document.getElementById('btn-bank-adj-save');
+    if(btn)btn.onclick=saveBankAdjSaldo;
+  }
+  const cur=selMes.value;
+  selMes.innerHTML=months.map(m=>`<option value="${m}">${mlabel(m)}</option>`).join('');
+  if(cur&&months.includes(cur))selMes.value=cur;
+  fillBankAdjFields();
+}
+function fillBankAdjFields(){
+  const selMes=document.getElementById('bank-adj-mes'), iEl=document.getElementById('bank-adj-ini'), fEl=document.getElementById('bank-adj-fim');
+  if(!selMes||!iEl||!fEl)return;
+  const m=selMes.value; if(!m)return;
+  const sal=(bankSaldos(curBank)||{})[m]||{};
+  iEl.value=sal.ini==null?'':String(sal.ini).replace('.',',');
+  fEl.value=sal.fim==null?'':String(sal.fim).replace('.',',');
+}
+async function saveBankAdjSaldo(){
+  const msg=document.getElementById('bank-adj-msg');
+  const selMes=document.getElementById('bank-adj-mes'), iEl=document.getElementById('bank-adj-ini'), fEl=document.getElementById('bank-adj-fim');
+  if(!selMes||!selMes.value){ if(msg)msg.textContent='Escolha o mês.'; return; }
+  const m=selMes.value;
+  const ini=iEl.value.trim()?moneyVal(iEl.value):null;
+  const fim=fEl.value.trim()?moneyVal(fEl.value):null;
+  if(msg)msg.textContent='Salvando...';
+  try{
+    if(curBank==='BRADESCO'){ DB.saldos[m]=Object.assign({},DB.saldos[m],{ini,fim}); }
+    else{ DB.saldosBanks[curBank]=DB.saldosBanks[curBank]||{label:bankLabel(curBank),saldos:{}}; DB.saldosBanks[curBank].saldos[m]=Object.assign({},DB.saldosBanks[curBank].saldos[m],{ini,fim}); }
+    await pushBankSaldosToSupabase(curBank,{[m]:{ini,fim}});
+    if(msg)msg.textContent='Saldo salvo na base central.';
+    renderBank();
+  }catch(e){
+    console.error('saveBankAdjSaldo falhou:',e);
+    if(msg)msg.textContent='Falhou ao salvar: '+e.message;
+  }
+}
 function renderBank(){
+  renderBankAdjForm();
   const rows=bankProofRows(curBank);
   const allOk=rows.every(r=>r.ok);
   const fixes=txs.filter(t=>t.flowSuspect&&bankOf(t)===curBank);
@@ -4963,7 +5036,7 @@ function bankLedgerRows(m,bank){
   bank=bank||'BRADESCO';
   const salAll=bankSaldos(bank);
   const sal=salAll[m]||{};
-  const mm=txs.filter(t=>t.m===m&&!t.imp&&bankOf(t)===bank).slice().sort((a,b)=>String(a.d).localeCompare(String(b.d)));
+  const mm=txs.filter(t=>t.m===m&&bankOf(t)===bank).slice().sort((a,b)=>String(a.d).localeCompare(String(b.d)));
   let running=Number(sal.ini)||0;
   return mm.map(t=>{running=running+(Number(t.e)||0)-(Number(t.s)||0);return {t,saldo:running};});
 }
@@ -5002,6 +5075,32 @@ function renderRules(){
     return `<tr><td>${esc(x.f)}</td><td class="num">${x.n}</td><td>${cur}</td>
      <td><select onchange="favRules['${k}']={a:this.value};save('favrules',favRules);render()"><option value="">área…</option>${opts}</select>
      <input list="dl-lines" placeholder="ou linha do orçamento…" style="width:170px" onchange="(function(inp){const m=inp.value.match(/^#(\d+)/);if(!m)return;const l=DB.lines[parseInt(m[1])];favRules['${k}']={a:l.area,g:l.g,l:l.id};save('favrules',favRules);inp.value='';render();})(this)"></td></tr>`;}).join('');
+}
+function renderRealizado(){
+  const realKpis=document.getElementById('real-kpis');
+  if(realKpis){
+    const realTxs=txs.filter(t=>!isInternalBankTransferTx(t));
+    const trfTxs=txs.filter(isInternalBankTransferTx);
+    const totEnt=realTxs.reduce((s,t)=>s+(Number(t.e)||0),0);
+    const totSai=realTxs.reduce((s,t)=>s+(Number(t.s)||0),0);
+    const pendentes=realTxs.filter(t=>!decisions[t.id]).length;
+    const mesesOrd=months.slice().sort();
+    const periodo=mesesOrd.length?mlabel(mesesOrd[0])+' – '+mlabel(mesesOrd[mesesOrd.length-1]):'—';
+    realKpis.innerHTML=`
+      <div class="kpi"><div class="l">Lançamentos no Realizado</div><div class="v">${realTxs.length}</div><div class="d">${periodo}</div></div>
+      <div class="kpi"><div class="l">Total de entradas</div><div class="v" style="color:var(--ok)">${fmt(totEnt)}</div></div>
+      <div class="kpi"><div class="l">Total de saídas</div><div class="v" style="color:var(--er)">${fmt(totSai)}</div></div>
+      <div class="kpi"><div class="l">Pendentes de classificação</div><div class="v ${pendentes?'bank-status-warn':''}">${pendentes}</div><div class="d">sem ID reconhecido na importação — revisar na Conciliação</div></div>
+      <div class="kpi"><div class="l">Transferências entre bancos (TRF)</div><div class="v">${trfTxs.length}</div><div class="d">fora do realizado, só conciliação bancária</div></div>`;
+  }
+  const porBancoEl=document.getElementById('real-por-banco');
+  if(porBancoEl){
+    const rows=bankList().map(b=>{
+      const bt=txs.filter(t=>bankOf(t)===b.k&&!isInternalBankTransferTx(t));
+      return {n:b.n,qtd:bt.length,ent:bt.reduce((s,t)=>s+(Number(t.e)||0),0),sai:bt.reduce((s,t)=>s+(Number(t.s)||0),0)};
+    });
+    porBancoEl.innerHTML=`<table><thead><tr><th>Banco</th><th class="num">Lançamentos</th><th class="num">Entradas</th><th class="num">Saídas</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.n)}</td><td class="num">${r.qtd}</td><td class="num" style="color:var(--ok)">${fmt(r.ent)}</td><td class="num" style="color:var(--er)">${fmt(r.sai)}</td></tr>`).join('')}</tbody></table>`;
+  }
 }
 function renderGuia(){
   document.getElementById('guia').innerHTML=`
@@ -7021,14 +7120,33 @@ async function endSeasonAndReset(){
     alert('Falha ao encerrar a temporada: '+e.message+'\n\nSe a exclusão não rodou, os dados originais continuam intactos no Supabase — confira antes de tentar de novo.');
   }
 }
+(function initImpBankSelect(){
+  const sel=document.getElementById('imp-banco');
+  if(sel && !sel.options.length){
+    BANK_ACCOUNTS.forEach(b=>{const opt=document.createElement('option');opt.value=b.k;opt.textContent=b.n;sel.appendChild(opt);});
+  }
+})();
+async function pushBankSaldosToSupabase(bank,saldosByMonth){
+  try{
+    const rows=Object.keys(saldosByMonth).map(m=>({bank,mes:m,saldo_ini:saldosByMonth[m].ini,saldo_fim:saldosByMonth[m].fim,updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',updated_at:new Date().toISOString()}));
+    if(rows.length)await supaUpsert('bank_saldos',rows,'bank,mes');
+  }catch(e){ console.error('pushBankSaldosToSupabase falhou:',e); }
+}
 document.getElementById('imp').addEventListener('change',async ev=>{
   const f=ev.target.files[0];if(!f)return;
   const msg=document.getElementById('imp-msg');msg.textContent='Lendo…';
+  const bankSel=document.getElementById('imp-banco');
+  const bank=(bankSel&&bankSel.value)||'BRADESCO';
   try{
     if(!window.XLSX){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
     const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
     const MNI={'JAN':'01','FEV':'02','MAR':'03','ABR':'04','MAI':'05','JUN':'06','JUL':'07','AGO':'08','SET':'09','OUT':'10','NOV':'11','DEZ':'12'};
     let added=0,invalidIds=0;
+    // Saldo inicial/final de cada mês desta conta: lido automaticamente das
+    // linhas especiais "SALDO INICIAL" e "SALDO A TRANSFERIR"/"TOTAL" que já
+    // vinham sendo apenas descartadas aqui — sem isso, a Conciliação Bancária
+    // nunca tinha saldo pra comparar e ficava sempre vazia para esta conta.
+    const saldosCapturados={};
     wb.SheetNames.forEach(sn=>{
       const mo=sn.trim().match(/^([A-Z]{3})\s*-?\s*(\d{4})$/);if(!mo||!MNI[mo[1]])return;
       const mm=mo[2]+'-'+MNI[mo[1]];
@@ -7037,13 +7155,16 @@ document.getElementById('imp').addEventListener('change',async ev=>{
       rows.forEach((r,i)=>{
         if(i<5||typeof r[0]!=='number'||!r[3])return;
         const fav=String(r[3]).trim();const u=fav.toUpperCase();
-        if(u==='SALDO INICIAL'||u.includes('SALDO A TRANSFERIR')||u.startsWith('TOTAL'))return;
-        const e=typeof r[6]==='number'?r[6]:0,s=typeof r[7]==='number'?r[7]:0;
+        const e0=typeof r[6]==='number'?r[6]:0,s0=typeof r[7]==='number'?r[7]:0;
+        if(u==='SALDO INICIAL'){ saldosCapturados[mm]=saldosCapturados[mm]||{}; saldosCapturados[mm].ini=Math.round((e0||s0||0)*100)/100; return; }
+        if(u.includes('SALDO A TRANSFERIR')||u.startsWith('TOTAL')){ saldosCapturados[mm]=saldosCapturados[mm]||{}; saldosCapturados[mm].fim=Math.round((e0||s0||0)*100)/100; return; }
+        const e=e0,s=s0;
         if(!e&&!s)return;
         const dt=new Date(Date.UTC(1899,11,30)+r[0]*864e5).toISOString().slice(0,10);
         const idChaveRaw=r[1];
         const idChave=String(idChaveRaw==null?'':idChaveRaw).trim();
         const nt={m:mm,d:dt,t:idChave,idChave,f:fav,ds:String(r[4]||'').trim(),dc:String(r[5]||'').trim(),e:Math.round(e*100)/100,s:Math.round(s*100)/100,imp:1};
+        if(bank&&bank!=='BRADESCO')nt.bank=bank;
         normalizeBankFlow(nt);
         nt.sug=jsSuggest(nt);
         const idLine=resolveLineById(idChaveRaw);
@@ -7052,8 +7173,17 @@ document.getElementById('imp').addEventListener('change',async ev=>{
         imported.push(nt);added++;});
     });
     store.setItem('lnb3_imported',JSON.stringify(imported));
-    msg.textContent=added?added+' lançamentos importados. '+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto, no padrão da estrutura atual (ex.: 1.02.7 para departamentos com grupo, ou 9.1 para Receitas/Equipes). ':'')+'Recarregando…':'Nenhum mês novo encontrado.';
-    if(added)setTimeout(()=>location.reload(),900);
+    if(Object.keys(saldosCapturados).length){
+      if(bank==='BRADESCO'){
+        Object.keys(saldosCapturados).forEach(m=>{DB.saldos[m]=Object.assign({},DB.saldos[m],saldosCapturados[m]);});
+      }else{
+        DB.saldosBanks[bank]=DB.saldosBanks[bank]||{label:bankLabel(bank),saldos:{}};
+        Object.keys(saldosCapturados).forEach(m=>{DB.saldosBanks[bank].saldos[m]=Object.assign({},DB.saldosBanks[bank].saldos[m],saldosCapturados[m]);});
+      }
+      await pushBankSaldosToSupabase(bank,saldosCapturados);
+    }
+    msg.textContent=added?added+' lançamentos importados para '+bankLabel(bank)+'. '+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto, no padrão da estrutura atual (ex.: 1.02.7 para departamentos com grupo, ou 9.1 para Receitas/Equipes). ':'')+(Object.keys(saldosCapturados).length?(Object.keys(saldosCapturados).length+' mês(es) com saldo inicial/final lido do extrato e salvo na base central. '):'')+'Recarregando…':'Nenhum mês novo encontrado.';
+    if(added||Object.keys(saldosCapturados).length)setTimeout(()=>location.reload(),900);
   }catch(err){msg.textContent='Falha ao ler o arquivo: '+err.message;}
 });
 document.getElementById('dl-lines').innerHTML=splitPool().map(l=>`<option value="#${l.id} ${esc(l.area)} · ${esc(l.g)} · ${esc(l.n.slice(0,45))}"></option>`).join('');
