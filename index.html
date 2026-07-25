@@ -3017,6 +3017,7 @@ const ACTIVITY_LABELS={
   importar_realizado:'Importou planilha de Realizado',
   importar_orcado:'Importou planilha de Orçado',
   importar_extrato_banco:'Importou extrato bancário',
+  remover_mes_conta:'Removeu um mês de uma conta',
   lancamento_manual:'Lançou registro manual de Realizado',
   ajustar_saldo_banco:'Ajustou saldo do mês (Conciliação Bancária)',
   apagar_temporada:'Apagou temporada (foi para a Lixeira)',
@@ -5202,6 +5203,33 @@ const BANK_ACCOUNTS=[
   {k:'BB',n:'Banco do Brasil 77906-7'}
 ];
 function bankLabel(k){const b=BANK_ACCOUNTS.find(x=>x.k===k);return b?b.n:(k||BANK_ACCOUNTS[0].n);}
+// Número da conta de cada banco, do jeito que aparece no cabeçalho da
+// planilha de controle (linha 4: "EXTRATO CONTA CORRENTE - X" e, ao lado,
+// a agência/conta). Serve para descobrir a qual conta cada aba pertence.
+const BANK_ACCOUNT_HINTS=[
+  {k:'BRADESCO',contas:['38379-1','383791']},
+  {k:'CEF1',contas:['2215-1','22151']},
+  {k:'CEF2',contas:['2246-1','22461']},
+  {k:'ITAU',contas:['38828-0','388280']},
+  {k:'OURIBANK',contas:['2950386']},
+  {k:'BB',contas:['77906-7','779067']}
+];
+// Descobre a conta de uma aba do extrato pelo cabeçalho. Retorna a chave do
+// banco ou '' se não der para identificar com segurança.
+function bankFromSheetHeader(rows){
+  for(let i=0;i<Math.min(8,rows.length);i++){
+    const linha=(rows[i]||[]).map(v=>String(v==null?'':v)).join(' ');
+    if(!/EXTRATO\s+CONTA/i.test(linha))continue;
+    const alvo=linha.replace(/\s+/g,' ').toUpperCase();
+    // O número da conta é o critério forte: "CEF" sozinho não distingue
+    // 2215-1 de 2246-1, e os dois existem no sistema.
+    for(const b of BANK_ACCOUNT_HINTS){
+      if(b.contas.some(cc=>alvo.includes(cc.toUpperCase())))return b.k;
+    }
+    return '';
+  }
+  return '';
+}
 function bankKeyFromLabel(v){
   if(!v)return'';
   const nv=norm(String(v));
@@ -5365,6 +5393,37 @@ async function saveBankAdjSaldo(){
     if(msg)msg.textContent='Falhou ao salvar: '+e.message;
   }
 }
+// Remove de vez um mês inteiro de uma conta: lançamentos e saldo. Serve
+// para desfazer importação feita na conta errada — foi o caso das 9 abas de
+// 2024 da planilha do Bradesco, que na verdade eram extrato da CEF 2215-1 e
+// entraram como se fossem do Bradesco.
+async function lnbRemoverMesDaConta(bank,mes){
+  if(!confirm('Isso vai remover TODOS os lançamentos de '+mlabel(mes)+' da conta '+bankLabel(bank)+', mais o saldo inicial/final desse mês nessa conta. Os lançamentos vão para a Lixeira e podem ser restaurados; o saldo pode ser digitado de novo em "Ajustar saldo do mês". Confirmar?'))return;
+  try{
+    const deletedAt=new Date().toISOString();
+    const ini=mes+'-01', fimMes=mes+'-31';
+    // Lançamentos antigos do Bradesco foram gravados sem o campo banco
+    // preenchido (o Bradesco era o valor implícito), por isso aqui o filtro
+    // precisa aceitar também banco vazio/nulo quando a conta é o Bradesco.
+    const filtroBanco=bank==='BRADESCO'
+      ? 'or=(banco.is.null,banco.eq.BRADESCO,banco.eq.)'
+      : 'banco=eq.'+encodeURIComponent(bank);
+    await supaSoftDelete('realizado','data=gte.'+ini+'&data=lte.'+fimMes+'&'+filtroBanco, deletedAt);
+    try{ await supaDelete('bank_saldos','bank=eq.'+encodeURIComponent(bank)+'&mes=eq.'+encodeURIComponent(mes)); }
+    catch(eSal){ console.error('Falha ao remover saldo do mês:',eSal); }
+    // Limpa também o cache local, senão o mês continua na tela depois do reload.
+    imported=imported.filter(t=>!(t.m===mes&&bankOf(t)===bank));
+    store.setItem('lnb3_imported',JSON.stringify(imported));
+    if(bank==='BRADESCO')delete DB.saldos[mes];
+    else if(DB.saldosBanks&&DB.saldosBanks[bank])delete DB.saldosBanks[bank].saldos[mes];
+    lnbLogActivity('remover_mes_conta', bankLabel(bank)+' — '+mlabel(mes));
+    alert(mlabel(mes)+' removido de '+bankLabel(bank)+'. Recarregando…');
+    location.reload();
+  }catch(e){
+    console.error('lnbRemoverMesDaConta falhou:',e);
+    alert('Falhou ao remover: '+e.message);
+  }
+}
 function renderBank(){
   renderBankAdjForm();
   const rows=bankProofRows(curBank);
@@ -5389,14 +5448,14 @@ function renderBank(){
   const linhaTotal=(()=>{
     if(!proofRows.length)return '';
     const p=bankPeriodSummary(curBank,curM==='ALL'?null:curM);
-    return `<tr style="font-weight:700;border-top:2px solid var(--bd)"><td>${curM==='ALL'?'TEMPORADA':'TOTAL'}</td><td class="num">${p.ini==null?'—':fmt(p.ini)}</td><td class="num">${fmt(p.entradas)}</td><td class="num">${fmt(p.saidas)}</td><td class="num">${fmt(p.calc)}</td><td class="num">${p.fim==null?'—':fmt(p.fim)}</td><td class="num ${p.ok?'bank-status-ok':'bank-status-er'}">${p.dif==null?'—':fmt(p.dif)}</td><td>${p.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td></td><td class="num"></td></tr>`;
+    return `<tr style="font-weight:700;border-top:2px solid var(--bd)"><td>${curM==='ALL'?'TEMPORADA':'TOTAL'}</td><td class="num">${p.ini==null?'—':fmt(p.ini)}</td><td class="num">${fmt(p.entradas)}</td><td class="num">${fmt(p.saidas)}</td><td class="num">${fmt(p.calc)}</td><td class="num">${p.fim==null?'—':fmt(p.fim)}</td><td class="num ${p.ok?'bank-status-ok':'bank-status-er'}">${p.dif==null?'—':fmt(p.dif)}</td><td>${p.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td></td><td class="num"></td><td></td></tr>`;
   })();
-  document.getElementById('bank-proof').innerHTML=proofRows.length?`<table><thead><tr><th>Mês</th><th class="num">Saldo inicial</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo calculado</th><th class="num">Saldo final extrato</th><th class="num">Diferença</th><th>Status</th><th>Conferências</th><th class="num">Alertas</th></tr></thead><tbody>${proofRows.map(r=>{
+  document.getElementById('bank-proof').innerHTML=proofRows.length?`<table><thead><tr><th>Mês</th><th class="num">Saldo inicial</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo calculado</th><th class="num">Saldo final extrato</th><th class="num">Diferença</th><th>Status</th><th>Conferências</th><th class="num">Alertas</th><th></th></tr></thead><tbody>${proofRows.map(r=>{
     const confs=[];
     if(r.encadeaOk===false)confs.push('<span class="chip er">saldo inicial não bate com o saldo final de '+mlabel(r.mesAnterior)+' ('+fmt(r.encadeaDif)+')</span>');
     if(r.faltaLancamento)confs.push('<span class="chip wn">extrato declara '+(r.entExtrato!=null?fmt(r.entExtrato)+' de entradas':'')+(r.entExtrato!=null&&r.saiExtrato!=null?' e ':'')+(r.saiExtrato!=null?fmt(r.saiExtrato)+' de saídas':'')+' — pode faltar lançamento importado</span>');
     if(!confs.length&&r.ok)confs.push('<span class="chip ok">ok</span>');
-    return `<tr class="${r.ok?'':'flowfix'}"><td><b>${mlabel(r.m)}</b><div class="desc">${r.qtd} lançamento(s)</div></td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num">${fmt(r.entradas)}</td><td class="num">${fmt(r.saidas)}</td><td class="num">${fmt(r.calc)}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.ok?'bank-status-ok':'bank-status-er'}">${r.fim==null?'—':fmt(r.dif)}</td><td>${r.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td>${confs.join(' ')}</td><td class="num">${r.susp||''}</td></tr>`;
+    return `<tr class="${r.ok?'':'flowfix'}"><td><b>${mlabel(r.m)}</b><div class="desc">${r.qtd} lançamento(s)</div></td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num">${fmt(r.entradas)}</td><td class="num">${fmt(r.saidas)}</td><td class="num">${fmt(r.calc)}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.ok?'bank-status-ok':'bank-status-er'}">${r.fim==null?'—':fmt(r.dif)}</td><td>${r.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td>${confs.join(' ')}</td><td class="num">${r.susp||''}</td><td><button class="act" type="button" title="Remover este mês desta conta (vai para a Lixeira)" onclick="lnbRemoverMesDaConta('${curBank}','${r.m}')">remover mês</button></td></tr>`;
   }).join('')}${linhaTotal}</tbody></table>`:(curM==='ALL'?'<div class="desc">Sem meses com saldo cadastrado para esta conta.</div>':'<div class="desc">Sem saldo cadastrado para '+mlabel(curM)+' nesta conta. Use <b>Ajustar saldo do mês</b> abaixo para informar manualmente.</div>');
   const qDoc=norm(document.getElementById('bank-doc')?.value||'');
   const qDesc=norm(document.getElementById('bank-desc')?.value||'');
@@ -7639,6 +7698,7 @@ document.getElementById('imp').addEventListener('change',async ev=>{
     const existingCounts=new Map();
     txs.forEach(t=>{const k=existingTxKey(t);existingCounts.set(k,(existingCounts.get(k)||0)+1);});
     const seenThisFile=new Map();
+    const abasDeOutraConta=[], abasSemCabecalho=[];
     const novosParaSupabase=[];
     const lancPorMes={};
     wb.SheetNames.forEach(sn=>{
@@ -7651,6 +7711,19 @@ document.getElementById('imp').addEventListener('change',async ev=>{
       // existingKeysImp (mesma data/favorecido/valor), então esse atalho só
       // atrapalhava.
       const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1});
+      // Achado real: a planilha do Bradesco carrega 9 abas antigas de 2024
+      // que são, na verdade, extrato da CEF 2215-1 ("EXTRATO CONTA CORRENTE
+      // - CEF ... 3117/003/2215-1"). Como o importador aplicava a conta
+      // escolhida no seletor a TODAS as abas, esses lançamentos da CEF
+      // entravam como se fossem do Bradesco — daí o sistema mostrar 2024
+      // numa conta que só tem movimento a partir de janeiro/2026.
+      // Agora cada aba é conferida pelo número da conta no próprio cabeçalho.
+      const contaDaAba=bankFromSheetHeader(rows);
+      if(contaDaAba&&contaDaAba!==bank){
+        abasDeOutraConta.push({aba:sn.trim(),conta:contaDaAba});
+        return;
+      }
+      if(!contaDaAba)abasSemCabecalho.push(sn.trim());
       rows.forEach((r,i)=>{
         if(i<5||typeof r[0]!=='number'||!r[3])return;
         const fav=String(r[3]).trim();const u=fav.toUpperCase();
@@ -7688,7 +7761,11 @@ document.getElementById('imp').addEventListener('change',async ev=>{
         const idChaveRaw=r[1];
         const idChave=String(idChaveRaw==null?'':idChaveRaw).trim();
         const nt={m:mm,d:dt,t:idChave,idChave,f:fav,ds:String(r[4]||'').trim(),dc:String(r[5]||'').trim(),e:Math.round(e*100)/100,s:Math.round(s*100)/100,imp:1};
-        if(bank&&bank!=='BRADESCO')nt.bank=bank;
+        // Antes o banco só era gravado quando não era Bradesco (o Bradesco
+        // ficava implícito, com o campo vazio). Isso impedia filtrar ou
+        // remover os lançamentos de uma conta específica na base central.
+        // Agora a conta é sempre explícita.
+        nt.bank=bank||'BRADESCO';
         const keyImp=existingTxKey(nt);
         const ocorrencia=(seenThisFile.get(keyImp)||0)+1;
         seenThisFile.set(keyImp,ocorrencia);
@@ -7723,7 +7800,7 @@ document.getElementById('imp').addEventListener('change',async ev=>{
         await supaInsertIgnoreDup('realizado', novosParaSupabase.map(t=>({
           data:t.d, favorecido:t.f, descricao:t.ds, documento:t.dc,
           entrada:t.e||null, saida:t.s||null, id_linha:t.idChave||'',
-          banco:(bank&&bank!=='BRADESCO')?bank:'', temporada:temporadaAtual,
+          banco:bank||'BRADESCO', temporada:temporadaAtual,
           departamento:'', grupo:'', linha_orcamento:'',
           competicao:'', composicao:'', abatimento:'', tipo_reembolso:''
         })), 'id_linha,data');
@@ -7738,10 +7815,19 @@ document.getElementById('imp').addEventListener('change',async ev=>{
       }
       var saldoPush=await pushBankSaldosToSupabase(bank,saldosCapturados);
     }
+    // Aviso claro sobre abas que pertencem a outra conta: elas ficaram de
+    // fora de propósito, e o usuário pode importá-las selecionando a conta
+    // correta no seletor acima e subindo o mesmo arquivo.
+    let avisoOutraConta='';
+    if(abasDeOutraConta.length){
+      const porConta={};
+      abasDeOutraConta.forEach(x=>{ (porConta[x.conta]=porConta[x.conta]||[]).push(x.aba); });
+      avisoOutraConta=Object.keys(porConta).map(k=>porConta[k].length+' aba(s) ('+porConta[k].join(', ')+') são extrato de '+bankLabel(k)+', não de '+bankLabel(bank)+' — foram ignoradas. Para importá-las, selecione '+bankLabel(k)+' no seletor acima e suba este mesmo arquivo.').join(' ')+' ';
+    }
     var saldoOk=!saldoPush||saldoPush.ok;
     var saldoErrTxt=(saldoPush&&!saldoPush.ok)?saldoPush.error:'';
-    if(added||duplicated||Object.keys(saldosCapturados).length)lnbLogActivity('importar_extrato_banco', bankLabel(bank)+' — '+added+' novo(s), '+duplicated+' duplicado(s), '+Object.keys(saldosCapturados).length+' mês(es) de saldo'+(saldoOk?'':' — FALHA AO SALVAR SALDO: '+saldoErrTxt));
-    msg.textContent=(added||duplicated||Object.keys(saldosCapturados).length)?added+' lançamento(s) novo(s) importado(s) para '+bankLabel(bank)+'. '+(duplicated?duplicated+' já existiam (mesma data/favorecido/valor) e foram ignorados, evitando duplicidade. ':'')+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto, no padrão da estrutura atual (ex.: 1.02.7 para departamentos com grupo, ou 9.1 para Receitas/Equipes). ':'')+(Object.keys(saldosCapturados).length?(saldoOk?(Object.keys(saldosCapturados).length+' mês(es) com saldo inicial/final lido do extrato e salvo na base central. '):('ATENÇÃO: '+Object.keys(saldosCapturados).length+' mês(es) de saldo foram lidos do extrato mas FALHARAM ao salvar na base central — erro: '+saldoErrTxt+'. ')):'')+(syncErr?('ATENÇÃO: os lançamentos não foram enviados para a base central — erro: '+syncErr+'. '):'')+((saldoOk&&!syncErr)?'Recarregando…':'Não recarregando para você poder ver este erro.'):'Nenhum mês novo encontrado.';
+    if(added||duplicated||Object.keys(saldosCapturados).length)lnbLogActivity('importar_extrato_banco', bankLabel(bank)+' — '+added+' novo(s), '+duplicated+' duplicado(s), '+Object.keys(saldosCapturados).length+' mês(es) de saldo'+(abasDeOutraConta.length?' — '+abasDeOutraConta.length+' aba(s) de outra conta ignorada(s)':'')+(saldoOk?'':' — FALHA AO SALVAR SALDO: '+saldoErrTxt));
+    msg.textContent=(added||duplicated||Object.keys(saldosCapturados).length)?added+' lançamento(s) novo(s) importado(s) para '+bankLabel(bank)+'. '+(duplicated?duplicated+' já existiam (mesma data/favorecido/valor) e foram ignorados, evitando duplicidade. ':'')+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto, no padrão da estrutura atual (ex.: 1.02.7 para departamentos com grupo, ou 9.1 para Receitas/Equipes). ':'')+(Object.keys(saldosCapturados).length?(saldoOk?(Object.keys(saldosCapturados).length+' mês(es) com saldo inicial/final lido do extrato e salvo na base central. '):('ATENÇÃO: '+Object.keys(saldosCapturados).length+' mês(es) de saldo foram lidos do extrato mas FALHARAM ao salvar na base central — erro: '+saldoErrTxt+'. ')):'')+avisoOutraConta+(syncErr?('ATENÇÃO: os lançamentos não foram enviados para a base central — erro: '+syncErr+'. '):'')+((saldoOk&&!syncErr)?'Recarregando…':'Não recarregando para você poder ver este erro.'):'Nenhum mês novo encontrado.';
     if((added||duplicated||Object.keys(saldosCapturados).length)&&saldoOk&&!syncErr)setTimeout(()=>location.reload(),900);
   }catch(err){msg.textContent='Falha ao ler o arquivo: '+err.message;}
 });
