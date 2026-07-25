@@ -2015,6 +2015,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <input type="date" id="ml-data" style="flex:1;min-width:140px">
         <input type="text" id="ml-favorecido" placeholder="Favorecido" style="flex:2;min-width:180px">
+        <input type="text" id="ml-documento" placeholder="Documento (opcional)" style="flex:1;min-width:140px">
         <input type="text" id="ml-descricao" placeholder="Descrição (opcional)" style="flex:2;min-width:180px">
         <input type="text" id="ml-temporada" placeholder="Temporada (ex: 2026/2027)" style="flex:1;min-width:150px">
       </div>
@@ -2024,7 +2025,6 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
           <option value="entrada">Entrada</option>
         </select>
         <input type="text" id="ml-valor" placeholder="Valor (ex: 1234,56)" style="flex:1;min-width:140px">
-        <input type="text" id="ml-documento" placeholder="Documento (opcional)" style="flex:1;min-width:140px">
         <select id="ml-banco" style="flex:1;min-width:170px"><option value="">Banco...</option></select>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -3009,7 +3009,7 @@ async function syncOrcadoFileToSupabase(file){
 }
 function realizadoRowToPortugues(r){
   return {
-    'Data': r.data||'', 'Favorecido': r.favorecido||'', 'Descrição': r.descricao||'', 'Documento': r.documento||'',
+    'Data': r.data||'', 'Favorecido': r.favorecido||'', 'Documento': r.documento||'', 'Descrição': r.descricao||'',
     'Banco': r.banco?bankLabel(r.banco):'',
     'Entrada': r.entrada||'', 'Saída': r.saida||'', 'ID': r.id_linha||'', 'Departamento': r.departamento||'',
     'Grupo': r.grupo||'', 'Linha do orçamento': r.linha_orcamento||'', 'Competição': r.competicao||'',
@@ -4183,7 +4183,7 @@ function detailHTML(rows){
   <div class="table-scroll"><table class="smalltbl"><thead><tr><th>Data</th><th>Favorecido</th><th>Descrição / documento</th><th>Evento</th><th class="num">Valor alocado</th><th>Ação</th></tr></thead><tbody>${rows.map(x=>`<tr>
     <td class="date-cell">${x.t.d.slice(8)}/${x.t.d.slice(5,7)}/${x.t.d.slice(2,4)}</td>
     <td class="fav">${esc(x.t.f)}</td>
-    <td><div>${esc(x.t.ds)}</div>${x.t.dc?`<div class="desc">${esc(x.t.dc)}</div>`:''}</td>
+    <td>${x.t.dc?`<div class="desc">${esc(x.t.dc)}</div>`:''}<div>${esc(x.t.ds)}</div></td>
     <td>${x.t.ev?esc(x.t.ev):'—'}</td>
     <td class="num">${fmt2(x.sp.v)}</td>
     <td class="action-cell">${txRealocBtn(x.t)}</td>
@@ -4420,7 +4420,7 @@ function renderRecTypeDetail(rows){
     return `<tr>
       <td>${esc(r.t.d||'—')}</td>
       <td><b>${esc(receitaFonte(r.t))}</b><div class="desc">${esc(r.t.f||'LNB')}</div></td>
-      <td>${esc(r.t.ds||'—')}${r.t.dc?`<div class="desc">${esc(r.t.dc)}</div>`:''}</td>
+      <td>${r.t.dc?`<div class="desc">${esc(r.t.dc)}</div>`:''}${esc(r.t.ds||'—')}</td>
       <td class="rec-dest">${esc(destinos)}</td>
       <td class="num" style="color:var(--ok)">${fmt2(r.t.e)}</td>
       <td style="white-space:nowrap">${txRealocBtn(r.t)}</td>
@@ -4463,7 +4463,7 @@ function renderRecLedger(){
   const areaOpts=Object.keys(AREAS).map(a=>`<option value="${a}">${a}</option>`).join('');
   box.innerHTML=rows.length?`<table><thead><tr><th>Data</th><th>Fonte real</th><th>Descrição / documento</th><th>Tipo</th><th>Linha</th><th class="num">Valor</th><th></th></tr></thead><tbody>${rows.slice(0,500).map(r=>{
     const c=classify(r.t), tipo=receitaTipo(r.t,c);
-    return `<tr><td>${r.t.d}</td><td><b>${esc(receitaFonte(r.t))}</b><div class="desc">beneficiada: ${esc(r.t.f||'LNB')}</div></td><td>${esc(r.t.ds)}${r.t.dc?('<div class="desc">'+esc(r.t.dc)+'</div>'):''}</td><td><span class="chip ok">${esc(tipo)}</span></td><td>${esc(r.lbl||'—')}</td><td class="num" style="color:var(--ok)">${fmt2(r.t.e)}</td><td style="white-space:nowrap">${txRealocBtn(r.t)}</td></tr>`;
+    return `<tr><td>${r.t.d}</td><td><b>${esc(receitaFonte(r.t))}</b><div class="desc">beneficiada: ${esc(r.t.f||'LNB')}</div></td><td>${r.t.dc?('<div class="desc">'+esc(r.t.dc)+'</div>'):''}${esc(r.t.ds)}</td><td><span class="chip ok">${esc(tipo)}</span></td><td>${esc(r.lbl||'—')}</td><td class="num" style="color:var(--ok)">${fmt2(r.t.e)}</td><td style="white-space:nowrap">${txRealocBtn(r.t)}</td></tr>`;
   }).join('')}</tbody></table>${rows.length>500?`<div class="desc">Mostrando 500 de ${rows.length} lançamentos — refine a busca.</div>`:''}`:'<div class="desc">Nenhuma receita encontrada para o filtro/período atual.</div>';
 }
 function renderRecTrfList(){
@@ -4610,7 +4610,7 @@ function renderTable(){
     return `<tr class="txrow" draggable="true" data-id="${t.id}">
       <td><input type="checkbox" class="selbox txsel" data-id="${t.id}" onclick="event.stopPropagation()" onchange="updateBulkMsg()"></td>
       <td style="white-space:nowrap">${t.d.slice(8)}/${t.d.slice(5,7)}</td>
-      <td><div class="fav">${esc(t.f)}</div><div class="desc">${esc(t.ds)}${t.dc?' · '+esc(t.dc):''}${t.ev?' · <b>'+t.ev+'</b>':''}</div></td>
+      <td><div class="fav">${esc(t.f)}</div><div class="desc">${t.dc?esc(t.dc)+' · ':''}${esc(t.ds)}${t.ev?' · <b>'+t.ev+'</b>':''}</div></td>
       <td class="num" style="color:${t.s>0?'var(--er)':'var(--ok)'}">${val}</td>
       <td>${destChip(c)}<div id="sp-${cssid(t.id)}"></div></td>
       <td style="vertical-align:top;min-width:225px"><div style="display:flex;flex-direction:column;gap:4px;width:100%;max-width:250px">
@@ -5014,7 +5014,7 @@ function renderBank(){
   document.getElementById('bank-proof').innerHTML=rows.length?`<table><thead><tr><th>Mês</th><th class="num">Saldo inicial</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo calculado</th><th class="num">Saldo final extrato</th><th class="num">Diferença</th><th>Status</th><th class="num">Alertas</th></tr></thead><tbody>${rows.map(r=>`<tr class="${r.ok?'':'flowfix'}"><td><b>${mlabel(r.m)}</b></td><td class="num">${fmt(r.ini)}</td><td class="num">${fmt(r.entradas)}</td><td class="num">${fmt(r.saidas)}</td><td class="num">${fmt(r.calc)}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.ok?'bank-status-ok':'bank-status-er'}">${r.fim==null?'—':fmt(r.dif)}</td><td>${r.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td class="num">${r.susp||''}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem meses com saldo cadastrado para esta conta.</div>';
   const q=norm(document.getElementById('bank-q')?.value||'');
   const f=fixes.filter(t=>!q||[t.m,mlabel(t.m),t.f,t.ds,t.dc].some(v=>norm(v).includes(q))).slice(0,300);
-  document.getElementById('bank-flowfix').innerHTML=f.length?`<table><thead><tr><th>Mês</th><th>Data</th><th>Lançamento</th><th class="num">Entrada (extrato)</th><th class="num">Saída (extrato)</th><th>Alerta</th><th></th></tr></thead><tbody>${f.map(t=>`<tr class="flowfix"><td class="date-cell">${mlabel(t.m)}</td><td class="date-cell">${t.d.slice(8)}/${t.d.slice(5,7)}/${t.d.slice(2,4)}</td><td><b>${esc(t.f)}</b><div class="desc">${esc(t.ds)} ${t.dc?('· '+esc(t.dc)):''}</div></td><td class="num" style="color:var(--ok)">${t.e?fmt2(t.e):''}</td><td class="num" style="color:var(--er)">${t.s?fmt2(t.s):''}</td><td><span class="chip wn">${t.flowSuspect==='entrada_deveria_ser_saida'?'descrição sugere saída, extrato diz entrada':'descrição sugere entrada, extrato diz saída'} — mantido conforme extrato</span></td><td>${txRealocBtn(t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Nenhum alerta de possível inversão para o filtro atual.</div>';
+  document.getElementById('bank-flowfix').innerHTML=f.length?`<table><thead><tr><th>Mês</th><th>Data</th><th>Documento</th><th>Lançamento</th><th class="num">Entrada (extrato)</th><th class="num">Saída (extrato)</th><th>Alerta</th><th></th></tr></thead><tbody>${f.map(t=>`<tr class="flowfix"><td class="date-cell">${mlabel(t.m)}</td><td class="date-cell">${t.d.slice(8)}/${t.d.slice(5,7)}/${t.d.slice(2,4)}</td><td>${esc(t.dc||'—')}</td><td><b>${esc(t.f)}</b><div class="desc">${esc(t.ds)}</div></td><td class="num" style="color:var(--ok)">${t.e?fmt2(t.e):''}</td><td class="num" style="color:var(--er)">${t.s?fmt2(t.s):''}</td><td><span class="chip wn">${t.flowSuspect==='entrada_deveria_ser_saida'?'descrição sugere saída, extrato diz entrada':'descrição sugere entrada, extrato diz saída'} — mantido conforme extrato</span></td><td>${txRealocBtn(t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Nenhum alerta de possível inversão para o filtro atual.</div>';
   const qel=document.getElementById('bank-q'); if(qel&&!qel._bound){qel._bound=1;qel.oninput=renderBank;}
   renderBankVerdict(rows,bankLabel);
   renderBankLedger();
@@ -5043,23 +5043,40 @@ function bankLedgerRows(m,bank){
 function renderBankLedger(){
   const note=document.getElementById('bank-ledger-note'), box=document.getElementById('bank-ledger');
   if(!box) return;
-  if(curM==='ALL'){
-    if(note)note.textContent='Selecione um mês específico na barra acima (ex.: '+mlabel(months[0])+') para ver a movimentação lançamento a lançamento com saldo corrido.';
-    box.innerHTML='';
-    return;
-  }
   const salAll=bankSaldos(curBank);
-  const sal=salAll[curM]||{};
-  const rows=bankLedgerRows(curM,curBank);
   const q=norm(document.getElementById('bank-ledger-q')?.value||'');
-  const filtered=q?rows.filter(r=>[r.t.f,r.t.ds,r.t.dc].some(v=>norm(v).includes(q))):rows;
-  if(!rows.length&&sal.ini==null){
-    if(note)note.textContent=`${mlabel(curM)} · esta conta não tem lançamentos neste mês.`;
-    box.innerHTML='';
-    return;
+  let rows=[], noteTxt='';
+  const isAll=curM==='ALL';
+  if(isAll){
+    // "Temporada (extrato)": antes esta lista só aparecia com um mês
+    // específico selecionado — agora agrega todos os meses desta conta,
+    // um após o outro, cada um com seu próprio saldo corrido calculado a
+    // partir do saldo inicial daquele mês.
+    const bmonths=(Object.keys(salAll).length?Object.keys(salAll):months).slice().sort();
+    bmonths.forEach(m=>{ bankLedgerRows(m,curBank).forEach(r=>rows.push(Object.assign({mes:m},r))); });
+    if(!rows.length){
+      if(note)note.textContent='Nenhum lançamento encontrado para '+esc((bankList().find(b=>b.k===curBank)||{}).n||curBank)+' na temporada.';
+      box.innerHTML='';
+      return;
+    }
+    const totEnt=rows.reduce((s,r)=>s+(Number(r.t.e)||0),0), totSai=rows.reduce((s,r)=>s+(Number(r.t.s)||0),0);
+    noteTxt=`Temporada (extrato) · ${rows.length} lançamento(s) em ${bmonths.length} mês(es) · entradas ${fmt(totEnt)} · saídas ${fmt(totSai)}`;
+  }else{
+    const sal=salAll[curM]||{};
+    rows=bankLedgerRows(curM,curBank).map(r=>Object.assign({mes:curM},r));
+    if(!rows.length&&sal.ini==null){
+      if(note)note.textContent=`${mlabel(curM)} · esta conta não tem lançamentos neste mês.`;
+      box.innerHTML='';
+      return;
+    }
+    noteTxt=`${mlabel(curM)} · saldo inicial ${fmt(Number(sal.ini)||0)} · ${rows.length} lançamento(s) do extrato, em ordem cronológica, com saldo corrido calculado a partir do saldo inicial.`;
   }
-  if(note)note.textContent=`${mlabel(curM)} · saldo inicial ${fmt(Number(sal.ini)||0)} · ${rows.length} lançamento(s) do extrato, em ordem cronológica, com saldo corrido calculado a partir do saldo inicial.`;
-  box.innerHTML=filtered.length?`<table><thead><tr><th>Data</th><th>Favorecido / descrição</th><th class="num">Entrada</th><th class="num">Saída</th><th class="num">Saldo corrido</th><th></th></tr></thead><tbody>${filtered.map(r=>`<tr class="${r.t.flowSuspect?'bank-ledger-row-warn':''}"><td>${r.t.d}</td><td><b>${esc(r.t.f)}</b><div class="desc">${esc(r.t.ds)} ${r.t.dc?('· '+esc(r.t.dc)):''}</div></td><td class="num" style="color:var(--ok)">${r.t.e?fmt2(r.t.e):''}</td><td class="num" style="color:var(--er)">${r.t.s?fmt2(r.t.s):''}</td><td class="num">${fmt2(r.saldo)}</td><td>${txRealocBtn(r.t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Nenhum lançamento encontrado para o filtro atual neste mês.</div>';
+  if(note)note.textContent=noteTxt;
+  const filtered=q?rows.filter(r=>[r.t.f,r.t.ds,r.t.dc,mlabel(r.mes)].some(v=>norm(v).includes(q))):rows;
+  box.innerHTML=filtered.length?`<table><thead><tr>${isAll?'<th>Mês</th>':''}<th>Data</th><th>Documento</th><th>Favorecido / descrição</th><th>Classificação</th><th class="num">Entrada</th><th class="num">Saída</th><th class="num">Saldo corrido</th><th></th></tr></thead><tbody>${filtered.map(r=>{
+    const c=classify(r.t);
+    return `<tr class="${r.t.flowSuspect?'bank-ledger-row-warn':''}">${isAll?`<td>${mlabel(r.mes)}</td>`:''}<td>${r.t.d}</td><td>${esc(r.t.dc||'—')}</td><td><b>${esc(r.t.f)}</b><div class="desc">${esc(r.t.ds)}</div></td><td>${destChip(c)}</td><td class="num" style="color:var(--ok)">${r.t.e?fmt2(r.t.e):''}</td><td class="num" style="color:var(--er)">${r.t.s?fmt2(r.t.s):''}</td><td class="num">${fmt2(r.saldo)}</td><td>${txRealocBtn(r.t)}</td></tr>`;
+  }).join('')}</tbody></table>`:'<div class="desc">Nenhum lançamento encontrado para o filtro atual.</div>';
 }
 
 function renderRules(){
@@ -6783,7 +6800,7 @@ async function downloadNewSeasonTemplate(){
   const nCols=12;
   const ws=wb.addWorksheet('Lançamentos',{views:[{state:'frozen',ySplit:4}]});
   xlBand(ws,'LANÇAMENTOS — TEMPORADA 2026/2027',per,nCols);
-  xlHeader(ws,4,['ID (chave do lançamento)','Data','Favorecido','Descrição','Documento','Banco','Entrada','Saída','Competição','Abatimento (Sim/Não)','Tipo de reembolso (opcional)','Temporada (opcional, ex: 2026/2027)'],6);
+  xlHeader(ws,4,['ID (chave do lançamento)','Data','Favorecido','Documento','Descrição','Banco','Entrada','Saída','Competição','Abatimento (Sim/Não)','Tipo de reembolso (opcional)','Temporada (opcional, ex: 2026/2027)'],6);
   const bankNames=BANK_ACCOUNTS.map(b=>b.n);
   for(let i=0;i<80;i++){
     const dr=xlDataRow(ws,Array(12).fill(''),{numFrom:6});
@@ -7141,12 +7158,17 @@ document.getElementById('imp').addEventListener('change',async ev=>{
     if(!window.XLSX){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
     const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
     const MNI={'JAN':'01','FEV':'02','MAR':'03','ABR':'04','MAI':'05','JUN':'06','JUL':'07','AGO':'08','SET':'09','OUT':'10','NOV':'11','DEZ':'12'};
-    let added=0,invalidIds=0;
+    let added=0,invalidIds=0,duplicated=0;
     // Saldo inicial/final de cada mês desta conta: lido automaticamente das
     // linhas especiais "SALDO INICIAL" e "SALDO A TRANSFERIR"/"TOTAL" que já
     // vinham sendo apenas descartadas aqui — sem isso, a Conciliação Bancária
     // nunca tinha saldo pra comparar e ficava sempre vazia para esta conta.
     const saldosCapturados={};
+    // Este importador não tinha proteção contra duplicidade — se o mesmo
+    // lançamento já tivesse entrado pela planilha de Realizado (import
+    // classificado), subir o extrato bruto aqui duplicava tudo. Mesma chave
+    // de deduplicação usada em importNewSeasonRealizado.
+    const existingKeysImp=new Set(txs.map(existingTxKey));
     wb.SheetNames.forEach(sn=>{
       const mo=sn.trim().match(/^([A-Z]{3})\s*-?\s*(\d{4})$/);if(!mo||!MNI[mo[1]])return;
       const mm=mo[2]+'-'+MNI[mo[1]];
@@ -7165,6 +7187,9 @@ document.getElementById('imp').addEventListener('change',async ev=>{
         const idChave=String(idChaveRaw==null?'':idChaveRaw).trim();
         const nt={m:mm,d:dt,t:idChave,idChave,f:fav,ds:String(r[4]||'').trim(),dc:String(r[5]||'').trim(),e:Math.round(e*100)/100,s:Math.round(s*100)/100,imp:1};
         if(bank&&bank!=='BRADESCO')nt.bank=bank;
+        const keyImp=existingTxKey(nt);
+        if(existingKeysImp.has(keyImp)){duplicated++;return;}
+        existingKeysImp.add(keyImp);
         normalizeBankFlow(nt);
         nt.sug=jsSuggest(nt);
         const idLine=resolveLineById(idChaveRaw);
@@ -7182,8 +7207,8 @@ document.getElementById('imp').addEventListener('change',async ev=>{
       }
       await pushBankSaldosToSupabase(bank,saldosCapturados);
     }
-    msg.textContent=added?added+' lançamentos importados para '+bankLabel(bank)+'. '+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto, no padrão da estrutura atual (ex.: 1.02.7 para departamentos com grupo, ou 9.1 para Receitas/Equipes). ':'')+(Object.keys(saldosCapturados).length?(Object.keys(saldosCapturados).length+' mês(es) com saldo inicial/final lido do extrato e salvo na base central. '):'')+'Recarregando…':'Nenhum mês novo encontrado.';
-    if(added||Object.keys(saldosCapturados).length)setTimeout(()=>location.reload(),900);
+    msg.textContent=(added||duplicated||Object.keys(saldosCapturados).length)?added+' lançamento(s) novo(s) importado(s) para '+bankLabel(bank)+'. '+(duplicated?duplicated+' já existiam (mesma data/favorecido/valor) e foram ignorados, evitando duplicidade. ':'')+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto, no padrão da estrutura atual (ex.: 1.02.7 para departamentos com grupo, ou 9.1 para Receitas/Equipes). ':'')+(Object.keys(saldosCapturados).length?(Object.keys(saldosCapturados).length+' mês(es) com saldo inicial/final lido do extrato e salvo na base central. '):'')+'Recarregando…':'Nenhum mês novo encontrado.';
+    if(added||duplicated||Object.keys(saldosCapturados).length)setTimeout(()=>location.reload(),900);
   }catch(err){msg.textContent='Falha ao ler o arquivo: '+err.message;}
 });
 document.getElementById('dl-lines').innerHTML=splitPool().map(l=>`<option value="#${l.id} ${esc(l.area)} · ${esc(l.g)} · ${esc(l.n.slice(0,45))}"></option>`).join('');
@@ -7687,9 +7712,9 @@ async function downloadRealizadoClassificationTemplate(){
   const nCols=14;
   const ws=wb.addWorksheet('Classificação',{views:[{state:'frozen',xSplit:0,ySplit:4}]});
   xlBand(ws,'LANÇAMENTOS — CLASSIFICAÇÃO ASSERTIVA',per+' · '+rowsData.length+' linha(s)',nCols);
-  xlHeader(ws,4,['ID lançamento (não editar)','Mês','Data','Favorecido','Descrição','Documento','Entrada','Saída','Departamento','Grupo','Linha do orçamento','Valor desta parte','Status','Atenção'],7);
+  xlHeader(ws,4,['ID lançamento (não editar)','Mês','Data','Favorecido','Documento','Descrição','Entrada','Saída','Departamento','Grupo','Linha do orçamento','Valor desta parte','Status','Atenção'],7);
   rowsData.forEach((r,i)=>{
-    const dr=xlDataRow(ws,[r.id,r.mesNome,r.data,r.favorecido,r.descricao,r.documento,r2(r.entrada),r2(r.saida),r.area,r.grupo,r.linha,r2(r.valor),r.status,r.atencao],{zebra:i%2===1,numFrom:7});
+    const dr=xlDataRow(ws,[r.id,r.mesNome,r.data,r.favorecido,r.documento,r.descricao,r2(r.entrada),r2(r.saida),r.area,r.grupo,r.linha,r2(r.valor),r.status,r.atencao],{zebra:i%2===1,numFrom:7});
     if(r.atencao==='Sim'){dr.getCell(13).font={bold:true,color:{argb:XLC.red}};dr.getCell(14).font={bold:true,color:{argb:XLC.red}};}
     const deptRef='$I'+dr.number;
     dr.getCell(9).dataValidation={type:'list',allowBlank:true,formulae:[`"${CLASSIF_AREAS.join(',')}"`]};
