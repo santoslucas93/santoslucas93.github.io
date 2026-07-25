@@ -4035,21 +4035,19 @@ let imported=JSON.parse(store.getItem('lnb3_imported')||'[]');
 // deduplica por (mês+data+favorecido+entrada+saída) — a mesma chave já usada
 // para evitar duplicidade na importação — mantendo, entre duas cópias
 // iguais, a que já tiver uma decisão de classificação salva.
-(function dedupeImportedOnLoad(){
-  const seen={}; const keep=[];
-  imported.forEach(t=>{
-    const k=t.m+'|'+t.d+'|'+norm(t.f||'').slice(0,18)+'|'+t.e+'|'+t.s;
-    if(!(k in seen)){ seen[k]=keep.length; keep.push(t); }
-    else{
-      const prevIdx=seen[k], prev=keep[prevIdx];
-      if(!decisions[prev.id]&&decisions[t.id])keep[prevIdx]=t;
-    }
-  });
-  if(keep.length!==imported.length){
-    imported=keep;
-    store.setItem('lnb3_imported',JSON.stringify(imported));
-  }
-})();
+// Esta limpeza foi REMOVIDA, e o comentário acima explica só o problema
+// original — não o estrago que ela causava. Ela rodava a cada carregamento
+// da página e apagava QUALQUER lançamento repetido em
+// (mês+data+favorecido+entrada+saída). Num extrato isso é destrutivo: há 6
+// pagamentos idênticos de R$ 1.219 no mesmo dia para o mesmo favorecido, e
+// sobrava um. Medido na planilha do Bradesco: a importação entrava com os
+// 3906 lançamentos certos, e no recarregamento seguinte a tela caía para
+// 3644 — os mesmos 262 que faltavam para a conciliação fechar.
+// A duplicidade que ela tentava resolver (a mesma transação chegando pelo
+// upload do arquivo e de novo pela sincronização com a base central) hoje é
+// evitada na origem: os dois caminhos de importação contam ocorrências antes
+// de inserir, então nada é acrescentado duas vezes.
+
 let budgetLines=JSON.parse(store.getItem('lnb3_budgetlines')||'[]');
 // Bug real corrigido: a sincronizacao ao vivo (importNewBudgetSpreadsheet em
 // modo live, chamada a cada carregamento por loadLiveGoogleSheets) gerava um
