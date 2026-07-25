@@ -4595,7 +4595,7 @@ function renderHome(){
   let pend=0;txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;const c=classify(t);if(isAttention(t,c))pend++;});
   const pct=despP?Math.round(despR/despP*100):0;
   const deptOverCount=DESP.filter(a=>{const p=budP(curM,a),rr=r.A[a]||0;return p>0&&rr>p;}).length;
-  const monthTag=curM!=='ALL'?` <span style="opacity:.85;font-weight:700;font-size:11px">(${MN[curM.slice(5)].toUpperCase()}/${curM.slice(0,4)})</span>`:'';
+  const monthTag=curM!=='ALL'?` <span style="opacity:1;font-weight:800;font-size:13px;color:var(--tx)">(${MN[curM.slice(5)].toUpperCase()}/${curM.slice(0,4)})</span>`:'';
   document.getElementById('kpis').innerHTML=`
    <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas orçadas${curM==='ALL'?' (período do extrato)':''}</div><div class="v">${fmt(despP)}${monthTag}</div></div>
    <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas realizadas</div><div class="v">${fmt(despR)}${monthTag}</div><div class="d">${pct}% do orçado</div></div>
@@ -5212,20 +5212,15 @@ function bankList(){const list=BANK_ACCOUNTS.map(b=>({k:b.k,n:b.n}));Object.keys
 let curBank='BRADESCO';
 function renderBankConsolidado(){
   const box=document.getElementById('bank-consolidado'); if(!box)return;
-  const isAll=curM==='ALL';
   const rows=bankList().map(b=>{
-    const proofAll=bankProofRows(b.k);
-    // A seleção de mês lá em cima (Temporada/jan24/.../fev26) vale para todo
-    // o resto do painel — a visão consolidada estava sempre somando a
-    // temporada inteira, mesmo com um mês específico selecionado.
-    const proof=isAll?proofAll:proofAll.filter(r=>r.m===curM);
+    const proof=bankProofRows(b.k);
     const totEnt=proof.reduce((s,r)=>s+r.entradas,0), totSai=proof.reduce((s,r)=>s+r.saidas,0);
     const divergentes=proof.filter(r=>!r.ok).length;
     return {n:b.n,k:b.k,meses:proof.length,entradas:totEnt,saidas:totSai,divergentes};
   });
   const totEnt=rows.reduce((s,r)=>s+r.entradas,0), totSai=rows.reduce((s,r)=>s+r.saidas,0), totDiv=rows.reduce((s,r)=>s+r.divergentes,0);
-  box.innerHTML=`<table><thead><tr><th>Banco</th><th class="num">${isAll?'Meses com saldo':'Saldo neste mês'}</th><th class="num">Entradas</th><th class="num">Saídas</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.n)}</td><td class="num">${isAll?r.meses:(r.meses?'sim':'—')}</td><td class="num" style="color:var(--ok)">${fmt(r.entradas)}</td><td class="num" style="color:var(--er)">${fmt(r.saidas)}</td><td>${!r.meses?'<span class="chip gy">sem saldo cadastrado</span>':r.divergentes?'<span class="chip er">'+r.divergentes+(isAll?' mês(es) divergente(s)':' divergente')+'</span>':'<span class="chip ok">confere</span>'}</td><td><button class="act" type="button" onclick="curBank='${r.k}';document.getElementById('bank-tabs')?.scrollIntoView({behavior:'smooth'});renderBankTabs();renderBank();">Ver conta →</button></td></tr>`).join('')}</tbody></table>
-  <div class="foot" style="margin-top:8px">${isAll?'Temporada (extrato)':mlabel(curM)}: entradas ${fmt(totEnt)} · saídas ${fmt(totSai)} · ${totDiv} ${isAll?'mês(es) divergente(s) no total':'conta(s) divergente(s) neste mês'}.</div>`;
+  box.innerHTML=`<table><thead><tr><th>Banco</th><th class="num">Meses com saldo</th><th class="num">Entradas</th><th class="num">Saídas</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.n)}</td><td class="num">${r.meses}</td><td class="num" style="color:var(--ok)">${fmt(r.entradas)}</td><td class="num" style="color:var(--er)">${fmt(r.saidas)}</td><td>${!r.meses?'<span class="chip gy">sem saldo cadastrado</span>':r.divergentes?'<span class="chip er">'+r.divergentes+' mês(es) divergente(s)</span>':'<span class="chip ok">confere</span>'}</td><td><button class="act" type="button" onclick="curBank='${r.k}';document.getElementById('bank-tabs')?.scrollIntoView({behavior:'smooth'});renderBankTabs();renderBank();">Ver conta →</button></td></tr>`).join('')}</tbody></table>
+  <div class="foot" style="margin-top:8px">Total das 6 contas: entradas ${fmt(totEnt)} · saídas ${fmt(totSai)} · ${totDiv} mês(es) divergente(s) no total.</div>`;
 }
 function renderBankTabs(){
   const box=document.getElementById('bank-tabs');if(!box)return;
