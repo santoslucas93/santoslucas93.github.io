@@ -1789,7 +1789,8 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
         <input type="text" id="structure-new-name" placeholder="ex.: Consultoria de TI">
       </label>
       <label>ID no padrão da planilha (opcional — em branco usa o próximo disponível)
-        <input type="text" id="structure-new-id" placeholder="ex.: 5.60">
+        <input type="text" id="structure-new-id" placeholder="ex.: 1.02.9">
+        <span class="how" id="structure-new-id-hint"></span>
       </label>
     </div>
     <div class="toolbar">
@@ -3533,14 +3534,35 @@ function applyCustomPlan(){
   });
 }
 const AREA_ID_PREFIX={LNB:'1',COM:'2',MKT:'3',TOP:'4','A&F':'5',EQP:'8',REC:'9'};
+// Departamentos remodelados em jul/2026 para o padrão de 3 níveis dept.grupo.linha (ex.: 1.02.7).
+// REC e EQP permanecem no padrão antigo de 2 níveis (ex.: 9.60).
+const AREA_GROUPED_IDS=new Set(['LNB','COM','MKT','TOP','A&F']);
 function compareBudgetIds(a,b){
   const pa=String(a||'').split('.').map(Number),pb=String(b||'').split('.').map(Number);
-  return (pa[0]||0)-(pb[0]||0)||(pa[1]||0)-(pb[1]||0)||String(a).localeCompare(String(b));
+  const len=Math.max(pa.length,pb.length);
+  for(let i=0;i<len;i++){const d=(pa[i]||0)-(pb[i]||0);if(d)return d;}
+  return String(a).localeCompare(String(b));
 }
-function nextBudgetId(area){
-  const prefix=AREA_ID_PREFIX[String(area||'').trim().toUpperCase()];
+function nextBudgetId(area,group){
+  const areaU=String(area||'').trim().toUpperCase();
+  const prefix=AREA_ID_PREFIX[areaU];
   if(!prefix)return '';
   const all=[...DB.lines,...customPlan,...customLines||[]];
+  if(AREA_GROUPED_IDS.has(areaU)){
+    const groupNorm=norm(String(group||''));
+    const areaIds=all.filter(x=>x.area===areaU).map(x=>String(x.id||'')).filter(id=>/^\d+\.\d+\.\d+$/.test(id));
+    // acha o número do grupo já usado por linhas com esse mesmo nome de grupo
+    const sameGroup=all.filter(x=>x.area===areaU&&norm(String(x.g||''))===groupNorm&&/^\d+\.\d+\.\d+$/.test(String(x.id||'')));
+    if(groupNorm&&sameGroup.length){
+      const groupNum=String(sameGroup[0].id).split('.')[1];
+      const items=sameGroup.map(x=>Number(String(x.id).split('.')[2])).filter(Number.isFinite);
+      return prefix+'.'+groupNum+'.'+((items.length?Math.max(...items):0)+1);
+    }
+    // grupo novo (ou em branco): usa o próximo número de grupo disponível, linha 1
+    const groupNums=areaIds.map(id=>Number(id.split('.')[1])).filter(Number.isFinite);
+    const nextGroupNum=(groupNums.length?Math.max(...groupNums):0)+1;
+    return prefix+'.'+String(nextGroupNum).padStart(2,'0')+'.1';
+  }
   const nums=all.map(x=>String(x.id||'')).filter(id=>id.startsWith(prefix+'.')).map(id=>Number(id.split('.')[1])).filter(Number.isFinite);
   return prefix+'.'+((nums.length?Math.max(...nums):0)+1);
 }
@@ -3576,7 +3598,7 @@ function applyLineOverlay(){
   if(deactivatedIds.size) DB.lines=DB.lines.filter(l=>!deactivatedIds.has(String(l.id)));
 }
 applyLineOverlay();
-function nextLineId(area){return nextBudgetId(area);}
+function nextLineId(area,g){return nextBudgetId(area,g);}
 function lineHasLinkedRealizado(id){
   const key=String(id);
   return Object.values(decisions||{}).some(sp=>Array.isArray(sp)&&sp.some(s=>String(s.l)===key));
@@ -3604,8 +3626,13 @@ function createStructureLine(area,g,n,idRaw){
   area=String(area||'').trim().toUpperCase();g=String(g||'').trim();n=String(n||'').trim();
   if(!area||!g||!n)return{ok:false,msg:'Preencha departamento, grupo e nome da linha.'};
   if((window.ALL_STRUCTURE_LINES||DB.lines).some(l=>!isTotalizerLine(l)&&l.area===area&&norm(l.g)===norm(g)&&norm(l.n)===norm(n)))return{ok:false,msg:'Já existe uma linha com esse nome neste grupo/departamento — edite a existente em vez de criar uma duplicada.'};
-  const idKey=String(idRaw||nextLineId(area)).trim();
-  if(!/^\d+\.\d+$/.test(idKey))return{ok:false,msg:'ID inválido — use o padrão da planilha, por exemplo 2.88 ou 5.60.'};
+  const idKey=String(idRaw||nextLineId(area,g)).trim();
+  const idPattern=AREA_GROUPED_IDS.has(area)?/^\d+\.\d+\.\d+$/:/^\d+\.\d+$/;
+  if(!idPattern.test(idKey)){
+    const example=AREA_GROUPED_IDS.has(area)?nextBudgetId(area,g)||'1.02.9':(nextBudgetId(area)||'9.60');
+    const formatMsg=AREA_GROUPED_IDS.has(area)?'departamento.grupo.linha (ex.: '+example+')':'departamento.linha (ex.: '+example+')';
+    return{ok:false,msg:'ID inválido — use o padrão da planilha para este departamento: '+formatMsg+'.'};
+  }
   if(DB.lines.some(l=>String(l.id)===idKey)||customPlan.some(l=>String(l.id)===idKey)||customLines.some(l=>String(l.id)===idKey))return{ok:false,msg:'Esse ID já está em uso — escolha outro.'};
   if(deletedLineIds.map(String).includes(idKey)){
     deletedLineIds=deletedLineIds.filter(x=>String(x)!==idKey);
@@ -5112,7 +5139,7 @@ let planListDeptFilter='';
 let planListGroupFilter='';
 let planListActiveFilter='ativas';
 let planListValueFilter='todos';
-let planListSort='valor';
+let planListSort='planilha';
 function lineIsDeactivated(l){return !!(lineOverrides[String(l.id)]&&lineOverrides[String(l.id)].status==='desativada');}
 function planApplyListFilters(lines){
   let out=lines.slice();
@@ -5122,7 +5149,11 @@ function planApplyListFilters(lines){
   else if(planListActiveFilter==='desativadas') out=out.filter(l=>lineIsDeactivated(l));
   if(planListValueFilter==='com') out=out.filter(l=>Object.values(l.prev||{}).some(v=>Number(v)));
   else if(planListValueFilter==='zero') out=out.filter(l=>!Object.values(l.prev||{}).some(v=>Number(v)));
-  out=out.slice().sort((a,b)=> planListSort==='nome' ? String(a.n||'').localeCompare(String(b.n||'')) : (linePrev(b,'ALL')-linePrev(a,'ALL')));
+  out=out.slice().sort((a,b)=>{
+    if(planListSort==='nome')return String(a.n||'').localeCompare(String(b.n||''));
+    if(planListSort==='valor')return linePrev(b,'ALL')-linePrev(a,'ALL');
+    return compareBudgetIds(a.id,b.id);
+  });
   return out;
 }
 function planFilterToolbarHTML(opts){
@@ -5146,6 +5177,7 @@ function planFilterToolbarHTML(opts){
       <option value="zero" ${planListValueFilter==='zero'?'selected':''}>Zerado / sem orçado</option>
     </select>
     <select id="plan-filter-sort">
+      <option value="planilha" ${planListSort==='planilha'?'selected':''}>Ordenar: ordem da planilha (ID)</option>
       <option value="valor" ${planListSort==='valor'?'selected':''}>Ordenar: maior valor</option>
       <option value="nome" ${planListSort==='nome'?'selected':''}>Ordenar: nome</option>
     </select>
@@ -5221,18 +5253,19 @@ function planRowsTableHTML(rows){
 function planSummaryRowsTableHTML(lines){
   if(!lines.length)return '<div class="desc">Nenhuma linha com orçado nesta área.</div>';
   const ro=isReadOnlyUser();
-  return `<table class="plan-rows-table plan-rows-table-bulk"><colgroup><col class="c-chk"><col class="c-g"><col class="c-n"><col class="c-t"><col class="c-a"></colgroup><thead><tr><th>${ro?'':'<input type="checkbox" title="Selecionar todas as linhas visíveis" onchange="toggleBulkSelectAllVisible(this)">'}</th><th>Grupo</th><th>Linha</th><th class="num">Total</th><th></th></tr></thead><tbody>${lines.map(l=>{
+  return `<table class="plan-rows-table plan-rows-table-bulk"><colgroup><col class="c-chk"><col class="c-id"><col class="c-g"><col class="c-n"><col class="c-t"><col class="c-a"></colgroup><thead><tr><th>${ro?'':'<input type="checkbox" title="Selecionar todas as linhas visíveis" onchange="toggleBulkSelectAllVisible(this)">'}</th><th>ID</th><th>Grupo</th><th>Linha</th><th class="num">Total</th><th></th></tr></thead><tbody>${lines.map(l=>{
     const t=linePrev(l,'ALL');
     const rk=quickEditRowKey(l);
     const isCustom=!!l._custom;
     const bk=bulkKey(isCustom?'custom':'base',String(l.id));
+    const idCell=`<span class="chip gy" title="ID da planilha, use para apontar lançamentos direto para esta linha">${esc(String(l.id))}</span>`;
     if(ro){
-      return `<tr><td></td><td>${esc(l.g)}</td><td>${esc(l.n)}${l.cod?'<div class="how">cód. '+esc(l.cod)+'</div>':''}</td><td class="num">${fmt(t)}</td><td></td></tr>`;
+      return `<tr><td></td><td>${idCell}</td><td>${esc(l.g)}</td><td>${esc(l.n)}${l.cod?'<div class="how">cód. '+esc(l.cod)+'</div>':''}</td><td class="num">${fmt(t)}</td><td></td></tr>`;
     }
     const removeBtn=isCustom?`<button class="act" onclick="removePlanLine('${esc(String(l.id))}')">remover</button>`:`<button class="act" onclick="removeAnyPlanLine('${esc(String(l.id))}')">remover</button>`;
     const editBtn=`<button class="act" type="button" onclick="toggleQuickEditRow('${rk}')" title="Editar esta linha direto na tabela, sem abrir o formulário completo">editar</button>`;
     const chk=`<input type="checkbox" class="bulk-chk" data-kind="${isCustom?'custom':'base'}" data-id="${esc(String(l.id))}" onchange="toggleBulkSelectLine(this)" ${bulkSelectedLines.has(bk)?'checked':''}>`;
-    return `<tr><td>${chk}</td><td>${esc(l.g)}</td><td>${esc(l.n)}${l.cod?'<div class="how">cód. '+esc(l.cod)+'</div>':''}</td><td class="num">${fmt(t)}</td><td style="white-space:nowrap">${editBtn} ${removeBtn}</td></tr>`
+    return `<tr><td>${chk}</td><td>${idCell}</td><td>${esc(l.g)}</td><td>${esc(l.n)}${l.cod?'<div class="how">cód. '+esc(l.cod)+'</div>':''}</td><td class="num">${fmt(t)}</td><td style="white-space:nowrap">${editBtn} ${removeBtn}</td></tr>`
       +quickEditRowHTML(l,rk);
   }).join('')}</tbody></table>`;
 }
@@ -5496,8 +5529,11 @@ async function quickSaveLineValues(rk,kind,id){
 }
 function planListSearchAndGroupHTML(lines, idPrefix){
   if(!lines.length)return '<div class="desc">Nenhuma linha com orçado nesta área.</div>';
-  const byGroup={};lines.forEach(l=>{(byGroup[l.g]=byGroup[l.g]||[]).push(l);});
-  const groupKeys=Object.keys(byGroup).sort();
+  // Preserva a ordem de chegada (já filtrada/ordenada por planApplyListFilters — inclui a
+  // opção "ordem da planilha") tanto para os grupos quanto para as linhas dentro de cada grupo,
+  // em vez de forçar ordem alfabética.
+  const byGroup={};const groupKeys=[];
+  lines.forEach(l=>{if(!byGroup[l.g]){byGroup[l.g]=[];groupKeys.push(l.g);}byGroup[l.g].push(l);});
   return `<div class="toolbar" style="margin-bottom:10px">
     <input type="search" id="${idPrefix}-search" placeholder="Buscar linha ou grupo..." style="flex:1;min-width:160px">
     <button class="act" type="button" onclick="document.querySelectorAll('#${idPrefix}-groups details').forEach(d=>d.open=true)">Expandir tudo</button>
@@ -5505,7 +5541,7 @@ function planListSearchAndGroupHTML(lines, idPrefix){
   </div>
   ${planBulkToolbarHTML()}
   <div id="${idPrefix}-groups">${groupKeys.map(g=>{
-    const rows=byGroup[g].sort((a,b)=>a.n.localeCompare(b.n));
+    const rows=byGroup[g];
     const tot=rows.reduce((s,l)=>s+linePrev(l,'ALL'),0);
     return `<details class="plan-group" open data-search="${esc(norm(g))}"><summary><b>${esc(g)}</b> <span class="how">${rows.length} linha(s) · ${fmt(tot)}</span></summary>${planSummaryRowsTableHTML(rows)}</details>`;
   }).join('')}</div>`;
@@ -7250,8 +7286,24 @@ function renderStructureEditor(){
  const roots=['REC','LNB','TOP','COM','A&F','MKT','EQP'];
  document.getElementById('structure-preview').innerHTML=`<div class="structure-tree">${roots.map(a=>{const nested=SUPS.filter(x=>supportParent(x.k)===a).map(x=>`<span class="chip">${esc(supportLabel(x.k))}</span>`).join('');return `<div class="structure-node"><b>${esc(areaLabel(a))}</b>${nested||'<span class="desc">Grupos e linhas do orçamento</span>'}</div>`;}).join('')}<div class="structure-node"><b>Competições</b>${SUPS.filter(x=>supportParent(x.k)==='COMP').map(x=>`<span class="chip">${esc(supportLabel(x.k))}</span>`).join('')}</div></div>`;
  const newAreaEl=document.getElementById('structure-new-area');
- if(newAreaEl&&!newAreaEl.dataset.ready){newAreaEl.dataset.ready='1';newAreaEl.innerHTML=roots.map(a=>`<option value="${esc(a)}">${esc(areaLabel(a))}</option>`).join('');}
+ if(newAreaEl&&!newAreaEl.dataset.ready){
+   newAreaEl.dataset.ready='1';
+   newAreaEl.innerHTML=roots.map(a=>`<option value="${esc(a)}">${esc(areaLabel(a))}</option>`).join('');
+   newAreaEl.onchange=updateStructureNewIdPlaceholder;
+   const groupEl=document.getElementById('structure-new-group');
+   if(groupEl)groupEl.oninput=updateStructureNewIdPlaceholder;
+   updateStructureNewIdPlaceholder();
+ }
  renderTrashList();
+}
+function updateStructureNewIdPlaceholder(){
+ const areaEl=document.getElementById('structure-new-area'),groupEl=document.getElementById('structure-new-group'),idEl=document.getElementById('structure-new-id'),hintEl=document.getElementById('structure-new-id-hint');
+ if(!areaEl||!idEl)return;
+ const area=areaEl.value,g=groupEl?groupEl.value:'';
+ const grouped=AREA_GROUPED_IDS.has(area);
+ const example=grouped?(nextBudgetId(area,g)||'1.02.9'):(nextBudgetId(area)||'9.60');
+ idEl.placeholder='ex.: '+example;
+ if(hintEl)hintEl.textContent=grouped?'Formato deste departamento: departamento.grupo.linha (ex.: '+example+').':'Formato deste departamento: departamento.linha (ex.: '+example+').';
 }
 function renderTrashList(){
   const el=document.getElementById('trash-list');if(!el)return;
