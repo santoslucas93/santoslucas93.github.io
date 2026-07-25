@@ -2719,11 +2719,13 @@ async function lnbApagarRecentes(){
       await supaSoftDelete('orcado','created_at=gte.'+encodeURIComponent(cutoff),deletedAt);
     }
     if(chkB)await supaDelete('bank_saldos','updated_at=gte.'+encodeURIComponent(cutoff));
-    // Mesmo achado de sempre: apagar no Supabase não basta — limpa também o
-    // cache local deste navegador antes de recarregar, senão o que acabou
-    // de ser apagado continua aparecendo na tela.
-    imported=[];
-    store.setItem('lnb3_imported','[]');
+    // Achado real: esta linha limpava o cache local de importação de
+    // extrato (lnb3_imported) SEMPRE, mesmo quando o usuário só tinha
+    // marcado "Realizado" ou "Orçado" — apagando na tela lançamentos de
+    // banco que nem foram tocados no Supabase. Agora só limpa esse cache
+    // quando "Saldo bancário (extrato)" está marcado, que é o único caso
+    // em que esses dados são realmente afetados por esta ação.
+    if(chkB){ imported=[]; store.setItem('lnb3_imported','[]'); }
     lnbLogActivity('apagar_recentes', partes.join(', ')+' — últimos '+min+' min (desde '+new Date(cutoff).toLocaleString('pt-BR')+')');
     if(status)status.textContent=partes.join(', ')+' dos últimos '+min+' minuto(s) enviado(s) para a Lixeira. Recarregando a página...';
     await new Promise(r=>setTimeout(r,1000));
@@ -7476,10 +7478,16 @@ async function endSeasonAndReset(){
   }
 })();
 async function pushBankSaldosToSupabase(bank,saldosByMonth){
+  // Achado real: esta função engolia qualquer erro do Supabase (RLS,
+  // coluna errada, etc.) só com console.error — a tela e o log de
+  // atividades continuavam dizendo "salvo na base central" mesmo quando
+  // o upsert falhava de verdade e a tabela bank_saldos ficava vazia.
+  // Agora o erro é devolvido pra quem chamou poder avisar o usuário.
   try{
     const rows=Object.keys(saldosByMonth).map(m=>({bank,mes:m,saldo_ini:saldosByMonth[m].ini,saldo_fim:saldosByMonth[m].fim,updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',updated_at:new Date().toISOString()}));
     if(rows.length)await supaUpsert('bank_saldos',rows,'bank,mes');
-  }catch(e){ console.error('pushBankSaldosToSupabase falhou:',e); }
+    return {ok:true};
+  }catch(e){ console.error('pushBankSaldosToSupabase falhou:',e); return {ok:false,error:e.message}; }
 }
 document.getElementById('imp').addEventListener('change',async ev=>{
   const f=ev.target.files[0];if(!f)return;
@@ -7547,11 +7555,13 @@ document.getElementById('imp').addEventListener('change',async ev=>{
         DB.saldosBanks[bank]=DB.saldosBanks[bank]||{label:bankLabel(bank),saldos:{}};
         Object.keys(saldosCapturados).forEach(m=>{DB.saldosBanks[bank].saldos[m]=Object.assign({},DB.saldosBanks[bank].saldos[m],saldosCapturados[m]);});
       }
-      await pushBankSaldosToSupabase(bank,saldosCapturados);
+      var saldoPush=await pushBankSaldosToSupabase(bank,saldosCapturados);
     }
-    if(added||duplicated||Object.keys(saldosCapturados).length)lnbLogActivity('importar_extrato_banco', bankLabel(bank)+' — '+added+' novo(s), '+duplicated+' duplicado(s), '+Object.keys(saldosCapturados).length+' mês(es) de saldo');
-    msg.textContent=(added||duplicated||Object.keys(saldosCapturados).length)?added+' lançamento(s) novo(s) importado(s) para '+bankLabel(bank)+'. '+(duplicated?duplicated+' já existiam (mesma data/favorecido/valor) e foram ignorados, evitando duplicidade. ':'')+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto, no padrão da estrutura atual (ex.: 1.02.7 para departamentos com grupo, ou 9.1 para Receitas/Equipes). ':'')+(Object.keys(saldosCapturados).length?(Object.keys(saldosCapturados).length+' mês(es) com saldo inicial/final lido do extrato e salvo na base central. '):'')+'Recarregando…':'Nenhum mês novo encontrado.';
-    if(added||duplicated||Object.keys(saldosCapturados).length)setTimeout(()=>location.reload(),900);
+    var saldoOk=!saldoPush||saldoPush.ok;
+    var saldoErrTxt=(saldoPush&&!saldoPush.ok)?saldoPush.error:'';
+    if(added||duplicated||Object.keys(saldosCapturados).length)lnbLogActivity('importar_extrato_banco', bankLabel(bank)+' — '+added+' novo(s), '+duplicated+' duplicado(s), '+Object.keys(saldosCapturados).length+' mês(es) de saldo'+(saldoOk?'':' — FALHA AO SALVAR SALDO: '+saldoErrTxt));
+    msg.textContent=(added||duplicated||Object.keys(saldosCapturados).length)?added+' lançamento(s) novo(s) importado(s) para '+bankLabel(bank)+'. '+(duplicated?duplicated+' já existiam (mesma data/favorecido/valor) e foram ignorados, evitando duplicidade. ':'')+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto, no padrão da estrutura atual (ex.: 1.02.7 para departamentos com grupo, ou 9.1 para Receitas/Equipes). ':'')+(Object.keys(saldosCapturados).length?(saldoOk?(Object.keys(saldosCapturados).length+' mês(es) com saldo inicial/final lido do extrato e salvo na base central. '):('ATENÇÃO: '+Object.keys(saldosCapturados).length+' mês(es) de saldo foram lidos do extrato mas FALHARAM ao salvar na base central — erro: '+saldoErrTxt+'. ')):'')+(saldoOk?'Recarregando…':'Não recarregando para você poder ver este erro.'):'Nenhum mês novo encontrado.';
+    if((added||duplicated||Object.keys(saldosCapturados).length)&&saldoOk)setTimeout(()=>location.reload(),900);
   }catch(err){msg.textContent='Falha ao ler o arquivo: '+err.message;}
 });
 document.getElementById('dl-lines').innerHTML=splitPool().map(l=>`<option value="#${l.id} ${esc(l.area)} · ${esc(l.g)} · ${esc(l.n.slice(0,45))}"></option>`).join('');
