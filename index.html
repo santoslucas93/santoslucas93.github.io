@@ -4589,13 +4589,15 @@ function renderHome(){
   const recR=(r.A['REC']||0)+(r.A['OREC']||0);
   let pend=0;txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;const c=classify(t);if(isAttention(t,c))pend++;});
   const pct=despP?Math.round(despR/despP*100):0;
+  const deptOverCount=DESP.filter(a=>{const p=budP(curM,a),rr=r.A[a]||0;return p>0&&rr>p;}).length;
   const monthTag=curM!=='ALL'?` <span style="opacity:.55;font-weight:400;font-size:11px">(${MN[curM.slice(5)].toUpperCase()}/${curM.slice(0,4)})</span>`:'';
   document.getElementById('kpis').innerHTML=`
    <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas orçadas${curM==='ALL'?' (período do extrato)':''}</div><div class="v">${fmt(despP)}${monthTag}</div></div>
    <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas realizadas</div><div class="v">${fmt(despR)}${monthTag}</div><div class="d">${pct}% do orçado</div></div>
    <div class="kpi click" onclick="goRec('rec-lines')" title="Ver composição das receitas"><div class="l">Receitas realizadas</div><div class="v" style="color:var(--ok)">${fmt(recR)}${monthTag}</div><div class="d">orçado ${fmt(recP)}</div></div>
    <div class="kpi click" onclick="scrollToId('home-weekly')" title="Ver fluxo bancário semanal sem transferências internas"><div class="l">Fluxo bancário líquido</div><div class="v">${fmt(weeklyRows(curM).reduce((s,x)=>s+x.e-x.s,0))}${monthTag}</div><div class="d">entradas − saídas, sem transferências internas</div></div>
-   <div class="kpi click" onclick="goConcFilter('pend','')" title="Ver lançamentos pendentes na Conciliação"><div class="l">Lançamentos que pedem atenção</div><div class="v" style="color:${pend?'var(--wn)':'var(--ok)'}">${pend}</div><div class="d">${pend?'ver Conciliação':'tudo revisado ou sugerido'}</div></div>`;
+   <div class="kpi click" onclick="goConcFilter('pend','')" title="Ver lançamentos pendentes na Conciliação"><div class="l">Lançamentos que pedem atenção</div><div class="v" style="color:${pend?'var(--wn)':'var(--ok)'}">${pend}</div><div class="d">${pend?'ver Conciliação':'tudo revisado ou sugerido'}</div></div>
+   <div class="kpi click" onclick="scrollToId('g-desvios')" title="Ver detalhamento por linha abaixo"><div class="l">Departamentos acima do orçado</div><div class="v" style="color:${deptOverCount?'var(--er)':'var(--ok)'}">${deptOverCount}</div><div class="d">${deptOverCount?'ver detalhe abaixo':'nenhum estourado'}${monthTag}</div></div>`;
   const maxA=Math.max(...DESP.map(a=>Math.max(budP(curM,a),r.A[a]||0)),1);
   document.getElementById('g-areas').innerHTML=DESP.map(a=>{
     const p=budP(curM,a),rr=r.A[a]||0,ov=p>0&&rr>p;
