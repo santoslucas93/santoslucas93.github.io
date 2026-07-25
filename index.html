@@ -2359,6 +2359,33 @@ function supaHeaders(){
   const token = (AUTH_SESSION && AUTH_SESSION.access_token) ? AUTH_SESSION.access_token : SUPABASE_KEY;
   return {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json'};
 }
+// Achado real: o token de acesso do Supabase vale ~1 hora e só era renovado
+// no carregamento da página. Quem deixava o painel aberto por mais tempo
+// começava a levar 401 "JWT expired" em qualquer gravação (apagar, importar,
+// salvar saldo), sem nenhuma pista do que fazer além de recarregar no braço.
+// Agora toda chamada passa por aqui: renova o token antes de expirar e, se
+// mesmo assim vier 401, renova e tenta de novo uma vez.
+async function supaFetch(url, opts, jaTentou){
+  opts=opts||{};
+  // Renovação preventiva: se falta menos de 1 minuto, renova antes de tentar.
+  if(AUTH_SESSION && AUTH_SESSION.refresh_token && AUTH_SESSION.expires_at && Date.now() >= (AUTH_SESSION.expires_at - 60000)){
+    await lnbRefreshSession();
+  }
+  const headersExtra=opts.headersExtra||null;
+  const montaHeaders=()=>headersExtra?Object.assign({},supaHeaders(),headersExtra):supaHeaders();
+  const req=Object.assign({},opts,{headers:montaHeaders()});
+  delete req.headersExtra;
+  const res=await fetch(url, req);
+  if(res.status===401 && !jaTentou){
+    const corpo=await res.clone().text().catch(()=>'');
+    if(/JWT|expired|invalid/i.test(corpo)||corpo===''){
+      const ok=await lnbRefreshSession();
+      if(ok) return await supaFetch(url, opts, true);
+      throw new Error('Sua sessão expirou. Clique em "Sair" no canto inferior esquerdo e entre de novo para continuar.');
+    }
+  }
+  return res;
+}
 
 // Tabelas com "lixeira": exclusão vira soft-delete (deleted_at preenchido)
 // em vez de apagar de vez, e toda leitura normal já ignora automaticamente
@@ -2367,7 +2394,7 @@ function supaHeaders(){
 const SOFT_DELETE_TABLES=['realizado','orcado'];
 async function supaSelect(table){
   const filtro=SOFT_DELETE_TABLES.includes(table)?'&deleted_at=is.null':'';
-  const res=await fetch(SUPABASE_URL+'/rest/v1/'+table+'?select=*'+filtro, {headers: supaHeaders()});
+  const res=await supaFetch(SUPABASE_URL+'/rest/v1/'+table+'?select=*'+filtro, {});
   if(!res.ok) throw new Error('Supabase select '+table+' falhou: '+res.status);
   return await res.json();
 }
@@ -2375,21 +2402,21 @@ async function supaSelect(table){
 // soft-deletado — por isso não aplica o filtro deleted_at=is.null.
 async function supaSelectIncludeDeleted(table, filterQuery){
   const url=SUPABASE_URL+'/rest/v1/'+table+'?select=*'+(filterQuery?('&'+filterQuery):'');
-  const res=await fetch(url, {headers: supaHeaders()});
+  const res=await supaFetch(url, {});
   if(!res.ok) throw new Error('Supabase select '+table+' falhou: '+res.status);
   return await res.json();
 }
 async function supaSoftDelete(table, filterQuery, deletedAtISO){
   if(isReadOnlyUser()) return {ok:false};
   const url=SUPABASE_URL+'/rest/v1/'+table+'?'+filterQuery;
-  const res=await fetch(url, {method:'PATCH', headers: Object.assign({},supaHeaders(),{'Prefer':'return=minimal'}), body: JSON.stringify({deleted_at:deletedAtISO,deleted_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido'})});
+  const res=await supaFetch(url, {method:'PATCH', headersExtra:{'Prefer':'return=minimal'}, body: JSON.stringify({deleted_at:deletedAtISO,deleted_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido'})});
   if(!res.ok){ const t=await res.text(); throw new Error('Supabase soft-delete '+table+' falhou: '+res.status+' '+t); }
   return {ok:true};
 }
 async function supaRestore(table, filterQuery){
   if(isReadOnlyUser()) return {ok:false};
   const url=SUPABASE_URL+'/rest/v1/'+table+'?'+filterQuery;
-  const res=await fetch(url, {method:'PATCH', headers: Object.assign({},supaHeaders(),{'Prefer':'return=minimal'}), body: JSON.stringify({deleted_at:null,deleted_by:null})});
+  const res=await supaFetch(url, {method:'PATCH', headersExtra:{'Prefer':'return=minimal'}, body: JSON.stringify({deleted_at:null,deleted_by:null})});
   if(!res.ok){ const t=await res.text(); throw new Error('Supabase restore '+table+' falhou: '+res.status+' '+t); }
   return {ok:true};
 }
@@ -2401,18 +2428,16 @@ async function supaInsertIgnoreDup(table, rows, onConflict){
   // NOTHING — sem 'on_conflict' na URL, uma linha já existente (mesmo
   // id_linha+data) derrubava a inserção inteira com erro 409 (unique
   // constraint), mesmo a intenção sendo justamente ignorar duplicatas.
-  const headers=Object.assign({}, supaHeaders(), {'Prefer':'resolution=ignore-duplicates,return=minimal'});
   const url=SUPABASE_URL+'/rest/v1/'+table+(onConflict?('?on_conflict='+onConflict):'');
-  const res=await fetch(url, {method:'POST', headers: headers, body: JSON.stringify(rows)});
+  const res=await supaFetch(url, {method:'POST', headersExtra:{'Prefer':'resolution=ignore-duplicates,return=minimal'}, body: JSON.stringify(rows)});
   if(!res.ok){ const t=await res.text(); throw new Error('Supabase insert '+table+' falhou: '+res.status+' '+t); }
   return {inserted: rows.length};
 }
 async function supaUpsert(table, rows, onConflict){
   if(isReadOnlyUser()) return {upserted:0};
   if(!rows.length) return {upserted:0};
-  const headers=Object.assign({}, supaHeaders(), {'Prefer':'resolution=merge-duplicates,return=minimal'});
   const url=SUPABASE_URL+'/rest/v1/'+table+(onConflict?('?on_conflict='+onConflict):'');
-  const res=await fetch(url, {method:'POST', headers: headers, body: JSON.stringify(rows)});
+  const res=await supaFetch(url, {method:'POST', headersExtra:{'Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify(rows)});
   if(!res.ok){ const t=await res.text(); throw new Error('Supabase upsert '+table+' falhou: '+res.status+' '+t); }
   return {upserted: rows.length};
 }
@@ -2420,14 +2445,14 @@ async function supaUpsert(table, rows, onConflict){
 async function supaDelete(table, filterQuery){
   if(isReadOnlyUser()) return {ok:false};
   const url=SUPABASE_URL+'/rest/v1/'+table+'?'+filterQuery;
-  const res=await fetch(url, {method:'DELETE', headers: supaHeaders()});
+  const res=await supaFetch(url, {method:'DELETE'});
   if(!res.ok){ const t=await res.text(); throw new Error('Supabase delete '+table+' falhou: '+res.status+' '+t); }
   return {ok:true};
 }
 async function supaSelectFiltered(table, filterQuery){
   const softFiltro=SOFT_DELETE_TABLES.includes(table)?'&deleted_at=is.null':'';
   const url=SUPABASE_URL+'/rest/v1/'+table+'?select=*'+(filterQuery?('&'+filterQuery):'')+softFiltro;
-  const res=await fetch(url, {headers: supaHeaders()});
+  const res=await supaFetch(url, {});
   if(!res.ok) throw new Error('Supabase select '+table+' falhou: '+res.status);
   return await res.json();
 }
@@ -2941,9 +2966,9 @@ async function lnbFetchIdLinha(grupo, linha){
     params.set('grupo','eq.'+grupo);
     params.set('linha_orcamento','eq.'+linha);
     params.set('limit','1');
-    let res=await fetch(SUPABASE_URL+'/rest/v1/orcado?'+params.toString(), {headers: supaHeaders()});
+    let res=await supaFetch(SUPABASE_URL+'/rest/v1/orcado?'+params.toString(), {});
     if(res.ok){ const j=await res.json(); if(j && j[0] && j[0].id_linha) return j[0].id_linha; }
-    res=await fetch(SUPABASE_URL+'/rest/v1/realizado?'+params.toString(), {headers: supaHeaders()});
+    res=await supaFetch(SUPABASE_URL+'/rest/v1/realizado?'+params.toString(), {});
     if(res.ok){ const j=await res.json(); if(j && j[0] && j[0].id_linha) return j[0].id_linha; }
   }catch(e){ console.error('lnbFetchIdLinha falhou:', e); }
   return null;
@@ -2996,7 +3021,7 @@ async function lnbGetLineIndex(force){
 async function lnbLogActivity(action, details){
   try{
     const row={actor:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido',action,details:typeof details==='string'?details:JSON.stringify(details||{})};
-    await fetch(SUPABASE_URL+'/rest/v1/activity_log',{method:'POST',headers:Object.assign({},supaHeaders(),{'Prefer':'return=minimal'}),body:JSON.stringify([row])});
+    await supaFetch(SUPABASE_URL+'/rest/v1/activity_log',{method:'POST',headersExtra:{'Prefer':'return=minimal'},body:JSON.stringify([row])});
   }catch(e){ console.error('lnbLogActivity falhou (ignorado):',e); }
 }
 async function lnbLoadActivityLog(){
@@ -7606,7 +7631,7 @@ async function endSeasonAndReset(){
     const snapshot={app:'Orçado x Realizado LNB — arquivo de temporada encerrada',temporada,archivedAt:new Date().toISOString(),realizado:realizadoRows||[],orcado:orcadoRows||[],estadoCompartilhado};
     downloadText(`LNB_arquivo_temporada_${temporada.replace('/','-')}_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(snapshot,null,2),'application/json');
     await new Promise(r=>setTimeout(r,300));
-    const res=await fetch(SUPABASE_URL+'/rest/v1/season_archives',{method:'POST',headers:Object.assign({},supaHeaders(),{'Prefer':'return=minimal'}),body:JSON.stringify([{temporada,snapshot,archived_by:(AUTH_SESSION&&AUTH_SESSION.role)||'admin'}])});
+    const res=await supaFetch(SUPABASE_URL+'/rest/v1/season_archives',{method:'POST',headersExtra:{'Prefer':'return=minimal'},body:JSON.stringify([{temporada,snapshot,archived_by:(AUTH_SESSION&&AUTH_SESSION.role)||'admin'}])});
     if(!res.ok){ const t=await res.text(); throw new Error('Falha ao gravar o arquivo da temporada no Supabase: '+res.status+' '+t); }
     // decisões de classificação são por lançamento: como os lançamentos desta
     // temporada estão sendo apagados, as decisões deles também são removidas
