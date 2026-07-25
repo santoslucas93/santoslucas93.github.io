@@ -6678,13 +6678,22 @@ async function importNewSeasonRealizado(file, raw){
       await ensureXLSX();
       wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
       const sn=wb.SheetNames.find(n=>norm(n)==='lancamentos'||norm(n)==='lançamentos')||wb.SheetNames[0];
-      raw=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:''});
+      // Bug real corrigido: o modelo baixado (downloadNewSeasonTemplate) tem
+      // um título/subtítulo nas linhas 1-2 antes do cabeçalho de verdade
+      // (linha 4) — sheet_to_json sem 'header:1' assumia a linha 1 como
+      // cabeçalho e nunca reconhecia as colunas Data/Favorecido/etc,
+      // fazendo a importação do próprio modelo oficial falhar sempre.
+      const arr2d=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''});
+      let headerRowIdx=arr2d.findIndex(r=>{const rn=r.map(c=>norm(String(c||'')));return rn.includes(norm('Data'))&&rn.includes(norm('Favorecido'));});
+      if(headerRowIdx===-1)headerRowIdx=0;
+      const headers2=arr2d[headerRowIdx].map(h=>String(h||'').trim());
+      raw=arr2d.slice(headerRowIdx+1).map(row=>{const o={};headers2.forEach((h,idx)=>{if(h)o[h]=row[idx]!=null?row[idx]:'';});return o;});
     }
     if(!raw.length){if(msg&&!live)msg.textContent='Nenhuma linha encontrada na aba "Lançamentos".';return emptyStats;}
     const headerKeys=Object.keys(raw[0]);
     const findKey=(...cands)=>headerKeys.find(h=>cands.some(c=>norm(h)===norm(c)));
     const kData=findKey('Data'),kFav=findKey('Favorecido'),kDesc=findKey('Descrição','Descricao'),kDoc=findKey('Documento'),
-      kEnt=findKey('Entrada'),kSai=findKey('Saída','Saida'),kID=findKey('ID','ID chave','Id'),kTipo=findKey('TIPO (1-8)','TIPO','Tipo'),
+      kEnt=findKey('Entrada'),kSai=findKey('Saída','Saida'),kID=findKey('ID (chave do lançamento)','ID (chave do lancamento)','ID','ID chave','Id'),kTipo=findKey('TIPO (1-8)','TIPO','Tipo'),
       kComp=findKey('Competição','Competicao'),
       kAbat=findKey('Abatimento (Sim/Não)','Abatimento'),kTipoReemb=findKey('Tipo de reembolso (opcional)','Tipo de reembolso');
     if(!kData||!kFav||(!kEnt&&!kSai)){if(msg&&!live)msg.textContent='Planilha fora do modelo: verifique as colunas Data, Favorecido e Entrada/Saída.';return emptyStats;}
@@ -6809,7 +6818,14 @@ async function importNewBudgetSpreadsheet(file, raw){
       await ensureXLSX();
       const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
       const sn=wb.SheetNames.find(n=>norm(n)==='orcado'||norm(n)==='orçado')||wb.SheetNames[0];
-      raw=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:''});
+      // Mesmo bug real do importador de Realizado: o modelo (downloadNewBudgetTemplate)
+      // tem título/subtítulo antes do cabeçalho de verdade (linha 4) — sem 'header:1'
+      // a primeira linha (título) virava o cabeçalho e nenhuma coluna era reconhecida.
+      const arr2d=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''});
+      let headerRowIdx=arr2d.findIndex(r=>{const rn=r.map(c=>norm(String(c||'')));return rn.includes(norm('Departamento'))&&rn.includes(norm('Linha do orçamento'));});
+      if(headerRowIdx===-1)headerRowIdx=0;
+      const headers2=arr2d[headerRowIdx].map(h=>String(h||'').trim());
+      raw=arr2d.slice(headerRowIdx+1).map(row=>{const o={};headers2.forEach((h,idx)=>{if(h)o[h]=row[idx]!=null?row[idx]:'';});return o;});
     }
     if(!raw.length){if(msg&&!live)msg.textContent='Nenhuma linha encontrada na planilha.';return emptyStats;}
     const headerKeys=Object.keys(raw[0]);
@@ -7540,7 +7556,14 @@ async function importRealizadoClassification(file){
     const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
     const sn=wb.SheetNames.find(n=>norm(n)==='classificacao'||norm(n)==='classificação')||wb.SheetNames.find(n=>!['capa','referência','referencia','transferências (fora)','transferencias (fora)'].includes(norm(n)))||wb.SheetNames[0];
     const ws=wb.Sheets[sn];
-    const raw=XLSX.utils.sheet_to_json(ws,{defval:''});
+    // Mesmo bug real dos outros importadores: título/subtítulo antes do
+    // cabeçalho de verdade (linha 4) fazia sheet_to_json (sem 'header:1')
+    // usar a linha do título como cabeçalho e não reconhecer nenhuma coluna.
+    const arr2d4=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    let headerRowIdx4=arr2d4.findIndex(r=>{const rn=r.map(c=>norm(String(c||'')));return rn.includes(norm('Favorecido'))&&rn.includes(norm('Departamento'));});
+    if(headerRowIdx4===-1)headerRowIdx4=0;
+    const headers4=arr2d4[headerRowIdx4].map(h=>String(h||'').trim());
+    const raw=arr2d4.slice(headerRowIdx4+1).map(row=>{const o={};headers4.forEach((h,idx)=>{if(h)o[h]=row[idx]!=null?row[idx]:'';});return o;});
     if(!raw.length){if(msg)msg.textContent='Nenhuma linha encontrada na aba de classificação.';return;}
     const headerKeys=Object.keys(raw[0]);
     const findKey=(...cands)=>headerKeys.find(h=>cands.some(c=>norm(h)===norm(c)));
