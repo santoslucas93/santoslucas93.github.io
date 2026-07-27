@@ -4417,7 +4417,17 @@ function isAttention(t,c){
   if(c.st==='conf')return false;
   return c.how==='tipo'||c.how==='tipo7-af-revisar'||c.how==='patrocinio-generico'||(c.splits||[]).some(s=>(s.g==null||(s.l==null&&areaHasLines(s.a)))&&!['TRF','OREC','EQP','ENC'].includes(s.a));
 }
+// Cache de realized()/budP() por render: sem isso, uma unica tela chega a
+// rodar classify() sobre TODOS os lancamentos mais de 10x (uma vez por KPI,
+// grafico e mes exibido), o que deixa o sistema visivelmente mais lento
+// conforme a base de lancamentos cresce. O cache e limpo no inicio de
+// render(), entao nunca fica desatualizado dentro de uma mesma renderizacao,
+// e qualquer acao do usuario que muda dados chama render() de novo depois.
+let __realizedCache = new Map();
+let __budPCache = new Map();
+function __clearPerfCaches(){ __realizedCache = new Map(); __budPCache = new Map(); }
 function realized(m){
+  if(__realizedCache.has(m))return __realizedCache.get(m);
   const A={},G={},L={},E={};
   txs.forEach(t=>{
     if(m!=='ALL'&&t.m!==m)return;
@@ -4430,7 +4440,9 @@ function realized(m){
       if(t.ev)E[t.ev]=(E[t.ev]||0)+s.v;
     });
   });
-  return {A,G,L,E};
+  const result={A,G,L,E};
+  __realizedCache.set(m,result);
+  return result;
 }
 function areaOfTx(t){const c=classify(t);if(!c.splits)return[];return [...new Set(c.splits.map(s=>s.a))];}
 function recebTrf(m){let s=0;txs.forEach(t=>{if(m!=='ALL'&&t.m!==m)return;if(t.e>0){const c=classify(t);(c.splits||[]).forEach(x=>{if(x.a==='TRF')s+=x.v;});}});return s;}
@@ -4452,9 +4464,12 @@ function budP(m,a){
   // do painel. Antes esta função só somava linhas _custom (Novo Orçado) e
   // ignorava todas as linhas de orçado já existentes (ex.: patrocinadores
   // já cadastrados), fazendo o card da área mostrar só uma fração do real.
+  const cacheKey=m+'|'+a;
+  if(__budPCache.has(cacheKey))return __budPCache.get(cacheKey);
   const base=mm=>DB.lines.filter(l=>l.area===a&&!isTotalizerLine(l)).reduce((s,l)=>s+((l.prev||{})[mm]||0),0);
-  if(m!=='ALL')return base(m);
-  return allBudgetMonths().reduce((s,mm)=>s+base(mm),0);
+  const result=(m!=='ALL')?base(m):allBudgetMonths().reduce((s,mm)=>s+base(mm),0);
+  __budPCache.set(cacheKey,result);
+  return result;
 }
 function linePrev(l,m){if(m!=='ALL')return l.prev[m]||0;return allBudgetMonths().reduce((s,mm)=>s+(l.prev[mm]||0),0);}
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
@@ -4577,6 +4592,7 @@ function groupsHTML(a,r,showZero=false){
   return inner||'<div class="desc">Sem movimentação.</div>';
 }
 function render(){
+  __clearPerfCaches();
   renderMtabs();renderSubnav();
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===curV && (!b.dataset.area||b.dataset.area===curDept) && (!b.dataset.sup||b.dataset.sup===curSup)));
   ['home','rec','club','dept','sup','conc','bank','audit','rules','guia','dash','plan','exp','real','ia','trash'].forEach(v=>document.getElementById('v-'+v).classList.toggle('hide',v!==curV));
