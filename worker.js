@@ -10,6 +10,10 @@ export default {
       return handleGemini(request, env);
     }
 
+    if (url.pathname === '/api/config' && request.method === 'GET') {
+      return handleConfig(env);
+    }
+
     return env.ASSETS.fetch(request);
   }
 };
@@ -62,6 +66,22 @@ async function handleGemini(request, env) {
   return new Response(text, {
     status: upstream.status,
     headers: { 'Content-Type': 'application/json; charset=utf-8' }
+  });
+}
+
+// Expoe os IDs de planilhas/URL do Supabase configurados como vars do Worker
+// (Settings > Variables and Secrets), em vez de deixa-los fixos no index.html.
+// Fica so aqui, nao e segredo (a chave do Supabase ja e a publica/anon), mas assim
+// da pra trocar de ambiente (teste/producao) sem editar o HTML.
+function handleConfig(env) {
+  const cfg = {
+    GSHEET_REALIZADO_ID: env.GSHEET_REALIZADO_ID || null,
+    GSHEET_ORCADO_ID: env.GSHEET_ORCADO_ID || null,
+    SUPABASE_URL: env.SUPABASE_URL || null,
+    SUPABASE_KEY: env.SUPABASE_KEY || null
+  };
+  return new Response(JSON.stringify(cfg), {
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }
   });
 }
 

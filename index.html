@@ -2178,10 +2178,21 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 <script>
 const DB = JSON.parse(document.getElementById('db').textContent);
 DB.lines.forEach(l=>{l._base=1;});
-const GSHEET_REALIZADO_ID='1sY4QvX6enN2Jx6hmVFxuutFvtOyoZc3lQ99mtdh0_WI';
-const GSHEET_ORCADO_ID='1-4A3QK58fNpT2HiJr30RsQtNNq_sJo2lBG7GCffL8VY';
-const SUPABASE_URL='https://iiheewndotcwqntppjrw.supabase.co';
-const SUPABASE_KEY='sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz';
+// Busca os IDs de planilhas e a URL/chave do Supabase do endpoint /api/config do
+// Worker (que le das vars configuradas em Settings > Variables and Secrets no
+// Cloudflare), em vez de deixar fixo aqui. Se a chamada falhar por qualquer
+// motivo, cai nos mesmos valores de sempre para o painel continuar funcionando.
+let __lnbCfg = null;
+try {
+  const __xhr = new XMLHttpRequest();
+  __xhr.open('GET', '/api/config', false);
+  __xhr.send(null);
+  if (__xhr.status === 200) __lnbCfg = JSON.parse(__xhr.responseText);
+} catch (e) { console.error('Falha ao carregar /api/config, usando valores padrao:', e); }
+const GSHEET_REALIZADO_ID = (__lnbCfg && __lnbCfg.GSHEET_REALIZADO_ID) || '1sY4QvX6enN2Jx6hmVFxuutFvtOyoZc3lQ99mtdh0_WI';
+const GSHEET_ORCADO_ID = (__lnbCfg && __lnbCfg.GSHEET_ORCADO_ID) || '1-4A3QK58fNpT2HiJr30RsQtNNq_sJo2lBG7GCffL8VY';
+const SUPABASE_URL = (__lnbCfg && __lnbCfg.SUPABASE_URL) || 'https://iiheewndotcwqntppjrw.supabase.co';
+const SUPABASE_KEY = (__lnbCfg && __lnbCfg.SUPABASE_KEY) || 'sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz';
 
 const AUTH_ADMIN_EMAIL='admin@painel-lnb.local';
 const AUTH_READONLY_EMAIL='leitura@painel-lnb.local';
