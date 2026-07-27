@@ -3539,8 +3539,13 @@ async function loadLiveGoogleSheets(){
     if(oRes.status==='fulfilled'&&Array.isArray(oRes.value)){
       try{
         const rawRows=orcadoRowsToWide(oRes.value);
-        const stats=rawRows.length?await importNewBudgetSpreadsheet(null, rawRows):{created:0,updated:0};
-        if(stats&&!stats.error){ orcadoOk=true; if((stats.created+stats.updated)>0)changed=true; }
+        // Achado real: antes, com rawRows vazio (ex.: depois de apagar todo o
+        // Orçado), a função nem era chamada — pulava direto pra um stats fixo
+        // {created:0,updated:0} e nunca rodava a limpeza (agora dentro de
+        // importNewBudgetSpreadsheet) que zera valores congelados de linhas
+        // que só existiam por causa dessa mesma sincronização.
+        const stats=await importNewBudgetSpreadsheet(null, rawRows);
+        if(stats&&!stats.error){ orcadoOk=true; if((stats.created+stats.updated+(stats.pruned||0))>0)changed=true; }
       }catch(e){ console.error('loadLiveGoogleSheets: falha ao processar Orçado', e); }
     }else{
       console.error('loadLiveGoogleSheets: falha ao buscar Orçado', oRes.reason);
@@ -7686,7 +7691,28 @@ async function importNewBudgetSpreadsheet(file, raw){
       const headers2=arr2d[headerRowIdx].map(h=>String(h||'').trim());
       raw=arr2d.slice(headerRowIdx+1).map(row=>{const o={};headers2.forEach((h,idx)=>{if(h)o[h]=row[idx]!=null?row[idx]:'';});return o;});
     }
-    if(!raw.length){if(msg&&!live)msg.textContent='Nenhuma linha encontrada na planilha.';return emptyStats;}
+    if(!raw.length){
+      if(msg&&!live)msg.textContent='Nenhuma linha encontrada na planilha.';
+      // Achado real: quando a sincronização ao vivo (Supabase 'orcado' -> DB.lines,
+      // chamada a cada carregamento) volta com ZERO linhas — por exemplo, depois de
+      // apagar todo o Orçado de uma temporada em "Gestão de temporadas" — esta função
+      // sempre voltava aqui e nunca chegava na limpeza de budgetLines/DB.lines lá
+      // embaixo. Resultado: valores de linhas de orçamento (principalmente Receitas,
+      // que não têm outra fonte de dados) ficavam "congelados" para sempre com o
+      // último valor visto — seja do cache local (budgetLines) ou do próprio
+      // catálogo estático embutido no arquivo (DB.lines com _base=1). Como o
+      // Supabase é a fonte de verdade, uma sincronização ao vivo vazia tem que
+      // zerar tudo que só existe por causa dela.
+      if(live){
+        let pruned=0;
+        DB.lines.forEach(l=>{
+          if((l._base||l._orphanImport)&&Object.keys(l.prev||{}).some(m=>Number(l.prev[m])!==0)){ l.prev={}; pruned++; }
+        });
+        if(budgetLines.length){ budgetLines=[]; save('budgetlines',budgetLines); }
+        if(pruned)return {...emptyStats,pruned};
+      }
+      return emptyStats;
+    }
     const headerKeys=Object.keys(raw[0]);
     const findKey=(...cands)=>headerKeys.find(h=>cands.some(c=>norm(h)===norm(c)));
     const kID=findKey('ID'),kArea=findKey('Departamento'),kGrupo=findKey('Grupo'),kLinha=findKey('Linha do orçamento','Linha');
