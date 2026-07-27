@@ -1900,11 +1900,10 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       </div>
       <div id="tp-status" class="foot" style="margin:0">Escolha uma temporada acima.</div>
       <div style="display:flex;gap:16px;flex-wrap:wrap">
-        <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="tp-chk-realizado"> Apagar Realizado desta temporada</label>
         <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="tp-chk-orcado"> Apagar Orçado desta temporada</label>
       </div>
       <div class="toolbar" style="margin:0">
-        <button class="act" type="button" id="btn-tp-apagar" style="border-color:var(--er);color:var(--er)">🗑️ Apagar o que estiver marcado acima</button>
+        <button class="act" type="button" id="btn-tp-apagar" style="border-color:var(--er);color:var(--er)">🗑️ Apagar Orçado desta temporada</button>
       </div>
       <div style="border-top:1px dashed var(--bd);padding-top:12px;display:flex;flex-direction:column;gap:10px">
         <div>
@@ -2054,6 +2053,21 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <h2>Realizado por banco (temporada atual)</h2>
     <div id="real-por-banco"></div>
   </div>
+  <div class="panel admin-only" id="real-season-manage-panel" style="margin:14px 0">
+    <h2>Gestão de temporada — Realizado</h2>
+    <div class="note" style="margin:0">Escolha a temporada e apague o Realizado dela (isso não mexe no Orçado, nem apaga a temporada — para isso use Novo Orçado). Nada é apagado sem você confirmar digitando o nome da temporada.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Temporada
+        <select id="tpr-select" style="min-width:170px"></select>
+      </label>
+      <button class="act" type="button" id="btn-tpr-refresh">🔄 Ver situação desta temporada</button>
+    </div>
+    <div id="tpr-status" class="foot" style="margin:8px 0 0">Escolha uma temporada acima.</div>
+    <div class="toolbar" style="margin-top:10px">
+      <button class="act" type="button" id="btn-tpr-apagar" style="border-color:var(--er);color:var(--er)">🗑️ Apagar Realizado desta temporada</button>
+    </div>
+    <div id="tpr-msg" class="foot" style="margin-top:6px"></div>
+  </div>
   <div class="panel admin-only" id="new-season-panel" style="margin:14px 0">
     <h2>Realizado da nova temporada (2026/2027) — com classificação embutida <span class="how">reduz a conciliação desde a entrada</span></h2>
     <div class="note">Os dados são carregados automaticamente do banco de dados sempre que a página é aberta. Você também pode atualizar manualmente a qualquer momento.</div>
@@ -2121,7 +2135,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   </div>
   <div class="panel">
     <h2>Realizado e Orçado apagados</h2>
-    <div class="note">Apagados via "Gestão de temporadas" (Novo Orçado): temporada inteira, últimos N minutos, ou encerramento de temporada. Agrupado por quando foi apagado.</div>
+    <div class="note">Apagados via "Gestão de temporadas" (Novo Orçado/Orçado), "Gestão de temporada — Realizado" (aba Realizado), últimos N minutos, ou encerramento de temporada. Agrupado por quando foi apagado.</div>
     <div class="toolbar">
       <button class="act" type="button" id="btn-rdo-trash-refresh">🔄 Ver lixeira</button>
     </div>
@@ -2632,10 +2646,17 @@ async function loadSharedStateFromSupabase(){
         else if(r.key==='season'&&r.value)store.setItem('lnb3_plan_season',String(r.value));
       });
     }
-    // Saldo inicial/final mensal de cada conta bancária: antes só existia em
-    // DB.saldos/DB.saldosBanks embutido no arquivo estático (nunca foi
-    // preenchido de fato) — agora vem da base central, igual a tudo mais.
-    if(Array.isArray(bankSaldoRows)&&bankSaldoRows.length){
+    // Saldo inicial/final mensal de cada conta bancária: a tabela bank_saldos
+    // no Supabase é a fonte de verdade (igual a tudo mais). O JSON estático
+    // embutido no arquivo (DB.saldos/DB.saldosBanks) é só um fallback antigo
+    // que nunca foi de fato preenchido — por isso, sempre que a busca no
+    // Supabase funcionar (mesmo vindo vazia, ex.: depois de apagar a
+    // temporada), zeramos DB.saldos/DB.saldosBanks antes de repopular, senão
+    // saldo antigo "congelado" no HTML fica aparecendo pra sempre mesmo
+    // depois de apagado no banco.
+    if(Array.isArray(bankSaldoRows)){
+      DB.saldos={};
+      DB.saldosBanks={};
       bankSaldoRows.forEach(r=>{
         const bank=r.bank||'BRADESCO';
         const entry={ini:r.saldo_ini==null?null:Number(r.saldo_ini),fim:r.saldo_fim==null?null:Number(r.saldo_fim),entExtrato:r.ent_extrato==null?null:Number(r.ent_extrato),saiExtrato:r.sai_extrato==null?null:Number(r.sai_extrato)};
@@ -2682,66 +2703,97 @@ async function lnbRefreshTemporadaCounts(){
     status.textContent='Não consegui verificar: '+e.message;
   }
 }
+async function lnbRefreshTemporadaCountsRealizado(){
+  const sel=document.getElementById('tpr-select');
+  const status=document.getElementById('tpr-status');
+  if(!sel || !status) return;
+  const t=sel.value;
+  if(!t){ status.textContent='Escolha uma temporada acima.'; return; }
+  status.textContent='Verificando '+t+'...';
+  try{
+    const real=await supaSelectFiltered('realizado', 'temporada=eq.'+encodeURIComponent(t)+'&select=id');
+    status.textContent='Temporada '+t+': '+real.length+' lançamento(s) de Realizado salvos no sistema.';
+  }catch(e){
+    status.textContent='Não consegui verificar: '+e.message;
+  }
+}
 async function lnbApagarTemporadaSelecionada(){
   const sel=document.getElementById('tp-select');
   const msg=document.getElementById('temporada-msg');
   const t=sel?sel.value:'';
-  const chkR=document.getElementById('tp-chk-realizado')?.checked;
   const chkO=document.getElementById('tp-chk-orcado')?.checked;
   if(!t){ if(msg) msg.textContent='Escolha uma temporada.'; return; }
-  if(!chkR && !chkO){ if(msg) msg.textContent='Marque Realizado e/ou Orçado antes de apagar.'; return; }
-  const partes=[]; if(chkR) partes.push('Realizado'); if(chkO) partes.push('Orçado');
-  const confirmRaw=prompt('Isso vai ENVIAR PARA A LIXEIRA '+partes.join(' e ')+' da temporada '+t+(chkR?' (incluindo os saldos bancários dos meses do Realizado apagado, já que vêm da mesma importação de planilha)':'')+' (para todo mundo) e também do rascunho salvo neste navegador. Fica guardado na Lixeira para restaurar depois, se precisar. Um backup também é baixado antes. Confirme o nome da temporada (já preenchido, só clique OK ou ajuste se quiser cancelar):', t);
+  if(!chkO){ if(msg) msg.textContent='Marque a opção acima antes de apagar.'; return; }
+  const confirmRaw=prompt('Isso vai ENVIAR PARA A LIXEIRA o Orçado da temporada '+t+' (para todo mundo) e também do rascunho salvo neste navegador. Fica guardado na Lixeira para restaurar depois, se precisar. Um backup também é baixado antes. Confirme o nome da temporada (já preenchido, só clique OK ou ajuste se quiser cancelar):', t);
   if(confirmRaw===null){ if(msg) msg.textContent='Cancelado. Nada foi apagado.'; return; }
   const confirmText=confirmRaw.trim().replace(/\s+/g,'');
   const tNorm=t.trim().replace(/\s+/g,'');
   if(confirmText!==tNorm){ if(msg) msg.textContent='O texto digitado ("'+confirmRaw+'") não confere com a temporada "'+t+'". Nada foi apagado.'; return; }
-  if(msg) msg.textContent='Apagando '+partes.join(' e ')+' de '+t+'...';
+  if(msg) msg.textContent='Apagando Orçado de '+t+'...';
   try{
-    await lnbAutoSnapshot('antes de apagar '+partes.join(' e ')+' da temporada '+t);
+    await lnbAutoSnapshot('antes de apagar Orçado da temporada '+t);
     const deletedAt=new Date().toISOString();
-    if(chkR){
-      // O saldo bancário de cada mês vem da mesma importação de planilha que
-      // gera o Realizado (achado real, confirmado pelo usuário) — então, ao
-      // apagar o Realizado de uma temporada, os saldos dos meses dela ficavam
-      // órfãos: a tela de Conciliação Bancária continuava mostrando saldo
-      // inicial/final antigos mesmo com 0 lançamentos, gerando divergência.
-      // Descobre os meses da temporada ANTES de apagar o realizado, pra poder
-      // limpar os saldos bancários correspondentes (tabela bank_saldos não
-      // tem coluna de temporada, só mes).
-      const realizadoRowsParaMeses=await supaSelectFiltered('realizado','temporada=eq.'+encodeURIComponent(t)+'&select=mes');
-      const mesesRealizado=[...new Set((realizadoRowsParaMeses||[]).map(r=>r.mes).filter(Boolean))];
-      await supaSoftDelete('realizado', 'temporada=eq.'+encodeURIComponent(t), deletedAt);
-      // Achado real: apagar no Supabase não bastava — o cache local do
-      // navegador ('imported', localStorage) nunca era limpo aqui, então
-      // os mesmos lançamentos continuavam aparecendo mesmo depois de
-      // apagados no banco. Limpa e deixa recarregar do zero a partir do
-      // Supabase (agora sem esses lançamentos).
-      imported=[];
-      store.setItem('lnb3_imported','[]');
-      if(mesesRealizado.length){
-        try{
-          await supaDelete('bank_saldos','mes=in.('+mesesRealizado.map(m=>'"'+m+'"').join(',')+')');
-        }catch(eSaldo){ console.error('Falha ao limpar bank_saldos da temporada apagada:', eSaldo); }
-        mesesRealizado.forEach(m=>{
-          delete DB.saldos[m];
-          Object.keys(DB.saldosBanks||{}).forEach(bk=>{ if(DB.saldosBanks[bk]&&DB.saldosBanks[bk].saldos) delete DB.saldosBanks[bk].saldos[m]; });
-        });
-      }
+    await supaSoftDelete('orcado', 'temporada=eq.'+encodeURIComponent(t), deletedAt);
+    if(typeof customPlan!=='undefined'){
+      customPlan=customPlan.filter(function(x){ return x.temporada!==t; });
+      if(typeof saveCustomPlan==='function') saveCustomPlan();
     }
-    if(chkO){
-      await supaSoftDelete('orcado', 'temporada=eq.'+encodeURIComponent(t), deletedAt);
-      if(typeof customPlan!=='undefined'){
-        customPlan=customPlan.filter(function(x){ return x.temporada!==t; });
-        if(typeof saveCustomPlan==='function') saveCustomPlan();
-      }
-    }
-    lnbLogActivity('apagar_temporada', partes.join(' e ')+' — temporada '+t);
-    if(msg) msg.textContent=partes.join(' e ')+' da temporada '+t+' enviado(s) para a Lixeira. Recarregando a página...';
+    lnbLogActivity('apagar_temporada', 'Orçado — temporada '+t);
+    if(msg) msg.textContent='Orçado da temporada '+t+' enviado para a Lixeira. Recarregando a página...';
     await new Promise(function(r){ setTimeout(r,1200); });
     location.reload();
   }catch(e){
     console.error('lnbApagarTemporadaSelecionada falhou:', e);
+    if(msg) msg.textContent='Falha ao apagar: '+e.message+' (confirme que rodou o supabase-rls-admin-update.sql no Supabase)';
+  }
+}
+async function lnbApagarRealizadoTemporadaSelecionada(){
+  const sel=document.getElementById('tpr-select');
+  const msg=document.getElementById('tpr-msg');
+  const t=sel?sel.value:'';
+  if(!t){ if(msg) msg.textContent='Escolha uma temporada.'; return; }
+  const confirmRaw=prompt('Isso vai ENVIAR PARA A LIXEIRA o Realizado da temporada '+t+' (incluindo os saldos bancários dos meses dele, já que vêm da mesma importação de planilha) (para todo mundo) e também do rascunho salvo neste navegador. Fica guardado na Lixeira para restaurar depois, se precisar. Um backup também é baixado antes. Confirme o nome da temporada (já preenchido, só clique OK ou ajuste se quiser cancelar):', t);
+  if(confirmRaw===null){ if(msg) msg.textContent='Cancelado. Nada foi apagado.'; return; }
+  const confirmText=confirmRaw.trim().replace(/\s+/g,'');
+  const tNorm=t.trim().replace(/\s+/g,'');
+  if(confirmText!==tNorm){ if(msg) msg.textContent='O texto digitado ("'+confirmRaw+'") não confere com a temporada "'+t+'". Nada foi apagado.'; return; }
+  if(msg) msg.textContent='Apagando Realizado de '+t+'...';
+  try{
+    await lnbAutoSnapshot('antes de apagar Realizado da temporada '+t);
+    const deletedAt=new Date().toISOString();
+    // O saldo bancário de cada mês vem da mesma importação de planilha que
+    // gera o Realizado (achado real, confirmado pelo usuário) — então, ao
+    // apagar o Realizado de uma temporada, os saldos dos meses dela ficavam
+    // órfãos: a tela de Conciliação Bancária continuava mostrando saldo
+    // inicial/final antigos mesmo com 0 lançamentos, gerando divergência.
+    // Descobre os meses da temporada ANTES de apagar o realizado, pra poder
+    // limpar os saldos bancários correspondentes (tabela bank_saldos não
+    // tem coluna de temporada, só mes).
+    const realizadoRowsParaMeses=await supaSelectFiltered('realizado','temporada=eq.'+encodeURIComponent(t)+'&select=mes');
+    const mesesRealizado=[...new Set((realizadoRowsParaMeses||[]).map(r=>r.mes).filter(Boolean))];
+    await supaSoftDelete('realizado', 'temporada=eq.'+encodeURIComponent(t), deletedAt);
+    // Achado real: apagar no Supabase não bastava — o cache local do
+    // navegador ('imported', localStorage) nunca era limpo aqui, então
+    // os mesmos lançamentos continuavam aparecendo mesmo depois de
+    // apagados no banco. Limpa e deixa recarregar do zero a partir do
+    // Supabase (agora sem esses lançamentos).
+    imported=[];
+    store.setItem('lnb3_imported','[]');
+    if(mesesRealizado.length){
+      try{
+        await supaDelete('bank_saldos','mes=in.('+mesesRealizado.map(m=>'"'+m+'"').join(',')+')');
+      }catch(eSaldo){ console.error('Falha ao limpar bank_saldos da temporada apagada:', eSaldo); }
+      mesesRealizado.forEach(m=>{
+        delete DB.saldos[m];
+        Object.keys(DB.saldosBanks||{}).forEach(bk=>{ if(DB.saldosBanks[bk]&&DB.saldosBanks[bk].saldos) delete DB.saldosBanks[bk].saldos[m]; });
+      });
+    }
+    lnbLogActivity('apagar_temporada', 'Realizado — temporada '+t);
+    if(msg) msg.textContent='Realizado da temporada '+t+' enviado para a Lixeira. Recarregando a página...';
+    await new Promise(function(r){ setTimeout(r,1200); });
+    location.reload();
+  }catch(e){
+    console.error('lnbApagarRealizadoTemporadaSelecionada falhou:', e);
     if(msg) msg.textContent='Falha ao apagar: '+e.message+' (confirme que rodou o supabase-rls-admin-update.sql no Supabase)';
   }
 }
@@ -2900,6 +2952,7 @@ async function lnbIniciarNovaTemporada(){
 async function lnbInitTemporadaManager(force){
   const sel=document.getElementById('tp-select');
   const selOrigem=document.getElementById('tp-origem-select');
+  const selR=document.getElementById('tpr-select');
   if(!sel || !selOrigem) return;
   if(sel.options.length && !force) return;
   const temporadas=await lnbListTemporadas();
@@ -2907,12 +2960,17 @@ async function lnbInitTemporadaManager(force){
   const opts=temporadas.length?temporadas.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join(''):'<option value="">(nenhuma temporada encontrada)</option>';
   sel.innerHTML=opts;
   selOrigem.innerHTML=opts;
-  if(temporadas.includes(cur)){ sel.value=cur; selOrigem.value=cur; }
+  if(selR) selR.innerHTML=opts;
+  if(temporadas.includes(cur)){ sel.value=cur; selOrigem.value=cur; if(selR) selR.value=cur; }
   await lnbRefreshTemporadaCounts();
+  if(selR) await lnbRefreshTemporadaCountsRealizado();
   sel.onchange=lnbRefreshTemporadaCounts;
+  if(selR) selR.onchange=lnbRefreshTemporadaCountsRealizado;
   const br=document.getElementById('btn-tp-refresh'); if(br) br.onclick=lnbRefreshTemporadaCounts;
   const ba=document.getElementById('btn-tp-apagar'); if(ba) ba.onclick=lnbApagarTemporadaSelecionada;
   const bi=document.getElementById('btn-tp-iniciar'); if(bi) bi.onclick=lnbIniciarNovaTemporada;
+  const brR=document.getElementById('btn-tpr-refresh'); if(brR) brR.onclick=lnbRefreshTemporadaCountsRealizado;
+  const baR=document.getElementById('btn-tpr-apagar'); if(baR) baR.onclick=lnbApagarRealizadoTemporadaSelecionada;
 }
 async function lnbBuildDailyBackupSnapshot(){
   const temporada=lnbCurrentTemporada();
