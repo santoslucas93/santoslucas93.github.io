@@ -1899,8 +1899,12 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
         <button class="act" type="button" id="btn-tp-refresh">🔄 Ver situação desta temporada</button>
       </div>
       <div id="tp-status" class="foot" style="margin:0">Escolha uma temporada acima.</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="tp-chk-despesas"> Apagar Orçado de despesas desta temporada</label>
+        <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="tp-chk-receitas"> Apagar Orçado de receitas desta temporada</label>
+      </div>
       <div class="toolbar" style="margin:0">
-        <button class="act" type="button" id="btn-tp-apagar" style="border-color:var(--er);color:var(--er)">🗑️ Apagar Orçado desta temporada</button>
+        <button class="act" type="button" id="btn-tp-apagar" style="border-color:var(--er);color:var(--er)">🗑️ Apagar o que estiver marcado acima</button>
       </div>
       <div style="border-top:1px dashed var(--bd);padding-top:12px;display:flex;flex-direction:column;gap:10px">
         <div>
@@ -2599,7 +2603,15 @@ async function loadSharedStateFromSupabase(){
       supaSelect('structure_overrides'), supaSelect('custom_lines'), supaSelect('deleted_lines'),
       supaSelect('club_debits'), supaSelect('plan_meta'), supaSelect('bank_saldos')
     ]);
-    if(Array.isArray(planRows)&&planRows.length){
+    // custom_plan (Novo Orçado) é a fonte de verdade no Supabase, igual a
+    // tudo mais. Antes, só atualizávamos customPlan quando a busca vinha com
+    // linhas (planRows.length); se a temporada fosse totalmente apagada (0
+    // linhas), o código não fazia nada e customPlan continuava com o valor
+    // inicial da variável — que cai para PRECOMPUTED_NEXT_SEASON_PLAN (um
+    // seed congelado no próprio HTML) sempre que não há nada em cache local.
+    // Isso fazia linhas de Receitas "ressuscitarem" sozinhas depois de
+    // apagar o Orçado da temporada, mesmo com o Supabase corretamente vazio.
+    if(Array.isArray(planRows)){
       customPlan=planRows.map(planRowToCustomPlan);
       store.setItem('lnb3_custom_plan_v56',JSON.stringify(customPlan));
     }
@@ -2718,23 +2730,42 @@ async function lnbApagarTemporadaSelecionada(){
   const sel=document.getElementById('tp-select');
   const msg=document.getElementById('temporada-msg');
   const t=sel?sel.value:'';
+  const chkD=document.getElementById('tp-chk-despesas')?.checked;
+  const chkR=document.getElementById('tp-chk-receitas')?.checked;
   if(!t){ if(msg) msg.textContent='Escolha uma temporada.'; return; }
-  const confirmRaw=prompt('Isso vai ENVIAR PARA A LIXEIRA o Orçado da temporada '+t+' (para todo mundo) e também do rascunho salvo neste navegador. Fica guardado na Lixeira para restaurar depois, se precisar. Um backup também é baixado antes. Confirme o nome da temporada (já preenchido, só clique OK ou ajuste se quiser cancelar):', t);
+  if(!chkD && !chkR){ if(msg) msg.textContent='Marque Despesas e/ou Receitas antes de apagar.'; return; }
+  const partes=[]; if(chkD) partes.push('despesas'); if(chkR) partes.push('receitas');
+  const confirmRaw=prompt('Isso vai ENVIAR PARA A LIXEIRA o Orçado de '+partes.join(' e ')+' da temporada '+t+' (para todo mundo) e também do rascunho salvo neste navegador. Fica guardado na Lixeira para restaurar depois, se precisar. Um backup também é baixado antes. Confirme o nome da temporada (já preenchido, só clique OK ou ajuste se quiser cancelar):', t);
   if(confirmRaw===null){ if(msg) msg.textContent='Cancelado. Nada foi apagado.'; return; }
   const confirmText=confirmRaw.trim().replace(/\s+/g,'');
   const tNorm=t.trim().replace(/\s+/g,'');
   if(confirmText!==tNorm){ if(msg) msg.textContent='O texto digitado ("'+confirmRaw+'") não confere com a temporada "'+t+'". Nada foi apagado.'; return; }
-  if(msg) msg.textContent='Apagando Orçado de '+t+'...';
+  if(msg) msg.textContent='Apagando Orçado de '+partes.join(' e ')+' de '+t+'...';
   try{
-    await lnbAutoSnapshot('antes de apagar Orçado da temporada '+t);
+    await lnbAutoSnapshot('antes de apagar Orçado de '+partes.join(' e ')+' da temporada '+t);
     const deletedAt=new Date().toISOString();
-    await supaSoftDelete('orcado', 'temporada=eq.'+encodeURIComponent(t), deletedAt);
+    // Receitas ficam com departamento='Receitas' (área REC); despesas são
+    // todos os outros departamentos (Superintendência, Técnico Operacional,
+    // Comunicação, Marketing, Administrativo & Financeiro, Equipes etc.).
+    // Quando as duas caixas estão marcadas, apaga tudo (sem filtro de
+    // departamento) — igual ao comportamento anterior.
+    let filtro='temporada=eq.'+encodeURIComponent(t);
+    if(chkD && !chkR) filtro+='&departamento=neq.Receitas';
+    else if(chkR && !chkD) filtro+='&departamento=eq.Receitas';
+    await supaSoftDelete('orcado', filtro, deletedAt);
     if(typeof customPlan!=='undefined'){
-      customPlan=customPlan.filter(function(x){ return x.temporada!==t; });
+      customPlan=customPlan.filter(function(x){
+        if(x.temporada!==t) return true;
+        const isReceita=x.area==='REC';
+        if(chkD && chkR) return false;
+        if(chkD) return isReceita;
+        if(chkR) return !isReceita;
+        return true;
+      });
       if(typeof saveCustomPlan==='function') saveCustomPlan();
     }
-    lnbLogActivity('apagar_temporada', 'Orçado — temporada '+t);
-    if(msg) msg.textContent='Orçado da temporada '+t+' enviado para a Lixeira. Recarregando a página...';
+    lnbLogActivity('apagar_temporada', 'Orçado ('+partes.join(' e ')+') — temporada '+t);
+    if(msg) msg.textContent='Orçado de '+partes.join(' e ')+' da temporada '+t+' enviado para a Lixeira. Recarregando a página...';
     await new Promise(function(r){ setTimeout(r,1200); });
     location.reload();
   }catch(e){
