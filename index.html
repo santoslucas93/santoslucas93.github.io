@@ -1899,9 +1899,6 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
         <button class="act" type="button" id="btn-tp-refresh">🔄 Ver situação desta temporada</button>
       </div>
       <div id="tp-status" class="foot" style="margin:0">Escolha uma temporada acima.</div>
-      <div style="display:flex;gap:16px;flex-wrap:wrap">
-        <label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="tp-chk-orcado"> Apagar Orçado desta temporada</label>
-      </div>
       <div class="toolbar" style="margin:0">
         <button class="act" type="button" id="btn-tp-apagar" style="border-color:var(--er);color:var(--er)">🗑️ Apagar Orçado desta temporada</button>
       </div>
@@ -2721,9 +2718,7 @@ async function lnbApagarTemporadaSelecionada(){
   const sel=document.getElementById('tp-select');
   const msg=document.getElementById('temporada-msg');
   const t=sel?sel.value:'';
-  const chkO=document.getElementById('tp-chk-orcado')?.checked;
   if(!t){ if(msg) msg.textContent='Escolha uma temporada.'; return; }
-  if(!chkO){ if(msg) msg.textContent='Marque a opção acima antes de apagar.'; return; }
   const confirmRaw=prompt('Isso vai ENVIAR PARA A LIXEIRA o Orçado da temporada '+t+' (para todo mundo) e também do rascunho salvo neste navegador. Fica guardado na Lixeira para restaurar depois, se precisar. Um backup também é baixado antes. Confirme o nome da temporada (já preenchido, só clique OK ou ajuste se quiser cancelar):', t);
   if(confirmRaw===null){ if(msg) msg.textContent='Cancelado. Nada foi apagado.'; return; }
   const confirmText=confirmRaw.trim().replace(/\s+/g,'');
