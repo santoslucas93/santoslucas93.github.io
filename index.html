@@ -2691,7 +2691,7 @@ async function lnbApagarTemporadaSelecionada(){
   if(!t){ if(msg) msg.textContent='Escolha uma temporada.'; return; }
   if(!chkR && !chkO){ if(msg) msg.textContent='Marque Realizado e/ou Orçado antes de apagar.'; return; }
   const partes=[]; if(chkR) partes.push('Realizado'); if(chkO) partes.push('Orçado');
-  const confirmRaw=prompt('Isso vai ENVIAR PARA A LIXEIRA '+partes.join(' e ')+' da temporada '+t+' (para todo mundo) e também do rascunho salvo neste navegador. Fica guardado na Lixeira para restaurar depois, se precisar. Um backup também é baixado antes. Confirme o nome da temporada (já preenchido, só clique OK ou ajuste se quiser cancelar):', t);
+  const confirmRaw=prompt('Isso vai ENVIAR PARA A LIXEIRA '+partes.join(' e ')+' da temporada '+t+(chkR?' (incluindo os saldos bancários dos meses do Realizado apagado, já que vêm da mesma importação de planilha)':'')+' (para todo mundo) e também do rascunho salvo neste navegador. Fica guardado na Lixeira para restaurar depois, se precisar. Um backup também é baixado antes. Confirme o nome da temporada (já preenchido, só clique OK ou ajuste se quiser cancelar):', t);
   if(confirmRaw===null){ if(msg) msg.textContent='Cancelado. Nada foi apagado.'; return; }
   const confirmText=confirmRaw.trim().replace(/\s+/g,'');
   const tNorm=t.trim().replace(/\s+/g,'');
@@ -2701,6 +2701,16 @@ async function lnbApagarTemporadaSelecionada(){
     await lnbAutoSnapshot('antes de apagar '+partes.join(' e ')+' da temporada '+t);
     const deletedAt=new Date().toISOString();
     if(chkR){
+      // O saldo bancário de cada mês vem da mesma importação de planilha que
+      // gera o Realizado (achado real, confirmado pelo usuário) — então, ao
+      // apagar o Realizado de uma temporada, os saldos dos meses dela ficavam
+      // órfãos: a tela de Conciliação Bancária continuava mostrando saldo
+      // inicial/final antigos mesmo com 0 lançamentos, gerando divergência.
+      // Descobre os meses da temporada ANTES de apagar o realizado, pra poder
+      // limpar os saldos bancários correspondentes (tabela bank_saldos não
+      // tem coluna de temporada, só mes).
+      const realizadoRowsParaMeses=await supaSelectFiltered('realizado','temporada=eq.'+encodeURIComponent(t)+'&select=mes');
+      const mesesRealizado=[...new Set((realizadoRowsParaMeses||[]).map(r=>r.mes).filter(Boolean))];
       await supaSoftDelete('realizado', 'temporada=eq.'+encodeURIComponent(t), deletedAt);
       // Achado real: apagar no Supabase não bastava — o cache local do
       // navegador ('imported', localStorage) nunca era limpo aqui, então
@@ -2709,6 +2719,15 @@ async function lnbApagarTemporadaSelecionada(){
       // Supabase (agora sem esses lançamentos).
       imported=[];
       store.setItem('lnb3_imported','[]');
+      if(mesesRealizado.length){
+        try{
+          await supaDelete('bank_saldos','mes=in.('+mesesRealizado.map(m=>'"'+m+'"').join(',')+')');
+        }catch(eSaldo){ console.error('Falha ao limpar bank_saldos da temporada apagada:', eSaldo); }
+        mesesRealizado.forEach(m=>{
+          delete DB.saldos[m];
+          Object.keys(DB.saldosBanks||{}).forEach(bk=>{ if(DB.saldosBanks[bk]&&DB.saldosBanks[bk].saldos) delete DB.saldosBanks[bk].saldos[m]; });
+        });
+      }
     }
     if(chkO){
       await supaSoftDelete('orcado', 'temporada=eq.'+encodeURIComponent(t), deletedAt);
@@ -3081,7 +3100,13 @@ async function lnbAutoSnapshot(label){
   try{
     const realizado=await supaSelect('realizado');
     const orcado=await supaSelect('orcado');
-    const data={app:'Orçado x Realizado LNB - snapshot do banco', label: label||'', createdAt:new Date().toISOString(), realizado:realizado, orcado:orcado};
+    // Inclui bank_saldos no backup tambem: desde que o "Apagar Realizado desta
+    // temporada" passou a limpar os saldos bancarios dos meses junto (mesma
+    // importacao de planilha gera os dois), o backup precisa cobrir os saldos
+    // tambem, senao a copia de seguranca fica incompleta.
+    let bankSaldos=[];
+    try{ bankSaldos=await supaSelect('bank_saldos'); }catch(eBs){ console.error('lnbAutoSnapshot: falha ao buscar bank_saldos:', eBs); }
+    const data={app:'Orçado x Realizado LNB - snapshot do banco', label: label||'', createdAt:new Date().toISOString(), realizado:realizado, orcado:orcado, bankSaldos:bankSaldos};
     downloadText('LNB_snapshot_banco_'+new Date().toISOString().replace(/[:.]/g,'-')+'.json', JSON.stringify(data), 'application/json');
   }catch(e){
     console.error('lnbAutoSnapshot falhou:', e);
@@ -7681,7 +7706,7 @@ async function importNewBudgetSpreadsheet(file, raw){
 async function endSeasonAndReset(){
   const temporada=lnbCurrentTemporada();
   if(!temporada){ alert('Não consegui identificar a temporada atual pelo título da página. Cancelando.'); return; }
-  const confirmRaw=prompt('Isso vai ARQUIVAR e depois ZERAR todo o Realizado e Orçado da temporada '+temporada+' salvos na base central (Supabase) — vale para todo mundo que usa o painel. As regras de classificação por favorecido são mantidas. Uma cópia de segurança fica guardada no Supabase antes de apagar, e outra é baixada neste navegador. Confirme o nome da temporada (já preenchido, só clique OK ou ajuste se quiser cancelar):', temporada);
+  const confirmRaw=prompt('Isso vai ARQUIVAR e depois ZERAR todo o Realizado, Orçado e os saldos bancários dos meses desta temporada '+temporada+' salvos na base central (Supabase) — vale para todo mundo que usa o painel. As regras de classificação por favorecido são mantidas. Uma cópia de segurança fica guardada no Supabase antes de apagar, e outra é baixada neste navegador. Confirme o nome da temporada (já preenchido, só clique OK ou ajuste se quiser cancelar):', temporada);
   if(confirmRaw===null){ return; }
   const confirmText=confirmRaw.trim().replace(/\s+/g,'');
   const temporadaNorm=temporada.trim().replace(/\s+/g,'');
@@ -7692,7 +7717,15 @@ async function endSeasonAndReset(){
       supaSelectFiltered('orcado','temporada=eq.'+encodeURIComponent(temporada)),
       lnbBuildDailyBackupSnapshot()
     ]);
-    const snapshot={app:'Orçado x Realizado LNB — arquivo de temporada encerrada',temporada,archivedAt:new Date().toISOString(),realizado:realizadoRows||[],orcado:orcadoRows||[],estadoCompartilhado};
+    // O saldo bancário de cada mês vem da mesma importação de planilha que
+    // gera o Realizado — então os meses desta temporada precisam ser
+    // arquivados e depois apagados de bank_saldos junto, senão a tela de
+    // Conciliação Bancária continua mostrando saldo inicial/final antigos
+    // mesmo com o Realizado zerado (bank_saldos não tem coluna de temporada,
+    // só mes, então usamos os meses que realmente apareceram no Realizado).
+    const mesesTemporada=[...new Set((realizadoRows||[]).map(r=>r.mes).filter(Boolean))];
+    const bankSaldoRows=mesesTemporada.length?await supaSelectFiltered('bank_saldos','mes=in.('+mesesTemporada.map(m=>'"'+m+'"').join(',')+')'):[];
+    const snapshot={app:'Orçado x Realizado LNB — arquivo de temporada encerrada',temporada,archivedAt:new Date().toISOString(),realizado:realizadoRows||[],orcado:orcadoRows||[],bankSaldos:bankSaldoRows||[],estadoCompartilhado};
     downloadText(`LNB_arquivo_temporada_${temporada.replace('/','-')}_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(snapshot,null,2),'application/json');
     await new Promise(r=>setTimeout(r,300));
     const res=await supaFetch(SUPABASE_URL+'/rest/v1/season_archives',{method:'POST',headersExtra:{'Prefer':'return=minimal'},body:JSON.stringify([{temporada,snapshot,archived_by:(AUTH_SESSION&&AUTH_SESSION.role)||'admin'}])});
@@ -7705,6 +7738,15 @@ async function endSeasonAndReset(){
     const deletedAt=new Date().toISOString();
     await supaSoftDelete('realizado','temporada=eq.'+encodeURIComponent(temporada),deletedAt);
     await supaSoftDelete('orcado','temporada=eq.'+encodeURIComponent(temporada),deletedAt);
+    if(mesesTemporada.length){
+      try{
+        await supaDelete('bank_saldos','mes=in.('+mesesTemporada.map(m=>'"'+m+'"').join(',')+')');
+      }catch(eSaldo){ console.error('Falha ao limpar bank_saldos da temporada encerrada:', eSaldo); }
+      mesesTemporada.forEach(m=>{
+        delete DB.saldos[m];
+        Object.keys(DB.saldosBanks||{}).forEach(bk=>{ if(DB.saldosBanks[bk]&&DB.saldosBanks[bk].saldos) delete DB.saldosBanks[bk].saldos[m]; });
+      });
+    }
     // Mesmo achado do "Apagar temporada selecionada": apagar no Supabase não
     // bastava — o cache local ('imported' e o rascunho de customPlan desta
     // temporada) nunca era limpo aqui, então o Realizado (e o Orçado, se
@@ -7717,7 +7759,7 @@ async function endSeasonAndReset(){
       if(typeof saveCustomPlan==='function') saveCustomPlan();
     }
     lnbLogActivity('encerrar_temporada', temporada);
-    alert('Temporada '+temporada+' arquivada e zerada na base central. Uma cópia de segurança também foi baixada neste navegador. A página vai recarregar agora.');
+    alert('Temporada '+temporada+' arquivada e zerada na base central (incluindo os saldos bancários dos meses dela). Uma cópia de segurança também foi baixada neste navegador. A página vai recarregar agora.');
     location.reload();
   }catch(e){
     alert('Falha ao encerrar a temporada: '+e.message+'\n\nSe a exclusão não rodou, os dados originais continuam intactos no Supabase — confira antes de tentar de novo.');
