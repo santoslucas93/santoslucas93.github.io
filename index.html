@@ -2273,8 +2273,11 @@ async function lnbApagarTemporadaSelecionada(){
   if(!t){ if(msg) msg.textContent='Escolha uma temporada.'; return; }
   if(!chkR && !chkO){ if(msg) msg.textContent='Marque Realizado e/ou Orçado antes de apagar.'; return; }
   const partes=[]; if(chkR) partes.push('Realizado'); if(chkO) partes.push('Orçado');
-  const confirmText=prompt('Isso vai APAGAR '+partes.join(' e ')+' da temporada '+t+' do banco (para todo mundo) e também do rascunho salvo neste navegador. Um backup é baixado antes. Para confirmar, digite a temporada exatamente: '+t);
-  if(confirmText!==t){ if(msg) msg.textContent='Não confere o texto digitado. Nada foi apagado.'; return; }
+  const confirmRaw=prompt('Isso vai APAGAR '+partes.join(' e ')+' da temporada '+t+' do banco (para todo mundo) e também do rascunho salvo neste navegador. Um backup é baixado antes. Confirme o nome da temporada (já preenchido, só clique OK ou ajuste se quiser cancelar):', t);
+  if(confirmRaw===null){ if(msg) msg.textContent='Cancelado. Nada foi apagado.'; return; }
+  const confirmText=confirmRaw.trim().replace(/\s+/g,'');
+  const tNorm=t.trim().replace(/\s+/g,'');
+  if(confirmText!==tNorm){ if(msg) msg.textContent='O texto digitado ("'+confirmRaw+'") não confere com a temporada "'+t+'". Nada foi apagado.'; return; }
   if(msg) msg.textContent='Apagando '+partes.join(' e ')+' de '+t+'...';
   try{
     await lnbAutoSnapshot('antes de apagar '+partes.join(' e ')+' da temporada '+t);
