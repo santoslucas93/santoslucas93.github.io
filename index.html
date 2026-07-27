@@ -2680,8 +2680,11 @@ async function lnbApagarTemporadaSelecionada(){
   if(!t){ if(msg) msg.textContent='Escolha uma temporada.'; return; }
   if(!chkR && !chkO){ if(msg) msg.textContent='Marque Realizado e/ou Orçado antes de apagar.'; return; }
   const partes=[]; if(chkR) partes.push('Realizado'); if(chkO) partes.push('Orçado');
-  const confirmText=prompt('Isso vai ENVIAR PARA A LIXEIRA '+partes.join(' e ')+' da temporada '+t+' (para todo mundo) e também do rascunho salvo neste navegador. Fica guardado na Lixeira para restaurar depois, se precisar. Um backup também é baixado antes. Para confirmar, digite a temporada exatamente: '+t);
-  if(confirmText!==t){ if(msg) msg.textContent='Não confere o texto digitado. Nada foi apagado.'; return; }
+  const confirmRaw=prompt('Isso vai ENVIAR PARA A LIXEIRA '+partes.join(' e ')+' da temporada '+t+' (para todo mundo) e também do rascunho salvo neste navegador. Fica guardado na Lixeira para restaurar depois, se precisar. Um backup também é baixado antes. Confirme o nome da temporada (já preenchido, só clique OK ou ajuste se quiser cancelar):', t);
+  if(confirmRaw===null){ if(msg) msg.textContent='Cancelado. Nada foi apagado.'; return; }
+  const confirmText=confirmRaw.trim().replace(/\s+/g,'');
+  const tNorm=t.trim().replace(/\s+/g,'');
+  if(confirmText!==tNorm){ if(msg) msg.textContent='O texto digitado ("'+confirmRaw+'") não confere com a temporada "'+t+'". Nada foi apagado.'; return; }
   if(msg) msg.textContent='Apagando '+partes.join(' e ')+' de '+t+'...';
   try{
     await lnbAutoSnapshot('antes de apagar '+partes.join(' e ')+' da temporada '+t);
@@ -7651,8 +7654,11 @@ async function importNewBudgetSpreadsheet(file, raw){
 async function endSeasonAndReset(){
   const temporada=lnbCurrentTemporada();
   if(!temporada){ alert('Não consegui identificar a temporada atual pelo título da página. Cancelando.'); return; }
-  const confirmText=prompt('Isso vai ARQUIVAR e depois ZERAR todo o Realizado e Orçado da temporada '+temporada+' salvos na base central (Supabase) — vale para todo mundo que usa o painel. As regras de classificação por favorecido são mantidas. Uma cópia de segurança fica guardada no Supabase antes de apagar, e outra é baixada neste navegador. Para confirmar, digite a temporada exatamente: '+temporada);
-  if(confirmText!==temporada){ if(confirmText!==null)alert('Temporada não confere. Nada foi alterado.'); return; }
+  const confirmRaw=prompt('Isso vai ARQUIVAR e depois ZERAR todo o Realizado e Orçado da temporada '+temporada+' salvos na base central (Supabase) — vale para todo mundo que usa o painel. As regras de classificação por favorecido são mantidas. Uma cópia de segurança fica guardada no Supabase antes de apagar, e outra é baixada neste navegador. Confirme o nome da temporada (já preenchido, só clique OK ou ajuste se quiser cancelar):', temporada);
+  if(confirmRaw===null){ return; }
+  const confirmText=confirmRaw.trim().replace(/\s+/g,'');
+  const temporadaNorm=temporada.trim().replace(/\s+/g,'');
+  if(confirmText!==temporadaNorm){ alert('O texto digitado ("'+confirmRaw+'") não confere com a temporada "'+temporada+'". Nada foi alterado.'); return; }
   try{
     const [realizadoRows,orcadoRows,estadoCompartilhado]=await Promise.all([
       supaSelectFiltered('realizado','temporada=eq.'+encodeURIComponent(temporada)),
