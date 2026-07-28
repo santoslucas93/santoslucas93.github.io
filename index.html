@@ -2747,13 +2747,16 @@ async function loadSharedStateFromSupabase(){
 
 async function lnbListTemporadas(){
   try{
-    const [real, orc] = await Promise.all([
-      supaSelectFiltered('realizado','select=temporada'),
-      supaSelectFiltered('orcado','select=temporada')
-    ]);
-    const set=new Set();
-    real.forEach(function(r){ if(r.temporada) set.add(r.temporada); });
-    orc.forEach(function(r){ if(r.temporada) set.add(r.temporada); });
+    // Bug real corrigido: antes baixava TODAS as linhas de realizado/orcado
+    // só pra extrair a coluna temporada -- com o limite padrão de 1000
+    // linhas por chamada do Supabase, uma temporada antiga com mais linhas
+    // "empurrava" as mais recentes/antigas pra fora da amostra e elas
+    // sumiam desta lista. Agora usa uma função no banco (RPC) que já
+    // devolve só os valores distintos, sem limite de linhas.
+    const res=await supaFetch(SUPABASE_URL+'/rest/v1/rpc/temporadas_distintas',{method:'POST'});
+    if(!res.ok) throw new Error('RPC temporadas_distintas falhou: '+res.status);
+    const rows=await res.json();
+    const set=new Set((rows||[]).map(r=>r.temporada).filter(Boolean));
     const cur=lnbCurrentTemporada(); if(cur) set.add(cur);
     return [...set].sort();
   }catch(e){
@@ -2770,11 +2773,15 @@ async function lnbRefreshTemporadaCounts(){
   if(!t){ status.textContent='Escolha uma temporada acima.'; return; }
   status.textContent='Verificando '+t+'...';
   try{
+    // Contagem EXATA (count=exact), sem baixar as linhas -- baixar tudo só
+    // pra contar tinha o mesmo bug do limite de 1000 linhas por chamada,
+    // mostrando um número menor que o real numa temporada grande logo
+    // antes de uma ação de apagar.
     const [real, orc] = await Promise.all([
-      supaSelectFiltered('realizado', 'temporada=eq.'+encodeURIComponent(t)+'&select=id'),
-      supaSelectFiltered('orcado', 'temporada=eq.'+encodeURIComponent(t)+'&select=id')
+      supaContarExato('realizado', (SOFT_DELETE_TABLES.includes('realizado')?'deleted_at=is.null&':'')+'temporada=eq.'+encodeURIComponent(t)),
+      supaContarExato('orcado', (SOFT_DELETE_TABLES.includes('orcado')?'deleted_at=is.null&':'')+'temporada=eq.'+encodeURIComponent(t))
     ]);
-    status.textContent='Temporada '+t+': '+real.length+' lançamento(s) de Realizado e '+orc.length+' linha(s) de Orçado salvos no sistema.';
+    status.textContent='Temporada '+t+': '+(real??'?')+' lançamento(s) de Realizado e '+(orc??'?')+' linha(s) de Orçado salvos no sistema.';
   }catch(e){
     status.textContent='Não consegui verificar: '+e.message;
   }
@@ -2787,8 +2794,8 @@ async function lnbRefreshTemporadaCountsRealizado(){
   if(!t){ status.textContent='Escolha uma temporada acima.'; return; }
   status.textContent='Verificando '+t+'...';
   try{
-    const real=await supaSelectFiltered('realizado', 'temporada=eq.'+encodeURIComponent(t)+'&select=id');
-    status.textContent='Temporada '+t+': '+real.length+' lançamento(s) de Realizado salvos no sistema.';
+    const real=await supaContarExato('realizado', 'deleted_at=is.null&temporada=eq.'+encodeURIComponent(t));
+    status.textContent='Temporada '+t+': '+(real??'?')+' lançamento(s) de Realizado salvos no sistema.';
   }catch(e){
     status.textContent='Não consegui verificar: '+e.message;
   }
@@ -2909,12 +2916,15 @@ async function lnbPreviewRecentDelete(){
   const cutoff=recDelCutoffISO();
   if(status)status.textContent='Verificando...';
   try{
+    // Contagem EXATA (count=exact) em vez de baixar as linhas -- um import
+    // grande nos últimos minutos podia facilmente passar de 1000 linhas,
+    // fazendo esta prévia mostrar um número menor que o real antes de apagar.
     const [real,orc,bank]=await Promise.all([
-      chkR?supaSelectFiltered('realizado','created_at=gte.'+encodeURIComponent(cutoff)):Promise.resolve([]),
-      chkO?supaSelectFiltered('orcado','created_at=gte.'+encodeURIComponent(cutoff)):Promise.resolve([]),
-      chkB?supaSelectFiltered('bank_saldos','updated_at=gte.'+encodeURIComponent(cutoff)):Promise.resolve([])
+      chkR?supaContarExato('realizado','deleted_at=is.null&created_at=gte.'+encodeURIComponent(cutoff)):Promise.resolve(0),
+      chkO?supaContarExato('orcado','deleted_at=is.null&created_at=gte.'+encodeURIComponent(cutoff)):Promise.resolve(0),
+      chkB?supaContarExato('bank_saldos','updated_at=gte.'+encodeURIComponent(cutoff)):Promise.resolve(0)
     ]);
-    if(status)status.textContent=`Desde ${new Date(cutoff).toLocaleTimeString('pt-BR')}: ${real.length} lançamento(s) de Realizado, ${orc.length} linha(s) de Orçado, ${bank.length} saldo(s) de mês/banco na base central seriam apagados.`;
+    if(status)status.textContent=`Desde ${new Date(cutoff).toLocaleTimeString('pt-BR')}: ${real??'?'} lançamento(s) de Realizado, ${orc??'?'} linha(s) de Orçado, ${bank??'?'} saldo(s) de mês/banco na base central seriam apagados.`;
   }catch(e){
     console.error('lnbPreviewRecentDelete falhou:',e);
     if(status)status.textContent='Falha ao verificar: '+e.message;
