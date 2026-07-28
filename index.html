@@ -2705,18 +2705,27 @@ async function loadSharedStateFromSupabase(){
       store.setItem('lnb3_line_overrides_v56',JSON.stringify(lineOverrides));
       store.setItem('lnb3_group_overrides_v56',JSON.stringify(groupOverrides));
     }
-    if(Array.isArray(custLineRows)&&custLineRows.length){
+    // Bug real corrigido (mesma classe já resolvida para bank_saldos e
+    // customPlan): estes blocos só atualizavam o cache local quando a
+    // sincronização voltava com ALGUMA linha. Se a tabela ficasse vazia de
+    // verdade no Supabase (ex.: depois de "Esvaziar a Lixeira"), a condição
+    // nunca era satisfeita e o cache local antigo (custom_lines,
+    // deleted_lines) ficava congelado pra sempre, mesmo com o banco
+    // corretamente vazio -- por isso "Linhas do orçamento excluídas"
+    // continuava mostrando itens já apagados de vez. Agora atualiza sempre
+    // que a busca funcionar, mesmo vindo vazia.
+    if(Array.isArray(custLineRows)){
       customLines=custLineRows.map(r=>({id:r.id,area:r.area,g:r.g,n:r.n,status:r.status||'ativa'}));
       store.setItem('lnb3_custom_lines_v56',JSON.stringify(customLines));
     }
-    if(Array.isArray(delLineRows)&&delLineRows.length){
+    if(Array.isArray(delLineRows)){
       deletedLineIds=delLineRows.map(r=>r.id);
       store.setItem('lnb3_deleted_lines_v56',JSON.stringify(deletedLineIds));
       trashMeta={};
       delLineRows.forEach(r=>{trashMeta[String(r.id)]={area:r.area,g:r.g,n:r.n,deleted_by:r.deleted_by,deleted_at:r.deleted_at};});
       store.setItem('lnb3_trash_meta_v56',JSON.stringify(trashMeta));
     }
-    if(Array.isArray(clubDebitRows)&&clubDebitRows.length){
+    if(Array.isArray(clubDebitRows)){
       clubDebits=clubDebitRows.map(r=>({id:r.id,club:r.club,d:r.descricao,v:Number(r.valor||0),data:r.data}));
       store.setItem('lnb3_club_debits',JSON.stringify(clubDebits));
     }
