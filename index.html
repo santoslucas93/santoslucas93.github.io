@@ -1564,8 +1564,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 <div id="v-home">
   <div class="quickcards">
     <div class="quickcard" onclick="curV='rec';render();window.scrollTo(0,0)"><b>Receitas / Entradas</b><span>Abra a visão de receitas por mês, fonte e linha do orçamento.</span></div>
-    <div class="quickcard" onclick="curV='plan';render();window.scrollTo(0,0)"><b>Novo Orçado</b><span>Cadastre departamentos, grupos e linhas para a próxima temporada.</span></div>
-    <div class="quickcard" onclick="curV='conc';render();window.scrollTo(0,0)"><b>Realocação em massa</b><span>Ajuste prestadores, grupos e linhas já realizados.</span></div>
+    <div class="quickcard" id="qc-saldo-banco" onclick="goBankConsolidado()"><b>Saldo Bancário Consolidado</b><span id="qc-saldo-val" style="display:block;font-weight:800;font-size:15px;margin:2px 0"></span><span id="qc-saldo-desc"></span></div>
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="grid2">
@@ -4929,6 +4928,20 @@ function goDash(kind){
 }
 function goRec(scrollId){curV='rec';render();window.scrollTo(0,0);if(scrollId)scrollToId(scrollId);}
 function goBankConsolidado(){curV='bank';render();window.scrollTo(0,0);scrollToId('bank-consolidado');}
+// Preenche o atalho "Saldo Bancário Consolidado" no topo da Home (mesmo
+// estilo do card "Receitas / Entradas"). Antes esse resumo vivia na
+// fileira de KPIs, mas com 7 cards apertados o texto quebrava linha e
+// poluía a Home — por isso virou um atalho no topo, igual aos outros.
+function renderSaldoBancoQuickcard(){
+  const valEl=document.getElementById('qc-saldo-val'), descEl=document.getElementById('qc-saldo-desc');
+  if(!valEl||!descEl)return;
+  const bt=bankConsolidadoTotais(curM==='ALL'?null:curM);
+  const okBanco=bt.contasComDados>0&&Math.abs(bt.totDif)<0.02;
+  valEl.style.color=bt.contasComDados?(okBanco?'var(--ok)':'var(--er)'):'var(--tx2)';
+  valEl.textContent=bt.contasComDados?fmt(bt.totFim):'—';
+  descEl.textContent=bt.contasComDados?(okBanco?('confere: '+fmt(bt.totIni)+' + '+fmt(bt.totEnt)+' − '+fmt(bt.totSai)):('diverge em '+fmt(bt.totDif)+' do calculado')):'sem saldo cadastrado no período';
+}
+
 function goDeptView(a,scrollId){curV='dept';curDept=a||curDept;openLineId=null;openGroupKey=null;render();window.scrollTo(0,0);if(scrollId)scrollToId(scrollId);}
 function openLine(a,lid){curV='dept';curDept=a;openLineId=lid;openGroupKey=null;render();setTimeout(()=>{const el=document.getElementById('line-'+lid);if(el){el.scrollIntoView({behavior:'smooth',block:'center'});}},60);}
 function openUnallocated(a,g){curV='dept';curDept=a;openLineId=null;openGroupKey=a+'|'+(g||'__none');render();setTimeout(()=>{const el=document.getElementById('nogrp-'+cssid(openGroupKey));if(el){el.scrollIntoView({behavior:'smooth',block:'center'});}},60);}
@@ -5060,6 +5073,7 @@ function renderHomeWeekly(){
 function renderHome(){
   const r=realized(curM);
   renderHomeWeekly();
+  renderSaldoBancoQuickcard();
   const despP=DESP.reduce((s,a)=>s+budP(curM,a),0);
   const despR=DESP.reduce((s,a)=>s+(r.A[a]||0),0);
   const recP=budP(curM,'REC')+budP(curM,'OREC');
@@ -5073,7 +5087,6 @@ function renderHome(){
    <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas realizadas</div><div class="v">${fmt(despR)}${monthTag}</div><div class="d">${pct}% do orçado</div></div>
    <div class="kpi click" onclick="goRec('rec-lines')" title="Ver composição das receitas"><div class="l">Receitas realizadas</div><div class="v" style="color:var(--ok)">${fmt(recR)}${monthTag}</div><div class="d">orçado ${fmt(recP)}</div></div>
    <div class="kpi click" onclick="scrollToId('home-weekly')" title="Ver fluxo bancário semanal sem transferências internas"><div class="l">Fluxo bancário líquido</div><div class="v">${fmt(weeklyRows(curM).reduce((s,x)=>s+x.e-x.s,0))}${monthTag}</div><div class="d">entradas − saídas, sem transferências internas</div></div>
-   ${(()=>{const bt=bankConsolidadoTotais(curM==='ALL'?null:curM);const okBanco=bt.contasComDados>0&&Math.abs(bt.totDif)<0.02;return `<div class="kpi click" onclick="goBankConsolidado()" title="Saldo inicial de todos os bancos + entradas − saídas = saldo final (transferências entre contas da LNB já se cancelam na soma)"><div class="l">Saldo bancário consolidado</div><div class="v" style="color:${bt.contasComDados?(okBanco?'var(--ok)':'var(--er)'):'var(--tx2)'}">${bt.contasComDados?fmt(bt.totFim):'—'}${monthTag}</div><div class="d">${bt.contasComDados?(okBanco?'confere: '+fmt(bt.totIni)+' + '+fmt(bt.totEnt)+' − '+fmt(bt.totSai):'diverge em '+fmt(bt.totDif)+' do calculado'):'sem saldo cadastrado no período'}</div></div>`;})()}
    <div class="kpi click" onclick="goConcFilter('pend','')" title="Ver lançamentos pendentes na Conciliação"><div class="l">Lançamentos que pedem atenção</div><div class="v" style="color:${pend?'var(--wn)':'var(--ok)'}">${pend}</div><div class="d">${pend?'ver Conciliação':'tudo revisado ou sugerido'}</div></div>
    <div class="kpi click" onclick="scrollToId('g-desvios')" title="Ver detalhamento por linha abaixo"><div class="l">Departamentos acima do orçado</div><div class="v" style="color:${deptOverCount?'var(--er)':'var(--ok)'}">${deptOverCount}</div><div class="d">${deptOverCount?'ver detalhe abaixo':'nenhum estourado'}${monthTag}</div></div>`;
   const maxA=Math.max(...DESP.map(a=>Math.max(budP(curM,a),r.A[a]||0)),1);
