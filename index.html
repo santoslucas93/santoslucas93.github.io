@@ -1564,7 +1564,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 <div id="v-home">
   <div class="quickcards">
     <div class="quickcard" onclick="curV='rec';render();window.scrollTo(0,0)"><b>Receitas / Entradas</b><span>Abra a visão de receitas por mês, fonte e linha do orçamento.</span></div>
-    <div class="quickcard" id="qc-saldo-banco" onclick="goBankConsolidado()"><b>Saldo Bancário Consolidado</b><span id="qc-saldo-val" style="display:block;font-weight:800;font-size:15px;margin:2px 0"></span><span id="qc-saldo-desc"></span></div>
+    <div class="quickcard" id="qc-saldo-banco" onclick="goBankConsolidado()"><b>Saldo Bancário Consolidado</b><span id="qc-saldo-val" style="display:block;font-weight:800;font-size:15px;margin:2px 0;white-space:nowrap"></span><span id="qc-saldo-desc"></span></div>
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="grid2">
@@ -3851,6 +3851,16 @@ const TIPO_AREA = {'1':'LNB','2':'COM','3':'MKT','4':'TOP','5':'A&F','6':'A&F','
 const TIPO_NOME = {'1':'DIRETORIA / SUPERINTENDÊNCIA','2':'COMUNICAÇÃO','3':'MARKETING','4':'TÉCNICO OPERACIONAL','5':'FINANCEIRO','6':'ADMINISTRATIVO / DESONERAÇÃO DE CLUBES','7':'DESPESAS GERAIS / RECEITAS GERAIS / TRANSFERÊNCIA ENTRE CONTAS','8':'BENEFÍCIOS E IMPOSTOS/CONTRIBUIÇÕES (RATEIO OBRIGATÓRIO)'};
 const fmt = v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
 const fmt2 = v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+// Formata valor monetário que pode ser negativo (ex: fluxo de caixa) já
+// com a cor certa (azul = positivo/zero, vermelho = negativo) e sem
+// deixar o sinal "-" quebrar linha sozinho, separado do valor — o
+// overflow-wrap:anywhere usado nos cards de KPI (pra evitar estouro em
+// telas estreitas) às vezes cortava bem depois do hífen.
+function fmtSigned(v){
+  const cor = v<0?'var(--er)':'var(--ac)';
+  return `<span style="white-space:nowrap;color:${cor}">${fmt(v)}</span>`;
+}
+
 const norm = s=>String(s).toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g,''), cleanKey=s=>norm(s).replace(/[^a-z0-9]+/g,' ').trim();
 const RH_PROVIDER_RULES = [
   ['FRA Eventos Esportivos Ltda-ME','FLAVIA RENATA DE ALMEIDA'],
@@ -5086,7 +5096,7 @@ function renderHome(){
    <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas orçadas${curM==='ALL'?' (período do extrato)':''}</div><div class="v">${fmt(despP)}${monthTag}</div></div>
    <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas realizadas</div><div class="v">${fmt(despR)}${monthTag}</div><div class="d">${pct}% do orçado</div></div>
    <div class="kpi click" onclick="goRec('rec-lines')" title="Ver composição das receitas"><div class="l">Receitas realizadas</div><div class="v" style="color:var(--ok)">${fmt(recR)}${monthTag}</div><div class="d">orçado ${fmt(recP)}</div></div>
-   <div class="kpi click" onclick="scrollToId('home-weekly')" title="Ver fluxo bancário semanal sem transferências internas"><div class="l">Fluxo bancário líquido</div><div class="v">${fmt(weeklyRows(curM).reduce((s,x)=>s+x.e-x.s,0))}${monthTag}</div><div class="d">entradas − saídas, sem transferências internas</div></div>
+   <div class="kpi click" onclick="scrollToId('home-weekly')" title="Ver fluxo bancário semanal sem transferências internas"><div class="l">Fluxo bancário líquido</div><div class="v">${fmtSigned(weeklyRows(curM).reduce((s,x)=>s+x.e-x.s,0))}${monthTag}</div><div class="d">entradas − saídas, sem transferências internas</div></div>
    <div class="kpi click" onclick="goConcFilter('pend','')" title="Ver lançamentos pendentes na Conciliação"><div class="l">Lançamentos que pedem atenção</div><div class="v" style="color:${pend?'var(--wn)':'var(--ok)'}">${pend}</div><div class="d">${pend?'ver Conciliação':'tudo revisado ou sugerido'}</div></div>
    <div class="kpi click" onclick="scrollToId('g-desvios')" title="Ver detalhamento por linha abaixo"><div class="l">Departamentos acima do orçado</div><div class="v" style="color:${deptOverCount?'var(--er)':'var(--ok)'}">${deptOverCount}</div><div class="d">${deptOverCount?'ver detalhe abaixo':'nenhum estourado'}${monthTag}</div></div>`;
   const maxA=Math.max(...DESP.map(a=>Math.max(budP(curM,a),r.A[a]||0)),1);
