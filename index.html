@@ -3484,7 +3484,6 @@ async function lnbSaveManualRealizado(){
     // não salvar sem querer duas vezes na mesma linha.
     if(grpNovoEl){grpNovoEl.value='';grpNovoEl.classList.add('hide');}
     if(linNovoEl){linNovoEl.value='';linNovoEl.classList.add('hide');}
-    if(typeof lnbGetLineIndex==='function'){ lnbLineIndexCache=null; }
     lnbInitManualEntryForm();
   }catch(e){
     console.error('Falha ao salvar lançamento manual:', e);
@@ -3518,13 +3517,14 @@ async function lnbInitManualEntryForm(){
     const competicoes=[...new Set(EVS.map(function(e){return e[1];}))];
     dlComp.innerHTML=competicoes.map(function(v){return '<option value="'+String(v).replace(/"/g,'&quot;')+'">';}).join('');
   }
-  const idx=await lnbGetLineIndex();
   const linEl=document.getElementById('ml-linha');
   const grpNovoEl=document.getElementById('ml-grupo-novo');
   const linNovoEl=document.getElementById('ml-linha-novo');
   function rowsForCurrentDept(){
     const dep=depEl.value;
-    return idx.byDept[AREAS[dep]||dep] || idx.byDept[dep] || [];
+    if(!dep) return [];
+    const todas=(window.ALL_STRUCTURE_LINES||DB.lines).concat(typeof customPlan!=='undefined'?customPlan:[]);
+    return todas.filter(function(l){return l.area===dep && !isTotalizerLine(l);}).map(function(l){return {grupo:l.g,linha_orcamento:l.n};});
   }
   function optHTML(v){return '<option value="'+String(v).replace(/"/g,'&quot;')+'">'+esc(v)+'</option>';}
   // Drill-down real: o select de Grupo só é habilitado depois de escolher o
