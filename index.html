@@ -1564,7 +1564,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 <div id="v-home">
   <div class="quickcards">
     <div class="quickcard" onclick="curV='rec';render();window.scrollTo(0,0)"><b>Receitas / Entradas</b><span>Abra a visão de receitas por mês, fonte e linha do orçamento.</span></div>
-    <div class="quickcard" id="qc-saldo-banco" onclick="goBankConsolidado()"><b>Saldo Bancário Consolidado</b><span id="qc-saldo-val" style="display:block;font-weight:800;font-size:15px;margin:2px 0;white-space:nowrap"></span><span id="qc-saldo-desc"></span></div>
+    <div class="quickcard" id="qc-saldo-banco" onclick="goBankConsolidado()"><b>Saldo Bancário Consolidado</b><div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin:2px 0"><span id="qc-saldo-val" style="font-weight:800;font-size:15px;white-space:nowrap"></span><span style="font-size:11.5px;color:var(--tx2);font-weight:400">saldo inicial + receitas − despesas</span></div><span id="qc-saldo-desc"></span></div>
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="grid2">
