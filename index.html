@@ -5841,7 +5841,20 @@ function renderBankTabs(){
 function bankProofRows(bank){
   bank=bank||'BRADESCO';
   const salAll=bankSaldos(bank);
-  const bmonths=Object.keys(salAll).sort();
+  // Bug real corrigido: antes, os meses mostrados aqui vinham só de
+  // Object.keys(salAll) — ou seja, só apareciam meses que já tinham saldo
+  // inicial/final cadastrado (o que normalmente só acontece importando o
+  // extrato do banco, com as linhas SALDO INICIAL/SALDO A TRANSFERIR). Um
+  // lançamento avulso lançado manualmente num mês sem esse saldo cadastrado
+  // (ex.: agosto assim que a temporada chega nele) tinha suas entradas/
+  // saídas somadas em Realizado e na Home, mas ficava com meses:0 aqui —
+  // como se não existisse nenhum lançamento naquele mês, quando na verdade
+  // só faltava o saldo. Agora os meses mostrados são a união dos que têm
+  // saldo cadastrado com os que têm pelo menos um lançamento desta conta —
+  // sem saldo, o mês aparece mesmo assim, com saldo inicial/final em "—"
+  // e o chip "sem saldo cadastrado", mas entradas/saídas reais.
+  const mesesComLancamento=new Set(txs.filter(t=>bankOf(t)===bank).map(t=>t.m));
+  const bmonths=[...new Set([...Object.keys(salAll),...mesesComLancamento])].sort();
   const out=bmonths.map(m=>{
     const sal=salAll[m]||{};
     const mm=txs.filter(t=>t.m===m&&bankOf(t)===bank);
@@ -6233,7 +6246,11 @@ function renderBankLedger(){
     // específico selecionado — agora agrega todos os meses desta conta,
     // um após o outro, cada um com seu próprio saldo corrido calculado a
     // partir do saldo inicial daquele mês.
-    const bmonths=(Object.keys(salAll).length?Object.keys(salAll):months).slice().sort();
+    // Mesmo achado do bankProofRows: usar só Object.keys(salAll) escondia
+    // meses com lançamento mas sem saldo cadastrado ainda. União com os
+    // meses que têm lançamento desta conta, pra nada ficar de fora aqui.
+    const mesesComLancBank=new Set(txs.filter(t=>bankOf(t)===curBank).map(t=>t.m));
+    const bmonths=[...new Set([...Object.keys(salAll),...mesesComLancBank])].sort();
     bmonths.forEach(m=>{ bankLedgerRows(m,curBank).forEach(r=>rows.push(Object.assign({mes:m},r))); });
     if(!rows.length){
       if(note)note.textContent='Nenhum lançamento encontrado para '+esc((bankList().find(b=>b.k===curBank)||{}).n||curBank)+' na temporada.';
