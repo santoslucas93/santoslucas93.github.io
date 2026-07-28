@@ -1522,7 +1522,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   <div class="hero-top"><div>
     <h1>Orçado x Realizado — Temporada 2026/2027</h1>
     <div class="badges" style="display:flex;align-items:center;flex-wrap:wrap;gap:0;font-size:11.5px;opacity:.82;letter-spacing:.1px">
-  <span style="padding:2px 10px 2px 0;white-space:nowrap">🏦 6 contas: Bradesco, CEF (2), Itaú, Ouribank, Banco do Brasil</span>
+  <span id="bdg-contas" style="padding:2px 10px 2px 0;white-space:nowrap">🏦 6 contas: Bradesco, CEF (2), Itaú, Ouribank, Banco do Brasil</span>
   <span style="width:1px;height:11px;background:rgba(255,255,255,.18);margin:0 2px"></span>
   <span id="bdg-per" style="padding:2px 10px;white-space:nowrap"></span>
   <span style="width:1px;height:11px;background:rgba(255,255,255,.18);margin:0 2px"></span>
@@ -1627,6 +1627,15 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 <div id="v-club" class="hide">
   <div class="note"><b>Créditos dos Clubes:</b> controle individual por clube. A Nota de Débito paga cria crédito adicional; as despesas consomem primeiro esse crédito e depois a desoneração da temporada.</div>
   <div class="panel club-spend-panel"><h2>Gastos por clube</h2><div class="note">Comparativo das despesas individualizadas por clube no período selecionado. Clique em uma barra para abrir Filiados filtrado pelo clube.</div><div id="club-spend-chart" class="club-spend-chart"></div></div>
+  <div class="panel admin-only" id="panel-cadastrar-clube">
+    <h2>Cadastrar novo clube/equipe filiada</h2>
+    <div class="note">Use quando um clube novo entrar na liga. Depois de cadastrado, ele passa a aparecer em Créditos dos Clubes e nos filtros de Filiados para todo mundo que abrir o painel, já com a desoneração padrão de R$ 100 mil — salva na base central.</div>
+    <div class="toolbar">
+      <input type="text" id="nc-nome" placeholder="Nome do clube (ex: NOVO BASQUETE)" style="flex:2;min-width:220px">
+      <button class="act pri" type="button" id="btn-novo-clube-save">Cadastrar clube</button>
+    </div>
+    <div id="nc-msg" class="foot"></div>
+  </div>
   <div id="club-credit-main"></div>
 </div>
 
@@ -1720,6 +1729,15 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   <div class="panel">
     <h2>Visão consolidada — as 6 contas juntas</h2>
     <div id="bank-consolidado"></div>
+  </div>
+  <div class="panel admin-only" id="panel-cadastrar-banco">
+    <h2>Cadastrar novo banco</h2>
+    <div class="note">Use quando a LNB abrir conta em um banco novo. Depois de cadastrado, ele passa a aparecer em todos os filtros de banco (Home, Realizado, Conciliação Bancária etc.) para todo mundo que abrir o painel — salva na base central.</div>
+    <div class="toolbar">
+      <input type="text" id="nb-nome" placeholder="Nome de exibição (ex: Santander 1234-5)" style="flex:2;min-width:220px">
+      <button class="act pri" type="button" id="btn-novo-banco-save">Cadastrar banco</button>
+    </div>
+    <div id="nb-msg" class="foot"></div>
   </div>
   <div class="note"><b>Conciliação bancária mensal:</b> esta visão valida o básico do realizado, conta por conta: saldo inicial + entradas − saídas = saldo final do extrato. A planilha de bancos é soberana: entrada é o que veio na coluna de entrada, saída é o que veio na coluna de saída — o sistema nunca inverte isso. Lançamentos cuja descrição (ISS/DARF/FGTS/INSS/tarifas etc.) sugere sentido oposto ao do extrato aparecem abaixo apenas como <b>alerta para revisão manual</b>. O realizado consolidado (Home, Departamentos, Receitas, Gráficos) já soma todas as contas automaticamente.</div>
   <div class="mtabs" id="bank-tabs"></div>
@@ -2221,7 +2239,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   </div>
 </div>
 <div class="note"><b>Regra absoluta:</b> transferências entre bancos/contas da LNB são exibidas apenas para conciliação bancária e conferência, mas não entram em realizado, receitas, despesas, gráficos de orçamento ou exportação de alocados.</div>
-<div class="foot">Decisões, regras e backups diários ficam salvos na base central (Supabase) — qualquer pessoa com acesso ao painel vê as mesmas informações. Prova real por mês: saldo inicial + entradas − saídas = saldo final do extrato. Realizado consolidado de 6 contas: Bradesco 38379-1, CEF 2215-1, CEF 2246-1, Itaú 38828-0, Ouribank 2950386 e Banco do Brasil 77906-7.</div>
+<div class="foot" id="foot-contas-info">Decisões, regras e backups diários ficam salvos na base central (Supabase) — qualquer pessoa com acesso ao painel vê as mesmas informações. Prova real por mês: saldo inicial + entradas − saídas = saldo final do extrato. Realizado consolidado de 6 contas: Bradesco 38379-1, CEF 2215-1, CEF 2246-1, Itaú 38828-0, Ouribank 2950386 e Banco do Brasil 77906-7.</div>
 </div>
 <datalist id="dl-lines"></datalist>
 <datalist id="dl-bulk-areas"></datalist>
@@ -2714,10 +2732,11 @@ async function pushPlanMetaToSupabase(key,value){
 }
 async function loadSharedStateFromSupabase(){
   try{
-    const [planRows, decRows, favRows, structRows, custLineRows, delLineRows, clubDebitRows, planMetaRows, bankSaldoRows]=await Promise.all([
+    const [planRows, decRows, favRows, structRows, custLineRows, delLineRows, clubDebitRows, planMetaRows, bankSaldoRows, customBankRows, customClubRows]=await Promise.all([
       supaSelect('custom_plan'), supaSelect('tx_decisions'), supaSelect('fav_rules'),
       supaSelect('structure_overrides'), supaSelect('custom_lines'), supaSelect('deleted_lines'),
-      supaSelect('club_debits'), supaSelect('plan_meta'), supaSelect('bank_saldos')
+      supaSelect('club_debits'), supaSelect('plan_meta'), supaSelect('bank_saldos'),
+      supaSelect('custom_bank_accounts'), supaSelect('custom_clubs')
     ]);
     // custom_plan (Novo Orçado) é a fonte de verdade no Supabase, igual a
     // tudo mais. Antes, só atualizávamos customPlan quando a busca vinha com
@@ -2797,6 +2816,14 @@ async function loadSharedStateFromSupabase(){
         if(bank==='BRADESCO'){ DB.saldos[r.mes]=Object.assign({},DB.saldos[r.mes],entry); }
         else{ DB.saldosBanks[bank]=DB.saldosBanks[bank]||{label:bankLabel(bank),saldos:{}}; DB.saldosBanks[bank].saldos[r.mes]=Object.assign({},DB.saldosBanks[bank].saldos[r.mes],entry); }
       });
+    }
+    if(Array.isArray(customBankRows)){
+      customBankAccounts=customBankRows.map(r=>({k:r.k,n:r.n}));
+      store.setItem('lnb3_custom_bank_accounts',JSON.stringify(customBankAccounts));
+    }
+    if(Array.isArray(customClubRows)){
+      customClubs=customClubRows.map(r=>({name:r.name}));
+      store.setItem('lnb3_custom_clubs',JSON.stringify(customClubs));
     }
   }catch(e){
     console.error('loadSharedStateFromSupabase falhou — usando cache local deste navegador:',e);
@@ -3387,7 +3414,9 @@ const ACTIVITY_LABELS={
   apagar_semana_realizado:'Apagou uma semana do Realizado (foi para a Lixeira)',
   encerrar_temporada:'Encerrou e arquivou temporada',
   iniciar_temporada:'Iniciou nova temporada',
-  restaurar_lixeira:'Restaurou um lote da Lixeira'
+  restaurar_lixeira:'Restaurou um lote da Lixeira',
+  cadastrar_banco:'Cadastrou um banco novo',
+  cadastrar_clube:'Cadastrou um clube/equipe novo'
 };
 async function lnbAutoSnapshot(label){
   try{
@@ -4069,9 +4098,14 @@ if(store.getItem('lnb3_club_credit_season')!=='2026/2027'){
   store.setItem('lnb3_club_credit_season','2026/2027');
 }
 let clubDebits=JSON.parse(store.getItem('lnb3_club_debits')||'[]');
+// Bancos e clubes cadastrados pelo usuário (além dos fixos no código),
+// guardados na base central (custom_bank_accounts/custom_clubs) igual a
+// tudo mais no painel — qualquer um que abrir já vê o que foi cadastrado.
+let customBankAccounts=JSON.parse(store.getItem('lnb3_custom_bank_accounts')||'[]');
+let customClubs=JSON.parse(store.getItem('lnb3_custom_clubs')||'[]');
 let openClubCredit=store.getItem('lnb3_open_club_credit')||'';
 function saveClubDebits(){if(guardReadOnly())return;store.setItem('lnb3_club_debits',JSON.stringify(clubDebits));pushClubDebitsToSupabase().catch(e=>console.error(e));}
-function clubNames(){return Object.keys(CLUB_CREDIT_BASE).sort();}
+function clubNames(){return [...new Set([...Object.keys(CLUB_CREDIT_BASE),...(customClubs||[]).map(x=>x.name)])].sort();}
 function normClub(s){return norm(s).replace(/basquete cearense/g,'fortaleza - basquete cearense').replace(/sao jose/g,'sao jose').replace(/cruzeiro/g,'cruzeiros');}
 function clubFromText(txt){
   const x=normClub(txt||'');
@@ -5763,7 +5797,7 @@ const BANK_ACCOUNTS=[
   {k:'OURIBANK',n:'Ouribank 2950386'},
   {k:'BB',n:'Banco do Brasil 77906-7'}
 ];
-function bankLabel(k){const b=BANK_ACCOUNTS.find(x=>x.k===k);return b?b.n:(k||BANK_ACCOUNTS[0].n);}
+function bankLabel(k){const b=BANK_ACCOUNTS.find(x=>x.k===k)||(customBankAccounts||[]).find(x=>x.k===k);return b?b.n:(k||BANK_ACCOUNTS[0].n);}
 // Número da conta de cada banco, do jeito que aparece no cabeçalho da
 // planilha de controle (linha 4: "EXTRATO CONTA CORRENTE - X" e, ao lado,
 // a agência/conta). Serve para descobrir a qual conta cada aba pertence.
@@ -5794,12 +5828,86 @@ function bankFromSheetHeader(rows){
 function bankKeyFromLabel(v){
   if(!v)return'';
   const nv=norm(String(v));
-  const hit=BANK_ACCOUNTS.find(b=>norm(b.n)===nv||norm(b.k)===nv||nv.indexOf(norm(b.k))>-1||norm(b.n).indexOf(nv)>-1);
+  const todos=[...BANK_ACCOUNTS,...(customBankAccounts||[])];
+  const hit=todos.find(b=>norm(b.n)===nv||norm(b.k)===nv||nv.indexOf(norm(b.k))>-1||norm(b.n).indexOf(nv)>-1);
   return hit?hit.k:'';
+}
+// Gera uma chave curta (tipo 'BRADESCO', 'CEF1') a partir do nome digitado
+// ao cadastrar um banco novo -- maiúsculo, sem acento, sem espaço.
+function slugKeyFromName(nome){
+  const base=norm(nome).toUpperCase().replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+  return base||'BANCO'+Date.now();
+}
+async function lnbSaveNovoBanco(){
+  const nomeEl=document.getElementById('nb-nome'), msg=document.getElementById('nb-msg');
+  if(!nomeEl) return;
+  const nome=nomeEl.value.trim();
+  if(!nome){ if(msg)msg.textContent='Informe o nome do banco.'; return; }
+  const existentes=[...BANK_ACCOUNTS,...(customBankAccounts||[])];
+  if(existentes.some(b=>norm(b.n)===norm(nome))){ if(msg)msg.textContent='Já existe um banco cadastrado com esse nome.'; return; }
+  let k=slugKeyFromName(nome);
+  // Evita colidir com uma chave já usada (ex.: dois bancos com nomes bem
+  // parecidos gerando o mesmo slug) -- acrescenta um sufixo numérico.
+  let sufixo=2; const kBase=k;
+  while(existentes.some(b=>b.k===k)){ k=kBase+'_'+sufixo; sufixo++; }
+  const btn=document.getElementById('btn-novo-banco-save');
+  if(btn){ btn.disabled=true; btn.textContent='Salvando...'; }
+  try{
+    const row={k,n:nome,created_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido'};
+    await supaInsertIgnoreDup('custom_bank_accounts',[row],'k');
+    customBankAccounts.push({k,n:nome});
+    store.setItem('lnb3_custom_bank_accounts',JSON.stringify(customBankAccounts));
+    lnbLogActivity('cadastrar_banco', nome);
+    if(msg)msg.textContent='Banco cadastrado! Já aparece nos filtros de banco (Home, Realizado, Conciliação Bancária etc.).';
+    nomeEl.value='';
+    lnbAtualizarBadgeContas();
+    if(typeof render==='function')render();
+  }catch(e){
+    console.error('lnbSaveNovoBanco falhou:', e);
+    if(msg)msg.textContent='Falhou ao salvar: '+e.message;
+  }
+  if(btn){ btn.disabled=false; btn.textContent='Cadastrar banco'; }
+}
+async function lnbSaveNovoClube(){
+  const nomeEl=document.getElementById('nc-nome'), msg=document.getElementById('nc-msg');
+  if(!nomeEl) return;
+  const nome=nomeEl.value.trim().toUpperCase();
+  if(!nome){ if(msg)msg.textContent='Informe o nome do clube.'; return; }
+  if(clubNames().some(cl=>norm(cl)===norm(nome))){ if(msg)msg.textContent='Já existe um clube cadastrado com esse nome.'; return; }
+  const btn=document.getElementById('btn-novo-clube-save');
+  if(btn){ btn.disabled=true; btn.textContent='Salvando...'; }
+  try{
+    const row={name:nome,desoneracao:0,baseline:0,created_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido'};
+    await supaInsertIgnoreDup('custom_clubs',[row],'name');
+    customClubs.push({name:nome});
+    store.setItem('lnb3_custom_clubs',JSON.stringify(customClubs));
+    lnbLogActivity('cadastrar_clube', nome);
+    if(msg)msg.textContent='Clube cadastrado! Já aparece em Créditos dos Clubes e em Filiados, com a desoneração padrão de R\$ 100 mil.';
+    nomeEl.value='';
+    if(typeof renderClubCredit==='function')renderClubCredit();
+  }catch(e){
+    console.error('lnbSaveNovoClube falhou:', e);
+    if(msg)msg.textContent='Falhou ao salvar: '+e.message;
+  }
+  if(btn){ btn.disabled=false; btn.textContent='Cadastrar clube'; }
 }
 function bankOf(t){return t.bank||'BRADESCO';}
 function bankSaldos(bank){if(!bank||bank==='BRADESCO')return DB.saldos;return (DB.saldosBanks&&DB.saldosBanks[bank]&&DB.saldosBanks[bank].saldos)||{};}
-function bankList(){const list=BANK_ACCOUNTS.map(b=>({k:b.k,n:b.n}));Object.keys(DB.saldosBanks||{}).forEach(k=>{if(!list.find(x=>x.k===k))list.push({k,n:DB.saldosBanks[k].label||k});});return list;}
+function bankList(){const list=BANK_ACCOUNTS.map(b=>({k:b.k,n:b.n}));(customBankAccounts||[]).forEach(b=>{if(!list.find(x=>x.k===b.k))list.push({k:b.k,n:b.n});});Object.keys(DB.saldosBanks||{}).forEach(k=>{if(!list.find(x=>x.k===k))list.push({k,n:DB.saldosBanks[k].label||k});});return list;}
+// Atualiza os dois textos fixos do cabeçalho/rodapé que citam 'X contas'
+// nominalmente -- sem isso, cadastrar um banco novo deixaria essas notas
+// desatualizadas (ainda dizendo '6 contas' com a lista antiga).
+function lnbAtualizarBadgeContas(){
+  const list=bankList();
+  const nomes=list.map(b=>b.n);
+  const badge=document.getElementById('bdg-contas');
+  if(badge)badge.textContent='🏦 '+list.length+' conta'+(list.length===1?'':'s')+': '+nomes.join(', ');
+  const foot=document.getElementById('foot-contas-info');
+  if(foot){
+    const ultimaVirgula=nomes.length>1?(nomes.slice(0,-1).join(', ')+' e '+nomes[nomes.length-1]):nomes.join('');
+    foot.textContent='Decisões, regras e backups diários ficam salvos na base central (Supabase) — qualquer pessoa com acesso ao painel vê as mesmas informações. Prova real por mês: saldo inicial + entradas − saídas = saldo final do extrato. Realizado consolidado de '+list.length+' conta'+(list.length===1?'':'s')+': '+ultimaVirgula+'.';
+  }
+}
 let curBank='BRADESCO';
 // Totais consolidados de TODAS as contas bancárias juntas, no recorte
 // escolhido (temporada inteira quando mes é null, ou um mês específico).
@@ -9860,6 +9968,7 @@ window.addEventListener('resize',()=>{ if(!iaPop.classList.contains('hide'))iaKe
 })();
 async function lnbBootApp(){
   try{ await loadSharedStateFromSupabase(); }catch(e){ console.error('loadSharedStateFromSupabase falhou:', e); }
+  try{ lnbAtualizarBadgeContas(); }catch(e){ console.error('lnbAtualizarBadgeContas falhou:', e); }
   try{ iaInit(); }catch(e){ console.error('iaInit falhou:', e); }
   try{ render(); }catch(e){ console.error('render falhou:', e); }
   const btnRefreshGsheets=document.getElementById('btn-refresh-gsheets');
@@ -9873,6 +9982,10 @@ async function lnbBootApp(){
   lnbShowAuthBadge();
   try{ lnbInitHeaderResize(); }catch(e){ console.error('lnbInitHeaderResize falhou:', e); }
   try{ lnbInitManualEntryForm(); }catch(e){ console.error('lnbInitManualEntryForm falhou:', e); }
+  try{
+    const btnNb=document.getElementById('btn-novo-banco-save'); if(btnNb)btnNb.onclick=lnbSaveNovoBanco;
+    const btnNc=document.getElementById('btn-novo-clube-save'); if(btnNc)btnNc.onclick=lnbSaveNovoClube;
+  }catch(e){ console.error('wiring cadastro banco/clube falhou:', e); }
   try{ lnbInitTemporadaManager(); }catch(e){ console.error('lnbInitTemporadaManager falhou:', e); }
   try{
     lnbInitWeekDeleteMonths();
