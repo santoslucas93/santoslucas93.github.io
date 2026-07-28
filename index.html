@@ -5036,6 +5036,34 @@ function groupsHTML(a,r,showZero=false){
   }
   return inner||'<div class="desc">Sem movimentação.</div>';
 }
+// Encolhe a fonte do valor de um card de KPI até caber numa linha só, em
+// vez de quebrar no meio de um número (ex.: "R$ 22.540.86" numa linha e
+// "3" sozinho na de baixo). Roda depois de cada render(), pra cobrir
+// qualquer card recém desenhado em qualquer aba (Home, departamentos,
+// Receitas, Conciliação Bancária etc — todos usam a mesma classe .kpi .v).
+function fitKpiValues(){
+  document.querySelectorAll('.kpi .v, #qc-saldo-val').forEach(function(el){
+    el.style.fontSize=''; el.style.whiteSpace='';
+    if(!el.textContent.trim())return;
+    const base=parseFloat(getComputedStyle(el).fontSize)||21;
+    let size=base;
+    const minSize=11;
+    el.style.whiteSpace='nowrap';
+    while(el.scrollWidth>el.clientWidth+0.5 && size>minSize){
+      size-=1;
+      el.style.fontSize=size+'px';
+    }
+    // Não coube nem no tamanho mínimo (card estreitíssimo/valor enorme) —
+    // libera quebra de linha em vez de deixar o texto cortado sem aviso.
+    if(el.scrollWidth>el.clientWidth+0.5) el.style.whiteSpace='normal';
+  });
+}
+let fitKpiValuesTimer=null;
+function fitKpiValuesDebounced(){
+  clearTimeout(fitKpiValuesTimer);
+  fitKpiValuesTimer=setTimeout(fitKpiValues,120);
+}
+window.addEventListener('resize',fitKpiValuesDebounced);
 function render(){
   __clearPerfCaches();
   renderMtabs();renderSubnav();
@@ -5059,6 +5087,7 @@ function render(){
   if(curV==='plan'){renderPlan();setTimeout(initPlanGovernance,0);}
   if(curV==='bank'){renderBankConsolidado();renderBankTabs();renderBank();}
   if(curV==='real')renderRealizado();
+  requestAnimationFrame(fitKpiValues);
 }
 function renderMtabs(){
   document.getElementById('mtabs').innerHTML='<button class="all '+(curM==='ALL'?'on':'')+'" onclick="curM=\'ALL\';page=1;render()">Temporada (extrato)</button>'+
@@ -5830,6 +5859,7 @@ function renderBankConsolidado(){
     if(r.faltaLancamentos)alertas.push(r.faltaLancamentos+' mês(es) com lançamento faltando');
     if(r.meses&&!r.contiguo)alertas.push('há mês sem extrato no meio do período — prova feita mês a mês');
     if(r.semSaldo&&r.semSaldo.length)alertas.push('falta informar saldo em '+r.semSaldo.map(mlabel).join(', ')+' — digite em "Ajustar saldo do mês"');
+    if(r.iniHerdado)alertas.push('saldo inicial de '+esc(periodoTxt)+' herdado do saldo final do mês anterior (ainda sem saldo final cadastrado para conferir)');
     return `<tr class="${r.meses&&!r.ok?'flowfix':''}"><td>${esc(r.n)}${alertas.length?'<div class="desc">'+esc(alertas.join(' · '))+'</div>':''}</td><td class="num">${r.meses}</td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num" style="color:var(--ok)">${fmt(r.entradas)}</td><td class="num" style="color:var(--er)">${fmt(r.saidas)}</td><td class="num">${r.meses?fmt(r.calc==null?((r.ini||0)+r.entradas-r.saidas):r.calc):'—'}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.meses&&r.fim!=null?(r.ok?'bank-status-ok':'bank-status-er'):''}">${r.dif==null?'—':fmt(r.dif)}</td><td>${chip}</td><td><button class="act" type="button" onclick="curBank='${r.k}';document.getElementById('bank-tabs')?.scrollIntoView({behavior:'smooth'});renderBankTabs();renderBank();">Ver conta →</button></td></tr>`;
   }).join('')}<tr style="font-weight:700;border-top:2px solid var(--bd)"><td>TOTAL das ${rows.length} contas</td><td class="num">—</td><td class="num">${fmt(totIni)}</td><td class="num" style="color:var(--ok)">${fmt(totEnt)}</td><td class="num" style="color:var(--er)">${fmt(totSai)}</td><td class="num">${fmt(totCalc)}</td><td class="num">${fmt(totFim)}</td><td class="num ${Math.abs(totDif)<0.02?'bank-status-ok':'bank-status-er'}">${fmt(totDif)}</td><td>${Math.abs(totDif)<0.02?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td></td></tr></tbody></table>
   <div class="foot" style="margin-top:8px">${totDiv?totDiv+' mês(es) divergente(s) somando todas as contas. ':'Nenhum mês divergente. '}Se o saldo inicial de algum mês estiver errado, corrija manualmente em <b>Ajustar saldo do mês</b>, dentro da conta — o saldo final volta a bater.</div>`;
@@ -5884,7 +5914,13 @@ function bankProofRows(bank){
     return mo===12?((y+1)+'-01'):(y+'-'+String(mo+1).padStart(2,'0'));
   };
   out.forEach((r,i)=>{
-    r.encadeaOk=true; r.encadeaDif=null; r.mesAnterior=null; r.mesSeguido=(i===0);
+    r.encadeaOk=true; r.encadeaDif=null; r.mesAnterior=null; r.mesSeguido=(i===0); r.iniHerdado=false;
+    // "efetivo" é o saldo final que este mês repassa pro próximo pra
+    // encadear: o cadastrado de verdade (r.fim) quando existe, ou senão o
+    // calculado (saldo inicial + entradas − saídas) deste mesmo mês — assim
+    // a herança continua em cascata mesmo por vários meses seguidos sem
+    // extrato nenhum importado.
+    r.fimEfetivo=r.fim!=null?r.fim:r.calc;
     if(i===0)return;
     const ant=out[i-1];
     // "Meses seguidos" é só uma questão de calendário. Antes esta checagem
@@ -5895,8 +5931,23 @@ function bankProofRows(bank){
     r.mesSeguido=(mesSeguinte(ant.m)===r.m);
     if(!r.mesSeguido)return;
     r.mesAnterior=ant.m;
-    if(ant.fim==null||r.ini==null)return;
-    r.encadeaDif=r.ini-ant.fim;
+    if(ant.fimEfetivo==null)return;
+    // Regra pedida: o saldo inicial de um mês é sempre o saldo final do mês
+    // anterior. Se este mês ainda não tem saldo inicial cadastrado (extrato
+    // deste mês ainda não importado), herda automaticamente do mês anterior
+    // em vez de ficar em branco/"—" — só não sobrescreve um saldo inicial
+    // que já foi cadastrado de verdade (aí a checagem de encadeamento normal
+    // continua valendo, pra avisar se os dois números não baterem).
+    if(r.ini==null){
+      r.ini=ant.fimEfetivo; r.iniNum=r.ini; r.iniHerdado=true;
+      r.calc=r.ini+r.entradas-r.saidas;
+      r.dif=r.fim==null?0:r.calc-r.fim;
+      r.ok=r.fim==null||Math.abs(r.dif)<0.02;
+      r.fimEfetivo=r.fim!=null?r.fim:r.calc;
+      r.encadeaDif=0; r.encadeaOk=true;
+      return;
+    }
+    r.encadeaDif=r.ini-ant.fimEfetivo;
     r.encadeaOk=Math.abs(r.encadeaDif)<0.02;
   });
   return out;
@@ -5930,6 +5981,7 @@ function bankPeriodSummary(bank,mes){
   return {bank,meses:rows.length,ini,fim,entradas,saidas,calc,dif,contiguo,vaos:Math.max(0,vaos),semSaldo,
           ok:divergentes===0&&semSaldo.length===0&&(contiguo?(fim!=null&&Math.abs(dif)<0.02):true),
           divergentes,
+          iniHerdado:!!rows[0].iniHerdado,
           encadeaProblemas:rows.filter(r=>r.encadeaOk===false).length,
           faltaLancamentos:rows.filter(r=>r.faltaLancamento).length,
           rows,primeiro:rows[0].m,ultimo:rows[rows.length-1].m};
