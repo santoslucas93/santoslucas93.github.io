@@ -1574,11 +1574,43 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <div class="panel"><h2>Evolução mensal — despesas</h2><div class="cols" id="g-cols"></div>
       <div class="legend"><span class="dot" style="background:var(--budget-blue)"></span>orçado&nbsp;&nbsp;<span class="dot" style="background:var(--actual-red)"></span>realizado</div></div>
   </div>
-  <div class="panel"><h2>Fluxo semanal consolidado — sem transferências internas</h2><div id="home-weekly"></div>
-    <div class="legend">Entradas e saídas bancárias reais por semana. Transferências entre contas da LNB são eliminadas para não duplicar o mesmo dinheiro.</div></div>
-  <div class="panel"><h2>Fluxo semanal por banco — sem transferências internas</h2><div id="home-weekly-banks"></div></div>
-  <div class="panel"><h2>Nível 3 — Filiados, reembolsos, competições e eventos</h2><div id="g-sups"></div>
-    <div class="legend">Estas visões são derivadas automaticamente do extrato e alimentam os departamentos, como na planilha. Clique para abrir.</div></div>
+  <details class="panel" id="home-weekly-details">
+    <summary><h2 style="display:inline">Fluxo semanal consolidado — sem transferências internas</h2></summary>
+    <div class="toolbar" style="margin:10px 0;flex-wrap:wrap">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Banco
+        <select id="hw-banco" style="min-width:150px"><option value="">Todos os bancos</option></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Mês
+        <select id="hw-mes" style="min-width:130px"><option value="ALL">Temporada (todos)</option></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Semana
+        <select id="hw-semana" style="min-width:130px">
+          <option value="">Todas</option>
+          <option value="1">1ª</option><option value="2">2ª</option><option value="3">3ª</option><option value="4">4ª</option><option value="5">5ª</option>
+        </select>
+      </label>
+    </div>
+    <div id="home-weekly"></div>
+    <div class="legend">Entradas e saídas bancárias reais por semana. Transferências entre contas da LNB são eliminadas para não duplicar o mesmo dinheiro.</div>
+  </details>
+  <details class="panel" id="home-weekly-banks-details">
+    <summary><h2 style="display:inline">Fluxo semanal por banco — sem transferências internas</h2></summary>
+    <div class="toolbar" style="margin:10px 0;flex-wrap:wrap">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Banco
+        <select id="hwb-banco" style="min-width:150px"><option value="">Todos os bancos</option></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Mês
+        <select id="hwb-mes" style="min-width:130px"><option value="ALL">Temporada (todos)</option></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Semana
+        <select id="hwb-semana" style="min-width:130px">
+          <option value="">Todas</option>
+          <option value="1">1ª</option><option value="2">2ª</option><option value="3">3ª</option><option value="4">4ª</option><option value="5">5ª</option>
+        </select>
+      </label>
+    </div>
+    <div id="home-weekly-banks"></div>
+  </details>
   <div class="grid2">
     <div class="panel"><h2>Maiores desvios de linha (acima do orçado)</h2><div id="g-desvios"></div></div>
     <div class="panel"><h2>Receitas / entradas — orçado x realizado</h2><div id="g-rec"></div></div>
@@ -4968,11 +5000,12 @@ function weekOfMonth(dateStr){
   const d=new Date(dateStr+'T12:00:00');
   return Math.min(5,Math.floor((d.getDate()-1)/7)+1);
 }
-function weeklyRows(monthFilter,bankFilter){
+function weeklyRows(monthFilter,bankFilter,weekFilter){
   const out={};
   txs.forEach(t=>{
-    if(monthFilter!=='ALL'&&t.m!==monthFilter)return;
+    if(monthFilter&&monthFilter!=='ALL'&&t.m!==monthFilter)return;
     if(bankFilter&&bankOf(t)!==bankFilter)return;
+    if(weekFilter&&String(weekOfMonth(t.d))!==String(weekFilter))return;
     if(isInternalBankTransferTx(t))return;
     const k=t.m+'|'+weekOfMonth(t.d);
     const r=out[k]||(out[k]={m:t.m,w:weekOfMonth(t.d),e:0,s:0,n:0});
@@ -4980,16 +5013,48 @@ function weeklyRows(monthFilter,bankFilter){
   });
   return Object.values(out).sort((a,b)=>a.m.localeCompare(b.m)||a.w-b.w);
 }
+// Preenche os selects de mês/banco dos dois painéis de fluxo semanal da
+// Home uma única vez (não recria a cada render, senão perde a seleção do
+// usuário no meio da navegação).
+function lnbInitHomeWeeklyFiltros(){
+  const mesSelects=['hw-mes','hwb-mes'];
+  const bancoSelects=['hw-banco','hwb-banco'];
+  mesSelects.forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel||sel.dataset.filled)return;
+    sel.insertAdjacentHTML('beforeend', months.slice().sort().map(m=>'<option value="'+m+'">'+mlabel(m)+'</option>').join(''));
+    sel.dataset.filled='1';
+    sel.onchange=renderHomeWeekly;
+  });
+  bancoSelects.forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel||sel.dataset.filled)return;
+    sel.insertAdjacentHTML('beforeend', bankList().map(b=>'<option value="'+b.k+'">'+esc(b.n)+'</option>').join(''));
+    sel.dataset.filled='1';
+    sel.onchange=renderHomeWeekly;
+  });
+  ['hw-semana','hwb-semana'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(sel&&!sel.dataset.wired){ sel.onchange=renderHomeWeekly; sel.dataset.wired='1'; }
+  });
+}
 function renderHomeWeekly(){
   const box=document.getElementById('home-weekly');
   const bbox=document.getElementById('home-weekly-banks');
   if(!box||!bbox)return;
-  const rows=weeklyRows(curM);
-  box.innerHTML=rows.length?`<table><thead><tr><th>Mês</th><th>Semana</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Fluxo líquido</th><th class="num">Lançamentos</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${mlabel(r.m)}</td><td><b>Semana ${r.w}</b><div class="how">dias ${(r.w-1)*7+1} a ${Math.min(r.w*7,new Date(Number(r.m.slice(0,4)),Number(r.m.slice(5,7)),0).getDate())}</div></td><td class="num" style="color:var(--ok)">${fmt2(r.e)}</td><td class="num" style="color:var(--er)">${fmt2(r.s)}</td><td class="num" style="color:${r.e-r.s>=0?'var(--ok)':'var(--er)'}">${fmt2(r.e-r.s)}</td><td class="num">${r.n}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem movimentação no período.</div>';
-  const banks=bankList();
+  lnbInitHomeWeeklyFiltros();
+  const hwMes=document.getElementById('hw-mes')?.value||'ALL';
+  const hwBanco=document.getElementById('hw-banco')?.value||'';
+  const hwSemana=document.getElementById('hw-semana')?.value||'';
+  const rows=weeklyRows(hwMes,hwBanco,hwSemana);
+  box.innerHTML=rows.length?`<table><thead><tr><th>Mês</th><th>Semana</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Fluxo líquido</th><th class="num">Lançamentos</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${mlabel(r.m)}</td><td><b>Semana ${r.w}</b><div class="how">dias ${(r.w-1)*7+1} a ${Math.min(r.w*7,new Date(Number(r.m.slice(0,4)),Number(r.m.slice(5,7)),0).getDate())}</div></td><td class="num" style="color:var(--ok)">${fmt2(r.e)}</td><td class="num" style="color:var(--er)">${fmt2(r.s)}</td><td class="num" style="color:${r.e-r.s>=0?'var(--ok)':'var(--er)'}">${fmt2(r.e-r.s)}</td><td class="num">${r.n}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem movimentação no período (com os filtros escolhidos).</div>';
+  const hwbMes=document.getElementById('hwb-mes')?.value||'ALL';
+  const hwbBanco=document.getElementById('hwb-banco')?.value||'';
+  const hwbSemana=document.getElementById('hwb-semana')?.value||'';
+  const banks=hwbBanco?bankList().filter(b=>b.k===hwbBanco):bankList();
   const bankRows=[];
-  banks.forEach(b=>weeklyRows(curM,b.k).forEach(r=>bankRows.push({...r,b:b.n})));
-  bbox.innerHTML=bankRows.length?`<table><thead><tr><th>Banco</th><th>Mês / semana</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Fluxo líquido</th></tr></thead><tbody>${bankRows.map(r=>`<tr><td><b>${esc(r.b)}</b></td><td>${mlabel(r.m)} · Semana ${r.w}</td><td class="num" style="color:var(--ok)">${fmt2(r.e)}</td><td class="num" style="color:var(--er)">${fmt2(r.s)}</td><td class="num">${fmt2(r.e-r.s)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem movimentação bancária no período.</div>';
+  banks.forEach(b=>weeklyRows(hwbMes,b.k,hwbSemana).forEach(r=>bankRows.push({...r,b:b.n})));
+  bbox.innerHTML=bankRows.length?`<table><thead><tr><th>Banco</th><th>Mês / semana</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Fluxo líquido</th></tr></thead><tbody>${bankRows.map(r=>`<tr><td><b>${esc(r.b)}</b></td><td>${mlabel(r.m)} · Semana ${r.w}</td><td class="num" style="color:var(--ok)">${fmt2(r.e)}</td><td class="num" style="color:var(--er)">${fmt2(r.s)}</td><td class="num">${fmt2(r.e-r.s)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem movimentação bancária no período (com os filtros escolhidos).</div>';
 }
 function renderHome(){
   const r=realized(curM);
@@ -5018,9 +5083,10 @@ function renderHome(){
       <div class="nums">${p?fmt(p):'—'} / ${fmt(rr)}</div></div>`;}).join('');
   document.getElementById('g-cols').innerHTML=colsHTML(months.map(m=>{const rm=realized(m);
     return {l:mlabel(m),p:DESP.reduce((s,a)=>s+budP(m,a),0),r:DESP.reduce((s,a)=>s+(rm.A[a]||0),0),m};}));
-  document.getElementById('g-sups').innerHTML=SUPS.map(s=>{
-    let tot=0,n=0;txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;if(!supFilter(s)(t))return;tot+=t.s>0?t.s:t.e;n++;});
-    return `<span class="chip big gy" onclick="goSup('${s.k}')" title="${esc(s.d)}"><b>${s.n}</b> · ${n?fmt(tot):'sem mov.'}${n?' ('+n+')':''}</span>`;}).join(' ');
+  // "Nível 3" saiu da Home a pedido (não tinha uso analítico ali) — as
+  // mesmas visões continuam acessíveis pelo subnav de cada departamento
+  // (Equipes > Filiados, Comunicação > Transporte/Media Day, Técnico
+  // Operacional > Clínica/Reembolso de Arbitragem, Competições > CS8 etc.).
   const desv=DB.lines.map(l=>({kind:'line',l,p:linePrev(l,curM),r:r.L[l.id]||0,area:l.area,g:l.g,label:lineName(l.id)})).filter(x=>x.p>0&&x.r>x.p&&x.area!=='REC');
   Object.keys(r.G).forEach(k=>{const [a,g]=k.split('|');if(['REC','OREC','TRF'].includes(a))return;if(g==='__none'){const val=r.G[k]||0;if(val>0.01)desv.push({kind:'nogroup',area:a,g:null,label:'Sem grupo/linha definida',p:0,r:val});return;}const lines=DB.lines.filter(l=>l.area===a&&l.g===g);if(!lines.length)return;const no=(r.G[k]||0)-lines.reduce((s,l)=>s+(r.L[l.id]||0),0);if(no>0.01)desv.push({kind:'noline',area:a,g,label:'Sem linha definida',p:0,r:no});});
   desv.sort((a,b)=>((b.r-b.p)-(a.r-a.p)));
