@@ -2529,14 +2529,14 @@ async function supaSelectIncludeDeleted(table, filterQuery){
   return await res.json();
 }
 async function supaSoftDelete(table, filterQuery, deletedAtISO){
-  if(isReadOnlyUser()) return {ok:false};
+  if(isReadOnlyUser()) throw new Error('Seu perfil é somente leitura — peça a um administrador para fazer esta alteração.');
   const url=SUPABASE_URL+'/rest/v1/'+table+'?'+filterQuery;
   const res=await supaFetch(url, {method:'PATCH', headersExtra:{'Prefer':'return=minimal'}, body: JSON.stringify({deleted_at:deletedAtISO,deleted_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido'})});
   if(!res.ok){ const t=await res.text(); throw new Error('Supabase soft-delete '+table+' falhou: '+res.status+' '+t); }
   return {ok:true};
 }
 async function supaRestore(table, filterQuery){
-  if(isReadOnlyUser()) return {ok:false};
+  if(isReadOnlyUser()) throw new Error('Seu perfil é somente leitura — peça a um administrador para fazer esta alteração.');
   const url=SUPABASE_URL+'/rest/v1/'+table+'?'+filterQuery;
   const res=await supaFetch(url, {method:'PATCH', headersExtra:{'Prefer':'return=minimal'}, body: JSON.stringify({deleted_at:null,deleted_by:null})});
   if(!res.ok){ const t=await res.text(); throw new Error('Supabase restore '+table+' falhou: '+res.status+' '+t); }
@@ -2552,7 +2552,7 @@ async function supaRestore(table, filterQuery){
 // deixando a deduplicação por ocorrência do próprio importador decidir o que
 // é novo.
 async function supaInsertIgnoreDup(table, rows, onConflict){
-  if(isReadOnlyUser()) return {inserted:0};
+  if(isReadOnlyUser()) throw new Error('Seu perfil é somente leitura — peça a um administrador para fazer esta alteração.');
   if(!rows.length) return {inserted:0};
   // Bug real corrigido: 'resolution=ignore-duplicates' só funciona quando o
   // Postgres sabe contra qual índice/constraint aplicar o ON CONFLICT DO
@@ -2565,7 +2565,7 @@ async function supaInsertIgnoreDup(table, rows, onConflict){
   return {inserted: rows.length};
 }
 async function supaUpsert(table, rows, onConflict){
-  if(isReadOnlyUser()) return {upserted:0};
+  if(isReadOnlyUser()) throw new Error('Seu perfil é somente leitura — peça a um administrador para fazer esta alteração.');
   if(!rows.length) return {upserted:0};
   const url=SUPABASE_URL+'/rest/v1/'+table+(onConflict?('?on_conflict='+onConflict):'');
   const res=await supaFetch(url, {method:'POST', headersExtra:{'Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify(rows)});
@@ -2574,7 +2574,7 @@ async function supaUpsert(table, rows, onConflict){
 }
 
 async function supaDelete(table, filterQuery){
-  if(isReadOnlyUser()) return {ok:false};
+  if(isReadOnlyUser()) throw new Error('Seu perfil é somente leitura — peça a um administrador para fazer esta alteração.');
   const url=SUPABASE_URL+'/rest/v1/'+table+'?'+filterQuery;
   const res=await supaFetch(url, {method:'DELETE'});
   if(!res.ok){ const t=await res.text(); throw new Error('Supabase delete '+table+' falhou: '+res.status+' '+t); }
