@@ -4997,10 +4997,26 @@ function renderSaldoBancoQuickcard(){
   const valEl=document.getElementById('qc-saldo-val'), descEl=document.getElementById('qc-saldo-desc');
   if(!valEl||!descEl)return;
   const bt=bankConsolidadoTotais(curM==='ALL'?null:curM);
-  const okBanco=bt.contasComDados>0&&Math.abs(bt.totDif)<0.02;
-  valEl.style.color=bt.contasComDados?(okBanco?'var(--ok)':'var(--er)'):'var(--tx2)';
-  valEl.textContent=bt.contasComDados?fmt(bt.totFim):'—';
-  descEl.textContent=bt.contasComDados?(okBanco?('confere: '+fmt(bt.totIni)+' + '+fmt(bt.totEnt)+' − '+fmt(bt.totSai)):('diverge em '+fmt(bt.totDif)+' do calculado')):'sem saldo cadastrado no período';
+  const temDados=bt.contasComDados>0;
+  // Bug real corrigido: o valor mostrado aqui era sempre bt.totFim (a soma
+  // do saldo final CADASTRADO de cada conta). Num mês sem extrato ainda
+  // importado (ex.: o mês corrente, com só um lançamento avulso lançado),
+  // nenhuma conta tem saldo final cadastrado -- totFim ficava 0 e o card
+  // mostrava "R$ 0" com um "diverge em R$ X" enorme, mesmo com o saldo
+  // inicial (já herdado do mês anterior) e as entradas/saídas reais
+  // batendo certinho. Agora o valor mostrado é sempre o CALCULADO (saldo
+  // inicial + entradas − saídas), que é a melhor estimativa disponível; só
+  // vira "confere"/"diverge" de verdade quando pelo menos uma conta com
+  // movimento neste período já tem saldo final cadastrado pra comparar.
+  const semFimReal=bt.semFimReal;
+  const divergeReal=temDados&&!semFimReal&&Math.abs(bt.totDif)>=0.02;
+  valEl.style.color=temDados?(divergeReal?'var(--er)':'var(--ok)'):'var(--tx2)';
+  valEl.textContent=temDados?fmt(bt.totCalc):'—';
+  descEl.textContent=temDados
+    ?(semFimReal
+      ?('estimado: '+fmt(bt.totIni)+' + '+fmt(bt.totEnt)+' − '+fmt(bt.totSai)+' — aguardando saldo final do extrato de alguma conta')
+      :(divergeReal?('diverge em '+fmt(bt.totDif)+' do saldo final cadastrado'):('confere: '+fmt(bt.totIni)+' + '+fmt(bt.totEnt)+' − '+fmt(bt.totSai))))
+    :'sem saldo cadastrado no período';
 }
 
 function goDeptView(a,scrollId){curV='dept';curDept=a||curDept;openLineId=null;openGroupKey=null;render();window.scrollTo(0,0);if(scrollId)scrollToId(scrollId);}
@@ -5836,7 +5852,14 @@ function bankConsolidadoTotais(mesFiltro){
   const totCalc=totIni+totEnt-totSai;
   const totDif=totCalc-totFim;
   const contasComDados=comDados.length;
-  return {rows,comDados,totIni,totFim,totEnt,totSai,totDiv,totCalc,totDif,contasComDados,totalContas:rows.length,isAll};
+  // Nem toda conta com movimento neste período já tem saldo final
+  // cadastrado (extrato do mês ainda não importado, ex.: mês corrente).
+  // Quando falta, o "totFim" somado fica menor do que deveria de verdade
+  // (falta somar o que ainda não foi cadastrado) e comparar totCalc contra
+  // ele dá uma divergência falsa. semFimReal sinaliza esse caso pra quem
+  // usa os totais tratar como "estimado" em vez de "diverge de verdade".
+  const semFimReal=comDados.some(r=>r.fim==null);
+  return {rows,comDados,totIni,totFim,totEnt,totSai,totDiv,totCalc,totDif,contasComDados,totalContas:rows.length,isAll,semFimReal};
 }
 function renderBankConsolidado(){
   const box=document.getElementById('bank-consolidado'); if(!box)return;
@@ -5844,7 +5867,7 @@ function renderBankConsolidado(){
   // saídas e saldo final — para cada conta, no recorte selecionado lá em
   // cima (temporada inteira ou um mês específico).
   const isAll=curM==='ALL';
-  const {rows,totIni,totFim,totEnt,totSai,totDiv,totCalc,totDif}=bankConsolidadoTotais(isAll?null:curM);
+  const {rows,totIni,totFim,totEnt,totSai,totDiv,totCalc,totDif,semFimReal}=bankConsolidadoTotais(isAll?null:curM);
   const periodoTxt=isAll?'temporada inteira':mlabel(curM);
   box.innerHTML=`<div class="desc" style="margin-bottom:8px">Período: <b>${esc(periodoTxt)}</b> — muda junto com a seleção de mês acima. Saldo inicial é o do primeiro mês do período e saldo final é o do último; entradas e saídas são a soma do período.</div>
   <table><thead><tr><th>Banco</th><th class="num">Meses</th><th class="num">Saldo inicial</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo calculado</th><th class="num">Saldo final</th><th class="num">Diferença</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(r=>{
@@ -5861,7 +5884,7 @@ function renderBankConsolidado(){
     if(r.semSaldo&&r.semSaldo.length)alertas.push('falta informar saldo em '+r.semSaldo.map(mlabel).join(', ')+' — digite em "Ajustar saldo do mês"');
     if(r.iniHerdado)alertas.push('saldo inicial de '+esc(periodoTxt)+' herdado do saldo final do mês anterior (ainda sem saldo final cadastrado para conferir)');
     return `<tr class="${r.meses&&!r.ok?'flowfix':''}"><td>${esc(r.n)}${alertas.length?'<div class="desc">'+esc(alertas.join(' · '))+'</div>':''}</td><td class="num">${r.meses}</td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num" style="color:var(--ok)">${fmt(r.entradas)}</td><td class="num" style="color:var(--er)">${fmt(r.saidas)}</td><td class="num">${r.meses?fmt(r.calc==null?((r.ini||0)+r.entradas-r.saidas):r.calc):'—'}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.meses&&r.fim!=null?(r.ok?'bank-status-ok':'bank-status-er'):''}">${r.dif==null?'—':fmt(r.dif)}</td><td>${chip}</td><td><button class="act" type="button" onclick="curBank='${r.k}';document.getElementById('bank-tabs')?.scrollIntoView({behavior:'smooth'});renderBankTabs();renderBank();">Ver conta →</button></td></tr>`;
-  }).join('')}<tr style="font-weight:700;border-top:2px solid var(--bd)"><td>TOTAL das ${rows.length} contas</td><td class="num">—</td><td class="num">${fmt(totIni)}</td><td class="num" style="color:var(--ok)">${fmt(totEnt)}</td><td class="num" style="color:var(--er)">${fmt(totSai)}</td><td class="num">${fmt(totCalc)}</td><td class="num">${fmt(totFim)}</td><td class="num ${Math.abs(totDif)<0.02?'bank-status-ok':'bank-status-er'}">${fmt(totDif)}</td><td>${Math.abs(totDif)<0.02?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td></td></tr></tbody></table>
+  }).join('')}<tr style="font-weight:700;border-top:2px solid var(--bd)"><td>TOTAL das ${rows.length} contas${semFimReal?'<div class="desc">saldo final estimado — falta saldo final cadastrado em ao menos uma conta com movimento neste período</div>':''}</td><td class="num">—</td><td class="num">${fmt(totIni)}</td><td class="num" style="color:var(--ok)">${fmt(totEnt)}</td><td class="num" style="color:var(--er)">${fmt(totSai)}</td><td class="num">${fmt(totCalc)}</td><td class="num">${semFimReal?'—':fmt(totFim)}</td><td class="num ${semFimReal?'':(Math.abs(totDif)<0.02?'bank-status-ok':'bank-status-er')}">${semFimReal?'—':fmt(totDif)}</td><td>${semFimReal?'<span class="chip wn">estimado</span>':(Math.abs(totDif)<0.02?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>')}</td><td></td></tr></tbody></table>
   <div class="foot" style="margin-top:8px">${totDiv?totDiv+' mês(es) divergente(s) somando todas as contas. ':'Nenhum mês divergente. '}Se o saldo inicial de algum mês estiver errado, corrija manualmente em <b>Ajustar saldo do mês</b>, dentro da conta — o saldo final volta a bater.</div>`;
 }
 function renderBankTabs(){
