@@ -4928,6 +4928,7 @@ function goDash(kind){
   },0);
 }
 function goRec(scrollId){curV='rec';render();window.scrollTo(0,0);if(scrollId)scrollToId(scrollId);}
+function goBankConsolidado(){curV='bank';render();window.scrollTo(0,0);scrollToId('bank-consolidado');}
 function goDeptView(a,scrollId){curV='dept';curDept=a||curDept;openLineId=null;openGroupKey=null;render();window.scrollTo(0,0);if(scrollId)scrollToId(scrollId);}
 function openLine(a,lid){curV='dept';curDept=a;openLineId=lid;openGroupKey=null;render();setTimeout(()=>{const el=document.getElementById('line-'+lid);if(el){el.scrollIntoView({behavior:'smooth',block:'center'});}},60);}
 function openUnallocated(a,g){curV='dept';curDept=a;openLineId=null;openGroupKey=a+'|'+(g||'__none');render();setTimeout(()=>{const el=document.getElementById('nogrp-'+cssid(openGroupKey));if(el){el.scrollIntoView({behavior:'smooth',block:'center'});}},60);}
@@ -5072,6 +5073,7 @@ function renderHome(){
    <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas realizadas</div><div class="v">${fmt(despR)}${monthTag}</div><div class="d">${pct}% do orçado</div></div>
    <div class="kpi click" onclick="goRec('rec-lines')" title="Ver composição das receitas"><div class="l">Receitas realizadas</div><div class="v" style="color:var(--ok)">${fmt(recR)}${monthTag}</div><div class="d">orçado ${fmt(recP)}</div></div>
    <div class="kpi click" onclick="scrollToId('home-weekly')" title="Ver fluxo bancário semanal sem transferências internas"><div class="l">Fluxo bancário líquido</div><div class="v">${fmt(weeklyRows(curM).reduce((s,x)=>s+x.e-x.s,0))}${monthTag}</div><div class="d">entradas − saídas, sem transferências internas</div></div>
+   ${(()=>{const bt=bankConsolidadoTotais(curM==='ALL'?null:curM);const okBanco=bt.contasComDados>0&&Math.abs(bt.totDif)<0.02;return `<div class="kpi click" onclick="goBankConsolidado()" title="Saldo inicial de todos os bancos + entradas − saídas = saldo final (transferências entre contas da LNB já se cancelam na soma)"><div class="l">Saldo bancário consolidado</div><div class="v" style="color:${bt.contasComDados?(okBanco?'var(--ok)':'var(--er)'):'var(--tx2)'}">${bt.contasComDados?fmt(bt.totFim):'—'}${monthTag}</div><div class="d">${bt.contasComDados?(okBanco?'confere: '+fmt(bt.totIni)+' + '+fmt(bt.totEnt)+' − '+fmt(bt.totSai):'diverge em '+fmt(bt.totDif)+' do calculado'):'sem saldo cadastrado no período'}</div></div>`;})()}
    <div class="kpi click" onclick="goConcFilter('pend','')" title="Ver lançamentos pendentes na Conciliação"><div class="l">Lançamentos que pedem atenção</div><div class="v" style="color:${pend?'var(--wn)':'var(--ok)'}">${pend}</div><div class="d">${pend?'ver Conciliação':'tudo revisado ou sugerido'}</div></div>
    <div class="kpi click" onclick="scrollToId('g-desvios')" title="Ver detalhamento por linha abaixo"><div class="l">Departamentos acima do orçado</div><div class="v" style="color:${deptOverCount?'var(--er)':'var(--ok)'}">${deptOverCount}</div><div class="d">${deptOverCount?'ver detalhe abaixo':'nenhum estourado'}${monthTag}</div></div>`;
   const maxA=Math.max(...DESP.map(a=>Math.max(budP(curM,a),r.A[a]||0)),1);
@@ -5709,13 +5711,19 @@ function bankOf(t){return t.bank||'BRADESCO';}
 function bankSaldos(bank){if(!bank||bank==='BRADESCO')return DB.saldos;return (DB.saldosBanks&&DB.saldosBanks[bank]&&DB.saldosBanks[bank].saldos)||{};}
 function bankList(){const list=BANK_ACCOUNTS.map(b=>({k:b.k,n:b.n}));Object.keys(DB.saldosBanks||{}).forEach(k=>{if(!list.find(x=>x.k===k))list.push({k,n:DB.saldosBanks[k].label||k});});return list;}
 let curBank='BRADESCO';
-function renderBankConsolidado(){
-  const box=document.getElementById('bank-consolidado'); if(!box)return;
-  // Espelho da planilha de controle bancário: saldo inicial, entradas,
-  // saídas e saldo final — para cada conta, no recorte selecionado lá em
-  // cima (temporada inteira ou um mês específico).
-  const isAll=curM==='ALL';
-  const rows=bankList().map(b=>Object.assign({n:b.n,k:b.k},bankPeriodSummary(b.k,isAll?null:curM)));
+// Totais consolidados de TODAS as contas bancárias juntas, no recorte
+// escolhido (temporada inteira quando mes é null, ou um mês específico).
+// Regra: saldo inicial (soma do saldo inicial de cada conta) + entradas de
+// todas as contas − saídas de todas as contas = saldo final (soma do saldo
+// final de cada conta). Transferências entre as próprias contas da LNB já
+// se cancelam sozinhas nessa soma — é o mesmo dinheiro só trocando de
+// banco, então aparece como saída numa conta e entrada na outra, e ao
+// somar todas as contas o efeito líquido é zero, sem precisar filtrar nada
+// à parte. Usada tanto pela tabela de Conciliação Bancária quanto pelo
+// card de resumo na Home.
+function bankConsolidadoTotais(mesFiltro){
+  const isAll=!mesFiltro||mesFiltro==='ALL';
+  const rows=bankList().map(b=>Object.assign({n:b.n,k:b.k},bankPeriodSummary(b.k,isAll?null:mesFiltro)));
   const comDados=rows.filter(r=>r.meses>0);
   const totIni=comDados.reduce((s,r)=>s+(r.ini||0),0);
   const totFim=comDados.reduce((s,r)=>s+(r.fim||0),0);
@@ -5724,6 +5732,16 @@ function renderBankConsolidado(){
   const totDiv=rows.reduce((s,r)=>s+r.divergentes,0);
   const totCalc=totIni+totEnt-totSai;
   const totDif=totCalc-totFim;
+  const contasComDados=comDados.length;
+  return {rows,comDados,totIni,totFim,totEnt,totSai,totDiv,totCalc,totDif,contasComDados,totalContas:rows.length,isAll};
+}
+function renderBankConsolidado(){
+  const box=document.getElementById('bank-consolidado'); if(!box)return;
+  // Espelho da planilha de controle bancário: saldo inicial, entradas,
+  // saídas e saldo final — para cada conta, no recorte selecionado lá em
+  // cima (temporada inteira ou um mês específico).
+  const isAll=curM==='ALL';
+  const {rows,totIni,totFim,totEnt,totSai,totDiv,totCalc,totDif}=bankConsolidadoTotais(isAll?null:curM);
   const periodoTxt=isAll?'temporada inteira':mlabel(curM);
   box.innerHTML=`<div class="desc" style="margin-bottom:8px">Período: <b>${esc(periodoTxt)}</b> — muda junto com a seleção de mês acima. Saldo inicial é o do primeiro mês do período e saldo final é o do último; entradas e saídas são a soma do período.</div>
   <table><thead><tr><th>Banco</th><th class="num">Meses</th><th class="num">Saldo inicial</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo calculado</th><th class="num">Saldo final</th><th class="num">Diferença</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(r=>{
