@@ -1,5 +1,5 @@
 {
-  "name": "painel-lnb",
+  "name": "orcado-realizado-lnb",
   "compatibility_date": "2026-07-21",
   "main": "worker.js",
   "assets": {
