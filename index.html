@@ -2153,7 +2153,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 </div>
 
 <div id="v-trash" class="hide">
-  <div class="note"><b>Lixeira:</b> tudo que for apagado no sistema (linhas do orçamento, Realizado, Orçado) fica guardado aqui, com o horário e quem apagou — dá para restaurar em um clique, sem precisar reimportar planilha ou backup.</div>
+  <div class="note"><b>Lixeira:</b> tudo que for apagado no sistema (linhas do orçamento, Realizado, Orçado, créditos dos clubes, saldo bancário e classificações manuais) fica guardado aqui, com o horário e quem apagou — dá para restaurar em um clique, sem precisar reimportar planilha ou backup.</div>
   <div class="panel">
     <h2>Linhas do orçamento excluídas</h2>
     <div class="note">Linhas criadas em Editar Estrutura (ou em Novo Orçado) que foram excluídas. Pode restaurar enquanto o ID ainda não foi reutilizado.</div>
@@ -2531,6 +2531,35 @@ async function supaDelete(table, filterQuery){
   if(!res.ok){ const t=await res.text(); throw new Error('Supabase delete '+table+' falhou: '+res.status+' '+t); }
   return {ok:true};
 }
+// Chave natural de cada tabela "estado atual" (1 linha por chave, sem
+// deleted_at próprio) — usada só pra rotular o snapshot salvo em
+// trash_history antes de apagar de vez.
+const TRASH_HISTORY_CHAVE={
+  bank_saldos:r=>(r.bank||'')+'|'+(r.mes||''),
+  tx_decisions:r=>r.tx_id||'',
+  fav_rules:r=>r.favorecido_norm||''
+};
+// Rastreabilidade total da Lixeira: para tabelas de "estado atual" (uma
+// linha por chave, sobrescrita por upsert — bank_saldos, tx_decisions,
+// fav_rules), soft-delete na própria linha não funciona direito (se a
+// mesma chave for reaproveitada depois, o histórico do que foi apagado se
+// perderia). Por isso, antes de apagar de vez, salva uma cópia completa de
+// cada linha atingida em trash_history (com quem/quando apagou) — a
+// Lixeira lê dali pra restaurar, mesmo que a chave já tenha sido reusada.
+async function lnbApagarComHistorico(table, filterQuery){
+  try{
+    const rows=await supaSelectFilteredAll(table, filterQuery);
+    if(rows&&rows.length){
+      const deletedAt=new Date().toISOString();
+      const deletedBy=(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido';
+      const chaveFn=TRASH_HISTORY_CHAVE[table]||(r=>JSON.stringify(r));
+      const payload=rows.map(r=>({source_table:table,source_key:String(chaveFn(r)),snapshot:r,deleted_at:deletedAt,deleted_by:deletedBy}));
+      const res=await supaFetch(SUPABASE_URL+'/rest/v1/trash_history',{method:'POST',headersExtra:{'Prefer':'return=minimal'},body:JSON.stringify(payload)});
+      if(!res.ok){ const t=await res.text(); console.error('lnbApagarComHistorico: falha ao salvar snapshot de '+table+' (apagando mesmo assim):',res.status,t); }
+    }
+  }catch(eSnap){ console.error('lnbApagarComHistorico: falha ao preparar snapshot de '+table+' (apagando mesmo assim):',eSnap); }
+  return supaDelete(table, filterQuery);
+}
 async function supaSelectFiltered(table, filterQuery){
   const softFiltro=SOFT_DELETE_TABLES.includes(table)?'&deleted_at=is.null':'';
   const url=SUPABASE_URL+'/rest/v1/'+table+'?select=*'+(filterQuery?('&'+filterQuery):'')+softFiltro;
@@ -2901,7 +2930,7 @@ async function lnbApagarRealizadoTemporadaSelecionada(){
     store.setItem('lnb3_imported','[]');
     if(mesesRealizado.length){
       try{
-        await supaDelete('bank_saldos','mes=in.('+mesesRealizado.map(m=>'"'+m+'"').join(',')+')');
+        await lnbApagarComHistorico('bank_saldos','mes=in.('+mesesRealizado.map(m=>'"'+m+'"').join(',')+')');
       }catch(eSaldo){ console.error('Falha ao limpar bank_saldos da temporada apagada:', eSaldo); }
       mesesRealizado.forEach(m=>{
         delete DB.saldos[m];
@@ -2962,7 +2991,7 @@ async function lnbApagarRecentes(){
     if(chkO){
       await supaSoftDelete('orcado','created_at=gte.'+encodeURIComponent(cutoff),deletedAt);
     }
-    if(chkB)await supaDelete('bank_saldos','updated_at=gte.'+encodeURIComponent(cutoff));
+    if(chkB)await lnbApagarComHistorico('bank_saldos','updated_at=gte.'+encodeURIComponent(cutoff));
     // Achado real: esta linha limpava o cache local de importação de
     // extrato (lnb3_imported) SEMPRE, mesmo quando o usuário só tinha
     // marcado "Realizado" ou "Orçado" — apagando na tela lançamentos de
@@ -3029,7 +3058,7 @@ async function lnbLoadTrash(){
       return;
     }
     if(status)status.textContent=list.length+' lote(s) na lixeira.';
-    const nomeTabela={realizado:'Realizado',orcado:'Orçado',club_debits:'Créditos dos clubes'};
+    const nomeTabela={realizado:'Realizado',orcado:'Orçado',club_debits:'Créditos dos clubes',bank_saldos:'Saldo bancário',tx_decisions:'Classificações manuais',fav_rules:'Regras por favorecido'};
     box.innerHTML=`<table><thead><tr><th>Apagado em</th><th>Por</th><th>Temporada(s)</th><th>O que tem</th><th></th></tr></thead><tbody>${list.map(b=>{
       const resumo=Object.keys(b.porTabela).map(t=>(nomeTabela[t]||t)+': '+b.porTabela[t]).join(', ')||'—';
       return `<tr><td>${new Date(b.deletedAt).toLocaleString('pt-BR')}</td><td>${esc(b.deletedBy)}</td><td>${esc([...b.temporadas].join(', ')||'—')}</td><td>${esc(resumo)}</td><td><button class="act pri" type="button" onclick="lnbRestoreTrashBatch('${encodeURIComponent(b.deletedAt)}')">↩️ Restaurar</button></td></tr>`;
@@ -3039,6 +3068,24 @@ async function lnbLoadTrash(){
     if(status)status.textContent='Falha ao carregar a lixeira: '+e.message;
   }
 }
+// Chave de conflito (onConflict) certa pra restaurar cada tabela de
+// "estado atual" guardada em trash_history de volta pro lugar original.
+const TRASH_HISTORY_ONCONFLICT={bank_saldos:'bank,mes',tx_decisions:'tx_id',fav_rules:'favorecido_norm'};
+async function lnbRestaurarHistoricoDoBatch(deletedAt){
+  const rows=await supaSelectFilteredAll('trash_history','deleted_at=eq.'+encodeURIComponent(deletedAt));
+  if(!rows||!rows.length)return;
+  const porTabela={};
+  rows.forEach(r=>{ (porTabela[r.source_table]=porTabela[r.source_table]||[]).push(r); });
+  for(const tabela of Object.keys(porTabela)){
+    const onConflict=TRASH_HISTORY_ONCONFLICT[tabela];
+    const snapshots=porTabela[tabela].map(r=>r.snapshot);
+    if(onConflict&&snapshots.length){
+      await supaUpsert(tabela,snapshots,onConflict).catch(e=>console.error('Falha ao restaurar '+tabela+' do histórico:',e));
+    }
+    const ids=porTabela[tabela].map(r=>r.id);
+    await supaDelete('trash_history','id=in.('+ids.join(',')+')').catch(e=>console.error('Falha ao limpar trash_history de '+tabela+':',e));
+  }
+}
 async function lnbRestoreTrashBatch(deletedAtEncoded){
   const status=document.getElementById('rdo-trash-status');
   const deletedAt=decodeURIComponent(deletedAtEncoded);
@@ -3046,6 +3093,7 @@ async function lnbRestoreTrashBatch(deletedAtEncoded){
   if(status)status.textContent='Restaurando...';
   try{
     await Promise.all(LIXEIRA_TABELAS.map(t=>supaRestore(t,'deleted_at=eq.'+encodeURIComponent(deletedAt)).catch(e=>console.error('Falha ao restaurar '+t+':',e))));
+    await lnbRestaurarHistoricoDoBatch(deletedAt).catch(e=>console.error('Falha ao restaurar histórico (bank_saldos/tx_decisions/fav_rules) do lote:',e));
     lnbLogActivity('restaurar_lixeira', 'lote de '+new Date(deletedAt).toLocaleString('pt-BR'));
     if(status)status.textContent='Restaurado. Recarregando a página...';
     await new Promise(r=>setTimeout(r,900));
@@ -3062,7 +3110,7 @@ async function lnbRestoreTrashBatch(deletedAtEncoded){
 // igual aos outros fluxos destrutivos do painel.
 async function lnbEsvaziarLixeira(){
   const status=document.getElementById('rdo-trash-status');
-  const confirmRaw=prompt('Isso vai APAGAR DE VEZ (sem possibilidade de restaurar) tudo que estiver na Lixeira hoje — Realizado, Orçado, Créditos dos clubes e linhas de estrutura excluídas. Não tem volta. Digite CONFIRMAR para prosseguir:');
+  const confirmRaw=prompt('Isso vai APAGAR DE VEZ (sem possibilidade de restaurar) tudo que estiver na Lixeira hoje — Realizado, Orçado, Créditos dos clubes, saldo bancário e classificações manuais apagados, e linhas de estrutura excluídas. Não tem volta. Digite CONFIRMAR para prosseguir:');
   if(confirmRaw===null)return;
   if(confirmRaw.trim().toUpperCase()!=='CONFIRMAR'){ if(status)status.textContent='Texto não confere ("CONFIRMAR"). Nada foi apagado.'; return; }
   if(status)status.textContent='Esvaziando a Lixeira...';
@@ -3070,7 +3118,8 @@ async function lnbEsvaziarLixeira(){
     await lnbAutoSnapshot('antes de esvaziar a Lixeira de vez').catch(e=>console.error('Backup antes de esvaziar falhou (seguindo mesmo assim):',e));
     await Promise.all([
       ...LIXEIRA_TABELAS.map(t=>supaDelete(t,'deleted_at=not.is.null').catch(e=>console.error('Falha ao esvaziar '+t+':',e))),
-      supaDelete('deleted_lines','deleted_at=not.is.null').catch(e=>console.error('Falha ao esvaziar deleted_lines:',e))
+      supaDelete('deleted_lines','deleted_at=not.is.null').catch(e=>console.error('Falha ao esvaziar deleted_lines:',e)),
+      supaDelete('trash_history','id=gt.0').catch(e=>console.error('Falha ao esvaziar trash_history (bank_saldos/tx_decisions/fav_rules):',e))
     ]);
     lnbLogActivity('esvaziar_lixeira', 'Lixeira esvaziada de vez (sem possibilidade de restaurar)');
     if(status)status.textContent='Lixeira esvaziada. Recarregando...';
@@ -5772,7 +5821,7 @@ async function lnbRemoverMesDaConta(bank,mes){
       ? 'or=(banco.is.null,banco.eq.BRADESCO,banco.eq.)'
       : 'banco=eq.'+encodeURIComponent(bank);
     await supaSoftDelete('realizado','data=gte.'+ini+'&data=lte.'+fimMes+'&'+filtroBanco, deletedAt);
-    try{ await supaDelete('bank_saldos','bank=eq.'+encodeURIComponent(bank)+'&mes=eq.'+encodeURIComponent(mes)); }
+    try{ await lnbApagarComHistorico('bank_saldos','bank=eq.'+encodeURIComponent(bank)+'&mes=eq.'+encodeURIComponent(mes)); }
     catch(eSal){ console.error('Falha ao remover saldo do mês:',eSal); }
     // Limpa também o cache local, senão o mês continua na tela depois do reload.
     imported=imported.filter(t=>!(t.m===mes&&bankOf(t)===bank));
@@ -5928,7 +5977,7 @@ async function lnbApagarSemanaRealizado(){
       mesEsvaziado=restantes===0;
     }catch(eCheck){ console.error('Falha ao verificar se o mês esvaziou:',eCheck); }
     if(mesEsvaziado){
-      try{ await supaDelete('bank_saldos','mes=eq.'+encodeURIComponent(mes)); }
+      try{ await lnbApagarComHistorico('bank_saldos','mes=eq.'+encodeURIComponent(mes)); }
       catch(eSaldo){ console.error('Falha ao limpar saldo do mês esvaziado:',eSaldo); }
       delete DB.saldos[mes];
       Object.keys(DB.saldosBanks||{}).forEach(bk=>{ if(DB.saldosBanks[bk]&&DB.saldosBanks[bk].saldos) delete DB.saldosBanks[bk].saldos[mes]; });
@@ -8239,13 +8288,13 @@ async function endSeasonAndReset(){
     // temporada estão sendo apagados, as decisões deles também são removidas
     // (as regras por favorecido, que são o "aprendizado" reaproveitável, ficam).
     const idsToRemove=imported.map(t=>t.id).filter(id=>decisions[id]);
-    if(idsToRemove.length)await supaDelete('tx_decisions','tx_id=in.('+idsToRemove.map(id=>'"'+id+'"').join(',')+')');
+    if(idsToRemove.length)await lnbApagarComHistorico('tx_decisions','tx_id=in.('+idsToRemove.map(id=>'"'+id+'"').join(',')+')');
     const deletedAt=new Date().toISOString();
     await supaSoftDelete('realizado','temporada=eq.'+encodeURIComponent(temporada),deletedAt);
     await supaSoftDelete('orcado','temporada=eq.'+encodeURIComponent(temporada),deletedAt);
     if(mesesTemporada.length){
       try{
-        await supaDelete('bank_saldos','mes=in.('+mesesTemporada.map(m=>'"'+m+'"').join(',')+')');
+        await lnbApagarComHistorico('bank_saldos','mes=in.('+mesesTemporada.map(m=>'"'+m+'"').join(',')+')');
       }catch(eSaldo){ console.error('Falha ao limpar bank_saldos da temporada encerrada:', eSaldo); }
       mesesTemporada.forEach(m=>{
         delete DB.saldos[m];
@@ -8321,7 +8370,7 @@ document.getElementById('imp').addEventListener('change',async ev=>{
         ? 'or=(banco.is.null,banco.eq.BRADESCO,banco.eq.)'
         : 'banco=eq.'+encodeURIComponent(bank);
       await supaSoftDelete('realizado', filtroBanco, deletedAt);
-      try{ await supaDelete('bank_saldos','bank=eq.'+encodeURIComponent(bank)); }
+      try{ await lnbApagarComHistorico('bank_saldos','bank=eq.'+encodeURIComponent(bank)); }
       catch(eSal){ console.error('Falha ao limpar saldos da conta:',eSal); }
       imported=imported.filter(t=>bankOf(t)!==bank);
       store.setItem('lnb3_imported',JSON.stringify(imported));
