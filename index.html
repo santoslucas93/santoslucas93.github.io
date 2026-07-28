@@ -1574,7 +1574,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <div class="legend"><span class="dot" style="background:var(--budget-blue)"></span>orçado&nbsp;&nbsp;<span class="dot" style="background:var(--actual-red)"></span>realizado</div></div>
   </div>
   <details class="panel" id="home-weekly-details">
-    <summary><h2 style="display:inline">Fluxo semanal consolidado — sem transferências internas</h2></summary>
+    <summary><h2 style="display:inline">Fluxo semanal — sem transferências internas</h2></summary>
     <div class="toolbar" style="margin:10px 0;flex-wrap:wrap">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Banco
         <select id="hw-banco" style="min-width:150px"><option value="">Todos os bancos</option></select>
@@ -1590,25 +1590,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       </label>
     </div>
     <div id="home-weekly"></div>
-    <div class="legend">Entradas e saídas bancárias reais por semana. Transferências entre contas da LNB são eliminadas para não duplicar o mesmo dinheiro.</div>
-  </details>
-  <details class="panel" id="home-weekly-banks-details">
-    <summary><h2 style="display:inline">Fluxo semanal por banco — sem transferências internas</h2></summary>
-    <div class="toolbar" style="margin:10px 0;flex-wrap:wrap">
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Banco
-        <select id="hwb-banco" style="min-width:150px"><option value="">Todos os bancos</option></select>
-      </label>
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Mês
-        <select id="hwb-mes" style="min-width:130px"><option value="ALL">Temporada (todos)</option></select>
-      </label>
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Semana
-        <select id="hwb-semana" style="min-width:130px">
-          <option value="">Todas</option>
-          <option value="1">1ª</option><option value="2">2ª</option><option value="3">3ª</option><option value="4">4ª</option><option value="5">5ª</option>
-        </select>
-      </label>
-    </div>
-    <div id="home-weekly-banks"></div>
+    <div class="legend">Entradas e saídas bancárias reais por semana, no banco escolhido acima (ou somadas de todas as contas, se "Todos os bancos"). Transferências entre contas da LNB são eliminadas para não duplicar o mesmo dinheiro.</div>
   </details>
   <div class="grid2">
     <div class="panel"><h2>Maiores desvios de linha (acima do orçado)</h2><div id="g-desvios"></div></div>
@@ -5133,48 +5115,37 @@ function weeklyRows(monthFilter,bankFilter,weekFilter){
   });
   return Object.values(out).sort((a,b)=>a.m.localeCompare(b.m)||a.w-b.w);
 }
-// Preenche os selects de mês/banco dos dois painéis de fluxo semanal da
-// Home uma única vez (não recria a cada render, senão perde a seleção do
-// usuário no meio da navegação).
+// Preenche os selects de mês/banco do painel de fluxo semanal da Home uma
+// única vez (não recria a cada render, senão perde a seleção do usuário no
+// meio da navegação). Antes existiam dois painéis (consolidado e "por
+// banco"), mas como o filtro de banco já deixa escolher uma conta
+// específica ou "todos os bancos", os dois mostravam exatamente a mesma
+// informação — foram unificados num painel só.
 function lnbInitHomeWeeklyFiltros(){
-  const mesSelects=['hw-mes','hwb-mes'];
-  const bancoSelects=['hw-banco','hwb-banco'];
-  mesSelects.forEach(id=>{
-    const sel=document.getElementById(id);
-    if(!sel||sel.dataset.filled)return;
-    sel.insertAdjacentHTML('beforeend', months.slice().sort().map(m=>'<option value="'+m+'">'+mlabel(m)+'</option>').join(''));
-    sel.dataset.filled='1';
-    sel.onchange=renderHomeWeekly;
-  });
-  bancoSelects.forEach(id=>{
-    const sel=document.getElementById(id);
-    if(!sel||sel.dataset.filled)return;
-    sel.insertAdjacentHTML('beforeend', bankList().map(b=>'<option value="'+b.k+'">'+esc(b.n)+'</option>').join(''));
-    sel.dataset.filled='1';
-    sel.onchange=renderHomeWeekly;
-  });
-  ['hw-semana','hwb-semana'].forEach(id=>{
-    const sel=document.getElementById(id);
-    if(sel&&!sel.dataset.wired){ sel.onchange=renderHomeWeekly; sel.dataset.wired='1'; }
-  });
+  const mesSel=document.getElementById('hw-mes');
+  if(mesSel&&!mesSel.dataset.filled){
+    mesSel.insertAdjacentHTML('beforeend', months.slice().sort().map(m=>'<option value="'+m+'">'+mlabel(m)+'</option>').join(''));
+    mesSel.dataset.filled='1';
+    mesSel.onchange=renderHomeWeekly;
+  }
+  const bancoSel=document.getElementById('hw-banco');
+  if(bancoSel&&!bancoSel.dataset.filled){
+    bancoSel.insertAdjacentHTML('beforeend', bankList().map(b=>'<option value="'+b.k+'">'+esc(b.n)+'</option>').join(''));
+    bancoSel.dataset.filled='1';
+    bancoSel.onchange=renderHomeWeekly;
+  }
+  const semSel=document.getElementById('hw-semana');
+  if(semSel&&!semSel.dataset.wired){ semSel.onchange=renderHomeWeekly; semSel.dataset.wired='1'; }
 }
 function renderHomeWeekly(){
   const box=document.getElementById('home-weekly');
-  const bbox=document.getElementById('home-weekly-banks');
-  if(!box||!bbox)return;
+  if(!box)return;
   lnbInitHomeWeeklyFiltros();
   const hwMes=document.getElementById('hw-mes')?.value||'ALL';
   const hwBanco=document.getElementById('hw-banco')?.value||'';
   const hwSemana=document.getElementById('hw-semana')?.value||'';
   const rows=weeklyRows(hwMes,hwBanco,hwSemana);
   box.innerHTML=rows.length?`<table><thead><tr><th>Mês</th><th>Semana</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Fluxo líquido</th><th class="num">Lançamentos</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${mlabel(r.m)}</td><td><b>Semana ${r.w}</b><div class="how">dias ${(r.w-1)*7+1} a ${Math.min(r.w*7,new Date(Number(r.m.slice(0,4)),Number(r.m.slice(5,7)),0).getDate())}</div></td><td class="num" style="color:var(--ok)">${fmt2(r.e)}</td><td class="num" style="color:var(--er)">${fmt2(r.s)}</td><td class="num" style="color:${r.e-r.s>=0?'var(--ok)':'var(--er)'}">${fmt2(r.e-r.s)}</td><td class="num">${r.n}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem movimentação no período (com os filtros escolhidos).</div>';
-  const hwbMes=document.getElementById('hwb-mes')?.value||'ALL';
-  const hwbBanco=document.getElementById('hwb-banco')?.value||'';
-  const hwbSemana=document.getElementById('hwb-semana')?.value||'';
-  const banks=hwbBanco?bankList().filter(b=>b.k===hwbBanco):bankList();
-  const bankRows=[];
-  banks.forEach(b=>weeklyRows(hwbMes,b.k,hwbSemana).forEach(r=>bankRows.push({...r,b:b.n})));
-  bbox.innerHTML=bankRows.length?`<table><thead><tr><th>Banco</th><th>Mês / semana</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Fluxo líquido</th></tr></thead><tbody>${bankRows.map(r=>`<tr><td><b>${esc(r.b)}</b></td><td>${mlabel(r.m)} · Semana ${r.w}</td><td class="num" style="color:var(--ok)">${fmt2(r.e)}</td><td class="num" style="color:var(--er)">${fmt2(r.s)}</td><td class="num">${fmt2(r.e-r.s)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem movimentação bancária no período (com os filtros escolhidos).</div>';
 }
 function renderHome(){
   const r=realized(curM);
