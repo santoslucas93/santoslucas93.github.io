@@ -2489,9 +2489,25 @@ const SOFT_DELETE_TABLES=['realizado','orcado','club_debits'];
 // Conciliação Bancária, o banner "Extrato: X a Y" e qualquer tela que
 // dependesse do cache local (imported/txs/months). Agora pagina de verdade
 // com o header Range até esgotar a tabela.
+// Sem 'order=' explícito, o Postgres/PostgREST não garante nenhuma ordem
+// estável entre chamadas (principalmente paginando com Range em várias
+// chamadas) -- Bug real corrigido: em realizado/orcado, a ordem de chegada
+// das linhas decide o índice (nextIdx) usado pra montar o ID de cada
+// lançamento (nt.id), e as classificações manuais (Conciliação) ficam
+// salvas no Supabase com esse ID como chave. Se a ordem mudar de uma
+// carga pra outra (ex.: abrindo em outro navegador/domínio, sem cache
+// local ainda), o mesmo lançamento pode receber um ID diferente e herdar
+// a classificação de OUTRO lançamento por engano -- foi exatamente isso
+// que causou dois links do mesmo painel mostrarem despesas realizadas
+// diferentes (mesma quantidade de lançamentos e de classificações
+// salvas, mas casadas nos lançamentos errados). 'id' é a chave primária
+// (bigint, sempre crescente) dessas duas tabelas -- ordenar por ela torna
+// a paginação determinística: a mesma ordem sempre, em qualquer navegador.
+const SUPA_ORDER_ESTAVEL={realizado:'id.asc', orcado:'id.asc'};
 async function supaSelect(table){
   const filtro=SOFT_DELETE_TABLES.includes(table)?'&deleted_at=is.null':'';
-  const baseUrl=SUPABASE_URL+'/rest/v1/'+table+'?select=*'+filtro;
+  const ordem=SUPA_ORDER_ESTAVEL[table]?('&order='+SUPA_ORDER_ESTAVEL[table]):'';
+  const baseUrl=SUPABASE_URL+'/rest/v1/'+table+'?select=*'+filtro+ordem;
   const PAGE=1000;
   let all=[], offset=0;
   while(true){
