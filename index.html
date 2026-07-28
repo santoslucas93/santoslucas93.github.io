@@ -3561,7 +3561,7 @@ async function loadLiveGoogleSheets(){
       try{
         const rawRows=rRes.value.map(realizadoRowToPortugues);
         const stats=await importNewSeasonRealizado(null, rawRows);
-        if(stats&&!stats.error){ realizadoOk=true; if(stats.added>0)changed=true; }
+        if(stats&&!stats.error){ realizadoOk=true; if(stats.added>0||(stats.pruned||0)>0)changed=true; }
       }catch(e){ console.error('loadLiveGoogleSheets: falha ao processar Realizado', e); }
     }else{
       console.error('loadLiveGoogleSheets: falha ao buscar Realizado', rRes.reason);
@@ -5675,7 +5675,7 @@ async function lnbApagarSemanaRealizado(){
   const mes=mesEl?mesEl.value:'',semana=semEl?semEl.value:'1';
   if(!mes){ if(msg)msg.textContent='Escolha um mês.'; return; }
   const {ini,fim}=rwWeekRange(mes,semana);
-  if(!confirm('Isso vai ENVIAR PARA A LIXEIRA os lançamentos de Realizado de TODAS as contas entre '+ini+' e '+fim+' ('+semana+'ª semana de '+mlabel(mes)+'). O saldo bancário do mês não é alterado — se ficar divergente, ajuste em Conciliação Bancária. Um backup também é baixado antes. Confirmar?'))return;
+  if(!confirm('Isso vai ENVIAR PARA A LIXEIRA os lançamentos de Realizado de TODAS as contas entre '+ini+' e '+fim+' ('+semana+'ª semana de '+mlabel(mes)+'), refletindo em Home, departamentos e Conciliação. Se essa for a última semana com Realizado no mês, o saldo bancário do mês também é limpo (senão fica divergente sem lançamento nenhum). Um backup também é baixado antes. Confirmar?'))return;
   if(msg)msg.textContent='Apagando...';
   try{
     await lnbAutoSnapshot('antes de apagar '+semana+'ª semana de '+mlabel(mes)+' do Realizado');
@@ -5683,8 +5683,24 @@ async function lnbApagarSemanaRealizado(){
     await supaSoftDelete('realizado','data=gte.'+ini+'&data=lte.'+fim, deletedAt);
     imported=imported.filter(t=>!(t.d>=ini&&t.d<=fim));
     store.setItem('lnb3_imported',JSON.stringify(imported));
-    lnbLogActivity('apagar_semana_realizado', mlabel(mes)+' — '+semana+'ª semana ('+ini+' a '+fim+')');
-    if(msg)msg.textContent=semana+'ª semana de '+mlabel(mes)+' enviada para a Lixeira. Recarregando...';
+    // Se a semana apagada era a única coisa que restava do mês, o mês fica
+    // sem NENHUM lançamento — nesse caso, limpa também o saldo bancário do
+    // mês (todas as contas), mesmo tratamento já usado ao apagar o mês
+    // inteiro ou a temporada, senão a Conciliação Bancária mostra saldo
+    // "órfão" sem lançamento nenhum por trás.
+    let mesEsvaziado=false;
+    try{
+      const restantes=await supaSelectFiltered('realizado','mes=eq.'+encodeURIComponent(mes)+'&select=id&limit=1');
+      mesEsvaziado=!restantes||restantes.length===0;
+    }catch(eCheck){ console.error('Falha ao verificar se o mês esvaziou:',eCheck); }
+    if(mesEsvaziado){
+      try{ await supaDelete('bank_saldos','mes=eq.'+encodeURIComponent(mes)); }
+      catch(eSaldo){ console.error('Falha ao limpar saldo do mês esvaziado:',eSaldo); }
+      delete DB.saldos[mes];
+      Object.keys(DB.saldosBanks||{}).forEach(bk=>{ if(DB.saldosBanks[bk]&&DB.saldosBanks[bk].saldos) delete DB.saldosBanks[bk].saldos[mes]; });
+    }
+    lnbLogActivity('apagar_semana_realizado', mlabel(mes)+' — '+semana+'ª semana ('+ini+' a '+fim+')'+(mesEsvaziado?' — mês ficou sem lançamentos, saldo bancário também limpo':''));
+    if(msg)msg.textContent=semana+'ª semana de '+mlabel(mes)+' enviada para a Lixeira'+(mesEsvaziado?' e o saldo bancário do mês foi limpo (mês ficou sem lançamentos)':'')+'. Recarregando...';
     await new Promise(function(r){ setTimeout(r,1200); });
     location.reload();
   }catch(e){
@@ -7641,7 +7657,24 @@ async function importNewSeasonRealizado(file, raw){
       const headers2=arr2d[headerRowIdx].map(h=>String(h||'').trim());
       raw=arr2d.slice(headerRowIdx+1).map(row=>{const o={};headers2.forEach((h,idx)=>{if(h)o[h]=row[idx]!=null?row[idx]:'';});return o;});
     }
-    if(!raw.length){if(msg&&!live)msg.textContent='Nenhuma linha encontrada na aba "Lançamentos".';return emptyStats;}
+    if(!raw.length){
+      if(msg&&!live)msg.textContent='Nenhuma linha encontrada na aba "Lançamentos".';
+      // Achado real: a sincronização ao vivo (Supabase 'realizado' -> tela,
+      // chamada a cada carregamento) só ADICIONAVA lançamentos novos — nunca
+      // removia do cache local (imported/localStorage) os que já tinham sido
+      // apagados no Supabase por outra ação (apagar temporada, semana, mês de
+      // uma conta etc). Isso significa que, em qualquer navegador que não foi
+      // o que apagou, os lançamentos continuavam aparecendo em Home,
+      // departamentos e Conciliação pra sempre. Se a base central voltou
+      // totalmente vazia, o cache local também tem que ficar vazio.
+      if(live&&imported.length){
+        const pruned=imported.length;
+        imported=[];
+        store.setItem('lnb3_imported','[]');
+        return {...emptyStats,pruned};
+      }
+      return emptyStats;
+    }
     const headerKeys=Object.keys(raw[0]);
     const findKey=(...cands)=>headerKeys.find(h=>cands.some(c=>norm(h)===norm(c)));
     const kData=findKey('Data'),kFav=findKey('Favorecido'),kDesc=findKey('Descrição','Descricao'),kDoc=findKey('Documento'),
@@ -7705,7 +7738,25 @@ async function importNewSeasonRealizado(file, raw){
         }
       }
     });
-    const stats={added,decided,duplicated,skipped,abatidos,monthsTouched:[...monthsTouched]};
+    let pruned=0;
+    if(live){
+      // Mesma auto-cura do orçado: seenThisRun já conta, por chave
+      // (mês|data|favorecido|entrada|saída), quantas ocorrências existem
+      // agora na base central. Qualquer lançamento do cache local além dessa
+      // contagem não existe mais no Supabase (foi apagado por outra ação —
+      // temporada, semana, mês de conta etc.) e precisa sumir daqui também.
+      const keptCounts=new Map();
+      const before=imported.length;
+      imported=imported.filter(t=>{
+        const key=existingTxKey(t);
+        const kept=(keptCounts.get(key)||0)+1;
+        keptCounts.set(key,kept);
+        return kept<=(seenThisRun.get(key)||0);
+      });
+      pruned=before-imported.length;
+      if(pruned)store.setItem('lnb3_imported',JSON.stringify(imported));
+    }
+    const stats={added,decided,duplicated,skipped,abatidos,pruned,monthsTouched:[...monthsTouched]};
     if(!added&&!duplicated&&!skipped){if(msg&&!live)msg.textContent='Nenhuma linha válida encontrada.';return stats;}
     store.setItem('lnb3_imported',JSON.stringify(imported));
     save('decisions',decisions);
