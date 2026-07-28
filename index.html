@@ -3603,7 +3603,26 @@ async function loadLiveGoogleSheets(){
         // importNewBudgetSpreadsheet) que zera valores congelados de linhas
         // que só existiam por causa dessa mesma sincronização.
         const stats=await importNewBudgetSpreadsheet(null, rawRows);
-        if(stats&&!stats.error){ orcadoOk=true; if((stats.created+stats.updated+(stats.pruned||0))>0)changed=true; }
+        if(stats&&!stats.error){
+          orcadoOk=true;
+          if((stats.created+stats.updated+(stats.pruned||0))>0){
+            changed=true;
+            // Achado real: a limpeza de linhas de Orçado congeladas (acima,
+            // dentro de importNewBudgetSpreadsheet) já corrige DB.lines em
+            // memória corretamente, mas a home tinha sido desenhada ANTES
+            // dessa correção terminar — e o recarregamento automático mais
+            // abaixo só acontece uma vez por sessão do navegador
+            // (sessionStorage 'gsheet_synced_this_session'). Se já tinha
+            // disparado antes nesta aba (por outra sincronização), a tela
+            // ficava presa mostrando os valores antigos (ex.: "Receitas
+            // orçado" com o total antigo) até a aba ser fechada de vez.
+            // Redesenha na hora, sem depender desse recarregamento único.
+            try{
+              if(typeof __clearPerfCaches==='function')__clearPerfCaches();
+              if(typeof render==='function')render();
+            }catch(eRender){ console.error('loadLiveGoogleSheets: falha ao redesenhar após corrigir Orçado:', eRender); }
+          }
+        }
       }catch(e){ console.error('loadLiveGoogleSheets: falha ao processar Orçado', e); }
     }else{
       console.error('loadLiveGoogleSheets: falha ao buscar Orçado', oRes.reason);
