@@ -2075,8 +2075,8 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <div id="tpr-msg" class="foot" style="margin-top:6px"></div>
   </div>
   <div class="panel admin-only" id="real-week-delete-panel" style="margin:14px 0">
-    <h2>Apagar uma semana do Realizado</h2>
-    <div class="note" style="margin:0">Remove os lançamentos de Realizado de TODAS as contas bancárias juntas, só no intervalo de dias escolhido — sem apagar o mês inteiro nem a temporada. Semanas contadas por dia do mês: 1ª = dias 01–07, 2ª = 08–14, 3ª = 15–21, 4ª = 22–28, 5ª = do dia 29 até o último dia do mês (só existe se o mês tiver esses dias). Os dias exibidos abaixo se ajustam automaticamente ao mês escolhido (28, 29, 30 ou 31 dias). Vai para a Lixeira e pode ser restaurado.</div>
+    <h2>Apagar uma semana (ou o mês inteiro) do Realizado</h2>
+    <div class="note" style="margin:0">Remove os lançamentos de Realizado de TODAS as contas bancárias juntas, só no intervalo de dias escolhido — ou o mês inteiro, se preferir. Semanas contadas por dia do mês: 1ª = dias 01–07, 2ª = 08–14, 3ª = 15–21, 4ª = 22–28, 5ª = do dia 29 até o último dia do mês (só existe se o mês tiver esses dias e ainda tiver algum lançamento nela). Os dias exibidos abaixo se ajustam automaticamente ao mês escolhido (28, 29, 30 ou 31 dias), e semanas já sem nenhum lançamento não aparecem mais como opção. Vai para a Lixeira e pode ser restaurado.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Mês
         <select id="rw-mes" style="min-width:150px"></select>
@@ -2445,11 +2445,30 @@ async function supaFetch(url, opts, jaTentou){
 // o que está na lixeira — sem precisar mexer em cada função que lê essas
 // tabelas.
 const SOFT_DELETE_TABLES=['realizado','orcado'];
+// Bug real e grave corrigido: esta função pedia a tabela inteira numa
+// chamada só, mas o Supabase (PostgREST) devolve no máximo 1000 linhas por
+// chamada, mesmo sem limit= explícito na URL. Com mais de 1000 linhas
+// ativas (ex.: 3983 lançamentos de Realizado numa temporada de 7 meses),
+// só a "primeira página" (tipicamente jan/fev, os primeiros IDs) chegava
+// no navegador — meses seguintes (mar a jul) nunca eram sincronizados,
+// mesmo estando certinhos no banco. Isso derrubava silenciosamente a
+// Conciliação Bancária, o banner "Extrato: X a Y" e qualquer tela que
+// dependesse do cache local (imported/txs/months). Agora pagina de verdade
+// com o header Range até esgotar a tabela.
 async function supaSelect(table){
   const filtro=SOFT_DELETE_TABLES.includes(table)?'&deleted_at=is.null':'';
-  const res=await supaFetch(SUPABASE_URL+'/rest/v1/'+table+'?select=*'+filtro, {});
-  if(!res.ok) throw new Error('Supabase select '+table+' falhou: '+res.status);
-  return await res.json();
+  const baseUrl=SUPABASE_URL+'/rest/v1/'+table+'?select=*'+filtro;
+  const PAGE=1000;
+  let all=[], offset=0;
+  while(true){
+    const res=await supaFetch(baseUrl, {headersExtra:{'Range':offset+'-'+(offset+PAGE-1)}});
+    if(!res.ok) throw new Error('Supabase select '+table+' falhou: '+res.status);
+    const page=await res.json();
+    all=all.concat(page);
+    if(page.length<PAGE) break;
+    offset+=PAGE;
+  }
+  return all;
 }
 // Usada só pela tela de Lixeira, que precisa enxergar justamente o que foi
 // soft-deletado — por isso não aplica o filtro deleted_at=is.null.
@@ -2517,6 +2536,29 @@ async function supaSelectFiltered(table, filterQuery){
   const res=await supaFetch(url, {});
   if(!res.ok) throw new Error('Supabase select '+table+' falhou: '+res.status);
   return await res.json();
+}
+// Variante paginada de supaSelectFiltered, para os poucos lugares que
+// realmente precisam de TODAS as linhas que casam com o filtro (ex.: somar
+// os meses de uma temporada inteira antes de apagar, ou montar o backup de
+// encerrar temporada) -- não usar aqui onde o chamador já espera um corte
+// pequeno (limit=1, limit=50 etc.), só onde "todas as linhas, não importa
+// quantas" é o comportamento certo. Sem isso, uma temporada com mais de
+// 1000 linhas tinha o mesmo bug já corrigido em supaSelect: só a "primeira
+// página" (limite padrão do Supabase) era considerada.
+async function supaSelectFilteredAll(table, filterQuery){
+  const softFiltro=SOFT_DELETE_TABLES.includes(table)?'&deleted_at=is.null':'';
+  const baseUrl=SUPABASE_URL+'/rest/v1/'+table+'?select=*'+(filterQuery?('&'+filterQuery):'')+softFiltro;
+  const PAGE=1000;
+  let all=[], offset=0;
+  while(true){
+    const res=await supaFetch(baseUrl,{headersExtra:{'Range':offset+'-'+(offset+PAGE-1)}});
+    if(!res.ok) throw new Error('Supabase select '+table+' falhou: '+res.status);
+    const page=await res.json();
+    all=all.concat(page);
+    if(page.length<PAGE) break;
+    offset+=PAGE;
+  }
+  return all;
 }
 function lnbCurrentTemporada(){
   const m=(document.querySelector('.hero h1')?.textContent||'').match(/Temporada\s+([0-9]{4}\/[0-9]{4})/);
@@ -2826,7 +2868,7 @@ async function lnbApagarRealizadoTemporadaSelecionada(){
     // lido depois vinha sempre undefined, então mesesRealizado ficava
     // sempre vazio e o saldo bancário nunca era limpo aqui. Agora deriva o
     // mês a partir de r.data (formato 'YYYY-MM-DD' -> 'YYYY-MM').
-    const realizadoRowsParaMeses=await supaSelectFiltered('realizado','temporada=eq.'+encodeURIComponent(t));
+    const realizadoRowsParaMeses=await supaSelectFilteredAll('realizado','temporada=eq.'+encodeURIComponent(t));
     const mesesRealizado=[...new Set((realizadoRowsParaMeses||[]).map(r=>r.data&&String(r.data).slice(0,7)).filter(Boolean))];
     await supaSoftDelete('realizado', 'temporada=eq.'+encodeURIComponent(t), deletedAt);
     // Achado real: apagar no Supabase não bastava — o cache local do
@@ -3061,8 +3103,8 @@ async function lnbBuildDailyBackupSnapshot(){
     supaSelect('custom_plan'), supaSelect('tx_decisions'), supaSelect('fav_rules'),
     supaSelect('structure_overrides'), supaSelect('custom_lines'), supaSelect('deleted_lines'),
     supaSelect('club_debits'), supaSelect('plan_meta'),
-    temporada?supaSelectFiltered('realizado','temporada=eq.'+encodeURIComponent(temporada)):Promise.resolve([]),
-    temporada?supaSelectFiltered('orcado','temporada=eq.'+encodeURIComponent(temporada)):Promise.resolve([])
+    temporada?supaSelectFilteredAll('realizado','temporada=eq.'+encodeURIComponent(temporada)):Promise.resolve([]),
+    temporada?supaSelectFilteredAll('orcado','temporada=eq.'+encodeURIComponent(temporada)):Promise.resolve([])
   ]);
   return {custom_plan:planRows||[],tx_decisions:decRows||[],fav_rules:favRows||[],structure_overrides:structRows||[],custom_lines:custLineRows||[],deleted_lines:delLineRows||[],club_debits:clubDebitRows||[],plan_meta:planMetaRows||[],temporada:temporada||'',realizado:realizadoRows||[],orcado:orcadoRows||[]};
 }
@@ -3634,10 +3676,21 @@ async function loadLiveGoogleSheets(){
   if(realizadoOk&&orcadoOk)setGsheetStatus('Dados ao vivo carregados às '+now+'.');
   else if(realizadoOk||orcadoOk)setGsheetStatus('Carregado parcialmente às '+now+' (verifique o compartilhamento das planilhas).');
   else setGsheetStatus('Não foi possível carregar as planilhas — mostrando dados salvos.');
+  // Bug real corrigido: a trava de recarregar só usava um flag fixo
+  // ('já rodei uma vez nesta aba'), então qualquer sincronização depois da
+  // primeira desta aba (ex.: reimportar Realizado, ou apagar uma nova
+  // temporada) detectava 'changed' mas NUNCA recarregava de novo — a tela
+  // ficava presa mostrando dados antigos (meses do extrato, saldo
+  // bancário, orçado) até a aba ser fechada de vez. Agora a trava usa uma
+  // "assinatura" do estado atual (quantos lançamentos/linhas existem): só
+  // pula o reload se o estado já é exatamente o mesmo que gerou o último
+  // reload desta aba — qualquer mudança real (pra mais ou pra menos)
+  // dispara um novo reload, sem loop infinito.
   if(changed){
     try{
-      if(!sessionStorage.getItem('gsheet_synced_this_session')){
-        sessionStorage.setItem('gsheet_synced_this_session','1');
+      const assinatura=imported.length+'|'+(typeof budgetLines!=='undefined'?budgetLines.length:0)+'|'+(typeof DB!=='undefined'&&DB.lines?DB.lines.reduce((s,l)=>s+Object.keys(l.prev||{}).length,0):0);
+      if(sessionStorage.getItem('gsheet_synced_assinatura')!==assinatura){
+        sessionStorage.setItem('gsheet_synced_assinatura',assinatura);
         location.reload();
       }
     }catch(e){ console.error('loadLiveGoogleSheets: falha ao recarregar', e); }
@@ -5710,12 +5763,33 @@ function rwWeekRangesDoMes(mes){
   Object.keys(ranges).forEach(k=>{ out[k]=[pad(ranges[k][0]),pad(ranges[k][1])]; });
   return out;
 }
+// value especial 'mes' = mês inteiro (todos os dias que existirem nele),
+// em vez de uma sub-semana. Mantido como opção separada no mesmo seletor
+// pra não precisar de um botão/checkbox a mais na tela.
 function rwWeekRange(mes,semana){
+  if(String(semana)==='mes'){
+    const total=rwDiasNoMes(mes);
+    return {ini:mes+'-01',fim:mes+'-'+String(total).padStart(2,'0')};
+  }
   const ranges=rwWeekRangesDoMes(mes);
   const [d1,d2]=ranges[String(semana)]||ranges['1'];
   return {ini:mes+'-'+d1,fim:mes+'-'+d2};
 }
-function lnbAtualizarSemanasDoMes(){
+// Conta quantos lançamentos ATIVOS (não apagados) existem entre duas datas
+// -- usado aqui para tirar do seletor as semanas que já não têm nenhum
+// lançamento (ex.: uma semana que você acabou de apagar), sem precisar
+// baixar as linhas inteiras, só a contagem exata.
+async function supaContarRealizadoAtivoEntre(ini,fim){
+  try{
+    const url=SUPABASE_URL+'/rest/v1/realizado?select=id&data=gte.'+ini+'&data=lte.'+fim+'&deleted_at=is.null&limit=1';
+    const res=await supaFetch(url,{headersExtra:{'Prefer':'count=exact'}});
+    if(!res.ok)return null;
+    const range=res.headers.get('content-range')||'';
+    const total=range.includes('/')?Number(range.split('/')[1]):null;
+    return Number.isFinite(total)?total:null;
+  }catch(e){ console.error('supaContarRealizadoAtivoEntre falhou:',e); return null; }
+}
+async function lnbAtualizarSemanasDoMes(){
   const mesEl=document.getElementById('rw-mes'),semEl=document.getElementById('rw-semana');
   if(!mesEl||!semEl)return;
   const mes=mesEl.value;
@@ -5723,8 +5797,16 @@ function lnbAtualizarSemanasDoMes(){
   const valorAnterior=semEl.value;
   const ranges=rwWeekRangesDoMes(mes);
   const nomes={'1':'1ª','2':'2ª','3':'3ª','4':'4ª','5':'5ª'};
-  semEl.innerHTML=['1','2','3','4','5'].filter(k=>ranges[k]).map(k=>'<option value="'+k+'">'+nomes[k]+' (dias '+ranges[k][0]+'–'+ranges[k][1]+')</option>').join('');
-  if(ranges[valorAnterior]) semEl.value=valorAnterior;
+  const chaves=['1','2','3','4','5'].filter(k=>ranges[k]);
+  semEl.innerHTML='<option value="">Verificando semanas com lançamento…</option>';
+  // Só mostra semanas que ainda têm pelo menos 1 lançamento ativo -- uma
+  // semana já apagada não deve reaparecer como opção pra apagar de novo.
+  const contagens=await Promise.all(chaves.map(k=>supaContarRealizadoAtivoEntre(mes+'-'+ranges[k][0],mes+'-'+ranges[k][1])));
+  const chavesComDados=chaves.filter((k,i)=>contagens[i]==null||contagens[i]>0); // null = falha na checagem -> mantém a opção por segurança
+  let opts=chavesComDados.map(k=>'<option value="'+k+'">'+nomes[k]+' (dias '+ranges[k][0]+'–'+ranges[k][1]+')</option>').join('');
+  opts+='<option value="mes">Mês inteiro (dias 01–'+String(rwDiasNoMes(mes)).padStart(2,'0')+')</option>';
+  semEl.innerHTML=opts||'<option value="mes">Mês inteiro (dias 01–'+String(rwDiasNoMes(mes)).padStart(2,'0')+')</option>';
+  if([...chavesComDados,'mes'].includes(valorAnterior)) semEl.value=valorAnterior;
 }
 async function lnbInitWeekDeleteMonths(){
   const sel=document.getElementById('rw-mes');
@@ -5753,6 +5835,9 @@ async function lnbInitWeekDeleteMonths(){
   }
   lnbAtualizarSemanasDoMes();
 }
+function rwDescricaoSemana(semana,mes){
+  return String(semana)==='mes' ? ('o mês inteiro de '+mlabel(mes)) : (semana+'ª semana de '+mlabel(mes));
+}
 async function lnbPreviewSemanaRealizado(){
   const mesEl=document.getElementById('rw-mes'),semEl=document.getElementById('rw-semana'),status=document.getElementById('rw-status');
   const mes=mesEl?mesEl.value:'',semana=semEl?semEl.value:'1';
@@ -5760,8 +5845,8 @@ async function lnbPreviewSemanaRealizado(){
   const {ini,fim}=rwWeekRange(mes,semana);
   if(status)status.textContent='Verificando...';
   try{
-    const rows=await supaSelectFiltered('realizado','data=gte.'+ini+'&data=lte.'+fim+'&select=id');
-    status.textContent=rows.length+' lançamento(s) de Realizado entre '+ini+' e '+fim+' ('+semana+'ª semana de '+mlabel(mes)+', todas as contas) serão apagados.';
+    const rows=await supaSelectFilteredAll('realizado','data=gte.'+ini+'&data=lte.'+fim+'&select=id');
+    status.textContent=rows.length+' lançamento(s) de Realizado entre '+ini+' e '+fim+' ('+rwDescricaoSemana(semana,mes)+', todas as contas) serão apagados.';
   }catch(e){
     if(status)status.textContent='Falha ao verificar: '+e.message;
   }
@@ -5771,23 +5856,31 @@ async function lnbApagarSemanaRealizado(){
   const mes=mesEl?mesEl.value:'',semana=semEl?semEl.value:'1';
   if(!mes){ if(msg)msg.textContent='Escolha um mês.'; return; }
   const {ini,fim}=rwWeekRange(mes,semana);
-  if(!confirm('Isso vai ENVIAR PARA A LIXEIRA os lançamentos de Realizado de TODAS as contas entre '+ini+' e '+fim+' ('+semana+'ª semana de '+mlabel(mes)+'), refletindo em Home, departamentos e Conciliação. Se essa for a última semana com Realizado no mês, o saldo bancário do mês também é limpo (senão fica divergente sem lançamento nenhum). Um backup também é baixado antes. Confirmar?'))return;
+  const desc=rwDescricaoSemana(semana,mes);
+  if(!confirm('Isso vai ENVIAR PARA A LIXEIRA os lançamentos de Realizado de TODAS as contas entre '+ini+' e '+fim+' ('+desc+'), refletindo em Home, departamentos e Conciliação. Se isso esvaziar o mês inteiro, o saldo bancário do mês também é limpo (senão fica divergente sem lançamento nenhum). Um backup também é baixado antes. Confirmar?'))return;
   if(msg)msg.textContent='Apagando...';
   try{
-    await lnbAutoSnapshot('antes de apagar '+semana+'ª semana de '+mlabel(mes)+' do Realizado');
+    await lnbAutoSnapshot('antes de apagar '+desc+' do Realizado');
     const deletedAt=new Date().toISOString();
     await supaSoftDelete('realizado','data=gte.'+ini+'&data=lte.'+fim, deletedAt);
     imported=imported.filter(t=>!(t.d>=ini&&t.d<=fim));
     store.setItem('lnb3_imported',JSON.stringify(imported));
-    // Se a semana apagada era a única coisa que restava do mês, o mês fica
-    // sem NENHUM lançamento — nesse caso, limpa também o saldo bancário do
-    // mês (todas as contas), mesmo tratamento já usado ao apagar o mês
-    // inteiro ou a temporada, senão a Conciliação Bancária mostra saldo
-    // "órfão" sem lançamento nenhum por trás.
+    // Se o intervalo apagado era a única coisa que restava do mês, o mês
+    // fica sem NENHUM lançamento — nesse caso, limpa também o saldo
+    // bancário do mês (todas as contas), mesmo tratamento já usado ao
+    // apagar o mês inteiro ou a temporada, senão a Conciliação Bancária
+    // mostra saldo "órfão" sem lançamento nenhum por trás.
+    // Bug real corrigido: esta checagem usava um filtro 'mes=eq.X', mas a
+    // tabela 'realizado' não tem coluna 'mes' (só 'data') -- o Postgres
+    // rejeitava a consulta (coluna inexistente), o catch engolia o erro e
+    // mesEsvaziado ficava sempre false, então o saldo bancário nunca era
+    // limpo mesmo quando o mês esvaziava de verdade. Agora usa o intervalo
+    // de datas do próprio mês.
     let mesEsvaziado=false;
     try{
-      const restantes=await supaSelectFiltered('realizado','mes=eq.'+encodeURIComponent(mes)+'&select=id&limit=1');
-      mesEsvaziado=!restantes||restantes.length===0;
+      const totalDias=rwDiasNoMes(mes);
+      const restantes=await supaContarRealizadoAtivoEntre(mes+'-01',mes+'-'+String(totalDias).padStart(2,'0'));
+      mesEsvaziado=restantes===0;
     }catch(eCheck){ console.error('Falha ao verificar se o mês esvaziou:',eCheck); }
     if(mesEsvaziado){
       try{ await supaDelete('bank_saldos','mes=eq.'+encodeURIComponent(mes)); }
@@ -5795,8 +5888,8 @@ async function lnbApagarSemanaRealizado(){
       delete DB.saldos[mes];
       Object.keys(DB.saldosBanks||{}).forEach(bk=>{ if(DB.saldosBanks[bk]&&DB.saldosBanks[bk].saldos) delete DB.saldosBanks[bk].saldos[mes]; });
     }
-    lnbLogActivity('apagar_semana_realizado', mlabel(mes)+' — '+semana+'ª semana ('+ini+' a '+fim+')'+(mesEsvaziado?' — mês ficou sem lançamentos, saldo bancário também limpo':''));
-    if(msg)msg.textContent=semana+'ª semana de '+mlabel(mes)+' enviada para a Lixeira'+(mesEsvaziado?' e o saldo bancário do mês foi limpo (mês ficou sem lançamentos)':'')+'. Recarregando...';
+    lnbLogActivity('apagar_semana_realizado', desc+' ('+ini+' a '+fim+')'+(mesEsvaziado?' — mês ficou sem lançamentos, saldo bancário também limpo':''));
+    if(msg)msg.textContent=desc.charAt(0).toUpperCase()+desc.slice(1)+' enviado(a) para a Lixeira'+(mesEsvaziado?' e o saldo bancário do mês foi limpo (mês ficou sem lançamentos)':'')+'. Recarregando...';
     await new Promise(function(r){ setTimeout(r,1200); });
     location.reload();
   }catch(e){
@@ -8071,9 +8164,14 @@ async function endSeasonAndReset(){
   const temporadaNorm=temporada.trim().replace(/\s+/g,'');
   if(confirmText!==temporadaNorm){ alert('O texto digitado ("'+confirmRaw+'") não confere com a temporada "'+temporada+'". Nada foi alterado.'); return; }
   try{
+    // supaSelectFilteredAll (pagina de verdade) -- crítico aqui: isto vira o
+    // backup arquivado da temporada (season_archives) além de decidir quais
+    // meses limpar. Com supaSelectFiltered simples (sem paginar), uma
+    // temporada com mais de 1000 lançamentos gerava um arquivo de backup
+    // incompleto (só a "primeira página"), silenciosamente.
     const [realizadoRows,orcadoRows,estadoCompartilhado]=await Promise.all([
-      supaSelectFiltered('realizado','temporada=eq.'+encodeURIComponent(temporada)),
-      supaSelectFiltered('orcado','temporada=eq.'+encodeURIComponent(temporada)),
+      supaSelectFilteredAll('realizado','temporada=eq.'+encodeURIComponent(temporada)),
+      supaSelectFilteredAll('orcado','temporada=eq.'+encodeURIComponent(temporada)),
       lnbBuildDailyBackupSnapshot()
     ]);
     // O saldo bancário de cada mês vem da mesma importação de planilha que
