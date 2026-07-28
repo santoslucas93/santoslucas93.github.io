@@ -2164,6 +2164,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <div class="note">Apagados via "Gestão de temporadas" (Novo Orçado/Orçado), "Gestão de temporada — Realizado" (aba Realizado), últimos N minutos, ou encerramento de temporada. Agrupado por quando foi apagado.</div>
     <div class="toolbar">
       <button class="act" type="button" id="btn-rdo-trash-refresh">🔄 Ver lixeira</button>
+      <button class="act" type="button" id="btn-rdo-trash-esvaziar" style="border-color:var(--er);color:var(--er)">🗑️ Esvaziar a Lixeira (apaga tudo de vez)</button>
     </div>
     <div id="rdo-trash-status" class="foot"></div>
     <div id="rdo-trash-list"></div>
@@ -2444,7 +2445,7 @@ async function supaFetch(url, opts, jaTentou){
 // em vez de apagar de vez, e toda leitura normal já ignora automaticamente
 // o que está na lixeira — sem precisar mexer em cada função que lê essas
 // tabelas.
-const SOFT_DELETE_TABLES=['realizado','orcado'];
+const SOFT_DELETE_TABLES=['realizado','orcado','club_debits'];
 // Bug real e grave corrigido: esta função pedia a tabela inteira numa
 // chamada só, mas o Supabase (PostgREST) devolve no máximo 1000 linhas por
 // chamada, mesmo sem limit= explícito na URL. Com mais de 1000 linhas
@@ -2655,7 +2656,11 @@ async function pushClubDebitsToSupabase(){
     if(rows.length)await supaUpsert('club_debits',rows,'id');
     const ids=clubDebits.map(x=>String(x.id));
     const filter=ids.length?`id=not.in.(${ids.map(id=>`"${id}"`).join(',')})`:'id=not.is.null';
-    await supaDelete('club_debits',filter);
+    // Rastreabilidade total da Lixeira: crédito de clube removido daqui
+    // (editado localmente e sincronizado) agora vira soft-delete, com
+    // quem/quando, e pode ser restaurado pela Lixeira, em vez de ser
+    // apagado de vez sem deixar rastro.
+    await supaSoftDelete('club_debits',filter,new Date().toISOString());
   }catch(e){ console.error('pushClubDebitsToSupabase falhou:',e); }
 }
 async function pushPlanMetaToSupabase(key,value){
@@ -2984,47 +2989,42 @@ async function supaContarExato(table, filterQuery){
     return Number.isFinite(total)?total:null;
   }catch(e){ console.error('supaContarExato falhou para '+table+':',e); return null; }
 }
+// Tabelas com soft-delete que a Lixeira sabe restaurar/purgar, uma a uma.
+const LIXEIRA_TABELAS=['realizado','orcado','club_debits'];
 async function lnbLoadTrash(){
   const status=document.getElementById('rdo-trash-status'), box=document.getElementById('rdo-trash-list');
   if(!box)return;
   if(status)status.textContent='Carregando...';
   try{
-    const [realRows,orcRows]=await Promise.all([
-      supaSelectIncludeDeleted('realizado','deleted_at=not.is.null&order=deleted_at.desc&limit=3000'),
-      supaSelectIncludeDeleted('orcado','deleted_at=not.is.null&order=deleted_at.desc&limit=3000')
-    ]);
-    // Cada ação de apagar (temporada, últimos N minutos, encerrar temporada)
-    // usa um único horário (deleted_at) para todas as linhas que apagou de
-    // uma vez — por isso agrupar por deleted_at reconstrói exatamente os
-    // "lotes" que foram apagados juntos, para restaurar de uma vez só.
+    // Bug real corrigido: antes baixava uma AMOSTRA de linhas (limit=3000,
+    // na prática cortada em 1000 pelo Supabase) e tentava "adivinhar" os
+    // lotes agrupando no navegador. Um lote grande sozinho já enchia toda a
+    // amostra, e lotes mais antigos (às vezes a maior parte do que tinha
+    // sido apagado) sumiam da tela, mesmo existindo e sendo restauráveis no
+    // banco. Agora usa uma função no banco (RPC lixeira_lotes) que já
+    // agrupa via GROUP BY — nenhum lote fica de fora, não importa o tamanho.
+    const res=await supaFetch(SUPABASE_URL+'/rest/v1/rpc/lixeira_lotes',{method:'POST'});
+    if(!res.ok) throw new Error('RPC lixeira_lotes falhou: '+res.status);
+    const linhas=await res.json();
     const batches={};
-    const addRow=(r,kind)=>{
+    (linhas||[]).forEach(r=>{
       const k=r.deleted_at;
-      if(!batches[k])batches[k]={deletedAt:k,deletedBy:r.deleted_by||'—',realizado:0,orcado:0,temporadas:new Set()};
-      batches[k][kind]++;
+      if(!batches[k])batches[k]={deletedAt:k,deletedBy:r.deleted_by||'—',porTabela:{},temporadas:new Set()};
+      batches[k].porTabela[r.source_table]=(batches[k].porTabela[r.source_table]||0)+Number(r.qtd||0);
       if(r.temporada)batches[k].temporadas.add(r.temporada);
-    };
-    realRows.forEach(r=>addRow(r,'realizado'));
-    orcRows.forEach(r=>addRow(r,'orcado'));
+    });
     const list=Object.values(batches).sort((a,b)=>String(b.deletedAt).localeCompare(String(a.deletedAt)));
     if(!list.length){
       if(status)status.textContent='Lixeira vazia — nada apagado recentemente.';
       box.innerHTML='';
       return;
     }
-    // Corrige a contagem de cada lote para o valor exato (a amostra acima
-    // pode vir truncada em 1000 linhas por tabela).
-    await Promise.all(list.map(async b=>{
-      const filtro='deleted_at=eq.'+encodeURIComponent(b.deletedAt);
-      const [totalReal,totalOrc]=await Promise.all([
-        b.realizado>0?supaContarExato('realizado',filtro):Promise.resolve(0),
-        b.orcado>0?supaContarExato('orcado',filtro):Promise.resolve(0)
-      ]);
-      if(totalReal!=null)b.realizado=totalReal;
-      if(totalOrc!=null)b.orcado=totalOrc;
-    }));
     if(status)status.textContent=list.length+' lote(s) na lixeira.';
-    box.innerHTML=`<table><thead><tr><th>Apagado em</th><th>Por</th><th>Temporada(s)</th><th class="num">Realizado</th><th class="num">Orçado</th><th></th></tr></thead><tbody>${list.map(b=>`<tr><td>${new Date(b.deletedAt).toLocaleString('pt-BR')}</td><td>${esc(b.deletedBy)}</td><td>${esc([...b.temporadas].join(', ')||'—')}</td><td class="num">${b.realizado}</td><td class="num">${b.orcado}</td><td><button class="act pri" type="button" onclick="lnbRestoreTrashBatch('${encodeURIComponent(b.deletedAt)}')">↩️ Restaurar</button></td></tr>`).join('')}</tbody></table>`;
+    const nomeTabela={realizado:'Realizado',orcado:'Orçado',club_debits:'Créditos dos clubes'};
+    box.innerHTML=`<table><thead><tr><th>Apagado em</th><th>Por</th><th>Temporada(s)</th><th>O que tem</th><th></th></tr></thead><tbody>${list.map(b=>{
+      const resumo=Object.keys(b.porTabela).map(t=>(nomeTabela[t]||t)+': '+b.porTabela[t]).join(', ')||'—';
+      return `<tr><td>${new Date(b.deletedAt).toLocaleString('pt-BR')}</td><td>${esc(b.deletedBy)}</td><td>${esc([...b.temporadas].join(', ')||'—')}</td><td>${esc(resumo)}</td><td><button class="act pri" type="button" onclick="lnbRestoreTrashBatch('${encodeURIComponent(b.deletedAt)}')">↩️ Restaurar</button></td></tr>`;
+    }).join('')}</tbody></table>`;
   }catch(e){
     console.error('lnbLoadTrash falhou:',e);
     if(status)status.textContent='Falha ao carregar a lixeira: '+e.message;
@@ -3036,8 +3036,7 @@ async function lnbRestoreTrashBatch(deletedAtEncoded){
   if(!confirm('Restaurar tudo que foi apagado em '+new Date(deletedAt).toLocaleString('pt-BR')+'? Volta a aparecer para todo mundo que usa o painel.'))return;
   if(status)status.textContent='Restaurando...';
   try{
-    await supaRestore('realizado','deleted_at=eq.'+encodeURIComponent(deletedAt));
-    await supaRestore('orcado','deleted_at=eq.'+encodeURIComponent(deletedAt));
+    await Promise.all(LIXEIRA_TABELAS.map(t=>supaRestore(t,'deleted_at=eq.'+encodeURIComponent(deletedAt)).catch(e=>console.error('Falha ao restaurar '+t+':',e))));
     lnbLogActivity('restaurar_lixeira', 'lote de '+new Date(deletedAt).toLocaleString('pt-BR'));
     if(status)status.textContent='Restaurado. Recarregando a página...';
     await new Promise(r=>setTimeout(r,900));
@@ -3047,8 +3046,35 @@ async function lnbRestoreTrashBatch(deletedAtEncoded){
     if(status)status.textContent='Falha ao restaurar: '+e.message;
   }
 }
+// Esvazia a Lixeira de vez: apaga PERMANENTEMENTE (sem volta) tudo que
+// estiver soft-deletado em qualquer tabela rastreada, mais as linhas de
+// estrutura excluídas (deleted_lines). Pedido explícito do usuário para
+// liberar espaço/organizar — exige digitar uma palavra de confirmação,
+// igual aos outros fluxos destrutivos do painel.
+async function lnbEsvaziarLixeira(){
+  const status=document.getElementById('rdo-trash-status');
+  const confirmRaw=prompt('Isso vai APAGAR DE VEZ (sem possibilidade de restaurar) tudo que estiver na Lixeira hoje — Realizado, Orçado, Créditos dos clubes e linhas de estrutura excluídas. Não tem volta. Digite CONFIRMAR para prosseguir:');
+  if(confirmRaw===null)return;
+  if(confirmRaw.trim().toUpperCase()!=='CONFIRMAR'){ if(status)status.textContent='Texto não confere ("CONFIRMAR"). Nada foi apagado.'; return; }
+  if(status)status.textContent='Esvaziando a Lixeira...';
+  try{
+    await lnbAutoSnapshot('antes de esvaziar a Lixeira de vez').catch(e=>console.error('Backup antes de esvaziar falhou (seguindo mesmo assim):',e));
+    await Promise.all([
+      ...LIXEIRA_TABELAS.map(t=>supaDelete(t,'deleted_at=not.is.null').catch(e=>console.error('Falha ao esvaziar '+t+':',e))),
+      supaDelete('deleted_lines','deleted_at=not.is.null').catch(e=>console.error('Falha ao esvaziar deleted_lines:',e))
+    ]);
+    lnbLogActivity('esvaziar_lixeira', 'Lixeira esvaziada de vez (sem possibilidade de restaurar)');
+    if(status)status.textContent='Lixeira esvaziada. Recarregando...';
+    await new Promise(r=>setTimeout(r,900));
+    location.reload();
+  }catch(e){
+    console.error('lnbEsvaziarLixeira falhou:',e);
+    if(status)status.textContent='Falha ao esvaziar: '+e.message;
+  }
+}
 (function initTrashButton(){
   const bt=document.getElementById('btn-rdo-trash-refresh'); if(bt)bt.onclick=lnbLoadTrash;
+  const be=document.getElementById('btn-rdo-trash-esvaziar'); if(be)be.onclick=lnbEsvaziarLixeira;
 })();
 (function initActivityLogButton(){
   const bt=document.getElementById('btn-activity-log-refresh'); if(bt)bt.onclick=lnbLoadActivityLog;
