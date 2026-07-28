@@ -2076,7 +2076,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   </div>
   <div class="panel admin-only" id="real-week-delete-panel" style="margin:14px 0">
     <h2>Apagar uma semana do Realizado</h2>
-    <div class="note" style="margin:0">Remove os lançamentos de Realizado de TODAS as contas bancárias juntas, só no intervalo de dias escolhido — sem apagar o mês inteiro nem a temporada. Semanas contadas por dia do mês: 1ª = dias 01–07, 2ª = 08–14, 3ª = 15–21, 4ª = 22–28, 5ª = 29–31 (só existe se o mês tiver esses dias). Vai para a Lixeira e pode ser restaurado.</div>
+    <div class="note" style="margin:0">Remove os lançamentos de Realizado de TODAS as contas bancárias juntas, só no intervalo de dias escolhido — sem apagar o mês inteiro nem a temporada. Semanas contadas por dia do mês: 1ª = dias 01–07, 2ª = 08–14, 3ª = 15–21, 4ª = 22–28, 5ª = do dia 29 até o último dia do mês (só existe se o mês tiver esses dias). Os dias exibidos abaixo se ajustam automaticamente ao mês escolhido (28, 29, 30 ou 31 dias). Vai para a Lixeira e pode ser restaurado.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Mês
         <select id="rw-mes" style="min-width:150px"></select>
@@ -2084,10 +2084,6 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Semana
         <select id="rw-semana" style="min-width:170px">
           <option value="1">1ª (dias 01–07)</option>
-          <option value="2">2ª (dias 08–14)</option>
-          <option value="3">3ª (dias 15–21)</option>
-          <option value="4">4ª (dias 22–28)</option>
-          <option value="5">5ª (dias 29–31)</option>
         </select>
       </label>
       <button class="act" type="button" id="btn-rw-preview">🔍 Ver quantos serão apagados</button>
@@ -5643,19 +5639,49 @@ async function lnbRemoverMesDaConta(bank,mes){
   }
 }
 // Semanas contadas por dia do mês (não por semana ISO): 1ª=01-07, 2ª=08-14,
-// 3ª=15-21, 4ª=22-28, 5ª=29-31 (só existe nos meses com esses dias). Simples
-// e previsível — bate com o que qualquer um conta "de cabeça" olhando o
-// calendário, sem depender de o mês começar num dia da semana específico.
-const RW_WEEK_RANGES={'1':['01','07'],'2':['08','14'],'3':['15','21'],'4':['22','28'],'5':['29','31']};
+// 3ª=15-21, 4ª=22-28, 5ª=29-atéOFimDoMês (só existe nos meses com esses
+// dias). Simples e previsível — bate com o que qualquer um conta "de
+// cabeça" olhando o calendário, sem depender de o mês começar num dia da
+// semana específico. O fim de cada faixa é calculado com base na
+// quantidade real de dias do mês escolhido (28/29/30/31), nunca fixo em 31
+// — meses com menos dias não ganham uma 5ª semana, e a 4ª nunca ultrapassa
+// o último dia real do mês.
+function rwDiasNoMes(mes){
+  const ano=Number(mes.slice(0,4)),m=Number(mes.slice(5,7));
+  return new Date(ano,m,0).getDate(); // dia 0 do mês seguinte = último dia do mês atual
+}
+function rwWeekRangesDoMes(mes){
+  const total=rwDiasNoMes(mes);
+  const pad=n=>String(n).padStart(2,'0');
+  const ranges={'1':[1,7],'2':[8,14],'3':[15,Math.min(21,total)],'4':[22,Math.min(28,total)]};
+  if(total>=29) ranges['5']=[29,total];
+  const out={};
+  Object.keys(ranges).forEach(k=>{ out[k]=[pad(ranges[k][0]),pad(ranges[k][1])]; });
+  return out;
+}
 function rwWeekRange(mes,semana){
-  const [d1,d2]=RW_WEEK_RANGES[String(semana)]||RW_WEEK_RANGES['1'];
+  const ranges=rwWeekRangesDoMes(mes);
+  const [d1,d2]=ranges[String(semana)]||ranges['1'];
   return {ini:mes+'-'+d1,fim:mes+'-'+d2};
+}
+function lnbAtualizarSemanasDoMes(){
+  const mesEl=document.getElementById('rw-mes'),semEl=document.getElementById('rw-semana');
+  if(!mesEl||!semEl)return;
+  const mes=mesEl.value;
+  if(!mes){ semEl.innerHTML='<option value="">(escolha um mês)</option>'; return; }
+  const valorAnterior=semEl.value;
+  const ranges=rwWeekRangesDoMes(mes);
+  const nomes={'1':'1ª','2':'2ª','3':'3ª','4':'4ª','5':'5ª'};
+  semEl.innerHTML=['1','2','3','4','5'].filter(k=>ranges[k]).map(k=>'<option value="'+k+'">'+nomes[k]+' (dias '+ranges[k][0]+'–'+ranges[k][1]+')</option>').join('');
+  if(ranges[valorAnterior]) semEl.value=valorAnterior;
 }
 function lnbInitWeekDeleteMonths(){
   const sel=document.getElementById('rw-mes');
   if(!sel)return;
   const opts=months.length?months.slice().sort().map(m=>'<option value="'+m+'">'+mlabel(m)+'</option>').join(''):'<option value="">(nenhum mês com Realizado)</option>';
   sel.innerHTML=opts;
+  sel.onchange=lnbAtualizarSemanasDoMes;
+  lnbAtualizarSemanasDoMes();
 }
 async function lnbPreviewSemanaRealizado(){
   const mesEl=document.getElementById('rw-mes'),semEl=document.getElementById('rw-semana'),status=document.getElementById('rw-status');
