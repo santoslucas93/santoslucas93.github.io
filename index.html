@@ -1727,7 +1727,12 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 
 <div id="v-bank" class="hide">
   <div class="panel">
-    <h2>Visão consolidada — as 6 contas juntas</h2>
+    <h2>Visão consolidada — bancos</h2>
+    <div class="toolbar" style="margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tx2)">Filtrar por banco
+        <select id="bc-filtro-banco" style="min-width:180px"></select>
+      </label>
+    </div>
     <div id="bank-consolidado"></div>
   </div>
   <div class="panel admin-only" id="panel-cadastrar-banco">
@@ -1753,10 +1758,6 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <button class="act pri" type="button" id="btn-bank-adj-save">Salvar saldo do mês</button>
     </div>
     <div id="bank-adj-msg" class="foot"></div>
-  </div>
-  <div class="panel">
-    <h2>Prova bancária por mês</h2>
-    <div id="bank-proof"></div>
   </div>
   <div class="panel">
     <h2>Movimentação do extrato bancário</h2>
@@ -5133,7 +5134,7 @@ function render(){
   if(curV==='guia')renderGuia();
   if(curV==='dash')renderDash();
   if(curV==='plan'){renderPlan();setTimeout(initPlanGovernance,0);}
-  if(curV==='bank'){renderBankConsolidado();renderBankTabs();renderBank();}
+  if(curV==='bank'){renderBcFiltroBanco();renderBankConsolidado();renderBankTabs();renderBank();}
   if(curV==='real')renderRealizado();
   requestAnimationFrame(fitKpiValues);
 }
@@ -5956,8 +5957,50 @@ function bankConsolidadoTotais(mesFiltro){
   const semFimReal=comDados.some(r=>r.fim==null);
   return {rows,comDados,totIni,totFim,totEnt,totSai,totDiv,totCalc,totDif,contasComDados,totalContas:rows.length,isAll,semFimReal};
 }
+let bcFiltroBanco='ALL';
+function renderBcFiltroBanco(){
+  const sel=document.getElementById('bc-filtro-banco'); if(!sel) return;
+  sel.innerHTML='<option value="ALL">Todos os bancos</option>'+bankList().map(b=>`<option value="${esc(b.k)}">${esc(b.n)}</option>`).join('');
+  sel.value=bankList().some(b=>b.k===bcFiltroBanco)?bcFiltroBanco:'ALL';
+  if(!sel._bound){ sel._bound=1; sel.onchange=()=>{ bcFiltroBanco=sel.value; renderBankConsolidado(); }; }
+}
+// Tabela mês a mês de UM banco específico dentro da Visão consolidada —
+// substitui o antigo painel separado "Prova bancária por mês". Sem botão
+// de excluir: a exclusão de lançamentos agora é feita só em Realizado
+// (filtrando por banco e mês), pra não ter dois lugares fazendo a mesma
+// coisa com nomes diferentes.
+function renderBankConsolidadoPorBanco(box,bank){
+  const rows=bankProofRows(bank);
+  const isAll=curM==='ALL';
+  const proofRows=isAll?rows:rows.filter(r=>r.m===curM);
+  const bankLbl=(bankList().find(b=>b.k===bank)||{}).n||bank;
+  const periodoTxt=isAll?'temporada inteira':mlabel(curM);
+  const back='<button class="act" type="button" onclick="bcFiltroBanco=\'ALL\';renderBcFiltroBanco();renderBankConsolidado();">← Ver todas as contas</button>';
+  if(!proofRows.length){
+    box.innerHTML=`<div class="desc" style="margin-bottom:8px">Período: <b>${esc(periodoTxt)}</b> — <b>${esc(bankLbl)}</b></div>${back}<div class="desc" style="margin-top:8px">${isAll?'Sem meses com saldo ou lançamento cadastrado para esta conta.':'Sem saldo ou lançamento cadastrado para '+mlabel(curM)+' nesta conta. Use "Ajustar saldo do mês" abaixo para informar manualmente.'}</div>`;
+    return;
+  }
+  const p=bankPeriodSummary(bank,isAll?null:curM);
+  const linhaTotal=`<tr style="font-weight:700;border-top:2px solid var(--bd)"><td>${isAll?'TEMPORADA':'TOTAL'}</td><td class="num">${p.ini==null?'—':fmt(p.ini)}</td><td class="num">${fmt(p.entradas)}</td><td class="num">${fmt(p.saidas)}</td><td class="num">${fmt(p.calc)}</td><td class="num">${p.fim==null?'—':fmt(p.fim)}</td><td class="num ${p.ok?'bank-status-ok':'bank-status-er'}">${p.dif==null?'—':fmt(p.dif)}</td><td>${p.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td></td><td class="num"></td></tr>`;
+  box.innerHTML=`<div class="desc" style="margin-bottom:8px">Período: <b>${esc(periodoTxt)}</b> — <b>${esc(bankLbl)}</b></div>${back}
+  <table style="margin-top:8px"><thead><tr><th>Mês</th><th class="num">Saldo inicial</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo calculado</th><th class="num">Saldo final extrato</th><th class="num">Diferença</th><th>Status</th><th>Conferências</th><th class="num">Alertas</th></tr></thead><tbody>${proofRows.map(r=>{
+    const confs=[];
+    if(r.encadeaOk===false)confs.push('<span class="chip er">saldo inicial não bate com o saldo final de '+mlabel(r.mesAnterior)+' ('+fmt(r.encadeaDif)+')</span>');
+    if(r.faltaLancamento)confs.push('<span class="chip wn">extrato declara '+(r.entExtrato!=null?fmt(r.entExtrato)+' de entradas':'')+(r.entExtrato!=null&&r.saiExtrato!=null?' e ':'')+(r.saiExtrato!=null?fmt(r.saiExtrato)+' de saídas':'')+' — pode faltar lançamento importado</span>');
+    if(r.ini==null)confs.push('<span class="chip wn">saldo inicial não informado — digite em "Ajustar saldo do mês"</span>');
+    if(r.fim==null)confs.push('<span class="chip wn">saldo final não informado</span>');
+    if(r.iniHerdado)confs.push('<span class="chip wn">saldo inicial herdado do saldo final do mês anterior</span>');
+    if(!confs.length&&r.ok)confs.push('<span class="chip ok">ok</span>');
+    return `<tr class="${r.ok?'':'flowfix'}"><td><b>${mlabel(r.m)}</b><div class="desc">${r.qtd} lançamento(s)</div></td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num">${fmt(r.entradas)}</td><td class="num">${fmt(r.saidas)}</td><td class="num">${fmt(r.calc)}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.ok?'bank-status-ok':'bank-status-er'}">${r.fim==null?'—':fmt(r.dif)}</td><td>${(r.ini==null||r.fim==null)?'<span class="chip wn">falta saldo</span>':(r.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>')}</td><td>${confs.join(' ')}</td><td class="num">${r.susp||''}</td></tr>`;
+  }).join('')}${linhaTotal}</tbody></table>
+  <div class="foot" style="margin-top:8px">Para excluir lançamentos deste banco, use a tela <b>Realizado</b> (filtre por banco e mês) — a exclusão fica registrada na Lixeira e pode ser desfeita lá.</div>`;
+}
 function renderBankConsolidado(){
   const box=document.getElementById('bank-consolidado'); if(!box)return;
+  if(bcFiltroBanco && bcFiltroBanco!=='ALL' && bankList().some(b=>b.k===bcFiltroBanco)){
+    renderBankConsolidadoPorBanco(box,bcFiltroBanco);
+    return;
+  }
   // Espelho da planilha de controle bancário: saldo inicial, entradas,
   // saídas e saldo final — para cada conta, no recorte selecionado lá em
   // cima (temporada inteira ou um mês específico).
@@ -5978,7 +6021,7 @@ function renderBankConsolidado(){
     if(r.meses&&!r.contiguo)alertas.push('há mês sem extrato no meio do período — prova feita mês a mês');
     if(r.semSaldo&&r.semSaldo.length)alertas.push('falta informar saldo em '+r.semSaldo.map(mlabel).join(', ')+' — digite em "Ajustar saldo do mês"');
     if(r.iniHerdado)alertas.push('saldo inicial de '+esc(periodoTxt)+' herdado do saldo final do mês anterior (ainda sem saldo final cadastrado para conferir)');
-    return `<tr class="${r.meses&&!r.ok?'flowfix':''}"><td>${esc(r.n)}${alertas.length?'<div class="desc">'+esc(alertas.join(' · '))+'</div>':''}</td><td class="num">${r.meses}</td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num" style="color:var(--ok)">${fmt(r.entradas)}</td><td class="num" style="color:var(--er)">${fmt(r.saidas)}</td><td class="num">${r.meses?fmt(r.calc==null?((r.ini||0)+r.entradas-r.saidas):r.calc):'—'}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.meses&&r.fim!=null?(r.ok?'bank-status-ok':'bank-status-er'):''}">${r.dif==null?'—':fmt(r.dif)}</td><td>${chip}</td><td><button class="act" type="button" onclick="curBank='${r.k}';document.getElementById('bank-tabs')?.scrollIntoView({behavior:'smooth'});renderBankTabs();renderBank();">Ver conta →</button></td></tr>`;
+    return `<tr class="${r.meses&&!r.ok?'flowfix':''}"><td>${esc(r.n)}${alertas.length?'<div class="desc">'+esc(alertas.join(' · '))+'</div>':''}</td><td class="num">${r.meses}</td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num" style="color:var(--ok)">${fmt(r.entradas)}</td><td class="num" style="color:var(--er)">${fmt(r.saidas)}</td><td class="num">${r.meses?fmt(r.calc==null?((r.ini||0)+r.entradas-r.saidas):r.calc):'—'}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.meses&&r.fim!=null?(r.ok?'bank-status-ok':'bank-status-er'):''}">${r.dif==null?'—':fmt(r.dif)}</td><td>${chip}</td><td><button class="act" type="button" onclick="bcFiltroBanco='${r.k}';curBank='${r.k}';renderBcFiltroBanco();renderBankConsolidado();document.getElementById('bank-tabs')?.scrollIntoView({behavior:'smooth'});renderBankTabs();renderBank();">Ver conta →</button></td></tr>`;
   }).join('')}<tr style="font-weight:700;border-top:2px solid var(--bd)"><td>TOTAL das ${rows.length} contas${semFimReal?'<div class="desc">saldo final estimado — falta saldo final cadastrado em ao menos uma conta com movimento neste período</div>':''}</td><td class="num">—</td><td class="num">${fmt(totIni)}</td><td class="num" style="color:var(--ok)">${fmt(totEnt)}</td><td class="num" style="color:var(--er)">${fmt(totSai)}</td><td class="num">${fmt(totCalc)}</td><td class="num">${semFimReal?'—':fmt(totFim)}</td><td class="num ${semFimReal?'':(Math.abs(totDif)<0.02?'bank-status-ok':'bank-status-er')}">${semFimReal?'—':fmt(totDif)}</td><td>${semFimReal?'<span class="chip wn">estimado</span>':(Math.abs(totDif)<0.02?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>')}</td><td></td></tr></tbody></table>
   <div class="foot" style="margin-top:8px">${totDiv?totDiv+' mês(es) divergente(s) somando todas as contas. ':'Nenhum mês divergente. '}Se o saldo inicial de algum mês estiver errado, corrija manualmente em <b>Ajustar saldo do mês</b>, dentro da conta — o saldo final volta a bater.</div>`;
 }
@@ -6150,33 +6193,6 @@ async function saveBankAdjSaldo(){
 // para desfazer importação feita na conta errada — foi o caso das 9 abas de
 // 2024 da planilha do Bradesco, que na verdade eram extrato da CEF 2215-1 e
 // entraram como se fossem do Bradesco.
-async function lnbRemoverMesDaConta(bank,mes){
-  if(!confirm('Isso vai remover TODOS os lançamentos de '+mlabel(mes)+' da conta '+bankLabel(bank)+', mais o saldo inicial/final desse mês nessa conta. Os lançamentos vão para a Lixeira e podem ser restaurados; o saldo pode ser digitado de novo em "Ajustar saldo do mês". Confirmar?'))return;
-  try{
-    const deletedAt=new Date().toISOString();
-    const ini=mes+'-01', fimMes=mes+'-31';
-    // Lançamentos antigos do Bradesco foram gravados sem o campo banco
-    // preenchido (o Bradesco era o valor implícito), por isso aqui o filtro
-    // precisa aceitar também banco vazio/nulo quando a conta é o Bradesco.
-    const filtroBanco=bank==='BRADESCO'
-      ? 'or=(banco.is.null,banco.eq.BRADESCO,banco.eq.)'
-      : 'banco=eq.'+encodeURIComponent(bank);
-    await supaSoftDelete('realizado','data=gte.'+ini+'&data=lte.'+fimMes+'&'+filtroBanco, deletedAt);
-    try{ await lnbApagarComHistorico('bank_saldos','bank=eq.'+encodeURIComponent(bank)+'&mes=eq.'+encodeURIComponent(mes)); }
-    catch(eSal){ console.error('Falha ao remover saldo do mês:',eSal); }
-    // Limpa também o cache local, senão o mês continua na tela depois do reload.
-    imported=imported.filter(t=>!(t.m===mes&&bankOf(t)===bank));
-    store.setItem('lnb3_imported',JSON.stringify(imported));
-    if(bank==='BRADESCO')delete DB.saldos[mes];
-    else if(DB.saldosBanks&&DB.saldosBanks[bank])delete DB.saldosBanks[bank].saldos[mes];
-    lnbLogActivity('remover_mes_conta', bankLabel(bank)+' — '+mlabel(mes));
-    alert(mlabel(mes)+' removido de '+bankLabel(bank)+'. Recarregando…');
-    location.reload();
-  }catch(e){
-    console.error('lnbRemoverMesDaConta falhou:',e);
-    alert('Falhou ao remover: '+e.message);
-  }
-}
 // Semanas contadas por dia do mês (não por semana ISO): 1ª=01-07, 2ª=08-14,
 // 3ª=15-21, 4ª=22-28, 5ª=29-atéOFimDoMês (só existe nos meses com esses
 // dias). Simples e previsível — bate com o que qualquer um conta "de
@@ -6352,21 +6368,6 @@ function renderBank(){
   // igual à visão consolidada, e traz duas conferências extras que a planilha
   // de controle faz na mão: o encadeamento entre meses e a comparação com os
   // totais que o próprio extrato declara.
-  const proofRows=curM==='ALL'?rows:rows.filter(r=>r.m===curM);
-  const linhaTotal=(()=>{
-    if(!proofRows.length)return '';
-    const p=bankPeriodSummary(curBank,curM==='ALL'?null:curM);
-    return `<tr style="font-weight:700;border-top:2px solid var(--bd)"><td>${curM==='ALL'?'TEMPORADA':'TOTAL'}</td><td class="num">${p.ini==null?'—':fmt(p.ini)}</td><td class="num">${fmt(p.entradas)}</td><td class="num">${fmt(p.saidas)}</td><td class="num">${fmt(p.calc)}</td><td class="num">${p.fim==null?'—':fmt(p.fim)}</td><td class="num ${p.ok?'bank-status-ok':'bank-status-er'}">${p.dif==null?'—':fmt(p.dif)}</td><td>${p.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>'}</td><td></td><td class="num"></td><td></td></tr>`;
-  })();
-  document.getElementById('bank-proof').innerHTML=proofRows.length?`<table><thead><tr><th>Mês</th><th class="num">Saldo inicial</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo calculado</th><th class="num">Saldo final extrato</th><th class="num">Diferença</th><th>Status</th><th>Conferências</th><th class="num">Alertas</th><th></th></tr></thead><tbody>${proofRows.map(r=>{
-    const confs=[];
-    if(r.encadeaOk===false)confs.push('<span class="chip er">saldo inicial não bate com o saldo final de '+mlabel(r.mesAnterior)+' ('+fmt(r.encadeaDif)+')</span>');
-    if(r.faltaLancamento)confs.push('<span class="chip wn">extrato declara '+(r.entExtrato!=null?fmt(r.entExtrato)+' de entradas':'')+(r.entExtrato!=null&&r.saiExtrato!=null?' e ':'')+(r.saiExtrato!=null?fmt(r.saiExtrato)+' de saídas':'')+' — pode faltar lançamento importado</span>');
-    if(r.ini==null)confs.push('<span class="chip wn">saldo inicial não informado — digite em "Ajustar saldo do mês"</span>');
-    if(r.fim==null)confs.push('<span class="chip wn">saldo final não informado</span>');
-    if(!confs.length&&r.ok)confs.push('<span class="chip ok">ok</span>');
-    return `<tr class="${r.ok?'':'flowfix'}"><td><b>${mlabel(r.m)}</b><div class="desc">${r.qtd} lançamento(s)</div></td><td class="num">${r.ini==null?'—':fmt(r.ini)}</td><td class="num">${fmt(r.entradas)}</td><td class="num">${fmt(r.saidas)}</td><td class="num">${fmt(r.calc)}</td><td class="num">${r.fim==null?'—':fmt(r.fim)}</td><td class="num ${r.ok?'bank-status-ok':'bank-status-er'}">${r.fim==null?'—':fmt(r.dif)}</td><td>${(r.ini==null||r.fim==null)?'<span class="chip wn">falta saldo</span>':(r.ok?'<span class="chip ok">confere</span>':'<span class="chip er">divergente</span>')}</td><td>${confs.join(' ')}</td><td class="num">${r.susp||''}</td><td><button class="act" type="button" title="Remover este mês desta conta (vai para a Lixeira)" onclick="lnbRemoverMesDaConta('${curBank}','${r.m}')">remover mês</button></td></tr>`;
-  }).join('')}${linhaTotal}</tbody></table>`:(curM==='ALL'?'<div class="desc">Sem meses com saldo cadastrado para esta conta.</div>':'<div class="desc">Sem saldo cadastrado para '+mlabel(curM)+' nesta conta. Use <b>Ajustar saldo do mês</b> abaixo para informar manualmente.</div>');
   const qDoc=norm(document.getElementById('bank-doc')?.value||'');
   const qDesc=norm(document.getElementById('bank-desc')?.value||'');
   const qFav=norm(document.getElementById('bank-fav')?.value||'');
