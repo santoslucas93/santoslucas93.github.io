@@ -2156,11 +2156,13 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <select id="ml-departamento" style="flex:1;min-width:180px"><option value="">Departamento...</option></select>
-        <input type="text" id="ml-grupo" placeholder="Grupo" list="dl-ml-grupos" style="flex:1;min-width:160px">
-        <input type="text" id="ml-linha" placeholder="Linha do orçamento" list="dl-ml-linhas" style="flex:1;min-width:200px">
+        <select id="ml-grupo" style="flex:1;min-width:160px" disabled><option value="">Escolha o departamento primeiro...</option></select>
+        <select id="ml-linha" style="flex:1;min-width:200px" disabled><option value="">Escolha o grupo primeiro...</option></select>
       </div>
-      <datalist id="dl-ml-grupos"></datalist>
-      <datalist id="dl-ml-linhas"></datalist>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="text" id="ml-grupo-novo" placeholder="Nome do novo grupo" style="flex:1;min-width:160px" class="hide">
+        <input type="text" id="ml-linha-novo" placeholder="Nome da nova linha do orçamento" style="flex:1;min-width:200px" class="hide">
+      </div>
       <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
         <input type="text" id="ml-competicao" placeholder="Competição (opcional)" list="dl-ml-competicao" style="flex:1;min-width:160px">
         <datalist id="dl-ml-competicao"></datalist>
@@ -3433,6 +3435,8 @@ async function lnbSaveManualRealizado(){
   const depEl=document.getElementById('ml-departamento');
   const grpEl=document.getElementById('ml-grupo');
   const linEl=document.getElementById('ml-linha');
+  const grpNovoEl=document.getElementById('ml-grupo-novo');
+  const linNovoEl=document.getElementById('ml-linha-novo');
   const compEl=document.getElementById('ml-competicao');
   const abatEl=document.getElementById('ml-abatimento');
   const tempEl=document.getElementById('ml-temporada');
@@ -3442,11 +3446,16 @@ async function lnbSaveManualRealizado(){
   const valorNum=moneyVal(valorEl.value);
   if(!valorNum){ if(msg) msg.textContent='Informe um valor maior que zero.'; return; }
   if(!depEl.value){ if(msg) msg.textContent='Escolha o departamento.'; return; }
-  if(!grpEl.value.trim() || !linEl.value.trim()){ if(msg) msg.textContent='Informe grupo e linha do orçamento.'; return; }
+  // Grupo/Linha agora são selects (drill-down a partir do Departamento);
+  // "__new__" abre o campo de texto ao lado pra cadastrar um grupo/linha
+  // que ainda não existe naquele departamento.
+  const grp=(grpEl.value==='__new__'?(grpNovoEl&&grpNovoEl.value.trim()):grpEl.value)||'';
+  const lin=(linEl.value==='__new__'?(linNovoEl&&linNovoEl.value.trim()):linEl.value)||'';
+  if(!grp || !lin){ if(msg) msg.textContent='Escolha (ou digite, se for novo) o grupo e a linha do orçamento.'; return; }
   const btn=document.getElementById('btn-ml-save');
   if(btn){ btn.disabled=true; btn.textContent='Salvando...'; }
   try{
-    const dep=depEl.value, grp=grpEl.value.trim(), lin=linEl.value.trim();
+    const dep=depEl.value;
     const idLinha=await resolveIdLinha(dep,grp,lin);
     const row={
       data: dataEl.value,
@@ -3470,6 +3479,13 @@ async function lnbSaveManualRealizado(){
     lnbLogActivity('lancamento_manual', favEl.value.trim()+' — '+(tipoEl.value==='entrada'?'entrada':'saída')+' '+valorNum);
     if(msg) msg.textContent='Lançamento salvo no sistema.';
     favEl.value=''; descEl.value=''; valorEl.value=''; docEl.value=''; compEl.value=''; abatEl.checked=false;
+    // Mantém o Departamento selecionado (jeito mais comum de lançar vários
+    // registros seguidos no mesmo departamento), mas limpa Grupo/Linha pra
+    // não salvar sem querer duas vezes na mesma linha.
+    if(grpNovoEl){grpNovoEl.value='';grpNovoEl.classList.add('hide');}
+    if(linNovoEl){linNovoEl.value='';linNovoEl.classList.add('hide');}
+    if(typeof lnbGetLineIndex==='function'){ lnbLineIndexCache=null; }
+    lnbInitManualEntryForm();
   }catch(e){
     console.error('Falha ao salvar lançamento manual:', e);
     if(msg) msg.textContent='Falhou ao salvar: '+e.message;
@@ -3483,7 +3499,7 @@ async function lnbInitManualEntryForm(){
   const tempEl=document.getElementById('ml-temporada');
   if(tempEl && !tempEl.value) tempEl.value=lnbCurrentTemporada();
   if(depEl.options.length<=1){
-    DEPTS.forEach(function(code){
+    PLAN_BASE_DEPTS.forEach(function(code){
       const opt=document.createElement('option');
       opt.value=code; opt.textContent=AREAS[code]||code;
       depEl.appendChild(opt);
@@ -3503,30 +3519,62 @@ async function lnbInitManualEntryForm(){
     dlComp.innerHTML=competicoes.map(function(v){return '<option value="'+String(v).replace(/"/g,'&quot;')+'">';}).join('');
   }
   const idx=await lnbGetLineIndex();
+  const linEl=document.getElementById('ml-linha');
+  const grpNovoEl=document.getElementById('ml-grupo-novo');
+  const linNovoEl=document.getElementById('ml-linha-novo');
   function rowsForCurrentDept(){
     const dep=depEl.value;
     return idx.byDept[AREAS[dep]||dep] || idx.byDept[dep] || [];
   }
+  function optHTML(v){return '<option value="'+String(v).replace(/"/g,'&quot;')+'">'+esc(v)+'</option>';}
+  // Drill-down real: o select de Grupo só é habilitado depois de escolher o
+  // Departamento, e só mostra os grupos que já existem naquele departamento
+  // (mais a opção "+ novo grupo" pra criar um). O select de Linha, por sua
+  // vez, só habilita depois de escolher um Grupo (existente ou novo) e só
+  // mostra as linhas daquele grupo (mais "+ nova linha"). Isso substitui os
+  // campos de texto livre com datalist de sugestão, que davam a impressão
+  // de Grupo/Linha serem independentes do Departamento escolhido.
   function refreshGrupos(){
-    const grupos=[...new Set(rowsForCurrentDept().map(function(r){return r.grupo;}).filter(Boolean))];
-    const dlG=document.getElementById('dl-ml-grupos');
-    if(dlG) dlG.innerHTML=grupos.map(function(g){return '<option value="'+String(g).replace(/"/g,'&quot;')+'">';}).join('');
+    const dep=depEl.value;
+    if(grpNovoEl){grpNovoEl.classList.add('hide');grpNovoEl.value='';}
+    if(!dep){
+      grpEl.disabled=true;
+      grpEl.innerHTML='<option value="">Escolha o departamento primeiro...</option>';
+      return;
+    }
+    const grupos=[...new Set(rowsForCurrentDept().map(function(r){return r.grupo;}).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    grpEl.disabled=false;
+    grpEl.innerHTML='<option value="">Grupo...</option>'+grupos.map(optHTML).join('')+'<option value="__new__">+ novo grupo...</option>';
   }
   function refreshLinhas(){
-    const rows=rowsForCurrentDept();
-    const grupoAtual=(grpEl&&grpEl.value||'').trim();
-    // Se o grupo digitado bater com algum existente, restringe as linhas a esse
-    // grupo (drill-down real). Se não bater com nada (grupo novo/em digitação
-    // ou vazio), mostra as linhas de todo o departamento como antes.
-    const rowsFiltradas=grupoAtual&&rows.some(function(r){return norm(r.grupo)===norm(grupoAtual);})
-      ? rows.filter(function(r){return norm(r.grupo)===norm(grupoAtual);})
-      : rows;
-    const linhas=[...new Set(rowsFiltradas.map(function(r){return r.linha_orcamento;}).filter(Boolean))];
-    const dlL=document.getElementById('dl-ml-linhas');
-    if(dlL) dlL.innerHTML=linhas.map(function(l){return '<option value="'+String(l).replace(/"/g,'&quot;')+'">';}).join('');
+    const grupoSel=grpEl.value;
+    if(linNovoEl){linNovoEl.classList.add('hide');linNovoEl.value='';}
+    if(!depEl.value || !grupoSel){
+      linEl.disabled=true;
+      linEl.innerHTML='<option value="">Escolha o grupo primeiro...</option>';
+      return;
+    }
+    if(grupoSel==='__new__'){
+      // Grupo novo ainda não tem linhas cadastradas — só oferece criar uma nova.
+      linEl.disabled=false;
+      linEl.innerHTML='<option value="">Linha do orçamento...</option><option value="__new__">+ nova linha...</option>';
+      linEl.value='__new__';
+      if(linNovoEl) linNovoEl.classList.remove('hide');
+      return;
+    }
+    const rows=rowsForCurrentDept().filter(function(r){return norm(r.grupo)===norm(grupoSel);});
+    const linhas=[...new Set(rows.map(function(r){return r.linha_orcamento;}).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    linEl.disabled=false;
+    linEl.innerHTML='<option value="">Linha do orçamento...</option>'+linhas.map(optHTML).join('')+'<option value="__new__">+ nova linha...</option>';
   }
   depEl.onchange=function(){refreshGrupos();refreshLinhas();};
-  if(grpEl) grpEl.oninput=refreshLinhas;
+  grpEl.onchange=function(){
+    if(grpNovoEl) grpNovoEl.classList.toggle('hide', grpEl.value!=='__new__');
+    refreshLinhas();
+  };
+  linEl.onchange=function(){
+    if(linNovoEl) linNovoEl.classList.toggle('hide', linEl.value!=='__new__');
+  };
   refreshGrupos();
   refreshLinhas();
   const btn=document.getElementById('btn-ml-save');
