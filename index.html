@@ -3903,9 +3903,12 @@ const fmt2 = v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 // com a cor certa (azul = positivo/zero, vermelho = negativo) e sem
 // deixar o sinal "-" quebrar linha sozinho, separado do valor — o
 // overflow-wrap:anywhere usado nos cards de KPI (pra evitar estouro em
-// telas estreitas) às vezes cortava bem depois do hífen.
+// telas estreitas) às vezes cortava bem depois do hífen. Usa
+// --budget-blue (azul fixo, não muda com o tema) em vez de --ac: nos
+// temas visuais da marca (arena/court/executive) --ac vira verde, então
+// um valor positivo apareceria em verde em vez de azul.
 function fmtSigned(v){
-  const cor = v<0?'var(--er)':'var(--ac)';
+  const cor = v<0?'var(--er)':'var(--budget-blue)';
   return `<span style="white-space:nowrap;color:${cor}">${fmt(v)}</span>`;
 }
 
