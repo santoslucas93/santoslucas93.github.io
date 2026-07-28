@@ -2819,9 +2819,15 @@ async function lnbApagarRealizadoTemporadaSelecionada(){
     // inicial/final antigos mesmo com 0 lançamentos, gerando divergência.
     // Descobre os meses da temporada ANTES de apagar o realizado, pra poder
     // limpar os saldos bancários correspondentes (tabela bank_saldos não
-    // tem coluna de temporada, só mes).
-    const realizadoRowsParaMeses=await supaSelectFiltered('realizado','temporada=eq.'+encodeURIComponent(t)+'&select=mes');
-    const mesesRealizado=[...new Set((realizadoRowsParaMeses||[]).map(r=>r.mes).filter(Boolean))];
+    // tem coluna de temporada, só mes). Bug real corrigido: 'realizado' não
+    // tem coluna 'mes' (só 'data', tipo date) — pedir select=mes aqui não
+    // dava erro por causa do 'select=*' fixo dentro de supaSelectFiltered
+    // (o Postgres/PostgREST ignorava o select=mes duplicado), mas o r.mes
+    // lido depois vinha sempre undefined, então mesesRealizado ficava
+    // sempre vazio e o saldo bancário nunca era limpo aqui. Agora deriva o
+    // mês a partir de r.data (formato 'YYYY-MM-DD' -> 'YYYY-MM').
+    const realizadoRowsParaMeses=await supaSelectFiltered('realizado','temporada=eq.'+encodeURIComponent(t));
+    const mesesRealizado=[...new Set((realizadoRowsParaMeses||[]).map(r=>r.data&&String(r.data).slice(0,7)).filter(Boolean))];
     await supaSoftDelete('realizado', 'temporada=eq.'+encodeURIComponent(t), deletedAt);
     // Achado real: apagar no Supabase não bastava — o cache local do
     // navegador ('imported', localStorage) nunca era limpo aqui, então
@@ -2911,6 +2917,21 @@ async function lnbApagarRecentes(){
   const bp=document.getElementById('btn-rec-del-preview'); if(bp)bp.onclick=lnbPreviewRecentDelete;
   const ba=document.getElementById('btn-rec-del-apagar'); if(ba)ba.onclick=lnbApagarRecentes;
 })();
+// Descobre a contagem EXATA de linhas apagadas numa faixa deleted_at=eq.X,
+// sem precisar baixar todas as linhas (o Supabase limita por padrão a
+// 1000 linhas por chamada, então um lote grande de exclusão -- ex.: apagar
+// o Realizado de uma temporada inteira, com dezenas de milhares de linhas
+// -- aparecia na Lixeira com a contagem errada, travada em 1000).
+async function supaContarExato(table, filterQuery){
+  try{
+    const url=SUPABASE_URL+'/rest/v1/'+table+'?select=id&'+filterQuery+'&limit=1';
+    const res=await supaFetch(url,{headersExtra:{'Prefer':'count=exact'}});
+    if(!res.ok)return null;
+    const range=res.headers.get('content-range')||'';
+    const total=range.includes('/')?Number(range.split('/')[1]):null;
+    return Number.isFinite(total)?total:null;
+  }catch(e){ console.error('supaContarExato falhou para '+table+':',e); return null; }
+}
 async function lnbLoadTrash(){
   const status=document.getElementById('rdo-trash-status'), box=document.getElementById('rdo-trash-list');
   if(!box)return;
@@ -2939,6 +2960,17 @@ async function lnbLoadTrash(){
       box.innerHTML='';
       return;
     }
+    // Corrige a contagem de cada lote para o valor exato (a amostra acima
+    // pode vir truncada em 1000 linhas por tabela).
+    await Promise.all(list.map(async b=>{
+      const filtro='deleted_at=eq.'+encodeURIComponent(b.deletedAt);
+      const [totalReal,totalOrc]=await Promise.all([
+        b.realizado>0?supaContarExato('realizado',filtro):Promise.resolve(0),
+        b.orcado>0?supaContarExato('orcado',filtro):Promise.resolve(0)
+      ]);
+      if(totalReal!=null)b.realizado=totalReal;
+      if(totalOrc!=null)b.orcado=totalOrc;
+    }));
     if(status)status.textContent=list.length+' lote(s) na lixeira.';
     box.innerHTML=`<table><thead><tr><th>Apagado em</th><th>Por</th><th>Temporada(s)</th><th class="num">Realizado</th><th class="num">Orçado</th><th></th></tr></thead><tbody>${list.map(b=>`<tr><td>${new Date(b.deletedAt).toLocaleString('pt-BR')}</td><td>${esc(b.deletedBy)}</td><td>${esc([...b.temporadas].join(', ')||'—')}</td><td class="num">${b.realizado}</td><td class="num">${b.orcado}</td><td><button class="act pri" type="button" onclick="lnbRestoreTrashBatch('${encodeURIComponent(b.deletedAt)}')">↩️ Restaurar</button></td></tr>`).join('')}</tbody></table>`;
   }catch(e){
@@ -5675,12 +5707,31 @@ function lnbAtualizarSemanasDoMes(){
   semEl.innerHTML=['1','2','3','4','5'].filter(k=>ranges[k]).map(k=>'<option value="'+k+'">'+nomes[k]+' (dias '+ranges[k][0]+'–'+ranges[k][1]+')</option>').join('');
   if(ranges[valorAnterior]) semEl.value=valorAnterior;
 }
-function lnbInitWeekDeleteMonths(){
+async function lnbInitWeekDeleteMonths(){
   const sel=document.getElementById('rw-mes');
   if(!sel)return;
-  const opts=months.length?months.slice().sort().map(m=>'<option value="'+m+'">'+mlabel(m)+'</option>').join(''):'<option value="">(nenhum mês com Realizado)</option>';
-  sel.innerHTML=opts;
   sel.onchange=lnbAtualizarSemanasDoMes;
+  // Bug real corrigido: antes este seletor usava a const global `months`,
+  // calculada UMA VEZ na carga da página a partir do cache local
+  // (imported/localStorage) -- se esse cache estivesse desatualizado em
+  // relação ao que já tinha sido importado/apagado no Supabase (ex.: por
+  // outra aba, outra pessoa, ou uma sincronização que ainda não tinha
+  // terminado), o dropdown ficava travado mostrando só os meses antigos
+  // (ex.: só jan/fev de um período que já tinha até jul). Agora busca os
+  // meses com Realizado ativo direto do Supabase (RPC meses_realizado_ativos),
+  // sempre em dia com o que está realmente salvo.
+  sel.innerHTML='<option value="">Carregando meses…</option>';
+  try{
+    const res=await supaFetch(SUPABASE_URL+'/rest/v1/rpc/meses_realizado_ativos',{method:'POST',headersExtra:{'Prefer':'return=representation'}});
+    if(!res.ok) throw new Error('RPC meses_realizado_ativos falhou: '+res.status);
+    const rows=await res.json();
+    const mesesVivos=[...new Set((rows||[]).map(r=>r.mes).filter(Boolean))].sort();
+    sel.innerHTML=mesesVivos.length?mesesVivos.map(m=>'<option value="'+m+'">'+mlabel(m)+'</option>').join(''):'<option value="">(nenhum mês com Realizado)</option>';
+  }catch(e){
+    console.error('lnbInitWeekDeleteMonths: falha ao buscar meses ao vivo do Supabase, usando cache local como reserva:',e);
+    const opts=months.length?months.slice().sort().map(m=>'<option value="'+m+'">'+mlabel(m)+'</option>').join(''):'<option value="">(nenhum mês com Realizado)</option>';
+    sel.innerHTML=opts;
+  }
   lnbAtualizarSemanasDoMes();
 }
 async function lnbPreviewSemanaRealizado(){
@@ -8012,7 +8063,10 @@ async function endSeasonAndReset(){
     // Conciliação Bancária continua mostrando saldo inicial/final antigos
     // mesmo com o Realizado zerado (bank_saldos não tem coluna de temporada,
     // só mes, então usamos os meses que realmente apareceram no Realizado).
-    const mesesTemporada=[...new Set((realizadoRows||[]).map(r=>r.mes).filter(Boolean))];
+    // Mesmo bug do "Apagar Realizado desta temporada": 'realizado' não tem
+    // coluna 'mes', só 'data' -- deriva o mes real a partir dela, senão
+    // mesesTemporada fica sempre vazio e bank_saldos nunca é limpo aqui.
+    const mesesTemporada=[...new Set((realizadoRows||[]).map(r=>r.data&&String(r.data).slice(0,7)).filter(Boolean))];
     const bankSaldoRows=mesesTemporada.length?await supaSelectFiltered('bank_saldos','mes=in.('+mesesTemporada.map(m=>'"'+m+'"').join(',')+')'):[];
     const snapshot={app:'Orçado x Realizado LNB — arquivo de temporada encerrada',temporada,archivedAt:new Date().toISOString(),realizado:realizadoRows||[],orcado:orcadoRows||[],bankSaldos:bankSaldoRows||[],estadoCompartilhado};
     downloadText(`LNB_arquivo_temporada_${temporada.replace('/','-')}_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(snapshot,null,2),'application/json');
