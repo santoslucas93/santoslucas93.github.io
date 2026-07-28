@@ -1878,6 +1878,11 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <button class="act" id="dash-refresh" type="button">Atualizar gráfico</button>
     </div>
     <div id="dash-chart-box" class="chart-wrap"></div>
+    <div id="dash-chart-pager" class="toolbar" style="display:none;align-items:center;gap:10px;margin-top:6px">
+      <button class="act" type="button" id="dash-pager-prev">◀ Anterior</button>
+      <span id="dash-pager-label" class="foot" style="margin:0"></span>
+      <button class="act" type="button" id="dash-pager-next">Próxima ▶</button>
+    </div>
     <div id="dash-tip" class="chart-tip"></div>
   </div>
 </div>
@@ -2068,6 +2073,30 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <button class="act" type="button" id="btn-tpr-apagar" style="border-color:var(--er);color:var(--er)">🗑️ Apagar Realizado desta temporada</button>
     </div>
     <div id="tpr-msg" class="foot" style="margin-top:6px"></div>
+  </div>
+  <div class="panel admin-only" id="real-week-delete-panel" style="margin:14px 0">
+    <h2>Apagar uma semana do Realizado</h2>
+    <div class="note" style="margin:0">Remove os lançamentos de Realizado de TODAS as contas bancárias juntas, só no intervalo de dias escolhido — sem apagar o mês inteiro nem a temporada. Semanas contadas por dia do mês: 1ª = dias 01–07, 2ª = 08–14, 3ª = 15–21, 4ª = 22–28, 5ª = 29–31 (só existe se o mês tiver esses dias). Vai para a Lixeira e pode ser restaurado.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Mês
+        <select id="rw-mes" style="min-width:150px"></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Semana
+        <select id="rw-semana" style="min-width:170px">
+          <option value="1">1ª (dias 01–07)</option>
+          <option value="2">2ª (dias 08–14)</option>
+          <option value="3">3ª (dias 15–21)</option>
+          <option value="4">4ª (dias 22–28)</option>
+          <option value="5">5ª (dias 29–31)</option>
+        </select>
+      </label>
+      <button class="act" type="button" id="btn-rw-preview">🔍 Ver quantos serão apagados</button>
+    </div>
+    <div id="rw-status" class="foot" style="margin:8px 0 0">Escolha o mês e a semana acima.</div>
+    <div class="toolbar" style="margin-top:10px">
+      <button class="act" type="button" id="btn-rw-apagar" style="border-color:var(--er);color:var(--er)">🗑️ Apagar esta semana do Realizado</button>
+    </div>
+    <div id="rw-msg" class="foot" style="margin-top:6px"></div>
   </div>
   <div class="panel admin-only" id="new-season-panel" style="margin:14px 0">
     <h2>Realizado da nova temporada (2026/2027) — com classificação embutida <span class="how">reduz a conciliação desde a entrada</span></h2>
@@ -3176,6 +3205,7 @@ const ACTIVITY_LABELS={
   ajustar_saldo_banco:'Ajustou saldo do mês (Conciliação Bancária)',
   apagar_temporada:'Apagou temporada (foi para a Lixeira)',
   apagar_recentes:'Apagou lançamentos recentes (foi para a Lixeira)',
+  apagar_semana_realizado:'Apagou uma semana do Realizado (foi para a Lixeira)',
   encerrar_temporada:'Encerrou e arquivou temporada',
   iniciar_temporada:'Iniciou nova temporada',
   restaurar_lixeira:'Restaurou um lote da Lixeira'
@@ -5612,6 +5642,56 @@ async function lnbRemoverMesDaConta(bank,mes){
     alert('Falhou ao remover: '+e.message);
   }
 }
+// Semanas contadas por dia do mês (não por semana ISO): 1ª=01-07, 2ª=08-14,
+// 3ª=15-21, 4ª=22-28, 5ª=29-31 (só existe nos meses com esses dias). Simples
+// e previsível — bate com o que qualquer um conta "de cabeça" olhando o
+// calendário, sem depender de o mês começar num dia da semana específico.
+const RW_WEEK_RANGES={'1':['01','07'],'2':['08','14'],'3':['15','21'],'4':['22','28'],'5':['29','31']};
+function rwWeekRange(mes,semana){
+  const [d1,d2]=RW_WEEK_RANGES[String(semana)]||RW_WEEK_RANGES['1'];
+  return {ini:mes+'-'+d1,fim:mes+'-'+d2};
+}
+function lnbInitWeekDeleteMonths(){
+  const sel=document.getElementById('rw-mes');
+  if(!sel)return;
+  const opts=months.length?months.slice().sort().map(m=>'<option value="'+m+'">'+mlabel(m)+'</option>').join(''):'<option value="">(nenhum mês com Realizado)</option>';
+  sel.innerHTML=opts;
+}
+async function lnbPreviewSemanaRealizado(){
+  const mesEl=document.getElementById('rw-mes'),semEl=document.getElementById('rw-semana'),status=document.getElementById('rw-status');
+  const mes=mesEl?mesEl.value:'',semana=semEl?semEl.value:'1';
+  if(!mes){ if(status)status.textContent='Escolha um mês.'; return; }
+  const {ini,fim}=rwWeekRange(mes,semana);
+  if(status)status.textContent='Verificando...';
+  try{
+    const rows=await supaSelectFiltered('realizado','data=gte.'+ini+'&data=lte.'+fim+'&select=id');
+    status.textContent=rows.length+' lançamento(s) de Realizado entre '+ini+' e '+fim+' ('+semana+'ª semana de '+mlabel(mes)+', todas as contas) serão apagados.';
+  }catch(e){
+    if(status)status.textContent='Falha ao verificar: '+e.message;
+  }
+}
+async function lnbApagarSemanaRealizado(){
+  const mesEl=document.getElementById('rw-mes'),semEl=document.getElementById('rw-semana'),msg=document.getElementById('rw-msg');
+  const mes=mesEl?mesEl.value:'',semana=semEl?semEl.value:'1';
+  if(!mes){ if(msg)msg.textContent='Escolha um mês.'; return; }
+  const {ini,fim}=rwWeekRange(mes,semana);
+  if(!confirm('Isso vai ENVIAR PARA A LIXEIRA os lançamentos de Realizado de TODAS as contas entre '+ini+' e '+fim+' ('+semana+'ª semana de '+mlabel(mes)+'). O saldo bancário do mês não é alterado — se ficar divergente, ajuste em Conciliação Bancária. Um backup também é baixado antes. Confirmar?'))return;
+  if(msg)msg.textContent='Apagando...';
+  try{
+    await lnbAutoSnapshot('antes de apagar '+semana+'ª semana de '+mlabel(mes)+' do Realizado');
+    const deletedAt=new Date().toISOString();
+    await supaSoftDelete('realizado','data=gte.'+ini+'&data=lte.'+fim, deletedAt);
+    imported=imported.filter(t=>!(t.d>=ini&&t.d<=fim));
+    store.setItem('lnb3_imported',JSON.stringify(imported));
+    lnbLogActivity('apagar_semana_realizado', mlabel(mes)+' — '+semana+'ª semana ('+ini+' a '+fim+')');
+    if(msg)msg.textContent=semana+'ª semana de '+mlabel(mes)+' enviada para a Lixeira. Recarregando...';
+    await new Promise(function(r){ setTimeout(r,1200); });
+    location.reload();
+  }catch(e){
+    console.error('lnbApagarSemanaRealizado falhou:',e);
+    if(msg)msg.textContent='Falha ao apagar: '+e.message;
+  }
+}
 function renderBank(){
   renderBankAdjForm();
   const rows=bankProofRows(curBank);
@@ -5925,7 +6005,29 @@ function dashAreaRows(){const r=realized(curM);return DESP.map(a=>{const p=budP(
 function dashMonthlyRows(kind){return months.map(m=>{const r=realized(m);let v=0;if(kind==='receitas')v=(r.A.REC||0)+(r.A.OREC||0);else v=DESP.reduce((s,a)=>s+(r.A[a]||0),0);return {label:mlabel(m),v,m};});}
 function dashDeviationRows(){const r=realized(curM);const arr=[];DB.lines.forEach(l=>{const p=linePrev(l,curM),rr=r.L[l.id]||0;if(l.area!=='REC'&&p>0&&rr>p)arr.push({label:(AREAS[l.area]||l.area)+' · '+lineName(l.id),v:rr-p,over:true,extra:'excesso',code:DEPTS.includes(l.area)?l.area:''});});Object.keys(r.G).forEach(k=>{const [a,g]=k.split('|');if(['REC','OREC','TRF'].includes(a))return;if(g==='__none'&&(r.G[k]||0)>0)arr.push({label:(AREAS[a]||a)+' · sem grupo/linha',v:r.G[k],over:true,extra:'não alocado',code:DEPTS.includes(a)?a:''});else{const lines=DB.lines.filter(l=>l.area===a&&l.g===g);const no=(r.G[k]||0)-lines.reduce((s,l)=>s+(r.L[l.id]||0),0);if(no>0.01)arr.push({label:(AREAS[a]||a)+' · '+g+' · sem linha',v:no,over:true,extra:'sem linha',code:DEPTS.includes(a)?a:''});}});return arr.sort((a,b)=>b.v-a.v).slice(0,12);}
 function dashFavRows(){const agg={};txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;if(!dashFilterTx(t))return;const c=classify(t);if(c.splits&&c.splits.some(s=>s.a==='TRF'))return;const v=t.s>0?t.s:t.e;if(!v)return;agg[t.f]=(agg[t.f]||0)+v;});return Object.entries(agg).map(([label,v])=>({label,v})).sort((a,b)=>b.v-a.v).slice(0,12);}
-function renderDash(){const r=realized(curM),despR=DESP.reduce((s,a)=>s+(r.A[a]||0),0),despP=DESP.reduce((s,a)=>s+budP(curM,a),0),recR=(r.A.REC||0)+(r.A.OREC||0),pend=txs.filter(t=>(curM==='ALL'||t.m===curM)&&isAttention(t,classify(t))).length;document.getElementById('dash-kpis').innerHTML=`<div class="kpi click" onclick="document.getElementById('dash-chart').value='areas';renderDash();" title="Ver despesas por departamento"><div class="l">Orçado / realizado despesas</div><div class="v">${fmt(despP)} / ${fmt(despR)}</div><div class="d">acompanhamento orçamentário</div></div><div class="kpi click" onclick="document.getElementById('dash-chart').value='receitas';renderDash();" title="Ver receitas por mês"><div class="l">Receitas realizadas</div><div class="v" style="color:var(--ok)">${fmt(recR)}</div></div><div class="kpi click" onclick="goConcFilter('pend','')" title="Ver lançamentos pendentes na Conciliação"><div class="l">Atenção / pendentes</div><div class="v" style="color:${pend?'var(--wn)':'var(--ok)'}">${pend}</div></div><div class="kpi"><div class="l">Período</div><div class="v" style="font-size:17px">${curM==='ALL'?'Temporada':mlabel(curM)}</div></div>`;const sel=document.getElementById('dash-chart');const typeSel=document.getElementById('dash-type');const box=document.getElementById('dash-chart-box');const tip=document.getElementById('dash-tip');let rows=[],title='',defaultType='hbar',tipText='';if(sel.value==='areas'){rows=dashAreaRows();title='Departamentos — orçado / realizado';defaultType='hbar';tipText='Barras cinzas representam o orçado; barras coloridas representam o realizado. A leitura é sempre orçado / realizado. Clique num departamento para abrir a aba dele.';}else if(sel.value==='mensal'){rows=dashMonthlyRows('despesas');title='Evolução mensal das despesas realizadas';defaultType='line';tipText='Clique num ponto do mês para focar aquele período nas demais abas.';}else if(sel.value==='desvios'){rows=dashDeviationRows();title='Maiores estouros e valores sem alocação detalhada';defaultType='hbar';tipText='Itens "sem linha" indicam realizado alocado no grupo/área, mas sem amarração à linha final do orçamento. Clique para abrir o departamento.';}else if(sel.value==='fornecedores'){rows=dashFavRows();title='Top favorecidos / prestadores';defaultType='hbar';tipText='Clique num favorecido para filtrar por ele.';}else if(sel.value==='receitas'){rows=dashMonthlyRows('receitas');title='Receitas realizadas por mês';defaultType='line';tipText='Inclui receitas e outras receitas classificadas no sistema. Clique num ponto para focar o mês.';}else if(sel.value==='receitas-rank'){rows=dashRevenueRankRows();title='Ranking de receitas — por grupo/linha';defaultType='hbar';tipText='Soma de Receitas e Outras receitas por grupo/linha no período. Use o filtro de texto para restringir por patrocinador, clube ou evento.';}else if(sel.value==='despesas-rank'){rows=dashDespesaRankRows();title='Ranking de despesas — por linha orçamentária';defaultType='hbar';tipText='Todas as linhas de despesa de todos os departamentos, do maior para o menor gasto no período. Clique para abrir o departamento.';}else if(sel.value==='grupos-rank'){rows=dashGroupRankRows();title='Ranking de grupos orçamentários';defaultType='hbar';tipText='Soma por departamento · grupo no período. Clique para abrir o departamento.';}else if(sel.value==='arbitros-rank'){rows=dashArbitroRankRows();title='Ranking de árbitros';defaultType='hbar';tipText='Pagamentos e reembolsos de arbitragem por favorecido. Clique num árbitro para filtrar por ele.';}else if(sel.value==='colaboradores-rank'){rows=dashColaboradorRankRows();title='Ranking de colaboradores (RH)';defaultType='hbar';tipText='Soma de tudo lançado em Recursos Humanos por favorecido (salário, bolsas, reembolsos e rateios). Clique num colaborador para filtrar por ele.';}else if(sel.value==='competicao-rank'){rows=dashCompetitionRankRows();title='Gastos por competição';defaultType='hbar';tipText='Despesas por competição/evento identificado (NBB, LDB, Liga Ouro, Copa Super 8, Interligas, Jogo das Estrelas). Clique para filtrar por competição.';}else if(sel.value==='semanal'){rows=dashWeeklyFlowRows();title='Fluxo de caixa semanal (entradas − saídas)';defaultType='col';tipText='Saldo líquido por semana, excluindo transferências entre contas próprias. Passe o mouse na barra para ver entradas e saídas separadas.';}else{rows=dashMonthlyRows('receitas');title='Receitas realizadas por mês';defaultType='line';tipText='Inclui receitas e outras receitas classificadas no sistema. Clique num ponto para focar o mês.';}const type=(typeSel&&typeSel.value!=='auto')?typeSel.value:defaultType;box.dataset.kind=sel.value;const opt={title,kind:sel.value};if(!rows.length){box.innerHTML='<div class="desc">Sem dados para o filtro/período atual.</div>';}else if(type==='pie')box.innerHTML=svgPieChart(rows,opt);else if(type==='line')box.innerHTML=svgLineChart(rows,opt);else if(type==='col')box.innerHTML=svgColumnChart(rows,opt);else if(type==='rank')box.innerHTML=tableRankChart(rows,opt);else box.innerHTML=svgBarChart(rows,opt);tip.textContent=tipText;bindChartClicks(box);}
+let dashChartPage=0;let dashChartLastKind=null;const DASH_CHART_PAGE_SIZE=8;
+function renderDash(){const r=realized(curM),despR=DESP.reduce((s,a)=>s+(r.A[a]||0),0),despP=DESP.reduce((s,a)=>s+budP(curM,a),0),recR=(r.A.REC||0)+(r.A.OREC||0),pend=txs.filter(t=>(curM==='ALL'||t.m===curM)&&isAttention(t,classify(t))).length;document.getElementById('dash-kpis').innerHTML=`<div class="kpi click" onclick="document.getElementById('dash-chart').value='areas';renderDash();" title="Ver despesas por departamento"><div class="l">Orçado / realizado despesas</div><div class="v">${fmt(despP)} / ${fmt(despR)}</div><div class="d">acompanhamento orçamentário</div></div><div class="kpi click" onclick="document.getElementById('dash-chart').value='receitas';renderDash();" title="Ver receitas por mês"><div class="l">Receitas realizadas</div><div class="v" style="color:var(--ok)">${fmt(recR)}</div></div><div class="kpi click" onclick="goConcFilter('pend','')" title="Ver lançamentos pendentes na Conciliação"><div class="l">Atenção / pendentes</div><div class="v" style="color:${pend?'var(--wn)':'var(--ok)'}">${pend}</div></div><div class="kpi"><div class="l">Período</div><div class="v" style="font-size:17px">${curM==='ALL'?'Temporada':mlabel(curM)}</div></div>`;const sel=document.getElementById('dash-chart');const typeSel=document.getElementById('dash-type');const box=document.getElementById('dash-chart-box');const tip=document.getElementById('dash-tip');let rows=[],title='',defaultType='hbar',tipText='';if(sel.value==='areas'){rows=dashAreaRows();title='Departamentos — orçado / realizado';defaultType='hbar';tipText='Barras cinzas representam o orçado; barras coloridas representam o realizado. A leitura é sempre orçado / realizado. Clique num departamento para abrir a aba dele.';}else if(sel.value==='mensal'){rows=dashMonthlyRows('despesas');title='Evolução mensal das despesas realizadas';defaultType='line';tipText='Clique num ponto do mês para focar aquele período nas demais abas.';}else if(sel.value==='desvios'){rows=dashDeviationRows();title='Maiores estouros e valores sem alocação detalhada';defaultType='hbar';tipText='Itens "sem linha" indicam realizado alocado no grupo/área, mas sem amarração à linha final do orçamento. Clique para abrir o departamento.';}else if(sel.value==='fornecedores'){rows=dashFavRows();title='Top favorecidos / prestadores';defaultType='hbar';tipText='Clique num favorecido para filtrar por ele.';}else if(sel.value==='receitas'){rows=dashMonthlyRows('receitas');title='Receitas realizadas por mês';defaultType='line';tipText='Inclui receitas e outras receitas classificadas no sistema. Clique num ponto para focar o mês.';}else if(sel.value==='receitas-rank'){rows=dashRevenueRankRows();title='Ranking de receitas — por grupo/linha';defaultType='hbar';tipText='Soma de Receitas e Outras receitas por grupo/linha no período. Use o filtro de texto para restringir por patrocinador, clube ou evento.';}else if(sel.value==='despesas-rank'){rows=dashDespesaRankRows();title='Ranking de despesas — por linha orçamentária';defaultType='hbar';tipText='Todas as linhas de despesa de todos os departamentos, do maior para o menor gasto no período. Clique para abrir o departamento.';}else if(sel.value==='grupos-rank'){rows=dashGroupRankRows();title='Ranking de grupos orçamentários';defaultType='hbar';tipText='Soma por departamento · grupo no período. Clique para abrir o departamento.';}else if(sel.value==='arbitros-rank'){rows=dashArbitroRankRows();title='Ranking de árbitros';defaultType='hbar';tipText='Pagamentos e reembolsos de arbitragem por favorecido. Clique num árbitro para filtrar por ele.';}else if(sel.value==='colaboradores-rank'){rows=dashColaboradorRankRows();title='Ranking de colaboradores (RH)';defaultType='hbar';tipText='Soma de tudo lançado em Recursos Humanos por favorecido (salário, bolsas, reembolsos e rateios). Clique num colaborador para filtrar por ele.';}else if(sel.value==='competicao-rank'){rows=dashCompetitionRankRows();title='Gastos por competição';defaultType='hbar';tipText='Despesas por competição/evento identificado (NBB, LDB, Liga Ouro, Copa Super 8, Interligas, Jogo das Estrelas). Clique para filtrar por competição.';}else if(sel.value==='semanal'){rows=dashWeeklyFlowRows();title='Fluxo de caixa semanal (entradas − saídas)';defaultType='col';tipText='Saldo líquido por semana, excluindo transferências entre contas próprias. Passe o mouse na barra para ver entradas e saídas separadas.';}else{rows=dashMonthlyRows('receitas');title='Receitas realizadas por mês';defaultType='line';tipText='Inclui receitas e outras receitas classificadas no sistema. Clique num ponto para focar o mês.';}if(sel.value!==dashChartLastKind){dashChartPage=0;dashChartLastKind=sel.value;}
+const type=(typeSel&&typeSel.value!=='auto')?typeSel.value:defaultType;box.dataset.kind=sel.value;const opt={title,kind:sel.value};
+// Achado real: gráficos de coluna/linha cresciam sem limite conforme o
+// período tinha mais movimentação (ex.: fluxo semanal de uma temporada
+// inteira), virando uma rolagem horizontal enorme com barras/pontos
+// espremidos e rótulos ilegíveis ("quebrado"/"vazando"). Em vez de deixar o
+// gráfico crescer, pagina em fatias de tamanho fixo (que cabem sem rolagem)
+// com setas Anterior/Próxima.
+const pager=document.getElementById('dash-chart-pager'),pagerLabel=document.getElementById('dash-pager-label');
+let renderRows=rows;
+if((type==='col'||type==='line')&&rows.length){
+  const pageSize=DASH_CHART_PAGE_SIZE;
+  const totalPages=Math.max(1,Math.ceil(rows.length/pageSize));
+  if(dashChartPage>=totalPages)dashChartPage=totalPages-1;
+  if(dashChartPage<0)dashChartPage=0;
+  renderRows=rows.slice(dashChartPage*pageSize,(dashChartPage+1)*pageSize);
+  if(totalPages>1&&pager){
+    pager.style.display='flex';
+    if(pagerLabel)pagerLabel.textContent='Página '+(dashChartPage+1)+' de '+totalPages+' ('+rows.length+' no total)';
+  }else if(pager)pager.style.display='none';
+}else if(pager)pager.style.display='none';
+if(!rows.length){box.innerHTML='<div class="desc">Sem dados para o filtro/período atual.</div>';}else if(type==='pie')box.innerHTML=svgPieChart(renderRows,opt);else if(type==='line')box.innerHTML=svgLineChart(renderRows,opt);else if(type==='col')box.innerHTML=svgColumnChart(renderRows,opt);else if(type==='rank')box.innerHTML=tableRankChart(renderRows,opt);else box.innerHTML=svgBarChart(renderRows,opt);tip.textContent=tipText;bindChartClicks(box);}
 
 function dl(name,content){const b=new Blob(["﻿"+content],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();}
 const csvq=x=>'"'+String(x).replace(/"/g,'""')+'"';
@@ -8478,7 +8580,12 @@ try{applyStructureLabels();}catch(e){console.error('applyStructureLabels falhou 
 document.body.dataset.visual='nossa-terra';
 function clearBulkDestination(){['bulk-area','bulk-group','bulk-line'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const msg=document.getElementById('bulk-msg');if(msg)msg.innerHTML='Selecione uma área, grupo e linha somente quando desejar fazer uma realocação.';}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{curV=b.dataset.v;if(curV==='conc')clearBulkDestination();if(b.dataset.area)curDept=b.dataset.area;if(b.dataset.sup)curSup=b.dataset.sup;if(curV==='comp')curSup=['CS8','INTERLIGAS','LDB','NBB','LOU','NBBTRIO'].includes(curSup)?curSup:'CS8';openLineId=null;openGroupKey=null;render();window.scrollTo(0,0);});
-const dashChart=document.getElementById('dash-chart'),dashQ=document.getElementById('dash-q'),dashRefresh=document.getElementById('dash-refresh'),dashType=document.getElementById('dash-type');if(dashChart)dashChart.onchange=renderDash;if(dashQ)dashQ.oninput=renderDash;if(dashRefresh)dashRefresh.onclick=renderDash;if(dashType)dashType.onchange=renderDash;
+const dashChart=document.getElementById('dash-chart'),dashQ=document.getElementById('dash-q'),dashRefresh=document.getElementById('dash-refresh'),dashType=document.getElementById('dash-type');
+const dashResetPage=()=>{dashChartPage=0;renderDash();};
+if(dashChart)dashChart.onchange=dashResetPage;if(dashQ)dashQ.oninput=dashResetPage;if(dashRefresh)dashRefresh.onclick=dashResetPage;if(dashType)dashType.onchange=dashResetPage;
+const dashPagerPrev=document.getElementById('dash-pager-prev'),dashPagerNext=document.getElementById('dash-pager-next');
+if(dashPagerPrev)dashPagerPrev.onclick=()=>{dashChartPage=Math.max(0,dashChartPage-1);renderDash();};
+if(dashPagerNext)dashPagerNext.onclick=()=>{dashChartPage++;renderDash();};
 document.getElementById('f-status').onchange=()=>{page=1;renderTable();};
 document.getElementById('f-q').oninput=()=>{page=1;renderTable();};
 ['bulk-q'].forEach(id=>{const el=document.getElementById(id);if(el)el.oninput=updateBulkMsg;});
@@ -9204,6 +9311,11 @@ async function lnbBootApp(){
   try{ lnbInitHeaderResize(); }catch(e){ console.error('lnbInitHeaderResize falhou:', e); }
   try{ lnbInitManualEntryForm(); }catch(e){ console.error('lnbInitManualEntryForm falhou:', e); }
   try{ lnbInitTemporadaManager(); }catch(e){ console.error('lnbInitTemporadaManager falhou:', e); }
+  try{
+    lnbInitWeekDeleteMonths();
+    const bwp=document.getElementById('btn-rw-preview'); if(bwp) bwp.onclick=lnbPreviewSemanaRealizado;
+    const bwa=document.getElementById('btn-rw-apagar'); if(bwa) bwa.onclick=lnbApagarSemanaRealizado;
+  }catch(e){ console.error('lnbInitWeekDeleteMonths falhou:', e); }
   try{ lnbInitBackupManager(); }catch(e){ console.error('lnbInitBackupManager falhou:', e); }
   lnbEnsureDailyBackup().catch(e=>console.error('lnbEnsureDailyBackup falhou:', e));
 }
