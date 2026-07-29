@@ -4591,7 +4591,7 @@ function resolveLineById(idVal){
     const cands=DB.lines.filter(l=>Number(l.id)===idVal);
     return cands.length===1?cands[0]:null;
   }
-  const key=String(idVal).trim();
+  let key=String(idVal).trim();if(key.includes(' - '))key=key.slice(0,key.indexOf(' - ')).trim();
   if(!key)return null;
   return DB.lines.find(l=>String(l.id)===key)||customPlan.find(l=>String(l.id)===key)||null;
 }
@@ -8224,7 +8224,7 @@ async function downloadNewSeasonTemplate(){
   const bankNames=BANK_ACCOUNTS.map(b=>b.n);
   for(let i=0;i<80;i++){
     const dr=xlDataRow(ws,Array(12).fill(''),{numFrom:6});
-    dr.getCell(1).dataValidation={type:'list',allowBlank:true,formulae:['IDS_ID']};
+    dr.getCell(1).dataValidation={type:'list',allowBlank:true,formulae:['IDS_ID_LABEL']};
     dr.getCell(6).dataValidation={type:'list',allowBlank:true,formulae:[`"${bankNames.join(',')}"`]};
     dr.getCell(9).dataValidation={type:'list',allowBlank:true,formulae:[`"${NEWSEASON_EVENTOS.join(',')}"`]};
     dr.getCell(10).dataValidation={type:'list',allowBlank:true,formulae:[`"Sim,Não"`]};
@@ -8235,11 +8235,12 @@ async function downloadNewSeasonTemplate(){
   ws.getColumn(6).width=18;ws.getColumn(7).width=13;ws.getColumn(8).width=13;ws.getColumn(9).width=16;ws.getColumn(10).width=16;ws.getColumn(11).width=22;ws.getColumn(12).width=22;
   const wsIds=wb.addWorksheet('IDs',{views:[{state:'frozen',ySplit:4}]});
   xlBand(wsIds,'IDs — CHAVE DE CADA LINHA DO ORÇAMENTO',per+' · '+idRefRows.length+' linha(s)',4);
-  xlHeader(wsIds,4,['ID','Departamento','Grupo','Linha do orçamento'],99);
-  idRefRows.forEach((r,i)=>xlDataRow(wsIds,[r.id,AREAS[r.area]||r.area,r.g,r.n],{zebra:i%2===1,numFrom:99}));
+  xlHeader(wsIds,4,['ID','Departamento','Grupo','Linha do orçamento','ID + Linha (busca)'],99);
+  idRefRows.forEach((r,i)=>xlDataRow(wsIds,[r.id,AREAS[r.area]||r.area,r.g,r.n,r.id+' - '+r.n],{zebra:i%2===1,numFrom:99}));
   wsIds.autoFilter={from:{row:4,column:1},to:{row:4,column:4}};
-  wsIds.getColumn(1).width=10;wsIds.getColumn(1).numFmt='@';wsIds.getColumn(2).width=20;wsIds.getColumn(3).width=30;wsIds.getColumn(4).width=44;
+  wsIds.getColumn(1).width=10;wsIds.getColumn(1).numFmt='@';wsIds.getColumn(2).width=20;wsIds.getColumn(3).width=30;wsIds.getColumn(4).width=44;wsIds.getColumn(5).width=50;
   wb.definedNames.add(`IDs!$A$5:$A$${4+idRefRows.length}`,'IDS_ID');
+  wb.definedNames.add(`IDs!$E$5:$E${4+idRefRows.length}`,'IDS_ID_LABEL');
   wb.definedNames.add(`IDs!$C$5:$C$${4+idRefRows.length}`,'IDS_GROUP');
   wb.definedNames.add(`IDs!$D$5:$D$${4+idRefRows.length}`,'IDS_LINE');
   const wsIdsCodes=wb.addWorksheet('IDs (código)');wsIdsCodes.state='veryHidden';
