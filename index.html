@@ -4591,7 +4591,7 @@ function resolveLineById(idVal){
     const cands=DB.lines.filter(l=>Number(l.id)===idVal);
     return cands.length===1?cands[0]:null;
   }
-  let key=String(idVal).trim();if(key.includes(' - '))key=key.slice(0,key.indexOf(' - ')).trim();
+  let key=String(idVal).trim();const __m=key.match(/\d+(?:\.\d+){1,3}/);if(__m)key=__m[0];
   if(!key)return null;
   return DB.lines.find(l=>String(l.id)===key)||customPlan.find(l=>String(l.id)===key)||null;
 }
@@ -8236,7 +8236,7 @@ async function downloadNewSeasonTemplate(){
   const wsIds=wb.addWorksheet('IDs',{views:[{state:'frozen',ySplit:4}]});
   xlBand(wsIds,'IDs — CHAVE DE CADA LINHA DO ORÇAMENTO',per+' · '+idRefRows.length+' linha(s)',4);
   xlHeader(wsIds,4,['ID','Departamento','Grupo','Linha do orçamento','ID + Linha (busca)'],99);
-  idRefRows.forEach((r,i)=>xlDataRow(wsIds,[r.id,AREAS[r.area]||r.area,r.g,r.n,r.id+' - '+r.n],{zebra:i%2===1,numFrom:99}));
+  idRefRows.forEach((r,i)=>xlDataRow(wsIds,[r.id,AREAS[r.area]||r.area,r.g,r.n,r.n+' - '+r.id],{zebra:i%2===1,numFrom:99}));
   wsIds.autoFilter={from:{row:4,column:1},to:{row:4,column:4}};
   wsIds.getColumn(1).width=10;wsIds.getColumn(1).numFmt='@';wsIds.getColumn(2).width=20;wsIds.getColumn(3).width=30;wsIds.getColumn(4).width=44;wsIds.getColumn(5).width=50;
   wb.definedNames.add(`IDs!$A$5:$A$${4+idRefRows.length}`,'IDS_ID');
@@ -9314,8 +9314,8 @@ function distinctAreaLines(area){
 function idReferenceRows(){
   const seen=new Set();const out=[];
   const add=(id,area,g,n)=>{const key=String(id||'').trim();if(!key||seen.has(key))return;seen.add(key);out.push({id:key,area,g:(g||'').trim(),n:(n||'').trim()});};
-  DB.lines.filter(l=>!isTotalizerLine(l)).forEach(l=>add(l.id,l.area,l.g,l.n));
-  customPlan.forEach(x=>add(x.id,x.area,x.g,x.n));
+  DB.lines.filter(l=>!isTotalizerLine(l)&&l.g!==LDB_TAX_GROUP).forEach(l=>add(l.id,l.area,l.g,l.n));
+  customPlan.filter(x=>x.g!==LDB_TAX_GROUP).forEach(x=>add(x.id,x.area,x.g,x.n));
   return out.sort((a,b)=>compareBudgetIds(a.id,b.id));
 }
 function addListasSheet(wb){
