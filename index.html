@@ -2694,6 +2694,18 @@ async function pushFavRulesToSupabase(){
     if(rows.length)await supaUpsert('fav_rules',rows,'favorecido_norm');
   }catch(e){ console.error('pushFavRulesToSupabase falhou:',e); }
 }
+async function pushCompromissosToSupabase(){
+  try{
+    const rows=compromissos.map(c=>({
+      id:c.id, temporada:c.temporada||lnbCurrentTemporada(), codigo:c.codigo,
+      linha_id:c.linhaId==null?null:String(c.linhaId), linha_area:c.linhaArea||null, linha_grupo:c.linhaGrupo||null,
+      fornecedor:c.fornecedor||'', descricao:c.descricao||'', documento:c.documento||'',
+      valor_total:c.valorTotal||0, status:c.status||'ativo', parcelas:c.parcelas||[],
+      updated_by:(AUTH_SESSION&&AUTH_SESSION.role)||'desconhecido', updated_at:new Date().toISOString()
+    }));
+    if(rows.length)await supaUpsert('compromissos',rows,'id');
+  }catch(e){ console.error('pushCompromissosToSupabase falhou (compromisso ficou salvo só neste navegador por enquanto):',e); }
+}
 // ==== Segunda leva: Editar Estrutura, créditos manuais dos clubes, e
 // donos/exclusões do Novo Orçado. Mesmo princípio: Supabase manda, localStorage
 // é só cache local. Requer as tabelas de supabase_novas_tabelas_2.sql.
@@ -2750,11 +2762,12 @@ async function pushPlanMetaToSupabase(key,value){
 }
 async function loadSharedStateFromSupabase(){
   try{
-    const [planRows, decRows, favRows, structRows, custLineRows, delLineRows, clubDebitRows, planMetaRows, bankSaldoRows, customBankRows, customClubRows]=await Promise.all([
+    const [planRows, decRows, favRows, structRows, custLineRows, delLineRows, clubDebitRows, planMetaRows, bankSaldoRows, customBankRows, customClubRows, compromissoRows]=await Promise.all([
       supaSelect('custom_plan'), supaSelect('tx_decisions'), supaSelect('fav_rules'),
       supaSelect('structure_overrides'), supaSelect('custom_lines'), supaSelect('deleted_lines'),
       supaSelect('club_debits'), supaSelect('plan_meta'), supaSelect('bank_saldos'),
-      supaSelect('custom_bank_accounts'), supaSelect('custom_clubs')
+      supaSelect('custom_bank_accounts'), supaSelect('custom_clubs'),
+      supaSelect('compromissos').catch(()=>[]) // tabela nova — se ainda não existir no Supabase, não trava o carregamento
     ]);
     // custom_plan (Novo Orçado) é a fonte de verdade no Supabase, igual a
     // tudo mais. Antes, só atualizávamos customPlan quando a busca vinha com
@@ -2777,6 +2790,15 @@ async function loadSharedStateFromSupabase(){
       const fromSupa={};favRows.forEach(r=>{fromSupa[r.favorecido_norm]={a:r.a,g:r.g,l:r.l};});
       favRules=Object.assign({},favRules,fromSupa);
       store.setItem('lnb3_favrules',JSON.stringify(favRules));
+    }
+    if(Array.isArray(compromissoRows)){
+      compromissos=compromissoRows.map(r=>({
+        id:r.id, temporada:r.temporada||'', codigo:r.codigo,
+        linhaId:r.linha_id, linhaArea:r.linha_area, linhaGrupo:r.linha_grupo,
+        fornecedor:r.fornecedor||'', descricao:r.descricao||'', documento:r.documento||'',
+        valorTotal:Number(r.valor_total)||0, status:r.status||'ativo', parcelas:r.parcelas||[]
+      }));
+      store.setItem('lnb3_compromissos',JSON.stringify(compromissos));
     }
     if(Array.isArray(structRows)&&structRows.length){
       structRows.forEach(r=>{
@@ -4078,6 +4100,7 @@ const save=(k,v,opts)=>{
   if(opts&&opts.skipPush)return;
   if(k==='decisions')pushDecisionsToSupabase(opts&&opts.changedIds).catch(e=>console.error(e));
   else if(k==='favrules')pushFavRulesToSupabase().catch(e=>console.error(e));
+  else if(k==='compromissos')pushCompromissosToSupabase().catch(e=>console.error(e));
 };
 // Orcado 2026/2027 pre-carregado: replica cada linha do orcado 2025/2026 (mesmo
 // departamento/grupo/linha/valor), so que apontando para os meses da proxima
@@ -4504,6 +4527,15 @@ Object.values(decisions).forEach(sp=>{if(Array.isArray(sp))sp.forEach(fix);});
 Object.values(favRules||{}).forEach(fix);
 if(typeof render==='function')render();},0);
 let imported=JSON.parse(store.getItem('lnb3_imported')||'[]');
+// V — Valor Comprometido: compras parceladas continuam consumindo a linha
+// orçamentária pelo valor TOTAL desde a 1ª parcela paga, mesmo que as
+// parcelas futuras ainda não tenham sido pagas. Cada "compromisso" guarda o
+// cronograma de parcelas (pendente/paga/cancelada); as parcelas PENDENTES
+// nunca viram um lançamento de verdade (nunca entram em txs/imported), então
+// jamais aparecem na Conciliação Bancária nem afetam saldo inicial+entradas
+// -saídas=saldo final — só a soma de "Comprometido" por linha, calculada à
+// parte.
+let compromissos=JSON.parse(store.getItem('lnb3_compromissos')||'[]');
 // Bug real corrigido: 'imported' acumula no localStorage a cada importação/
 // sincronização ao vivo e nunca era limpo — quando a mesma transação chegava
 // duas vezes por caminhos ligeiramente diferentes (upload direto do arquivo
@@ -4858,6 +4890,62 @@ const mlabel=m=>MN[m.slice(5)]+'/'+m.slice(2,4);
 let curV='home', curM='ALL', curDept='LNB', curSup='FILIADOS', page=1, openLineId=null, openGroupKey=null, focusTxId=null, openRecType=null; const PAGE=60;
 let curEditingLineId=null, planDeptLineFilter='';
 document.getElementById('bdg-per').textContent=(months.length?('Extrato: '+mlabel(months[0])+' a '+mlabel(months[months.length-1])):'Extrato: sem lançamentos');
+// ===== Valor Comprometido: compras parceladas =====
+// Uma parcela PENDENTE nunca vira um objeto de lançamento (nunca entra em
+// txs/imported) — ela só existe dentro de compromissos[].parcelas, então é
+// estruturalmente impossível ela aparecer na Conciliação Bancária ou mexer
+// no saldo inicial+entradas-saídas=saldo final. Só quando uma parcela é
+// realmente paga (chega um lançamento de verdade do extrato) é que ela vira
+// Realizado — do jeito que qualquer lançamento normal já funciona.
+function comprometidoPorLinha(lineId){
+  if(lineId==null)return 0;
+  return compromissos.filter(c=>c.status==='ativo'&&String(c.linhaId)===String(lineId))
+    .reduce((s,c)=>s+(c.parcelas||[]).filter(p=>p.status==='pendente').reduce((s2,p)=>s2+(Number(p.valorPrevisto)||0),0),0);
+}
+function compromissosDaLinha(lineId){
+  return compromissos.filter(c=>c.status==='ativo'&&String(c.linhaId)===String(lineId));
+}
+function verCompromissosDaLinha(lineId){
+  const list=compromissosDaLinha(lineId);
+  if(!list.length){alert('Nenhum compromisso ativo nesta linha.');return;}
+  let txt='';
+  list.forEach(c=>{
+    txt+='\n'+(c.fornecedor||'(sem fornecedor)')+' — '+(c.descricao||'')+' — total '+fmt(c.valorTotal)+' (código: '+c.codigo+')\n';
+    (c.parcelas||[]).forEach(p=>{
+      const sit=p.status==='paga'?('PAGA — '+fmt(p.valorPago)):(p.status==='cancelada'?'CANCELADA':'PENDENTE (comprometido)');
+      txt+='  Parcela '+p.numero+'/'+c.parcelas.length+': '+fmt(p.valorPrevisto)+' · vence '+p.vencimento+' · '+sit+'\n';
+    });
+  });
+  alert('Compromissos ativos desta linha:\n'+txt+'\nPara cancelar o saldo restante de um compromisso ou corrigir um vínculo, peça a correção que eu aplico direto na base.');
+}
+// Chamada durante a importação da planilha classificada: quando uma linha
+// tem código de parcelamento preenchido, ou vincula o pagamento a um
+// compromisso já existente com aquele código (quita a parcela pendente mais
+// antiga, na ordem em que foram criadas — não por número "previsto", porque
+// atrasos/adiantamentos não podem travar o vínculo), ou — se vier também
+// valor total e nº de parcelas — abre um compromisso novo a partir desta
+// primeira parcela paga, com o restante virando Comprometido.
+function registrarPagamentoParcelamento(codigo, linha, tx, valorPago, valorTotalDeclarado, nParcelasDeclarado){
+  if(!codigo||!linha||!tx||!tx.d)return;
+  let c=compromissos.find(x=>norm(x.codigo)===norm(codigo)&&x.status==='ativo');
+  if(!c){
+    if(!valorTotalDeclarado||!nParcelasDeclarado||nParcelasDeclarado<1)return; // sem dados pra abrir compromisso — pagamento segue normal, sem comprometido
+    const valorParcela=r2(valorTotalDeclarado/nParcelasDeclarado);
+    const parcelas=[];let acumulado=0;
+    for(let i=1;i<=nParcelasDeclarado;i++){
+      const v=i<nParcelasDeclarado?valorParcela:r2(valorTotalDeclarado-acumulado);
+      acumulado+=v;
+      const mesBase=tx.d.slice(0,7), diaBase=tx.d.slice(8,10);
+      const mesParcela=ymAdd(mesBase,i-1);
+      parcelas.push({numero:i,vencimento:mesParcela+'-'+diaBase,valorPrevisto:v,status:'pendente',valorPago:null,txId:null});
+    }
+    c={id:'CMP-'+codigo.replace(/[^a-zA-Z0-9-]/g,'')+'-'+Date.now(),temporada:lnbCurrentTemporada(),codigo,linhaId:linha.id,linhaArea:linha.area,linhaGrupo:linha.g||'',fornecedor:tx.f||'',descricao:tx.ds||'',documento:tx.dc||'',valorTotal:valorTotalDeclarado,status:'ativo',parcelas};
+    compromissos.push(c);
+  }
+  const pend=(c.parcelas||[]).find(p=>p.status==='pendente');
+  if(pend){pend.status='paga';pend.valorPago=valorPago;pend.txId=tx.id;}
+  if((c.parcelas||[]).every(p=>p.status!=='pendente'))c.status='concluído';
+}
 function classify(t){
   const c=classifyCore(t);
   if(c&&c.splits)c.splits.forEach(s=>{if(s&&s.l!=null){const l=lineById(s.l);if(l){s.l=l.id;s.a=l.area;s.g=l.g||'';}}});
@@ -5086,7 +5174,9 @@ function groupsHTML(a,r,showZero=false){
       if(!showZero&&!lp&&!lr)return '';
       const rows=txDetailRows(a,g,l.id,'line');
       const isOpen=openLineId===l.id;
-      return `<tr id="line-${l.id}" class="${isOpen?'openline':''}"><td><span class="detlink" onclick="document.getElementById('det-line-${l.id}').classList.toggle('hide')">${esc(l.n)}</span><div class="how">${rows.length} lançamento${rows.length!==1?'s':''} alimentando esta linha</div></td><td class="num">${lp?fmt(lp):'—'}</td><td class="num">${lr?fmt(lr):'—'}${a==='REC'&&lr<0?' <span class="chip wn">abatimento</span>':''}</td><td class="num" style="color:${lp&&lr>lp?'var(--er)':'var(--tx2)'}">${lp?Math.round(lr/lp*100)+'%':'—'}</td></tr>
+      const comp=comprometidoPorLinha(l.id);
+      const compHTML=comp>0.005?` · <span class="detlink" style="color:var(--wn)" onclick="event.stopPropagation();verCompromissosDaLinha('${l.id}')">+ ${fmt(comp)} comprometido em compra(s) parcelada(s) — ver parcelas</span>`:'';
+      return `<tr id="line-${l.id}" class="${isOpen?'openline':''}"><td><span class="detlink" onclick="document.getElementById('det-line-${l.id}').classList.toggle('hide')">${esc(l.n)}</span><div class="how">${rows.length} lançamento${rows.length!==1?'s':''} alimentando esta linha${compHTML}</div></td><td class="num">${lp?fmt(lp):'—'}</td><td class="num">${lr?fmt(lr):'—'}${a==='REC'&&lr<0?' <span class="chip wn">abatimento</span>':''}</td><td class="num" style="color:${lp&&lr>lp?'var(--er)':'var(--tx2)'}">${lp?Math.round(lr/lp*100)+'%':'—'}</td></tr>
       <tr id="det-line-${l.id}" class="line-detail ${isOpen?'':'hide'}"><td colspan="4">${detailHTML(rows)}</td></tr>`;}).join('');
     const noLine=gr-gl.reduce((s,l)=>s+(r.L[l.id]||0),0);
     const noRows=txDetailRows(a,g,null,'groupNoLine');
@@ -8229,25 +8319,29 @@ async function downloadNewSeasonTemplate(){
     '9. Temporada (opcional): preencha se a despesa/receita for de uma temporada diferente da atual (ex: uma conta atrasada da 2025/2026). Se ficar em branco, entra na temporada atual.',
     '10. Pode reimportar a mesma planilha quantas vezes precisar, acrescentando linhas novas: lançamentos já importados (mesma data, favorecido, entrada e saída) não duplicam — por isso importações semanais são cumulativas e formam o acumulado mensal/trimestral/anual automaticamente, sem precisar refazer nada.',
     '11. Datas podem ser digitadas como AAAA-MM-DD ou DD/MM/AAAA.',
-    '12. A estrutura de IDs (criar, renomear ou excluir departamento/grupo/linha, e reordenar os IDs) é totalmente editável na aba "Estrutura" do sistema, sem mexer em código — a aba "IDs" desta planilha é sempre gerada com a estrutura mais atual no momento do download.','13. Não lembra o código do ID? Use a aba "Buscar ID": digite parte do nome ou código, veja a lista de resultados e copie o valor da coluna "ID + Linha (copiar e colar)" direto para a coluna ID da aba "Lançamentos".'
+    '12. A estrutura de IDs (criar, renomear ou excluir departamento/grupo/linha, e reordenar os IDs) é totalmente editável na aba "Estrutura" do sistema, sem mexer em código — a aba "IDs" desta planilha é sempre gerada com a estrutura mais atual no momento do download.',
+    '13. Não lembra o código do ID? Use a aba "Buscar ID": digite parte do nome ou código, veja a lista de resultados e copie o valor da coluna "ID + Linha (copiar e colar)" direto para a coluna ID da aba "Lançamentos".',
+    '14. Compra parcelada (cartão de crédito, financiamento etc.): use as 3 últimas colunas só na linha da PRIMEIRA parcela paga. "Parcelamento (código)": crie um código curto único para identificar a compra (ex.: NOTEBOOK-TI-01). "Valor total da compra parcelada": o valor cheio da compra (ex.: 12.000,00), não o valor da parcela. "Nº de parcelas": quantas parcelas ao todo (ex.: 12). Ao importar essa linha, o sistema já consome o valor TOTAL da compra na linha do orçamento indicada pelo ID (ex.: os 12.000,00 inteiros ficam "Comprometidos" naquela linha, mesmo faltando pagar 11 parcelas) e monta o cronograma das parcelas futuras sozinho, uma por mês a partir da data dessa primeira linha.',
+    '15. Nos meses seguintes, quando cada nova parcela for efetivamente paga e aparecer no extrato, lance-a normalmente como uma linha comum (Data, Favorecido, Valor, ID) e repita o MESMO "Parcelamento (código)" nessa linha, sem precisar preencher Valor total nem Nº de parcelas de novo — o sistema reconhece o código e abate a próxima parcela pendente do cronograma automaticamente. Enquanto uma parcela não é paga, ela é só um valor "Comprometido" mostrado na linha do orçamento para controle — ela nunca entra como lançamento bancário e nunca afeta a Conciliação Bancária (saldo inicial + entradas − saídas = saldo final continua batendo exatamente como no extrato real).'
   ].forEach((t,i)=>{const rr=wsCapa.addRow([t]);rr.getCell(1).font=i===1?{bold:true,size:12,color:{argb:XLC.navy}}:{size:10.5,color:{argb:XLC.ink}};});
   wsCapa.getColumn(1).width=112;
-  const nCols=12;
+  const nCols=15;
   const ws=wb.addWorksheet('Lançamentos',{views:[{state:'frozen',ySplit:4}]});
   xlBand(ws,'LANÇAMENTOS — TEMPORADA 2026/2027',per,nCols);
-  xlHeader(ws,4,['ID (chave do lançamento)','Data','Favorecido','Documento','Descrição','Banco','Entrada','Saída','Competição','Abatimento (Sim/Não)','Tipo de reembolso (opcional)','Temporada (opcional, ex: 2026/2027)'],6);
+  xlHeader(ws,4,['ID (chave do lançamento)','Data','Favorecido','Documento','Descrição','Banco','Entrada','Saída','Competição','Abatimento (Sim/Não)','Tipo de reembolso (opcional)','Temporada (opcional, ex: 2026/2027)','Parcelamento (código)','Valor total da compra parcelada','Nº de parcelas'],6);
   const bankNames=BANK_ACCOUNTS.map(b=>b.n);
   for(let i=0;i<80;i++){
-    const dr=xlDataRow(ws,Array(12).fill(''),{numFrom:6});
+    const dr=xlDataRow(ws,Array(15).fill(''),{numFrom:6});
     dr.getCell(1).dataValidation={type:'list',allowBlank:true,formulae:['IDS_ID_LABEL']};
     dr.getCell(6).dataValidation={type:'list',allowBlank:true,formulae:[`"${bankNames.join(',')}"`]};
     dr.getCell(9).dataValidation={type:'list',allowBlank:true,formulae:[`"${NEWSEASON_EVENTOS.join(',')}"`]};
     dr.getCell(10).dataValidation={type:'list',allowBlank:true,formulae:[`"Sim,Não"`]};
     dr.getCell(11).dataValidation={type:'list',allowBlank:true,formulae:[`"Refeição,Pedágio,Transporte,Combustível,Estacionamento"`]};
   }
-  ws.autoFilter={from:{row:4,column:1},to:{row:4,column:12}};
+  ws.autoFilter={from:{row:4,column:1},to:{row:4,column:15}};
   ws.getColumn(1).width=10;ws.getColumn(1).numFmt='@';ws.getColumn(2).width=12;ws.getColumn(3).width=28;ws.getColumn(4).width=42;ws.getColumn(5).width=16;
   ws.getColumn(6).width=18;ws.getColumn(7).width=13;ws.getColumn(8).width=13;ws.getColumn(9).width=16;ws.getColumn(10).width=16;ws.getColumn(11).width=22;ws.getColumn(12).width=22;
+  ws.getColumn(13).width=20;ws.getColumn(13).numFmt='@';ws.getColumn(14).width=20;ws.getColumn(15).width=14;
   const wsIds=wb.addWorksheet('IDs',{views:[{state:'frozen',ySplit:4}]});
   xlBand(wsIds,'IDs — CHAVE DE CADA LINHA DO ORÇAMENTO',per+' · '+idRefRows.length+' linha(s)',4);
   xlHeader(wsIds,4,['ID','Departamento','Grupo','Linha do orçamento','ID + Linha (busca)'],99);
@@ -8327,7 +8421,10 @@ async function importNewSeasonRealizado(file, raw){
       kEnt=findKey('Entrada'),kSai=findKey('Saída','Saida'),kID=findKey('ID (chave do lançamento)','ID (chave do lancamento)','ID','ID chave','Id'),kTipo=findKey('TIPO (1-8)','TIPO','Tipo'),
       kBanco=findKey('Banco','Conta','Conta bancária','Conta bancaria'),
       kComp=findKey('Competição','Competicao'),
-      kAbat=findKey('Abatimento (Sim/Não)','Abatimento'),kTipoReemb=findKey('Tipo de reembolso (opcional)','Tipo de reembolso');
+      kAbat=findKey('Abatimento (Sim/Não)','Abatimento'),kTipoReemb=findKey('Tipo de reembolso (opcional)','Tipo de reembolso'),
+      kParcCodigo=findKey('Parcelamento (código)','Parcelamento (codigo)','Código do parcelamento','Codigo do parcelamento'),
+      kParcTotal=findKey('Valor total da compra parcelada','Valor total do parcelamento'),
+      kParcN=findKey('Nº de parcelas','No de parcelas','Numero de parcelas','Número de parcelas','Qtd parcelas');
     if(!kData||!kFav||(!kEnt&&!kSai)){if(msg&&!live)msg.textContent='Planilha fora do modelo: verifique as colunas Data, Favorecido e Entrada/Saída.';return emptyStats;}
     const TIPO_REEMB_MAP={'refeicao':'REEMB_REFEICAO','pedagio':'REEMB_PEDAGIO','transporte':'REEMB_TRANSPORTE','combustivel':'REEMB_COMBUSTIVEL','estacionamento':'REEMB_ESTACIONAMENTO'};
     // Mesmo achado do importador de extrato, e este é o caminho que carrega a
@@ -8379,6 +8476,8 @@ async function importNewSeasonRealizado(file, raw){
           if(idLineDup&&targetTx){
             decisions[targetTx.id]=[{a:idLineDup.area,g:idLineDup.g||null,l:idLineDup.id,v:r2(s>0?s:e)}];
             idCorrigidosEmDuplicata++;
+            const parcCodigoDup=kParcCodigo?String(row[kParcCodigo]||'').trim():'';
+            if(parcCodigoDup)registrarPagamentoParcelamento(parcCodigoDup,idLineDup,targetTx,r2(s>0?s:e),kParcTotal?numCell(row[kParcTotal]):null,kParcN?numCell(row[kParcN]):null);
           }
         }
         return;
@@ -8401,6 +8500,14 @@ async function importNewSeasonRealizado(file, raw){
         if(idLine){
           decisions[nt.id]=[{a:idLine.area,g:idLine.g||null,l:idLine.id,v:r2(s>0?s:e)}];
           decided++;
+          // Valor Comprometido: se a linha "Parcelamento (código)" veio
+          // preenchida, este pagamento quita a parcela pendente mais antiga
+          // do compromisso com esse código (ou abre um compromisso novo, se
+          // vier também Valor total + Nº de parcelas). Nunca cria lançamento
+          // nenhum para as parcelas futuras — elas só existem dentro de
+          // compromissos[], fora de txs/imported.
+          const parcCodigo=kParcCodigo?String(row[kParcCodigo]||'').trim():'';
+          if(parcCodigo)registrarPagamentoParcelamento(parcCodigo,idLine,nt,r2(s>0?s:e),kParcTotal?numCell(row[kParcTotal]):null,kParcN?numCell(row[kParcN]):null);
         }
       }
     });
@@ -8426,6 +8533,7 @@ async function importNewSeasonRealizado(file, raw){
     if(!added&&!duplicated&&!skipped){if(msg&&!live)msg.textContent='Nenhuma linha válida encontrada.';return stats;}
     store.setItem('lnb3_imported',JSON.stringify(imported));
     save('decisions',decisions);
+    save('compromissos',compromissos);
     if(!live){
       lnbLogActivity('importar_realizado', added+' novo(s), '+decided+' classificado(s) por ID, '+duplicated+' duplicado(s) ignorado(s)'+(idCorrigidosEmDuplicata?', '+idCorrigidosEmDuplicata+' ID(s) corrigido(s) em lançamento(s) já existente(s)':''));
       alert(`Importação da temporada 2026/2027 concluída:\n${added} lançamento(s) novo(s) adicionado(s) (${[...monthsTouched].sort().map(mlabel).join(', ')||'-'}).\n${decided} já entraram classificados pelo ID informado.\n${added-decided} sem ID válido — ficaram pendentes para revisão na Conciliação (o sistema pode sugerir automaticamente, mas fica marcado como sugestão até você confirmar).\n${duplicated} já existiam e foram ignorados (evita duplicidade).${idCorrigidosEmDuplicata?`\n${idCorrigidosEmDuplicata} desses já existentes tiveram o ID atualizado agora pela reimportação.`:''}\n${skipped} linha(s) ignorada(s) por falta de Data/Favorecido/Entrada-Saída ou por ter as duas preenchidas.${abatidos?`\n${abatidos} lançamento(s) marcado(s) como Abatimento (entram com sinal negativo na linha do ID informado).`:''}`);
