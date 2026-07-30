@@ -5103,40 +5103,66 @@ function txDetailRows(a,g,lid,mode){
   rows.sort((x,y)=>x.t.d.localeCompare(y.t.d)||x.t.f.localeCompare(y.t.f));
   return rows;
 }
-function detailHTML(rows){
-  if(!rows.length)return '<div class="desc">Nenhum lançamento encontrado para esta abertura no período selecionado.</div>';
+// Tabela de parcelas de um único compromisso (compra parcelada), usada tanto
+// dependurada de um lançamento "mãe" clicável (caso comum: a linha que abriu
+// o compromisso está visível no período atual) quanto no bloco avulso de
+// fallback (caso a linha "mãe" não apareça no período filtrado, mas ainda
+// assim haja parcela pendente somando no Realizado deste mês).
+function parcelasTableHTML(c){
+  const doc=c.documento||c.codigo;
+  const parcRows=(c.parcelas||[]).map(p=>{
+    const numLbl='PC '+String(p.numero).padStart(2,'0');
+    const situ=p.status==='paga'?`<span style="color:var(--ok)">PAGO: ${fmt2(p.valorPago)}</span>`
+      :p.status==='cancelada'?'<span style="color:var(--tx3)">CANCELADA</span>'
+      :`<span style="color:var(--wn)">A PAGAR: ${fmt2(p.valorPrevisto)}</span>`;
+    return `<tr><td>${esc(doc)} — ${numLbl}</td><td class="fav">${esc(c.fornecedor||'')}</td><td>${esc(p.vencimento||'')}</td><td class="num">${situ}</td></tr>`;
+  }).join('');
+  return `<div class="desc" style="margin-top:6px"><b>${esc(doc)} — EM ${c.parcelas.length}X — ${esc(c.fornecedor||'(sem fornecedor)')} — total ${fmt2(c.valorTotal)}</b></div>
+  <div class="table-scroll"><table class="smalltbl"><thead><tr><th>Parcela</th><th>Favorecido</th><th>Vencimento</th><th class="num">Situação</th></tr></thead><tbody>${parcRows}</tbody></table></div>`;
+}
+// Bloco de fallback: só usado para compromissos cujo lançamento "mãe" (a
+// parcela paga que abriu o compromisso) NÃO está entre as linhas exibidas
+// agora (ex.: visão filtrada por um mês em que só existe parcela pendente,
+// sem nenhum pagamento real naquele mês). Quando o "mãe" está visível, o
+// drill-down fica pendurado nele mesmo (ver detailHTML) e não duplica aqui.
+function compromissosDetailHTML(lineId,anchoredTxIds){
+  const list=compromissosDaLinha(lineId);
+  if(!list.length)return '';
+  const pending=list.filter(c=>{
+    const anchorId=(c.parcelas||[]).find(p=>p.txId)?.txId;
+    return !(anchorId&&anchoredTxIds&&anchoredTxIds.has(anchorId));
+  });
+  if(!pending.length)return '';
+  return pending.map(parcelasTableHTML).join('');
+}
+function detailHTML(rows,lineId){
+  // Mapa: id do lançamento "mãe" (parcela paga que abriu/alimenta o
+  // compromisso) → compromisso. Clicar nesse lançamento na tabela abre as
+  // parcelas dele, em vez de despejar um bloco solto sempre visível — evita
+  // a poluição de mostrar a mesma informação duas vezes quando o lançamento
+  // real já está na lista.
+  const compsByAnchor={};
+  if(lineId!=null)compromissosDaLinha(lineId).forEach(c=>{
+    (c.parcelas||[]).forEach(p=>{ if(p.txId)compsByAnchor[p.txId]=c; });
+  });
+  const anchoredTxIds=new Set(Object.keys(compsByAnchor));
+  const fallback=lineId!=null?compromissosDetailHTML(lineId,anchoredTxIds):'';
+  if(!rows.length)return '<div class="desc">Nenhum lançamento encontrado para esta abertura no período selecionado.</div>'+fallback;
   const total=rows.reduce((s,x)=>s+x.sp.v,0);
   return `<div class="desc"><b>Abertura do realizado:</b> ${rows.length} lançamento${rows.length>1?'s':''} · total ${fmt2(total)}</div>
-  <div class="table-scroll"><table class="smalltbl"><thead><tr><th>Data</th><th>Favorecido</th><th>Descrição / documento</th><th>Evento</th><th class="num">Valor alocado</th><th>Ação</th></tr></thead><tbody>${rows.map(x=>`<tr>
+  <div class="table-scroll"><table class="smalltbl"><thead><tr><th>Data</th><th>Favorecido</th><th>Descrição / documento</th><th>Evento</th><th class="num">Valor alocado</th><th>Ação</th></tr></thead><tbody>${rows.map(x=>{
+    const comp=compsByAnchor[x.t.id];
+    const cmpId='cmpdet-'+cssid(x.t.id);
+    const cmpToggle=comp?` · <span class="detlink" style="color:var(--wn)" onclick="event.stopPropagation();document.getElementById('${cmpId}').classList.toggle('hide')">compra parcelada em ${comp.parcelas.length}x — ver parcelas</span>`:'';
+    return `<tr>
     <td class="date-cell">${x.t.d.slice(8)}/${x.t.d.slice(5,7)}/${x.t.d.slice(2,4)}</td>
     <td class="fav">${esc(x.t.f)}</td>
-    <td>${x.t.dc?`<div class="desc">${esc(x.t.dc)}</div>`:''}<div>${esc(x.t.ds)}</div></td>
+    <td>${x.t.dc?`<div class="desc">${esc(x.t.dc)}</div>`:''}<div>${esc(x.t.ds)}${cmpToggle}</div></td>
     <td>${x.t.ev?esc(x.t.ev):'—'}</td>
     <td class="num">${fmt2(x.sp.v)}</td>
     <td class="action-cell">${txRealocBtn(x.t)}</td>
-  </tr>`).join('')}</tbody></table></div>`;
-}
-// Drill-down de compras parceladas ("Valor Comprometido"): mostra, por
-// compromisso ativo daquela linha, cada parcela — PAGA (já veio como
-// lançamento normal na tabela acima, aqui só para contexto) ou A PAGAR
-// (ainda não é lançamento nenhum; é só a projeção que soma no Realizado da
-// linha até o pagamento de fato acontecer). Puramente informativo — nunca
-// mexe em txs/imported/Conciliação Bancária.
-function compromissosDetailHTML(lineId){
-  const list=compromissosDaLinha(lineId);
-  if(!list.length)return '';
-  return list.map(c=>{
-    const doc=c.documento||c.codigo;
-    const parcRows=(c.parcelas||[]).map(p=>{
-      const numLbl='PC '+String(p.numero).padStart(2,'0');
-      const situ=p.status==='paga'?`<span style="color:var(--ok)">PAGO: ${fmt2(p.valorPago)}</span>`
-        :p.status==='cancelada'?'<span style="color:var(--tx3)">CANCELADA</span>'
-        :`<span style="color:var(--wn)">A PAGAR: ${fmt2(p.valorPrevisto)}</span>`;
-      return `<tr><td>${esc(doc)} — ${numLbl}</td><td class="fav">${esc(c.fornecedor||'')}</td><td>${esc(p.vencimento||'')}</td><td class="num">${situ}</td></tr>`;
-    }).join('');
-    return `<div class="desc" style="margin-top:10px"><b>+ ${esc(doc)} — EM ${c.parcelas.length}X — ${esc(c.fornecedor||'(sem fornecedor)')} — ${fmt2(c.valorTotal)}</b></div>
-    <div class="table-scroll"><table class="smalltbl"><thead><tr><th>Parcela</th><th>Favorecido</th><th>Vencimento</th><th class="num">Situação</th></tr></thead><tbody>${parcRows}</tbody></table></div>`;
-  }).join('');
+  </tr>${comp?`<tr id="${cmpId}" class="line-detail hide"><td colspan="6">${parcelasTableHTML(comp)}</td></tr>`:''}`;
+  }).join('')}</tbody></table></div>${fallback}`;
 }
 function openConcForTx(encId){
   const t=txById(decodeURIComponent(encId)); if(!t)return;
@@ -5222,7 +5248,7 @@ function groupsHTML(a,r,showZero=false){
       const comp=comprometidoPorLinha(l.id);
       const compHTML=comp>0.005?` · <span class="detlink" style="color:var(--wn)" onclick="document.getElementById('det-line-${l.id}').classList.toggle('hide')">já inclui ${fmt(comp)} comprometido em compra(s) parcelada(s) — ver parcelas</span>`:'';
       return `<tr id="line-${l.id}" class="${isOpen?'openline':''}"><td><span class="detlink" onclick="document.getElementById('det-line-${l.id}').classList.toggle('hide')">${esc(l.n)}</span><div class="how">${rows.length} lançamento${rows.length!==1?'s':''} alimentando esta linha${compHTML}</div></td><td class="num">${lp?fmt(lp):'—'}</td><td class="num">${lr?fmt(lr):'—'}${a==='REC'&&lr<0?' <span class="chip wn">abatimento</span>':''}</td><td class="num" style="color:${lp&&lr>lp?'var(--er)':'var(--tx2)'}">${lp?Math.round(lr/lp*100)+'%':'—'}</td></tr>
-      <tr id="det-line-${l.id}" class="line-detail ${isOpen?'':'hide'}"><td colspan="4">${detailHTML(rows)}${compromissosDetailHTML(l.id)}</td></tr>`;}).join('');
+      <tr id="det-line-${l.id}" class="line-detail ${isOpen?'':'hide'}"><td colspan="4">${detailHTML(rows,l.id)}</td></tr>`;}).join('');
     const noLine=gr-gl.reduce((s,l)=>s+(r.L[l.id]||0),0);
     const noRows=txDetailRows(a,g,null,'groupNoLine');
     const noKey=a+'|'+(g||'__none');
