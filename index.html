@@ -5155,7 +5155,27 @@ function compromissoAnchorRowHTML(x,c){
   // ▸/▾ pra deixar claro que dá pra abrir — clicar em qualquer célula da
   // linha (data, favorecido, valor...) abre/fecha as parcelas, não só o
   // texto do meio.
-  const toggleJs=`(function(tr){var d=document.getElementById('${cmpId}');d.classList.toggle('hide');var a=tr.querySelector('.cmp-arrow');if(a)a.textContent=d.classList.contains('hide')?'▸':'▾';})(this.closest('tr'))`;
+  const toggleJs=`(function(tr){var rows=document.querySelectorAll('.${cmpId}');rows.forEach(function(r){r.classList.toggle('hide')});var a=tr.querySelector('.cmp-arrow');if(a)a.textContent=(rows[0]&&rows[0].classList.contains('hide'))?'▸':'▾';})(this.closest('tr'))`;
+  // As linhas de parcela usam EXATAMENTE as mesmas colunas da tabela de
+  // lançamentos (Data/Favorecido/Descrição/Evento/Valor/Ação) — assim elas
+  // ficam sempre alinhadas com o cabeçalho, em vez de uma tabelinha à parte
+  // com colunas próprias que nunca batem com as de cima.
+  const parcRows=(c.parcelas||[]).map(p=>{
+    const numLbl='PC '+String(p.numero).padStart(2,'0');
+    const situ=p.status==='paga'?`<span style="color:var(--ok)">PAGO: ${fmt2(p.valorPago)}</span>`
+      :p.status==='cancelada'?'<span style="color:var(--tx3)">CANCELADA</span>'
+      :`<span style="color:var(--wn)">A PAGAR: ${fmt2(p.valorPrevisto)}</span>`;
+    const venc=brDate(p.vencimento);
+    return `<tr class="${cmpId} hide" style="font-size:12.5px;color:var(--tx3)">
+    <td class="date-cell">${esc(venc)}</td>
+    <td class="fav">${esc(c.fornecedor||x.t.f)}</td>
+    <td>${esc(doc)} — ${numLbl}</td>
+    <td>—</td>
+    <td class="num">${situ}</td>
+    <td class="action-cell"></td>
+  </tr>`;
+  }).join('');
+  const cancelRow=c.status==='ativo'?`<tr class="${cmpId} hide"><td colspan="6" style="padding-top:0"><span class="detlink" style="color:var(--er);font-size:12px" onclick="event.stopPropagation();cancelarCompromisso('${esc(c.id)}')">cancelar este compromisso de parcelamento</span></td></tr>`:'';
   return `<tr style="background:var(--wnbg);cursor:pointer" onclick="${toggleJs}" title="Clique para ver as parcelas">
     <td class="date-cell">${brDate(x.t.d)}</td>
     <td class="fav">${esc(c.fornecedor||x.t.f)}</td>
@@ -5164,7 +5184,7 @@ function compromissoAnchorRowHTML(x,c){
     <td class="num" style="color:var(--wn);font-weight:600">${fmt2(c.valorTotal)}</td>
     <td class="action-cell"><span class="chip wn" title="Compra parcelada — reallocar não está disponível aqui pra não desalinhar o cronograma de parcelas">parcelado</span></td>
   </tr>
-  <tr id="${cmpId}" class="line-detail hide"><td colspan="6">${parcelasTableHTML(c)}</td></tr>`;
+  ${parcRows}${cancelRow}`;
 }
 // Bloco de fallback: só usado para compromissos cujo lançamento "mãe" (a 1ª
 // parcela paga, que abriu o compromisso) NÃO está entre os lançamentos
