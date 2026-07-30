@@ -5123,7 +5123,24 @@ function parcelasTableHTML(c){
     const venc=brDate(p.vencimento);
     return `<tr><td>${esc(doc)} — ${numLbl}</td><td class="fav">${esc(c.fornecedor||'')}</td><td>${esc(venc)}</td><td class="num">${situ}</td></tr>`;
   }).join('');
-  return `<div class="table-scroll" style="margin-top:2px"><table class="smalltbl" style="font-size:12.5px;color:var(--tx3)"><thead><tr><th>Parcela</th><th>Favorecido</th><th>Vencimento</th><th class="num">Situação</th></tr></thead><tbody>${parcRows}</tbody></table></div>`;
+  const cancelBtn=c.status==='ativo'?`<div style="margin-top:6px"><span class="detlink" style="color:var(--er);font-size:12px" onclick="event.stopPropagation();cancelarCompromisso('${esc(c.id)}')">cancelar este compromisso de parcelamento</span></div>`:'';
+  return `<div class="table-scroll" style="margin-top:2px"><table class="smalltbl" style="font-size:12.5px;color:var(--tx3)"><thead><tr><th>Parcela</th><th>Favorecido</th><th>Vencimento</th><th class="num">Situação</th></tr></thead><tbody>${parcRows}</tbody></table></div>${cancelBtn}`;
+}
+// Cancela um compromisso de parcelamento (ex.: quando o lançamento real que
+// abriu ele foi apagado por engano, ou a compra foi cancelada de verdade).
+// Só muda o status do compromisso para 'cancelado' — nunca apaga nem mexe
+// em nenhum lançamento real (txs/imported) que já exista, e as parcelas já
+// pagas continuam no histórico normalmente. A partir daqui, comprometidoPorLinha
+// e realized() param de contar qualquer parcela pendente deste compromisso,
+// porque os dois só somam compromissos com status 'ativo'.
+async function cancelarCompromisso(compromissoId){
+  const c=compromissos.find(x=>x.id===compromissoId);
+  if(!c)return;
+  const pendentes=(c.parcelas||[]).filter(p=>p.status==='pendente').length;
+  if(!confirm(`Cancelar o compromisso "${c.documento||c.codigo}" (${c.fornecedor||'sem fornecedor'})?\n\n${pendentes} parcela(s) ainda pendente(s) deixam de contar como Comprometido no orçamento. Nenhum lançamento real já importado é apagado — isso só encerra o controle do parcelamento.`))return;
+  c.status='cancelado';
+  save('compromissos',compromissos);
+  render();
 }
 // Linha-resumo do compromisso, no lugar do lançamento "mãe": em vez de
 // mostrar só o valor da parcela paga (o que fazia o total da tabela não
