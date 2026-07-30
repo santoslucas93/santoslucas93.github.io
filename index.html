@@ -4909,6 +4909,14 @@ function comprometidoPorLinha(lineId){
 function compromissosDaLinha(lineId){
   return compromissos.filter(c=>c.status==='ativo'&&String(c.linhaId)===String(lineId));
 }
+// Igual a compromissosDaLinha, mas também inclui compromissos 'concluído'
+// (todas as parcelas já viraram lançamento real). Usada só pra decidir se
+// um lançamento é a "âncora" de um parcelamento e mostrar o drill-down —
+// nunca para calcular Comprometido (isso continua só com 'ativo', porque
+// uma vez concluído não sobra nada pendente pra comprometer).
+function compromissosParaDrilldown(lineId){
+  return compromissos.filter(c=>(c.status==='ativo'||c.status==='concluído')&&String(c.linhaId)===String(lineId));
+}
 function verCompromissosDaLinha(lineId){
   const list=compromissosDaLinha(lineId);
   if(!list.length){alert('Nenhum compromisso ativo nesta linha.');return;}
@@ -5151,6 +5159,18 @@ async function cancelarCompromisso(compromissoId){
 function compromissoAnchorRowHTML(x,c){
   const cmpId='cmpdet-'+cssid(x.t.id);
   const doc=c.documento||c.codigo;
+  const ativo=c.status==='ativo';
+  // Enquanto ativo, a linha "mãe" carrega o valor TOTAL da compra (é isso
+  // que comprometeu o orçamento desde a 1ª parcela). Uma vez concluído —
+  // todas as parcelas já são lançamento real — cada linha volta a valer
+  // só o que ela mesma pagou, porque as outras parcelas já aparecem como
+  // lançamentos próprios logo abaixo (não há mais nada "projetado" a
+  // embutir aqui).
+  const valorLinha=ativo?c.valorTotal:x.sp.v;
+  const rotulo=ativo?`${esc(doc)} — EM ${c.parcelas.length}X — ${esc(c.fornecedor||x.t.f)} — ${fmt2(c.valorTotal)}`
+    :`${esc(doc)} — EM ${c.parcelas.length}X — ${esc(c.fornecedor||x.t.f)} — parcela 1/${c.parcelas.length} paga`;
+  const chip=ativo?`<span class="chip wn" title="Compra parcelada — reallocar não está disponível aqui pra não desalinhar o cronograma de parcelas">parcelado</span>`
+    :`<span class="chip ok" title="Parcelamento já totalmente pago — clique para ver o histórico das parcelas">quitado</span>`;
   // A linha inteira é clicável (não só o texto "EM Nx"), com uma setinha
   // ▸/▾ pra deixar claro que dá pra abrir — clicar em qualquer célula da
   // linha (data, favorecido, valor...) abre/fecha as parcelas, não só o
@@ -5175,14 +5195,14 @@ function compromissoAnchorRowHTML(x,c){
     <td class="action-cell"></td>
   </tr>`;
   }).join('');
-  const cancelRow=c.status==='ativo'?`<tr class="${cmpId} hide"><td colspan="6" style="padding-top:0"><span class="detlink" style="color:var(--er);font-size:12px" onclick="event.stopPropagation();cancelarCompromisso('${esc(c.id)}')">cancelar este compromisso de parcelamento</span></td></tr>`:'';
+  const cancelRow=ativo?`<tr class="${cmpId} hide"><td colspan="6" style="padding-top:0"><span class="detlink" style="color:var(--er);font-size:12px" onclick="event.stopPropagation();cancelarCompromisso('${esc(c.id)}')">cancelar este compromisso de parcelamento</span></td></tr>`:'';
   return `<tr style="background:var(--wnbg);cursor:pointer" onclick="${toggleJs}" title="Clique para ver as parcelas">
     <td class="date-cell">${brDate(x.t.d)}</td>
     <td class="fav">${esc(c.fornecedor||x.t.f)}</td>
-    <td><span class="cmp-arrow" style="color:var(--wn);font-weight:700;margin-right:4px">▸</span><span class="detlink" style="color:var(--wn);font-weight:600">${esc(doc)} — EM ${c.parcelas.length}X — ${esc(c.fornecedor||x.t.f)} — ${fmt2(c.valorTotal)}</span></td>
+    <td><span class="cmp-arrow" style="color:var(--wn);font-weight:700;margin-right:4px">▸</span><span class="detlink" style="color:var(--wn);font-weight:600">${rotulo}</span></td>
     <td>${x.t.ev?esc(x.t.ev):'—'}</td>
-    <td class="num" style="color:var(--wn);font-weight:600">${fmt2(c.valorTotal)}</td>
-    <td class="action-cell"><span class="chip wn" title="Compra parcelada — reallocar não está disponível aqui pra não desalinhar o cronograma de parcelas">parcelado</span></td>
+    <td class="num" style="color:var(--wn);font-weight:600">${fmt2(valorLinha)}</td>
+    <td class="action-cell">${chip}</td>
   </tr>
   ${parcRows}${cancelRow}`;
 }
@@ -5215,12 +5235,18 @@ function detailHTML(rows,lineId){
   // não pode desaparecer sem deixar rastro nenhum.
   const rowTxIds=new Set(rows.map(x=>x.t.id));
   const anchorByTxId={},hiddenTxIds=new Set();
-  if(lineId!=null)compromissosDaLinha(lineId).forEach(c=>{
+  if(lineId!=null)compromissosParaDrilldown(lineId).forEach(c=>{
     const anchorTxId=(c.parcelas||[]).find(p=>p.numero===1)?.txId;
     const anchorShown=anchorTxId&&rowTxIds.has(anchorTxId);
     if(!anchorShown)return; // âncora não está entre os lançamentos exibidos agora — vira fallback, não linha "mãe"
     anchorByTxId[anchorTxId]=c;
-    (c.parcelas||[]).forEach(p=>{
+    // Enquanto o compromisso está 'ativo', a linha "mãe" já mostra o valor
+    // TOTAL da compra (comprometendo o orçamento desde já), então as
+    // parcelas seguintes — quando viram lançamento real — ficam escondidas
+    // da lista pra não dobrar a soma. Uma vez 'concluído' (todas as parcelas
+    // já são lançamentos reais), não há mais nada "projetado": cada parcela
+    // volta a aparecer como o lançamento real que é, na sua própria data.
+    if(c.status==='ativo')(c.parcelas||[]).forEach(p=>{
       if(!p.txId)return;
       if(p.numero!==1)hiddenTxIds.add(p.txId);
     });
@@ -5229,7 +5255,7 @@ function detailHTML(rows,lineId){
   const fallback=lineId!=null?compromissosDetailHTML(lineId,shownAnchorTxIds):'';
   const displayRows=rows.filter(x=>!hiddenTxIds.has(x.t.id));
   if(!displayRows.length)return '<div class="desc">Nenhum lançamento encontrado para esta abertura no período selecionado.</div>'+fallback;
-  const total=displayRows.reduce((s,x)=>{const c=anchorByTxId[x.t.id];return s+(c?c.valorTotal:x.sp.v);},0);
+  const total=displayRows.reduce((s,x)=>{const c=anchorByTxId[x.t.id];return s+(c&&c.status==='ativo'?c.valorTotal:x.sp.v);},0);
   return `<div class="desc"><b>Abertura do realizado:</b> ${displayRows.length} lançamento${displayRows.length>1?'s':''} · total ${fmt2(total)}</div>
   <div class="table-scroll"><table class="smalltbl"><thead><tr><th>Data</th><th>Favorecido</th><th>Descrição / documento</th><th>Evento</th><th class="num">Valor alocado</th><th>Ação</th></tr></thead><tbody>${displayRows.map(x=>{
     const comp=anchorByTxId[x.t.id];
