@@ -5161,11 +5161,19 @@ function detailHTML(rows,lineId){
   // própria, porque já estão embutidos no total mostrado na linha "mãe" (o
   // Realizado da linha é sempre o valor TOTAL da compra, pago ou não, então
   // repetir cada parcela paga como lançamento avulso dobraria a soma).
+  // Só esconde a parcela seguinte se a parcela nº1 (a "mãe") REALMENTE está
+  // entre os lançamentos exibidos agora — se por algum motivo a nº1 sumiu
+  // (base de dados inconsistente, teste manual etc.), a parcela seguinte
+  // não pode desaparecer sem deixar rastro nenhum.
+  const rowTxIds=new Set(rows.map(x=>x.t.id));
   const anchorByTxId={},hiddenTxIds=new Set();
   if(lineId!=null)compromissosDaLinha(lineId).forEach(c=>{
+    const anchorTxId=(c.parcelas||[]).find(p=>p.numero===1)?.txId;
+    const anchorShown=anchorTxId&&rowTxIds.has(anchorTxId);
     (c.parcelas||[]).forEach(p=>{
       if(!p.txId)return;
-      if(p.numero===1)anchorByTxId[p.txId]=c; else hiddenTxIds.add(p.txId);
+      if(p.numero===1)anchorByTxId[p.txId]=c;
+      else if(anchorShown)hiddenTxIds.add(p.txId);
     });
   });
   const shownAnchorTxIds=new Set(Object.keys(anchorByTxId));
