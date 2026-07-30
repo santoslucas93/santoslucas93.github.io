@@ -4913,7 +4913,8 @@ function verCompromissosDaLinha(lineId){
     txt+='\n'+(c.fornecedor||'(sem fornecedor)')+' — '+(c.descricao||'')+' — total '+fmt(c.valorTotal)+' (código: '+c.codigo+')\n';
     (c.parcelas||[]).forEach(p=>{
       const sit=p.status==='paga'?('PAGA — '+fmt(p.valorPago)):(p.status==='cancelada'?'CANCELADA':'PENDENTE (comprometido)');
-      txt+='  Parcela '+p.numero+'/'+c.parcelas.length+': '+fmt(p.valorPrevisto)+' · vence '+p.vencimento+' · '+sit+'\n';
+      const venc=p.vencimento?p.vencimento.slice(8)+'/'+p.vencimento.slice(5,7)+'/'+p.vencimento.slice(0,4):'';
+      txt+='  Parcela '+p.numero+'/'+c.parcelas.length+': '+fmt(p.valorPrevisto)+' · vence '+venc+' · '+sit+'\n';
     });
   });
   alert('Compromissos ativos desta linha:\n'+txt+'\nPara cancelar o saldo restante de um compromisso ou corrigir um vínculo, peça a correção que eu aplico direto na base.');
@@ -5115,7 +5116,8 @@ function parcelasTableHTML(c){
     const situ=p.status==='paga'?`<span style="color:var(--ok)">PAGO: ${fmt2(p.valorPago)}</span>`
       :p.status==='cancelada'?'<span style="color:var(--tx3)">CANCELADA</span>'
       :`<span style="color:var(--wn)">A PAGAR: ${fmt2(p.valorPrevisto)}</span>`;
-    return `<tr><td>${esc(doc)} — ${numLbl}</td><td class="fav">${esc(c.fornecedor||'')}</td><td>${esc(p.vencimento||'')}</td><td class="num">${situ}</td></tr>`;
+    const venc=p.vencimento?p.vencimento.slice(8)+'/'+p.vencimento.slice(5,7)+'/'+p.vencimento.slice(2,4):'';
+    return `<tr><td>${esc(doc)} — ${numLbl}</td><td class="fav">${esc(c.fornecedor||'')}</td><td>${esc(venc)}</td><td class="num">${situ}</td></tr>`;
   }).join('');
   return `<div class="table-scroll" style="margin-top:2px"><table class="smalltbl" style="font-size:12.5px;color:var(--tx3)"><thead><tr><th>Parcela</th><th>Favorecido</th><th>Vencimento</th><th class="num">Situação</th></tr></thead><tbody>${parcRows}</tbody></table></div>`;
 }
