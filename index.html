@@ -5428,10 +5428,9 @@ function renderSup(){
   const dRows=Object.values(porLinha).sort((x,y)=>y.v-x.v);
   const dEl=document.getElementById('sup-dest');
   if(dEl&&curSup==='LDB'){
-    dEl.innerHTML='<h2>Conta corrente LDB (consolidada)</h2><div class="note"><b>Fluxo exclusivo:</b> Taxa de Inscrição recebida − despesas LDB de todos os clubes = saldo disponível, numa única sessão. Nenhuma despesa da LDB transita por Técnico Operacional, Administrativo & Financeiro, Marketing ou demais departamentos.</div><div id="ldb-competition-ledger"></div>';
-    const original=document.getElementById('rec-ldb-ledger');
-    const temp=document.getElementById('ldb-competition-ledger');
-    if(temp){temp.innerHTML=ldbConsolidatedHTML('ldbc');}
+    // Pedido: entradas e saídas da LDB (com saldo) devem aparecer só na aba
+    // Receitas, junto com as demais receitas — não duplicadas aqui também.
+    dEl.innerHTML='<h2>Taxa de Inscrição e despesas LDB</h2><div class="note">As entradas (Taxa de Inscrição), saídas (despesas LDB) e o saldo consolidado ficam só na aba <b>Receitas › Taxas de Inscrição LDB</b>, junto com as demais receitas. Nenhuma despesa da LDB transita por Técnico Operacional, Administrativo & Financeiro, Marketing ou demais departamentos.</div><button class="act" type="button" onclick="curV=\'rec\';render();window.scrollTo(0,0);">Ir para Receitas</button>';
   } else if(dEl){
     const td='padding:5px 8px;border-bottom:1px solid var(--bd)';
     dEl.innerHTML='<h2>Destino no orçamento — para onde estas despesas vão nos departamentos</h2>'+
