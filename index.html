@@ -8322,10 +8322,10 @@ async function importNewSeasonRealizado(file, raw){
     // duplicata, eles viravam um só na tela, e a conciliação nunca fechava
     // por mais correta que a base estivesse. Aqui também a contagem é por
     // ocorrência: se a origem traz 6 e a tela já tem 2, entram mais 4.
-    const existingCounts=new Map();
-    txs.forEach(t=>{const k=existingTxKey(t);existingCounts.set(k,(existingCounts.get(k)||0)+1);});
+    const existingByKey=new Map();
+    txs.forEach(t=>{const k=existingTxKey(t);if(!existingByKey.has(k))existingByKey.set(k,[]);existingByKey.get(k).push(t);});
     const seenThisRun=new Map();
-    let added=0,decided=0,duplicated=0,skipped=0,abatidos=0,monthsTouched=new Set();
+    let added=0,decided=0,duplicated=0,skipped=0,abatidos=0,idCorrigidosEmDuplicata=0,monthsTouched=new Set();
     let nextIdx=DB.txs.length+imported.length;
     raw.forEach(row=>{
       const d=parseFlexDate(row[kData]);
@@ -8347,7 +8347,27 @@ async function importNewSeasonRealizado(file, raw){
       const key=existingTxKey(nt);
       const ocorrencia=(seenThisRun.get(key)||0)+1;
       seenThisRun.set(key,ocorrencia);
-      if((existingCounts.get(key)||0)>=ocorrencia){duplicated++;return;}
+      const existingMatches=existingByKey.get(key)||[];
+      if(existingMatches.length>=ocorrencia){
+        duplicated++;
+        // Corrigido: antes o loop encerrava aqui sem olhar a coluna ID, então
+        // reimportar a mesma planilha só para corrigir/preencher o ID de um
+        // lançamento já existente não tinha efeito nenhum — o motor de
+        // sugestão continuava decidindo. Agora, mesmo em duplicata, se a
+        // linha reimportada trouxe um ID, ele é aplicado ao lançamento já
+        // existente correspondente.
+        const idCellRawDup=kID?row[kID]:'';
+        const idRawDup=String(idCellRawDup==null?'':idCellRawDup).trim();
+        if(idRawDup){
+          const idLineDup=resolveLineById(idCellRawDup);
+          const targetTx=existingMatches[ocorrencia-1];
+          if(idLineDup&&targetTx){
+            decisions[targetTx.id]=[{a:idLineDup.area,g:idLineDup.g||null,l:idLineDup.id,v:r2(s>0?s:e)}];
+            idCorrigidosEmDuplicata++;
+          }
+        }
+        return;
+      }
       normalizeBankFlow(nt);
       try{ nt.sug=jsSuggest(nt); }catch(e){ console.error('jsSuggest falhou para um lançamento — mantido pendente para revisão manual:', e, nt); nt.sug=null; }
       const compRaw=kComp?String(row[kComp]||'').trim():'';
@@ -8387,13 +8407,13 @@ async function importNewSeasonRealizado(file, raw){
       pruned=before-imported.length;
       if(pruned)store.setItem('lnb3_imported',JSON.stringify(imported));
     }
-    const stats={added,decided,duplicated,skipped,abatidos,pruned,monthsTouched:[...monthsTouched]};
+    const stats={added,decided,duplicated,skipped,abatidos,idCorrigidosEmDuplicata,pruned,monthsTouched:[...monthsTouched]};
     if(!added&&!duplicated&&!skipped){if(msg&&!live)msg.textContent='Nenhuma linha válida encontrada.';return stats;}
     store.setItem('lnb3_imported',JSON.stringify(imported));
     save('decisions',decisions);
     if(!live){
-      lnbLogActivity('importar_realizado', added+' novo(s), '+decided+' classificado(s) por ID, '+duplicated+' duplicado(s) ignorado(s)');
-      alert(`Importação da temporada 2026/2027 concluída:\n${added} lançamento(s) novo(s) adicionado(s) (${[...monthsTouched].sort().map(mlabel).join(', ')||'-'}).\n${decided} já entraram classificados pelo ID informado.\n${added-decided} sem ID válido — ficaram pendentes para revisão na Conciliação.\n${duplicated} já existiam e foram ignorados (evita duplicidade).\n${skipped} linha(s) ignorada(s) por falta de Data/Favorecido/Entrada-Saída ou por ter as duas preenchidas.${abatidos?`\n${abatidos} lançamento(s) marcado(s) como Abatimento (entram com sinal negativo na linha do ID informado).`:''}`);
+      lnbLogActivity('importar_realizado', added+' novo(s), '+decided+' classificado(s) por ID, '+duplicated+' duplicado(s) ignorado(s)'+(idCorrigidosEmDuplicata?', '+idCorrigidosEmDuplicata+' ID(s) corrigido(s) em lançamento(s) já existente(s)':''));
+      alert(`Importação da temporada 2026/2027 concluída:\n${added} lançamento(s) novo(s) adicionado(s) (${[...monthsTouched].sort().map(mlabel).join(', ')||'-'}).\n${decided} já entraram classificados pelo ID informado.\n${added-decided} sem ID válido — ficaram pendentes para revisão na Conciliação (o sistema pode sugerir automaticamente, mas fica marcado como sugestão até você confirmar).\n${duplicated} já existiam e foram ignorados (evita duplicidade).${idCorrigidosEmDuplicata?`\n${idCorrigidosEmDuplicata} desses já existentes tiveram o ID atualizado agora pela reimportação.`:''}\n${skipped} linha(s) ignorada(s) por falta de Data/Favorecido/Entrada-Saída ou por ter as duas preenchidas.${abatidos?`\n${abatidos} lançamento(s) marcado(s) como Abatimento (entram com sinal negativo na linha do ID informado).`:''}`);
       location.reload();
     }
     return stats;
@@ -8730,7 +8750,7 @@ document.getElementById('imp').addEventListener('change',async ev=>{
     if(!window.XLSX){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
     const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
     const MNI={'JAN':'01','FEV':'02','MAR':'03','ABR':'04','MAI':'05','JUN':'06','JUL':'07','AGO':'08','SET':'09','OUT':'10','NOV':'11','DEZ':'12'};
-    let added=0,invalidIds=0,duplicated=0;
+    let added=0,invalidIds=0,duplicated=0,decided=0,idCorrigidosEmDuplicata=0;
     // Saldo inicial/final de cada mês desta conta: lido automaticamente das
     // linhas especiais "SALDO INICIAL" e "SALDO A TRANSFERIR"/"TOTAL" que já
     // vinham sendo apenas descartadas aqui — sem isso, a Conciliação Bancária
@@ -8750,13 +8770,14 @@ document.getElementById('imp').addEventListener('change',async ev=>{
     // marcar presença: se o extrato traz a mesma linha 3 vezes e o sistema
     // já tem 2, entra só 1. Reimportar o mesmo arquivo continua não
     // duplicando nada, porque as contagens ficam iguais.
-    const existingCounts=new Map();
+    const existingByKey=new Map();
     // Quando a conta foi substituída logo acima, os lançamentos antigos dela
     // ainda estão na lista em memória (txs só é montada no carregamento da
     // página). Se entrassem na contagem, a importação nova seria toda
     // descartada como "duplicada" e a conta ficaria vazia.
-    txs.forEach(t=>{ if(substituir&&bankOf(t)===bank)return; const k=existingTxKey(t);existingCounts.set(k,(existingCounts.get(k)||0)+1);});
+    txs.forEach(t=>{ if(substituir&&bankOf(t)===bank)return; const k=existingTxKey(t);if(!existingByKey.has(k))existingByKey.set(k,[]);existingByKey.get(k).push(t);});
     const seenThisFile=new Map();
+    let nextIdxImp=DB.txs.length+imported.length;
     const abasDeOutraConta=[], abasSemCabecalho=[];
     const novosParaSupabase=[];
     const lancPorMes={};
@@ -8828,12 +8849,37 @@ document.getElementById('imp').addEventListener('change',async ev=>{
         const keyImp=existingTxKey(nt);
         const ocorrencia=(seenThisFile.get(keyImp)||0)+1;
         seenThisFile.set(keyImp,ocorrencia);
-        if((existingCounts.get(keyImp)||0)>=ocorrencia){duplicated++;return;}
+        const existingMatchesImp=existingByKey.get(keyImp)||[];
+        if(existingMatchesImp.length>=ocorrencia){
+          duplicated++;
+          // Mesma correção do importador de Lançamentos: reimportar o extrato
+          // não pode descartar silenciosamente uma coluna ID corrigida numa
+          // linha que já existia.
+          if(idChave){
+            const idLineDup=resolveLineById(idChaveRaw);
+            const targetTx=existingMatchesImp[ocorrencia-1];
+            if(idLineDup&&targetTx){
+              decisions[targetTx.id]=[{a:idLineDup.area,g:idLineDup.g||null,l:idLineDup.id,v:r2(s>0?s:e)}];
+              idCorrigidosEmDuplicata++;
+            }else if(idChave){invalidIds++;}
+          }
+          return;
+        }
         normalizeBankFlow(nt);
         try{ nt.sug=jsSuggest(nt); }catch(e){ console.error('jsSuggest falhou para um lançamento — mantido pendente para revisão manual:', e, nt); nt.sug=null; }
+        // Corrigido: um ID informado aqui só virava "sugestão" (nt.sug), que
+        // fica atrás de várias regras automáticas (RH/prestador, rateio,
+        // regras por favorecido) na hora de decidir a classificação final —
+        // então o ID digitado podia ser silenciosamente sobrescrito pelo
+        // motor. Agora, como no importador de Lançamentos, o ID informado vai
+        // direto para "decisions" e vence qualquer heurística automática.
+        nt.id=nt.m+'|'+nt.d+'|'+norm(nt.f).slice(0,18)+'|'+nt.e+'|'+nt.s+'|'+nextIdxImp;
+        nextIdxImp++;
         const idLine=resolveLineById(idChaveRaw);
-        if(idLine)nt.sug={a:idLine.area,g:idLine.g||'',l:idLine.id,how:'id-chave'};
-        else if(idChave)invalidIds++;
+        if(idLine){
+          decisions[nt.id]=[{a:idLine.area,g:idLine.g||null,l:idLine.id,v:r2(s>0?s:e)}];
+          decided++;
+        }else if(idChave){invalidIds++;}
         lancPorMes[mm]=(lancPorMes[mm]||0)+1;
         imported.push(nt);added++;novosParaSupabase.push(nt);});
     });
@@ -8847,6 +8893,7 @@ document.getElementById('imp').addEventListener('change',async ev=>{
       if(vazio)delete saldosCapturados[m];
     });
     store.setItem('lnb3_imported',JSON.stringify(imported));
+    if(decided||idCorrigidosEmDuplicata)save('decisions',decisions);
     // Achado real: este importador só gravava os lançamentos no localStorage
     // deste navegador — nunca na base central. Resultado: quem abrisse o
     // painel em outra máquina (ou depois de limpar o cache) via o extrato
@@ -8886,7 +8933,7 @@ document.getElementById('imp').addEventListener('change',async ev=>{
     var saldoOk=!saldoPush||saldoPush.ok;
     var saldoErrTxt=(saldoPush&&!saldoPush.ok)?saldoPush.error:'';
     if(added||duplicated||Object.keys(saldosCapturados).length)lnbLogActivity('importar_extrato_banco', bankLabel(bank)+' — '+added+' novo(s), '+duplicated+' duplicado(s), '+Object.keys(saldosCapturados).length+' mês(es) de saldo'+(abasDeOutraConta.length?' — '+abasDeOutraConta.length+' aba(s) de outra conta ignorada(s)':'')+(saldoOk?'':' — FALHA AO SALVAR SALDO: '+saldoErrTxt));
-    msg.textContent=(added||duplicated||Object.keys(saldosCapturados).length)?added+' lançamento(s) novo(s) importado(s) para '+bankLabel(bank)+'. '+(duplicated?duplicated+' já existiam (mesma data/favorecido/valor) e foram ignorados, evitando duplicidade. ':'')+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto, no padrão da estrutura atual (ex.: 1.02.7 para departamentos com grupo, ou 9.1 para Receitas/Equipes). ':'')+(Object.keys(saldosCapturados).length?(saldoOk?(Object.keys(saldosCapturados).length+' mês(es) com saldo inicial/final lido do extrato e salvo na base central. '):('ATENÇÃO: '+Object.keys(saldosCapturados).length+' mês(es) de saldo foram lidos do extrato mas FALHARAM ao salvar na base central — erro: '+saldoErrTxt+'. ')):'')+avisoOutraConta+(syncErr?('ATENÇÃO: os lançamentos não foram enviados para a base central — erro: '+syncErr+'. '):'')+((saldoOk&&!syncErr)?'Recarregando…':'Não recarregando para você poder ver este erro.'):'Nenhum mês novo encontrado.';
+    msg.textContent=(added||duplicated||Object.keys(saldosCapturados).length)?added+' lançamento(s) novo(s) importado(s) para '+bankLabel(bank)+'. '+(duplicated?duplicated+' já existiam (mesma data/favorecido/valor) e foram ignorados, evitando duplicidade. ':'')+(idCorrigidosEmDuplicata?idCorrigidosEmDuplicata+' desses já existentes tiveram o ID atualizado agora. ':'')+(decided?decided+' novo(s) já entraram classificados pelo ID informado. ':'')+(invalidIds?invalidIds+' ID(s) não foram reconhecidos — mantenha a coluna ID como texto, no padrão da estrutura atual (ex.: 1.02.7 para departamentos com grupo, ou 9.1 para Receitas/Equipes). ':'')+(Object.keys(saldosCapturados).length?(saldoOk?(Object.keys(saldosCapturados).length+' mês(es) com saldo inicial/final lido do extrato e salvo na base central. '):('ATENÇÃO: '+Object.keys(saldosCapturados).length+' mês(es) de saldo foram lidos do extrato mas FALHARAM ao salvar na base central — erro: '+saldoErrTxt+'. ')):'')+avisoOutraConta+(syncErr?('ATENÇÃO: os lançamentos não foram enviados para a base central — erro: '+syncErr+'. '):'')+((saldoOk&&!syncErr)?'Recarregando…':'Não recarregando para você poder ver este erro.'):'Nenhum mês novo encontrado.';
     if((added||duplicated||Object.keys(saldosCapturados).length)&&saldoOk&&!syncErr)setTimeout(()=>location.reload(),900);
   }catch(err){msg.textContent='Falha ao ler o arquivo: '+err.message;}
 });
