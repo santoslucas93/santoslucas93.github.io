@@ -1610,8 +1610,8 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   <div class="panel revenue-structure-panel"><h2>Grupos e linhas de Receitas — orçado, realizado e abatimentos</h2><div class="note">A estrutura abaixo segue a mesma lógica dos departamentos: cada <b>grupo</b> pode ser aberto para visualizar suas <b>linhas</b>, totais e lançamentos. Grupos e linhas sem movimento também permanecem visíveis para conferência do orçamento.</div><div id="rec-lines"></div></div>
   <div class="panel"><h2>Receitas por tipo — acesso rápido</h2><div id="rec-types"></div></div>
   <div class="panel">
-    <h2>Taxas de Inscrição LDB por clube <span class="how">recebido × despesas LDB abatidas</span></h2>
-    <div class="note">As taxas de inscrição da LDB entram em <b>Receitas › Taxas de Inscrição LDB</b>, abertas por clube/equipe. As despesas identificadas como LDB são abatidas do saldo recebido do respectivo clube, sem misturar com transferências entre bancos da LNB.</div>
+    <h2>Taxas de Inscrição LDB <span class="how">recebido × despesas LDB abatidas (consolidado)</span></h2>
+    <div class="note">As taxas de inscrição da LDB entram em <b>Receitas › Taxas de Inscrição LDB</b>. Todas as despesas identificadas como LDB — de qualquer clube — são abatidas do total recebido numa única sessão consolidada, sem misturar com transferências entre bancos da LNB.</div>
     <div id="rec-ldb-ledger"></div>
   </div>
   <div class="panel">
@@ -4680,37 +4680,53 @@ function ldbEntitiesFromData(){
   });
   return [...set].sort();
 }
+// V — LDB deixou de abater por clube individualmente: a partir de agora toda
+// receita de Taxa de Inscrição LDB e toda despesa LDB (de qualquer clube)
+// caem numa ÚNICA linha consolidada. Antes cada clube ganhava sua própria
+// linha automática (uma "sessão" por clube); o pedido foi abater pelo total
+// de despesas contra o total arrecadado, sem abrir por clube. As linhas
+// antigas por clube (cod 'AUTO-LDB') continuam existindo em DB.lines para
+// não quebrar decisões já confirmadas no passado, mas deixam de receber
+// novas classificações — só a linha consolidada (cod 'AUTO-LDB-CONSOLIDADO')
+// é usada daqui pra frente.
+const LDB_CONSOLIDATED_NAME='Taxas de Inscrição e Despesas LDB (todos os clubes)';
 function ensureLdbTaxLines(){
-  const existing=new Map(DB.lines.filter(l=>l.area==='REC'&&norm(l.g)===norm(LDB_TAX_GROUP)).map(l=>[norm(l.n),l.id]));
+  const existing=DB.lines.find(l=>l.area==='REC'&&norm(l.g)===norm(LDB_TAX_GROUP)&&l.cod==='AUTO-LDB-CONSOLIDADO');
+  if(existing)return;
   let next=Math.max(...DB.lines.map(l=>Number(l.id)||0),90000)+1;
-  ldbEntitiesFromData().forEach(club=>{
-    if(existing.has(norm(club)))return;
-    DB.lines.push({area:'REC',g:LDB_TAX_GROUP,n:club,cod:'AUTO-LDB',prev:{},id:next++,_system:true});
-  });
+  DB.lines.push({area:'REC',g:LDB_TAX_GROUP,n:LDB_CONSOLIDATED_NAME,cod:'AUTO-LDB-CONSOLIDADO',prev:{},id:next++,_system:true});
+}
+function ldbConsolidatedLineId(){
+  const l=DB.lines.find(x=>x.area==='REC'&&norm(x.g)===norm(LDB_TAX_GROUP)&&x.cod==='AUTO-LDB-CONSOLIDADO');
+  return l?l.id:null;
 }
 function ldbLineId(club){
   const l=DB.lines.find(x=>x.area==='REC'&&norm(x.g)===norm(LDB_TAX_GROUP)&&norm(x.n)===norm(club));
   return l?l.id:null;
 }
 ensureLdbTaxLines();
-function ldbLedgerRows(){
-  const map={};
-  const add=(club,k,t,v)=>{if(!club)return;map[club]=map[club]||{club,recebido:0,despesas:0,recRows:[],despRows:[]};map[club][k]+=v;(k==='recebido'?map[club].recRows:map[club].despRows).push({t,v});};
+// Antes montava uma linha por clube (ldbLedgerRows); agora é uma sessão só,
+// somando toda receita de Taxa de Inscrição LDB e toda despesa LDB do
+// período, não importa de qual clube veio.
+function ldbConsolidatedRow(){
+  const r={recebido:0,despesas:0,recRows:[],despRows:[]};
   txs.forEach(t=>{
     if(curM!=='ALL'&&t.m!==curM)return;
-    const club=ldbClubFromTx(t);
-    if(isLdbTaxReceipt(t))add(club,'recebido',t,Number(t.e)||0);
-    else if(isLdbExpenseTx(t))add(club,'despesas',t,Number(t.s)||0);
+    if(isLdbTaxReceipt(t)){r.recebido+=Number(t.e)||0;r.recRows.push({t,v:Number(t.e)||0});}
+    else if(isLdbExpenseTx(t)){r.despesas+=Number(t.s)||0;r.despRows.push({t,v:Number(t.s)||0});}
   });
-  return Object.values(map).map(r=>({...r,saldo:r.recebido-r.despesas})).sort((a,b)=>(b.recebido-b.despesas)-(a.recebido-a.despesas));
+  r.saldo=r.recebido-r.despesas;
+  return r;
+}
+function ldbConsolidatedHTML(idPrefix){
+  const r=ldbConsolidatedRow();
+  const kpis=`<div class="kpis"><div class="kpi"><div class="l">Taxas de Inscrição LDB recebidas</div><div class="v" style="color:var(--ok)">${fmt2(r.recebido)}</div></div><div class="kpi"><div class="l">Despesas LDB abatidas (todos os clubes)</div><div class="v" style="color:var(--er)">${fmt2(r.despesas)}</div></div><div class="kpi"><div class="l">Saldo líquido LDB</div><div class="v" style="color:${r.saldo>=0?'var(--ok)':'var(--er)'}">${fmt2(r.saldo)}</div></div></div>`;
+  if(!r.recRows.length&&!r.despRows.length)return kpis+'<div class="desc">Nenhuma taxa de inscrição LDB ou despesa LDB encontrada no período atual.</div>';
+  return kpis+`<table><thead><tr><th>Sessão</th><th class="num">Taxa recebida</th><th class="num">Despesas LDB</th><th class="num">Saldo</th><th>Composição</th></tr></thead><tbody><tr class="txrow" onclick="const el=document.getElementById('${idPrefix}-0'); if(el)el.classList.toggle('hide')"><td><b>Todos os clubes/equipes (consolidado)</b><div class="desc">Receitas › ${esc(LDB_TAX_GROUP)}</div></td><td class="num" style="color:var(--ok)">${fmt2(r.recebido)}</td><td class="num" style="color:var(--er)">${fmt2(r.despesas)}</td><td class="num" style="color:${r.saldo>=0?'var(--ok)':'var(--er)'}">${fmt2(r.saldo)}</td><td><button class="act" type="button">abrir</button></td></tr><tr id="${idPrefix}-0" class="hide"><td colspan="5">${ldbDetailHTML(r)}</td></tr></tbody></table>`;
 }
 function renderLdbClubLedger(){
   const box=document.getElementById('rec-ldb-ledger'); if(!box)return;
-  const rows=ldbLedgerRows();
-  if(!rows.length){box.innerHTML='<div class="desc">Nenhuma taxa de inscrição LDB ou despesa LDB encontrada no período atual.</div>';return;}
-  const totalRec=rows.reduce((s,r)=>s+r.recebido,0), totalDesp=rows.reduce((s,r)=>s+r.despesas,0);
-  box.innerHTML=`<div class="kpis"><div class="kpi"><div class="l">Taxas LDB recebidas</div><div class="v" style="color:var(--ok)">${fmt2(totalRec)}</div></div><div class="kpi"><div class="l">Despesas LDB abatidas</div><div class="v" style="color:var(--er)">${fmt2(totalDesp)}</div></div><div class="kpi"><div class="l">Saldo líquido LDB</div><div class="v" style="color:${totalRec-totalDesp>=0?'var(--ok)':'var(--er)'}">${fmt2(totalRec-totalDesp)}</div></div></div>
-  <table><thead><tr><th>Clube/equipe</th><th class="num">Taxa recebida</th><th class="num">Despesas LDB</th><th class="num">Saldo</th><th>Composição</th></tr></thead><tbody>${rows.map((r,i)=>`<tr class="txrow" onclick="const el=document.getElementById('ldbdet-${i}'); if(el)el.classList.toggle('hide')"><td><b>${esc(r.club)}</b><div class="desc">Receitas › ${esc(LDB_TAX_GROUP)}</div></td><td class="num" style="color:var(--ok)">${fmt2(r.recebido)}</td><td class="num" style="color:var(--er)">${fmt2(r.despesas)}</td><td class="num" style="color:${r.saldo>=0?'var(--ok)':'var(--er)'}">${fmt2(r.saldo)}</td><td><button class="act" type="button">abrir</button></td></tr><tr id="ldbdet-${i}" class="hide"><td colspan="5">${ldbDetailHTML(r)}</td></tr>`).join('')}</tbody></table>`;
+  box.innerHTML=ldbConsolidatedHTML('ldbdet');
 }
 function ldbDetailHTML(r){
   const rec=r.recRows.length?`<table class="smalltbl"><thead><tr><th>Data</th><th>Fonte/doc.</th><th>Descrição</th><th class="num">Valor</th><th></th></tr></thead><tbody>${r.recRows.map(x=>`<tr><td>${x.t.d}</td><td>${esc(x.t.dc||x.t.f||'')}</td><td>${esc(x.t.ds)}</td><td class="num" style="color:var(--ok)">${fmt2(x.v)}</td><td>${txRealocBtn(x.t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem recebimento de taxa LDB no período.</div>';
@@ -4778,7 +4794,7 @@ function jsSuggest(t){
   const g_of=id=>{if(id==null)return null;const ln=lineById(id);return ln?ln.g:null;};
   const rh= rhProviderSuggestion(t);
   if(rh)return R(rh.a,rh.g,rh.l,rh.how);
-  if(nds.includes('ldb')&&(nds.includes('taxa inscricao')||nds.includes('inscricao')||nds.includes('taxa rateio')))return R('REC',LDB_TAX_GROUP,ldbLineId(ldbClubFromTx(t)),'taxa-ldb-clube');
+  if(nds.includes('ldb')&&(nds.includes('taxa inscricao')||nds.includes('inscricao')||nds.includes('taxa rateio')))return R('REC',LDB_TAX_GROUP,ldbConsolidatedLineId(),'taxa-ldb');
   if(isInternalBankTransferTx(t))return R('TRF','Transferências/aplicações entre contas da LNB',null,'transferencia-fora-realizado');
   if(nds.includes('rendimento')&&nds.includes('aplicacao'))return R('OREC','Rendimentos financeiros');
   if(nds.includes('desoneracao')||nds.includes('verba equipe')||nds.includes('descontar credito equipe'))return R('EQP','Desoneração e verbas de equipes');
@@ -4854,8 +4870,8 @@ function classifyCore(t){
   if(isInternalBankTransferTx(t)){const val=t.s>0?t.s:t.e;return {splits:[{a:'TRF',g:'Transferências entre contas',l:null,v:val}],st:'auto',how:'transferencia-fora-realizado'};}
   // Regra soberana da LDB: recebimentos e despesas transitam exclusivamente em Receitas › Taxas de Inscrição LDB.
   // Despesas entram como abatimento negativo da linha do clube e não alimentam nenhum departamento.
-  if(isLdbTaxReceipt(t)){const club=ldbClubFromTx(t);const lid=ldbLineId(club);return {splits:[{a:'REC',g:LDB_TAX_GROUP,l:lid,v:Number(t.e)||0}],st:'auto',how:'taxa-ldb-clube'};}
-  if(isLdbExpenseTx(t)){const club=ldbClubFromTx(t)||'LDB GERAL / SEM CLUBE';const lid=ldbLineId(club);return {splits:[{a:'REC',g:LDB_TAX_GROUP,l:lid,v:-(Number(t.s)||0)}],st:'auto',how:'abatimento-ldb-clube'};}
+  if(isLdbTaxReceipt(t)){const lid=ldbConsolidatedLineId();return {splits:[{a:'REC',g:LDB_TAX_GROUP,l:lid,v:Number(t.e)||0}],st:'auto',how:'taxa-ldb'};}
+  if(isLdbExpenseTx(t)){const lid=ldbConsolidatedLineId();return {splits:[{a:'REC',g:LDB_TAX_GROUP,l:lid,v:-(Number(t.s)||0)}],st:'auto',how:'abatimento-ldb'};}
   if(decisions[t.id])return {splits:decisions[t.id],st:'conf',how:'você'};
   if(isCreditCardRateioTx(t))return {splits:null,st:'pend',how:'cartao-rateio'};
   const val=t.s>0?t.s:t.e;
@@ -5412,10 +5428,10 @@ function renderSup(){
   const dRows=Object.values(porLinha).sort((x,y)=>y.v-x.v);
   const dEl=document.getElementById('sup-dest');
   if(dEl&&curSup==='LDB'){
-    dEl.innerHTML='<h2>Conta corrente LDB por clube</h2><div class="note"><b>Fluxo exclusivo:</b> Taxa de Inscrição recebida − despesas LDB do clube = saldo disponível. Nenhuma despesa da LDB transita por Técnico Operacional, Administrativo & Financeiro, Marketing ou demais departamentos.</div><div id="ldb-competition-ledger"></div>';
+    dEl.innerHTML='<h2>Conta corrente LDB (consolidada)</h2><div class="note"><b>Fluxo exclusivo:</b> Taxa de Inscrição recebida − despesas LDB de todos os clubes = saldo disponível, numa única sessão. Nenhuma despesa da LDB transita por Técnico Operacional, Administrativo & Financeiro, Marketing ou demais departamentos.</div><div id="ldb-competition-ledger"></div>';
     const original=document.getElementById('rec-ldb-ledger');
     const temp=document.getElementById('ldb-competition-ledger');
-    if(temp){const rows=ldbLedgerRows();if(!rows.length)temp.innerHTML='<div class="desc">Nenhuma taxa ou despesa LDB encontrada no período.</div>';else{const totalRec=rows.reduce((z,r)=>z+r.recebido,0),totalDesp=rows.reduce((z,r)=>z+r.despesas,0);temp.innerHTML=`<div class="kpis"><div class="kpi"><div class="l">Taxas recebidas</div><div class="v" style="color:var(--ok)">${fmt2(totalRec)}</div></div><div class="kpi"><div class="l">Despesas abatidas</div><div class="v" style="color:var(--er)">${fmt2(totalDesp)}</div></div><div class="kpi"><div class="l">Saldo LDB</div><div class="v" style="color:${totalRec-totalDesp>=0?'var(--ok)':'var(--er)'}">${fmt2(totalRec-totalDesp)}</div></div></div><table><thead><tr><th>Clube/equipe</th><th class="num">Taxa recebida</th><th class="num">Despesas LDB</th><th class="num">Saldo</th><th></th></tr></thead><tbody>${rows.map((r,i)=>`<tr class="txrow" onclick="document.getElementById('ldbc-${i}').classList.toggle('hide')"><td><b>${esc(r.club)}</b></td><td class="num" style="color:var(--ok)">${fmt2(r.recebido)}</td><td class="num" style="color:var(--er)">${fmt2(r.despesas)}</td><td class="num" style="color:${r.saldo>=0?'var(--ok)':'var(--er)'}">${fmt2(r.saldo)}</td><td><button class="act">abrir</button></td></tr><tr id="ldbc-${i}" class="line-detail hide"><td colspan="5">${ldbDetailHTML(r)}</td></tr>`).join('')}</tbody></table>`;}}
+    if(temp){temp.innerHTML=ldbConsolidatedHTML('ldbc');}
   } else if(dEl){
     const td='padding:5px 8px;border-bottom:1px solid var(--bd)';
     dEl.innerHTML='<h2>Destino no orçamento — para onde estas despesas vão nos departamentos</h2>'+
