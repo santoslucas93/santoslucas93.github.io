@@ -5198,10 +5198,11 @@ function detailHTML(rows,lineId){
   if(lineId!=null)compromissosDaLinha(lineId).forEach(c=>{
     const anchorTxId=(c.parcelas||[]).find(p=>p.numero===1)?.txId;
     const anchorShown=anchorTxId&&rowTxIds.has(anchorTxId);
+    if(!anchorShown)return; // âncora não está entre os lançamentos exibidos agora — vira fallback, não linha "mãe"
+    anchorByTxId[anchorTxId]=c;
     (c.parcelas||[]).forEach(p=>{
       if(!p.txId)return;
-      if(p.numero===1)anchorByTxId[p.txId]=c;
-      else if(anchorShown)hiddenTxIds.add(p.txId);
+      if(p.numero!==1)hiddenTxIds.add(p.txId);
     });
   });
   const shownAnchorTxIds=new Set(Object.keys(anchorByTxId));
