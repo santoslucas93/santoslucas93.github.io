@@ -5008,6 +5008,29 @@ function realized(m){
       if(t.ev)E[t.ev]=(E[t.ev]||0)+s.v;
     });
   });
+  // Valor Comprometido: as parcelas de compras parceladas ainda NÃO pagas
+  // (status 'pendente') entram aqui como Realizado projetado, uma por mês —
+  // exatamente na competência (vencimento) de cada parcela — para que o
+  // valor total da compra já conte no orçamento/Home/Superintendência/
+  // gráficos desde a 1ª parcela paga, sem esperar o pagamento de fato. A
+  // parcela já paga NÃO entra aqui de novo (ela já veio pelo laço de txs
+  // acima, como um lançamento real) — só a parte que falta pagar. Isso
+  // nunca toca em txs/imported nem em qualquer cálculo de Conciliação
+  // Bancária (que usa suas próprias funções, à parte desta), então o saldo
+  // inicial+entradas-saídas=saldo final do banco continua batendo exatamente
+  // como no extrato real.
+  compromissos.forEach(c=>{
+    if(c.status!=='ativo')return;
+    (c.parcelas||[]).forEach(p=>{
+      if(p.status!=='pendente')return;
+      const pm=String(p.vencimento||'').slice(0,7);
+      if(m!=='ALL'&&pm!==m)return;
+      const v=Number(p.valorPrevisto)||0; if(!v)return;
+      A[c.linhaArea]=(A[c.linhaArea]||0)+v;
+      G[c.linhaArea+'|'+(c.linhaGrupo||'__none')]=(G[c.linhaArea+'|'+(c.linhaGrupo||'__none')]||0)+v;
+      L[c.linhaId]=(L[c.linhaId]||0)+v;
+    });
+  });
   const result={A,G,L,E};
   __realizedCache.set(m,result);
   return result;
@@ -5093,6 +5116,28 @@ function detailHTML(rows){
     <td class="action-cell">${txRealocBtn(x.t)}</td>
   </tr>`).join('')}</tbody></table></div>`;
 }
+// Drill-down de compras parceladas ("Valor Comprometido"): mostra, por
+// compromisso ativo daquela linha, cada parcela — PAGA (já veio como
+// lançamento normal na tabela acima, aqui só para contexto) ou A PAGAR
+// (ainda não é lançamento nenhum; é só a projeção que soma no Realizado da
+// linha até o pagamento de fato acontecer). Puramente informativo — nunca
+// mexe em txs/imported/Conciliação Bancária.
+function compromissosDetailHTML(lineId){
+  const list=compromissosDaLinha(lineId);
+  if(!list.length)return '';
+  return list.map(c=>{
+    const doc=c.documento||c.codigo;
+    const parcRows=(c.parcelas||[]).map(p=>{
+      const numLbl='PC '+String(p.numero).padStart(2,'0');
+      const situ=p.status==='paga'?`<span style="color:var(--ok)">PAGO: ${fmt2(p.valorPago)}</span>`
+        :p.status==='cancelada'?'<span style="color:var(--tx3)">CANCELADA</span>'
+        :`<span style="color:var(--wn)">A PAGAR: ${fmt2(p.valorPrevisto)}</span>`;
+      return `<tr><td>${esc(doc)} — ${numLbl}</td><td class="fav">${esc(c.fornecedor||'')}</td><td>${esc(p.vencimento||'')}</td><td class="num">${situ}</td></tr>`;
+    }).join('');
+    return `<div class="desc" style="margin-top:10px"><b>+ ${esc(doc)} — EM ${c.parcelas.length}X — ${esc(c.fornecedor||'(sem fornecedor)')} — ${fmt2(c.valorTotal)}</b></div>
+    <div class="table-scroll"><table class="smalltbl"><thead><tr><th>Parcela</th><th>Favorecido</th><th>Vencimento</th><th class="num">Situação</th></tr></thead><tbody>${parcRows}</tbody></table></div>`;
+  }).join('');
+}
 function openConcForTx(encId){
   const t=txById(decodeURIComponent(encId)); if(!t)return;
   curV='conc'; curM='ALL'; page=1; focusTxId=t.id; clearBulkDestination();
@@ -5175,9 +5220,9 @@ function groupsHTML(a,r,showZero=false){
       const rows=txDetailRows(a,g,l.id,'line');
       const isOpen=openLineId===l.id;
       const comp=comprometidoPorLinha(l.id);
-      const compHTML=comp>0.005?` · <span class="detlink" style="color:var(--wn)" onclick="event.stopPropagation();verCompromissosDaLinha('${l.id}')">+ ${fmt(comp)} comprometido em compra(s) parcelada(s) — ver parcelas</span>`:'';
+      const compHTML=comp>0.005?` · <span class="detlink" style="color:var(--wn)" onclick="document.getElementById('det-line-${l.id}').classList.toggle('hide')">já inclui ${fmt(comp)} comprometido em compra(s) parcelada(s) — ver parcelas</span>`:'';
       return `<tr id="line-${l.id}" class="${isOpen?'openline':''}"><td><span class="detlink" onclick="document.getElementById('det-line-${l.id}').classList.toggle('hide')">${esc(l.n)}</span><div class="how">${rows.length} lançamento${rows.length!==1?'s':''} alimentando esta linha${compHTML}</div></td><td class="num">${lp?fmt(lp):'—'}</td><td class="num">${lr?fmt(lr):'—'}${a==='REC'&&lr<0?' <span class="chip wn">abatimento</span>':''}</td><td class="num" style="color:${lp&&lr>lp?'var(--er)':'var(--tx2)'}">${lp?Math.round(lr/lp*100)+'%':'—'}</td></tr>
-      <tr id="det-line-${l.id}" class="line-detail ${isOpen?'':'hide'}"><td colspan="4">${detailHTML(rows)}</td></tr>`;}).join('');
+      <tr id="det-line-${l.id}" class="line-detail ${isOpen?'':'hide'}"><td colspan="4">${detailHTML(rows)}${compromissosDetailHTML(l.id)}</td></tr>`;}).join('');
     const noLine=gr-gl.reduce((s,l)=>s+(r.L[l.id]||0),0);
     const noRows=txDetailRows(a,g,null,'groupNoLine');
     const noKey=a+'|'+(g||'__none');
