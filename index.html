@@ -4761,8 +4761,8 @@ function renderLdbClubLedger(){
   box.innerHTML=ldbConsolidatedHTML('ldbdet');
 }
 function ldbDetailHTML(r){
-  const rec=r.recRows.length?`<table class="smalltbl"><thead><tr><th>Data</th><th>Fonte/doc.</th><th>Descrição</th><th class="num">Valor</th><th></th></tr></thead><tbody>${r.recRows.map(x=>`<tr><td>${x.t.d}</td><td>${esc(x.t.dc||x.t.f||'')}</td><td>${esc(x.t.ds)}</td><td class="num" style="color:var(--ok)">${fmt2(x.v)}</td><td>${txRealocBtn(x.t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem recebimento de taxa LDB no período.</div>';
-  const desp=r.despRows.length?`<table class="smalltbl"><thead><tr><th>Data</th><th>Favorecido/doc.</th><th>Descrição</th><th class="num">Valor</th><th></th></tr></thead><tbody>${r.despRows.map(x=>`<tr><td>${x.t.d}</td><td>${esc(x.t.f||x.t.dc||'')}</td><td>${esc(x.t.ds)}${x.t.dc?'<div class="desc">'+esc(x.t.dc)+'</div>':''}</td><td class="num" style="color:var(--er)">${fmt2(x.v)}</td><td>${txRealocBtn(x.t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem despesa LDB abatida no período.</div>';
+  const rec=r.recRows.length?`<table class="smalltbl"><thead><tr><th>Data</th><th>Fonte/doc.</th><th>Descrição</th><th class="num">Valor</th><th></th></tr></thead><tbody>${r.recRows.map(x=>`<tr><td>${brDate(x.t.d)}</td><td>${esc(x.t.dc||x.t.f||'')}</td><td>${esc(x.t.ds)}</td><td class="num" style="color:var(--ok)">${fmt2(x.v)}</td><td>${txRealocBtn(x.t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem recebimento de taxa LDB no período.</div>';
+  const desp=r.despRows.length?`<table class="smalltbl"><thead><tr><th>Data</th><th>Favorecido/doc.</th><th>Descrição</th><th class="num">Valor</th><th></th></tr></thead><tbody>${r.despRows.map(x=>`<tr><td>${brDate(x.t.d)}</td><td>${esc(x.t.f||x.t.dc||'')}</td><td>${esc(x.t.ds)}${x.t.dc?'<div class="desc">'+esc(x.t.dc)+'</div>':''}</td><td class="num" style="color:var(--er)">${fmt2(x.v)}</td><td>${txRealocBtn(x.t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Sem despesa LDB abatida no período.</div>';
   return `<div class="grid2"><div><h3 style="font-size:13px;margin:6px 0">Recebimentos / Taxa de Inscrição LDB</h3>${rec}</div><div><h3 style="font-size:13px;margin:6px 0">Despesas LDB abatidas do saldo</h3>${desp}</div></div>`;
 }
 function tagsOf(nds,ndc,manual){
@@ -4887,6 +4887,10 @@ txs.forEach((t,i)=>t.id=t.m+'|'+t.d+'|'+norm(t.f).slice(0,18)+'|'+t.e+'|'+t.s+'|
 const months=[...new Set(txs.map(t=>t.m))].sort();
 const MN={'01':'jan','02':'fev','03':'mar','04':'abr','05':'mai','06':'jun','07':'jul','08':'ago','09':'set','10':'out','11':'nov','12':'dez'};
 const mlabel=m=>MN[m.slice(5)]+'/'+m.slice(2,4);
+// Qualquer data (AAAA-MM-DD) exibida em qualquer lugar do sistema usa este
+// formato único: DD/MM/AAAA (ano completo, 4 dígitos) — inclusive vencimentos
+// de parcelas, extrato, conciliação etc.
+const brDate=d=>{d=String(d||'');return d.length>=10?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):d;};
 let curV='home', curM='ALL', curDept='LNB', curSup='FILIADOS', page=1, openLineId=null, openGroupKey=null, focusTxId=null, openRecType=null; const PAGE=60;
 let curEditingLineId=null, planDeptLineFilter='';
 document.getElementById('bdg-per').textContent=(months.length?('Extrato: '+mlabel(months[0])+' a '+mlabel(months[months.length-1])):'Extrato: sem lançamentos');
@@ -4913,7 +4917,7 @@ function verCompromissosDaLinha(lineId){
     txt+='\n'+(c.fornecedor||'(sem fornecedor)')+' — '+(c.descricao||'')+' — total '+fmt(c.valorTotal)+' (código: '+c.codigo+')\n';
     (c.parcelas||[]).forEach(p=>{
       const sit=p.status==='paga'?('PAGA — '+fmt(p.valorPago)):(p.status==='cancelada'?'CANCELADA':'PENDENTE (comprometido)');
-      const venc=p.vencimento?p.vencimento.slice(8)+'/'+p.vencimento.slice(5,7)+'/'+p.vencimento.slice(0,4):'';
+      const venc=brDate(p.vencimento);
       txt+='  Parcela '+p.numero+'/'+c.parcelas.length+': '+fmt(p.valorPrevisto)+' · vence '+venc+' · '+sit+'\n';
     });
   });
@@ -5116,7 +5120,7 @@ function parcelasTableHTML(c){
     const situ=p.status==='paga'?`<span style="color:var(--ok)">PAGO: ${fmt2(p.valorPago)}</span>`
       :p.status==='cancelada'?'<span style="color:var(--tx3)">CANCELADA</span>'
       :`<span style="color:var(--wn)">A PAGAR: ${fmt2(p.valorPrevisto)}</span>`;
-    const venc=p.vencimento?p.vencimento.slice(8)+'/'+p.vencimento.slice(5,7)+'/'+p.vencimento.slice(2,4):'';
+    const venc=brDate(p.vencimento);
     return `<tr><td>${esc(doc)} — ${numLbl}</td><td class="fav">${esc(c.fornecedor||'')}</td><td>${esc(venc)}</td><td class="num">${situ}</td></tr>`;
   }).join('');
   return `<div class="table-scroll" style="margin-top:2px"><table class="smalltbl" style="font-size:12.5px;color:var(--tx3)"><thead><tr><th>Parcela</th><th>Favorecido</th><th>Vencimento</th><th class="num">Situação</th></tr></thead><tbody>${parcRows}</tbody></table></div>`;
@@ -5136,7 +5140,7 @@ function compromissoAnchorRowHTML(x,c){
   // texto do meio.
   const toggleJs=`(function(tr){var d=document.getElementById('${cmpId}');d.classList.toggle('hide');var a=tr.querySelector('.cmp-arrow');if(a)a.textContent=d.classList.contains('hide')?'▸':'▾';})(this.closest('tr'))`;
   return `<tr style="background:var(--wnbg);cursor:pointer" onclick="${toggleJs}" title="Clique para ver as parcelas">
-    <td class="date-cell">${x.t.d.slice(8)}/${x.t.d.slice(5,7)}/${x.t.d.slice(2,4)}</td>
+    <td class="date-cell">${brDate(x.t.d)}</td>
     <td class="fav">${esc(c.fornecedor||x.t.f)}</td>
     <td><span class="cmp-arrow" style="color:var(--wn);font-weight:700;margin-right:4px">▸</span><span class="detlink" style="color:var(--wn);font-weight:600">${esc(doc)} — EM ${c.parcelas.length}X — ${esc(c.fornecedor||x.t.f)} — ${fmt2(c.valorTotal)}</span></td>
     <td>${x.t.ev?esc(x.t.ev):'—'}</td>
@@ -5193,7 +5197,7 @@ function detailHTML(rows,lineId){
     const comp=anchorByTxId[x.t.id];
     if(comp)return compromissoAnchorRowHTML(x,comp);
     return `<tr>
-    <td class="date-cell">${x.t.d.slice(8)}/${x.t.d.slice(5,7)}/${x.t.d.slice(2,4)}</td>
+    <td class="date-cell">${brDate(x.t.d)}</td>
     <td class="fav">${esc(x.t.f)}</td>
     <td>${x.t.dc?`<div class="desc">${esc(x.t.dc)}</div>`:''}<div>${esc(x.t.ds)}</div></td>
     <td>${x.t.ev?esc(x.t.ev):'—'}</td>
@@ -5566,7 +5570,7 @@ function renderRecLedger(){
   const areaOpts=Object.keys(AREAS).map(a=>`<option value="${a}">${a}</option>`).join('');
   box.innerHTML=rows.length?`<table><thead><tr><th>Data</th><th>Fonte real</th><th>Descrição / documento</th><th>Tipo</th><th>Linha</th><th class="num">Valor</th><th></th></tr></thead><tbody>${rows.slice(0,500).map(r=>{
     const c=classify(r.t), tipo=receitaTipo(r.t,c);
-    return `<tr><td>${r.t.d}</td><td><b>${esc(receitaFonte(r.t))}</b><div class="desc">beneficiada: ${esc(r.t.f||'LNB')}</div></td><td>${r.t.dc?('<div class="desc">'+esc(r.t.dc)+'</div>'):''}${esc(r.t.ds)}</td><td><span class="chip ok">${esc(tipo)}</span></td><td>${esc(r.lbl||'—')}</td><td class="num" style="color:var(--ok)">${fmt2(r.t.e)}</td><td style="white-space:nowrap">${txRealocBtn(r.t)}</td></tr>`;
+    return `<tr><td>${brDate(r.t.d)}</td><td><b>${esc(receitaFonte(r.t))}</b><div class="desc">beneficiada: ${esc(r.t.f||'LNB')}</div></td><td>${r.t.dc?('<div class="desc">'+esc(r.t.dc)+'</div>'):''}${esc(r.t.ds)}</td><td><span class="chip ok">${esc(tipo)}</span></td><td>${esc(r.lbl||'—')}</td><td class="num" style="color:var(--ok)">${fmt2(r.t.e)}</td><td style="white-space:nowrap">${txRealocBtn(r.t)}</td></tr>`;
   }).join('')}</tbody></table>${rows.length>500?`<div class="desc">Mostrando 500 de ${rows.length} lançamentos — refine a busca.</div>`:''}`:'<div class="desc">Nenhuma receita encontrada para o filtro/período atual.</div>';
 }
 function renderRecTrfList(){
@@ -5580,7 +5584,7 @@ function renderRecTrfList(){
   });
   rows.sort((a,b)=>String(b.d).localeCompare(String(a.d)));
   const tot=rows.reduce((s,t)=>s+t.e,0);
-  box.innerHTML=rows.length?`<div class="how" style="margin-bottom:6px">${rows.length} transferência(s) · total ${fmt2(tot)}</div><table><thead><tr><th>Data</th><th>Descrição da transferência</th><th class="num">Valor</th><th>Ação</th></tr></thead><tbody>${rows.slice(0,200).map(t=>`<tr><td>${t.d}</td><td>${esc(t.ds)}</td><td class="num" style="color:var(--tx2)">${fmt2(t.e)}</td><td>${txRealocBtn(t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Nenhuma transferência entre contas no período.</div>';
+  box.innerHTML=rows.length?`<div class="how" style="margin-bottom:6px">${rows.length} transferência(s) · total ${fmt2(tot)}</div><table><thead><tr><th>Data</th><th>Descrição da transferência</th><th class="num">Valor</th><th>Ação</th></tr></thead><tbody>${rows.slice(0,200).map(t=>`<tr><td>${brDate(t.d)}</td><td>${esc(t.ds)}</td><td class="num" style="color:var(--tx2)">${fmt2(t.e)}</td><td>${txRealocBtn(t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Nenhuma transferência entre contas no período.</div>';
 }
 function renderDept(){
   const a=curDept;const r=realized(curM);
@@ -5652,7 +5656,7 @@ function renderSupTable(){
   const shown=rows.slice(0,100);
   document.getElementById('sup-table').innerHTML=`<table><thead><tr><th>Data</th><th>Favorecido</th><th>Descrição</th><th class="num">Valor</th><th>Destino</th><th></th></tr></thead><tbody>${
    shown.map(t=>{const c=classify(t);
-    return `<tr><td style="white-space:nowrap">${t.d.slice(8)}/${t.d.slice(5,7)}</td><td class="fav">${esc(t.f)}</td>
+    return `<tr><td style="white-space:nowrap">${brDate(t.d)}</td><td class="fav">${esc(t.f)}</td>
      <td class="desc">${esc(t.ds)}${t.ev?' · <b>'+t.ev+'</b>':''}</td>
      <td class="num" style="color:${t.s>0?'var(--er)':'var(--ok)'}">${t.s>0?'− '+fmt2(t.s):'+ '+fmt2(t.e)}</td><td>${destChip(c)}</td><td>${txRealocBtn(t)}</td></tr>`;}).join('')
   }</tbody></table>${rows.length>100?'<div class="desc" style="margin-top:6px">Mostrando 100 de '+rows.length+' — refine com a busca.</div>':''}`;
@@ -5711,7 +5715,7 @@ function renderTable(){
     const val=t.s>0?'− '+fmt2(t.s):'+ '+fmt2(t.e);
     return `<tr class="txrow" draggable="true" data-id="${t.id}">
       <td><input type="checkbox" class="selbox txsel" data-id="${t.id}" onclick="event.stopPropagation()" onchange="updateBulkMsg()"></td>
-      <td style="white-space:nowrap">${t.d.slice(8)}/${t.d.slice(5,7)}</td>
+      <td style="white-space:nowrap">${brDate(t.d)}</td>
       <td><div class="fav">${esc(t.f)}</div><div class="desc">${t.dc?esc(t.dc)+' · ':''}${esc(t.ds)}${t.ev?' · <b>'+t.ev+'</b>':''}</div></td>
       <td class="num" style="color:${t.s>0?'var(--er)':'var(--ok)'}">${val}</td>
       <td>${destChip(c)}<div id="sp-${cssid(t.id)}"></div></td>
@@ -6587,7 +6591,7 @@ function renderBank(){
   const qDesc=norm(document.getElementById('bank-desc')?.value||'');
   const qFav=norm(document.getElementById('bank-fav')?.value||'');
   const f=fixes.filter(t=>(!qDoc||norm(t.dc).includes(qDoc))&&(!qDesc||norm(t.ds).includes(qDesc))&&(!qFav||norm(t.f).includes(qFav))).slice(0,300);
-  document.getElementById('bank-flowfix').innerHTML=f.length?`<table><thead><tr><th>Mês</th><th>Data</th><th>Documento</th><th>Lançamento</th><th class="num">Entrada (extrato)</th><th class="num">Saída (extrato)</th><th>Alerta</th><th></th></tr></thead><tbody>${f.map(t=>`<tr class="flowfix"><td class="date-cell">${mlabel(t.m)}</td><td class="date-cell">${t.d.slice(8)}/${t.d.slice(5,7)}/${t.d.slice(2,4)}</td><td>${esc(t.dc||'—')}</td><td><b>${esc(t.f)}</b><div class="desc">${esc(t.ds)}</div></td><td class="num" style="color:var(--ok)">${t.e?fmt2(t.e):''}</td><td class="num" style="color:var(--er)">${t.s?fmt2(t.s):''}</td><td><span class="chip wn">${t.flowSuspect==='entrada_deveria_ser_saida'?'descrição sugere saída, extrato diz entrada':'descrição sugere entrada, extrato diz saída'} — mantido conforme extrato</span></td><td>${txRealocBtn(t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Nenhum alerta de possível inversão para o filtro atual.</div>';
+  document.getElementById('bank-flowfix').innerHTML=f.length?`<table><thead><tr><th>Mês</th><th>Data</th><th>Documento</th><th>Lançamento</th><th class="num">Entrada (extrato)</th><th class="num">Saída (extrato)</th><th>Alerta</th><th></th></tr></thead><tbody>${f.map(t=>`<tr class="flowfix"><td class="date-cell">${mlabel(t.m)}</td><td class="date-cell">${brDate(t.d)}</td><td>${esc(t.dc||'—')}</td><td><b>${esc(t.f)}</b><div class="desc">${esc(t.ds)}</div></td><td class="num" style="color:var(--ok)">${t.e?fmt2(t.e):''}</td><td class="num" style="color:var(--er)">${t.s?fmt2(t.s):''}</td><td><span class="chip wn">${t.flowSuspect==='entrada_deveria_ser_saida'?'descrição sugere saída, extrato diz entrada':'descrição sugere entrada, extrato diz saída'} — mantido conforme extrato</span></td><td>${txRealocBtn(t)}</td></tr>`).join('')}</tbody></table>`:'<div class="desc">Nenhum alerta de possível inversão para o filtro atual.</div>';
   ['bank-doc','bank-desc','bank-fav'].forEach(id=>{const el=document.getElementById(id); if(el&&!el._bound){el._bound=1;el.oninput=renderBank;}});
   renderBankVerdict(curM==='ALL'?rows:rows.filter(r=>r.m===curM),bankLabel);
   renderBankLedger();
@@ -6659,7 +6663,7 @@ function renderBankLedger(){
   const filtered=rows.filter(r=>(!qDoc||norm(r.t.dc).includes(qDoc))&&(!qDesc||norm(r.t.ds).includes(qDesc))&&(!qFav||norm(r.t.f).includes(qFav)));
   box.innerHTML=filtered.length?`<table><thead><tr>${isAll?'<th>Mês</th>':''}<th>Data</th><th>Documento</th><th>Favorecido / descrição</th><th>Classificação</th><th class="num">Entrada</th><th class="num">Saída</th><th class="num">Saldo corrido</th><th></th></tr></thead><tbody>${filtered.map(r=>{
     const c=classify(r.t);
-    return `<tr class="${r.t.flowSuspect?'bank-ledger-row-warn':''}">${isAll?`<td>${mlabel(r.mes)}</td>`:''}<td>${r.t.d}</td><td>${esc(r.t.dc||'—')}</td><td><b>${esc(r.t.f)}</b><div class="desc">${esc(r.t.ds)}</div></td><td>${destChip(c)}</td><td class="num" style="color:var(--ok)">${r.t.e?fmt2(r.t.e):''}</td><td class="num" style="color:var(--er)">${r.t.s?fmt2(r.t.s):''}</td><td class="num">${fmt2(r.saldo)}</td><td>${txRealocBtn(r.t)}</td></tr>`;
+    return `<tr class="${r.t.flowSuspect?'bank-ledger-row-warn':''}">${isAll?`<td>${mlabel(r.mes)}</td>`:''}<td>${brDate(r.t.d)}</td><td>${esc(r.t.dc||'—')}</td><td><b>${esc(r.t.f)}</b><div class="desc">${esc(r.t.ds)}</div></td><td>${destChip(c)}</td><td class="num" style="color:var(--ok)">${r.t.e?fmt2(r.t.e):''}</td><td class="num" style="color:var(--er)">${r.t.s?fmt2(r.t.s):''}</td><td class="num">${fmt2(r.saldo)}</td><td>${txRealocBtn(r.t)}</td></tr>`;
   }).join('')}</tbody></table>`:'<div class="desc">Nenhum lançamento encontrado para o filtro atual.</div>';
 }
 
@@ -9897,7 +9901,7 @@ function iaReceitas(q){
     months.forEach(mm=>{const rm=realized(mm);out+=`• ${mlabel(mm)}: ${iaMoney((rm.A.REC||0)+(rm.A.OREC||0))}\n`;});
   }else out+=`• Total classificado como receita/outras receitas: ${iaMoney((r.A.REC||0)+(r.A.OREC||0))}\n`;
   const top=iaTopEntries(m,8);
-  if(top.length){out+='\nPrincipais entradas:\n';top.forEach((x,i)=>{out+=`${i+1}. ${x.d}: ${iaMoney(x.v)} (${x.n} lançamento${x.n>1?'s':''})\n`;});}
+  if(top.length){out+='\nPrincipais entradas:\n';top.forEach((x,i)=>{out+=`${i+1}. ${brDate(x.d)}: ${iaMoney(x.v)} (${x.n} lançamento${x.n>1?'s':''})\n`;});}
   return out.trim();
 }
 function iaFavorecidos(q){
