@@ -5370,9 +5370,15 @@ async function cancelarCompromisso(compromissoId){
   const c=compromissos.find(x=>x.id===compromissoId);
   if(!c)return;
   const pendentes=(c.parcelas||[]).filter(p=>p.status==='pendente').length;
-  if(!confirm(`Cancelar o compromisso "${c.documento||c.codigo}" (${c.fornecedor||'sem fornecedor'})?\n\n${pendentes} parcela(s) ainda pendente(s) deixam de contar como Comprometido no orçamento. Nenhum lançamento real já importado é apagado — isso só encerra o controle do parcelamento.`))return;
-  c.status='cancelado';
+  if(!confirm(`Cancelar o compromisso "${c.documento||c.codigo}" (${c.fornecedor||'sem fornecedor'})?\n\n${pendentes} parcela(s) ainda pendente(s) deixam de contar como Comprometido no orçamento. Nenhum lançamento real já importado é apagado — só o controle do parcelamento é excluído definitivamente (inclusive no Supabase).`))return;
+  compromissos=compromissos.filter(x=>x.id!==compromissoId);
   save('compromissos',compromissos);
+  try{
+    await supaDelete('compromissos','id=eq.'+encodeURIComponent(compromissoId));
+  }catch(e){
+    console.error('Falha ao excluir compromisso no Supabase (ficou removido só neste navegador por enquanto):',e);
+    alert('O compromisso foi removido aqui, mas houve falha ao excluir no Supabase: '+e.message+'\n\nAo recarregar a página ele pode voltar — tente cancelar de novo com internet estável.');
+  }
   render();
 }
 // Linha-resumo do compromisso, no lugar do lançamento "mãe": em vez de
