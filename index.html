@@ -11487,9 +11487,34 @@ async function revidImportDireto(){
   // dos KPIs/cálculos), mas continuam presentes na tabela para aparecer na
   // Conciliação Bancária / Movimentação do extrato, senão a prova de saldo
   // (inicial + entradas − saídas = final) fica sem essas linhas.
-  const candidatas = revidState.rows.filter(r=>r.isTransfer || r.id);
+  let candidatas = revidState.rows.filter(r=>r.isTransfer || r.id);
   if(!candidatas.length){
     alert('Nenhuma linha classificada (com ID) nem transferência para importar.');
+    return;
+  }
+  // Bloqueio real de duplicata contra o que já existe no sistema (mesmo
+  // mês+data+favorecido+entrada+saída) — o badge ⚠ na tabela é só um aviso
+  // visual que dá pra ignorar sem querer; sem essa checagem aqui, reimportar
+  // a mesma planilha de teste (ou a mesma linha corrigida) cria cópias soltas
+  // em vez de ser ignorado, porque supaInsertIgnoreDup sem on_conflict não
+  // bloqueia nada no banco.
+  const existingByKeyImp=new Map();
+  txs.forEach(t=>{ const k=existingTxKey(t); if(!existingByKeyImp.has(k))existingByKeyImp.set(k,0); existingByKeyImp.set(k,existingByKeyImp.get(k)+1); });
+  const seenThisImportRun=new Map();
+  let jaExistiamCount=0;
+  candidatas=candidatas.filter(r=>{
+    const d=revidExcelSerialToDate(r.dataRaw);
+    if(!d)return true; // sem data válida, deixa passar pro erro específico de data mais adiante
+    const dataStr=d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+    const m=dataStr.slice(0,7);
+    const key=m+'|'+dataStr+'|'+norm(r.favorecido||'').slice(0,18)+'|'+r2(Number(r.entrada)||0)+'|'+r2(Number(r.saida)||0);
+    const ocorrencia=(seenThisImportRun.get(key)||0)+1;
+    seenThisImportRun.set(key,ocorrencia);
+    if(ocorrencia<=(existingByKeyImp.get(key)||0)){ jaExistiamCount++; return false; }
+    return true;
+  });
+  if(!candidatas.length){
+    alert('Todas as linhas selecionadas já existem no sistema (mesmo mês, data, favorecido, entrada e saída) — nada novo para importar.');
     return;
   }
   const semId = revidState.rows.filter(r=>!r.isTransfer && !r.id).length;
@@ -11505,6 +11530,7 @@ async function revidImportDireto(){
   const confirmMsg = [
     `Você está prestes a importar ${candidatas.length} lançamento(s) DIRETO no sistema (tabela realizado).`,
     `Entradas: R$ ${revidFmtMoney(totIn)} · Saídas: R$ ${revidFmtMoney(totOut)}`,
+    jaExistiamCount ? `${jaExistiamCount} linha(s) já existiam no sistema (mesmo mês/data/favorecido/entrada/saída) e foram ignoradas automaticamente — não entram de novo.` : '',
     dupCount ? `⚠ ${dupCount} dessas linhas estão marcadas como possível duplicata (badge ⚠ na tabela) — revise antes de continuar, se ainda não revisou.` : '',
     transferCount ? `${transferCount} transferência(s) interna(s) entram também, sem classificação orçamentária (só para constar na Conciliação Bancária).` : '',
     semId ? `${semId} linha(s) sem ID ainda NÃO serão importadas — classifique-as antes, ou importe agora e faça o resto depois.` : '',
