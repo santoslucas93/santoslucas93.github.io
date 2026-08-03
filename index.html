@@ -9005,6 +9005,38 @@ async function importNewSeasonRealizado(file, raw){
       });
       pruned=before-imported.length;
       if(pruned)store.setItem('lnb3_imported',JSON.stringify(imported));
+      // Auto-cura também dos compromissos de parcelamento: se o lançamento
+      // que abriu um compromisso (a 1ª parcela paga) não existe mais no
+      // Realizado — porque foi apagado pela Lixeira, por "Substituir tudo
+      // desta conta" etc. — o compromisso ficou órfão e precisa sumir junto,
+      // em vez de continuar aparecendo com "Comprometido" fantasma. Roda a
+      // cada sincronização ao vivo, então qualquer exclusão de Realizado se
+      // reflete aqui sem precisar de nenhuma ação manual extra.
+      try{
+        const existingBuckets=new Map();
+        const addToBucket=t=>{
+          const k=t.m+'|'+t.d+'|'+norm(t.f).slice(0,18);
+          if(!existingBuckets.has(k))existingBuckets.set(k,[]);
+          existingBuckets.get(k).push(t);
+        };
+        DB.txs.forEach(addToBucket);
+        imported.forEach(addToBucket);
+        const orfaos=compromissos.filter(c=>{
+          if(c.status==='cancelado')return false;
+          const p1=(c.parcelas||[]).find(p=>p.numero===1);
+          if(!p1||!p1.vencimento)return false;
+          const m=p1.vencimento.slice(0,7);
+          const k=m+'|'+p1.vencimento+'|'+norm(c.fornecedor||'').slice(0,18);
+          const bucket=existingBuckets.get(k)||[];
+          const valor=r2(p1.valorPago==null?0:p1.valorPago);
+          return !bucket.some(t=>r2(t.e)===valor||r2(t.s)===valor);
+        });
+        if(orfaos.length){
+          compromissos=compromissos.filter(c=>!orfaos.includes(c));
+          save('compromissos',compromissos);
+          Promise.all(orfaos.map(c=>supaDelete('compromissos','id=eq.'+encodeURIComponent(c.id)).catch(e=>console.error('Falha ao excluir compromisso órfão '+c.id+':',e))));
+        }
+      }catch(errOrfao){ console.error('Falha na auto-cura de compromissos órfãos:', errOrfao); }
     }
     const stats={added,decided,duplicated,skipped,abatidos,idCorrigidosEmDuplicata,pruned,monthsTouched:[...monthsTouched]};
     if(!added&&!duplicated&&!skipped){if(msg&&!live)msg.textContent='Nenhuma linha válida encontrada.';return stats;}
