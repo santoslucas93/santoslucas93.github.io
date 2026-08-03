@@ -10905,6 +10905,15 @@ function revidEsc(s){ return esc(s); }
 function revidKnownParcCodes(excludeIdx){
   const set = new Set();
   revidState.rows.forEach(r=>{ if(r.parcCodigo && r.idx!==excludeIdx) set.add(r.parcCodigo); });
+  // Também conta como "já conhecido" um código que já tem compromisso ATIVO
+  // salvo no sistema (de uma importação anterior) — sem isso, ao reabrir o
+  // parcelamento numa planilha nova/recarregada, o código parecia "novo" e
+  // pedia total/nº de parcelas de novo, mas como o usuário não preenchia
+  // (achando que já tinha sido definido antes), a importação direta ficava
+  // sem valor total nem nº de parcelas e simplesmente não fazia nada.
+  if(typeof compromissos!=='undefined'){
+    compromissos.forEach(c=>{ if(c.status==='ativo'&&c.codigo) set.add(c.codigo); });
+  }
   return [...set];
 }
 function revidOpenParcModal(idx){
@@ -11565,7 +11574,19 @@ async function revidImportDireto(){
     let parcMsg = '';
     if(parcEvents.length){
       try{
+        const falhas=[];
         parcEvents.forEach(ev=>{
+          const jaAtivo=compromissos.some(x=>norm(x.codigo)===norm(ev.codigo)&&x.status==='ativo');
+          // Se o código não corresponde a nenhum compromisso ativo já existente
+          // E faltou valor total/nº de parcelas, registrarPagamentoParcelamento
+          // não faz NADA silenciosamente — detecta isso ANTES pra avisar em vez
+          // de deixar o usuário achando que funcionou (foi exatamente o que
+          // aconteceu quando o código ficou marcado como "já conhecido" só
+          // localmente, sem compromisso ativo de verdade no sistema).
+          if(!jaAtivo && (!ev.valorTotalDeclarado || !ev.nParcelasDeclarado || ev.nParcelasDeclarado<1)){
+            falhas.push(ev.codigo);
+            return;
+          }
           registrarPagamentoParcelamento(
             ev.codigo, ev.linha,
             {d: ev.data, id: 'revid-'+ev.codigo+'-'+ev.data+'-'+Math.random().toString(36).slice(2)},
@@ -11573,7 +11594,9 @@ async function revidImportDireto(){
           );
         });
         save('compromissos', compromissos);
-        parcMsg = `\n\n${parcEvents.length} lançamento(s) de compra parcelada processado(s) — confira o compromisso na linha do orçamento (ele cria as parcelas futuras como Comprometido).`;
+        const processados=parcEvents.length-falhas.length;
+        if(processados)parcMsg += `\n\n${processados} lançamento(s) de compra parcelada processado(s) — confira o compromisso na linha do orçamento (ele cria as parcelas futuras como Comprometido).`;
+        if(falhas.length)parcMsg += `\n\n⚠ O código "${falhas.join('", "')}" não tinha compromisso ativo no sistema nem valor total/nº de parcelas preenchidos aqui — o parcelamento NÃO foi registrado. Reabra "Compra parcelada" nesta linha, preencha valor total e nº de parcelas de novo, e importe outra vez.`;
       }catch(errParc){
         console.error('Falha ao registrar compromisso de parcelamento (Revisão de IDs):', errParc);
         parcMsg = '\n\nAtenção: os lançamentos foram importados, mas o compromisso de parcelamento NÃO foi criado — confira em Compromissos/Comprometido e refaça se necessário.';
