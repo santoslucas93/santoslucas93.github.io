@@ -11495,6 +11495,11 @@ async function revidImportDireto(){
   const semId = revidState.rows.filter(r=>!r.isTransfer && !r.id).length;
   const transferCount = revidState.rows.filter(r=>r.isTransfer).length;
   const dupCount = candidatas.filter(r=>r.possibleDup).length;
+  // Linha(s) marcadas com "Compra parcelada" mas SEM ID de orçamento: como
+  // toda a linha fica de fora da importação (sem ID não vira lançamento),
+  // o parcelamento dela também não seria processado — avisa ANTES, porque
+  // silenciosamente nenhum compromisso seria criado pra essas.
+  const parcSemId = revidState.rows.filter(r=>!r.isTransfer && !r.id && r.parcCodigo).length;
   let totIn=0, totOut=0;
   candidatas.forEach(r=>{ totIn+=Number(r.entrada)||0; totOut+=Number(r.saida)||0; });
   const confirmMsg = [
@@ -11503,6 +11508,7 @@ async function revidImportDireto(){
     dupCount ? `⚠ ${dupCount} dessas linhas estão marcadas como possível duplicata (badge ⚠ na tabela) — revise antes de continuar, se ainda não revisou.` : '',
     transferCount ? `${transferCount} transferência(s) interna(s) entram também, sem classificação orçamentária (só para constar na Conciliação Bancária).` : '',
     semId ? `${semId} linha(s) sem ID ainda NÃO serão importadas — classifique-as antes, ou importe agora e faça o resto depois.` : '',
+    parcSemId ? `⚠ ${parcSemId} linha(s) marcada(s) como "Compra parcelada" NÃO têm ID de orçamento — o parcelamento delas NÃO será registrado nesta importação (defina o ID antes de importar).` : '',
     '',
     'Esta ação grava direto na base de dados em produção. Confirmar importação?'
   ].filter(Boolean).join('\n');
@@ -11554,6 +11560,8 @@ async function revidImportDireto(){
           codigo: String(r.parcCodigo).trim(),
           linha: ref,
           data: dataStr,
+          favorecido: (r.favorecido||'').trim(),
+          documento: (r.documento||'').trim(),
           valorPago: valorLancamento,
           valorTotalDeclarado: r.parcTotal!=='' && r.parcTotal!=null ? Number(r.parcTotal) : null,
           nParcelasDeclarado: r.parcN!=='' && r.parcN!=null ? parseInt(r.parcN,10) : null
@@ -11589,7 +11597,7 @@ async function revidImportDireto(){
           }
           registrarPagamentoParcelamento(
             ev.codigo, ev.linha,
-            {d: ev.data, id: 'revid-'+ev.codigo+'-'+ev.data+'-'+Math.random().toString(36).slice(2)},
+            {d: ev.data, f: ev.favorecido, dc: ev.documento, id: 'revid-'+ev.codigo+'-'+ev.data+'-'+Math.random().toString(36).slice(2)},
             ev.valorPago, ev.valorTotalDeclarado, ev.nParcelasDeclarado
           );
         });
