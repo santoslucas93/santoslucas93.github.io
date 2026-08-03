@@ -5624,7 +5624,12 @@ function groupsHTML(a,r,showZero=false){
     const noLine=gr-gl.reduce((s,l)=>s+(r.L[l.id]||0),0);
     const noRows=txDetailRows(a,g,null,'groupNoLine');
     const noKey=a+'|'+(g||'__none');
-    inner+=`<details class="grp"><summary><div><b>${esc(g)}</b></div>${sumbar(gp,gr)}</summary>
+    // Se a linha aberta (ex.: vinda do clique no gráfico "Principais linhas do
+    // orçamento") pertence a este grupo, o próprio grupo já nasce expandido —
+    // setar .open via JS depois do render é tarde demais/pouco confiável
+    // (o <details> some some assim que a página troca de aba de novo).
+    const groupHasOpenLine=gl.some(l=>l.id===openLineId);
+    inner+=`<details class="grp"${groupHasOpenLine?' open':''}><summary><div><b>${esc(g)}</b></div>${sumbar(gp,gr)}</summary>
       <div class="inner"><table><thead><tr><th>Linha</th><th class="num">orçado</th><th class="num">realizado</th><th class="num">%</th></tr></thead><tbody>${items}
       ${Math.abs(noLine)>0.01?`<tr id="nogrp-${cssid(noKey)}" class="missing-link ${openGroupKey===noKey?'openline':''}" onclick="goConcMissing('${a}','${esc(g)}')"><td><span class="detlink">alocado no grupo, sem linha definida</span><div class="how">realizado sem amarração a uma linha específica do orçamento</div><div class="missing-cta">Clique para corrigir na Conciliação →</div></td><td class="num">—</td><td class="num">${fmt(noLine)}</td><td class="num">—</td></tr><tr id="det-noline-${cssid(noKey)}" class="line-detail ${openGroupKey===noKey?'':'hide'}"><td colspan="4">${detailHTML(noRows)}</td></tr>`:''}</tbody></table></div></details>`;
   });
