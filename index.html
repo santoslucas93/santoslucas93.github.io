@@ -5601,7 +5601,7 @@ function renderSaldoBancoQuickcard(){
 }
 
 function goDeptView(a,scrollId){curV='dept';curDept=a||curDept;openLineId=null;openGroupKey=null;render();window.scrollTo(0,0);if(scrollId)scrollToId(scrollId);}
-function openLine(a,lid){curV='dept';curDept=a;openLineId=lid;openGroupKey=null;render();setTimeout(()=>{const el=document.getElementById('line-'+lid);if(el){el.scrollIntoView({behavior:'smooth',block:'center'});}},60);}
+function openLine(a,lid){curV='dept';curDept=a;openLineId=lid;openGroupKey=null;render();setTimeout(()=>{const el=document.getElementById('line-'+lid);if(el){const det=el.closest('details');if(det)det.open=true;el.scrollIntoView({behavior:'smooth',block:'center'});}},60);}
 function openUnallocated(a,g){curV='dept';curDept=a;openLineId=null;openGroupKey=a+'|'+(g||'__none');render();setTimeout(()=>{const el=document.getElementById('nogrp-'+cssid(openGroupKey));if(el){el.scrollIntoView({behavior:'smooth',block:'center'});}},60);}
 function groupsHTML(a,r,showZero=false){
   const linesA=DB.lines.filter(l=>l.area===a&&!isTotalizerLine(l));
