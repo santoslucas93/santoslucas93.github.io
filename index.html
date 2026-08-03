@@ -14,7 +14,12 @@ body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--
 .hero .s{opacity:.75;font-size:13px;margin-top:2px}
 .hero .badges{margin:10px 0 12px;display:flex;gap:8px;flex-wrap:wrap}
 .hero .bdg{font-size:11px;padding:3px 10px;border:1px solid rgba(255,255,255,.16);border-radius:20px;opacity:.85}
-.nav{display:flex;gap:2px;flex-wrap:wrap;max-width:1480px;margin:0 auto}
+/* 24 abas, sempre em 2 linhas, sem rolagem lateral: volta ao fluxo natural
+   (flex-wrap), cada botão numa linha só (sem quebrar o texto), usando toda a
+   largura do cabeçalho (que já é full-bleed, sem max-width) -- com o texto
+   um pouco menor, os 24 botões cabem em exatamente 2 linhas alinhadas. */
+.nav{display:flex;flex-wrap:wrap;gap:2px;width:100%;max-width:none;margin:0;justify-content:center}
+.nav button{white-space:nowrap!important;font-size:12px!important;padding:8px 10px!important;gap:5px!important}
 .nav button{padding:9px 15px;border:none;background:transparent;color:var(--navtx);opacity:.72;cursor:pointer;font-size:13.5px;border-radius:8px 8px 0 0}
 .nav button.on{background:var(--bg);color:var(--tx);opacity:1;font-weight:600;box-shadow:inset 0 -3px 0 var(--brand-yellow)}
 .subnav{display:flex;gap:6px;flex-wrap:wrap;padding:12px 26px 0;max-width:1480px;margin:0 auto}
@@ -317,7 +322,7 @@ body{
   letter-spacing:-.01em;
 }
 .nav button:before{font-size:14px;opacity:.95;filter:drop-shadow(0 1px 0 rgba(0,0,0,.12))}
-.nav button[data-v="home"]:before{content:"⌂"}.nav button[data-v="rec"]:before{content:"💰"}.nav button[data-v="dept"]:before{content:none}.nav button[data-v="sup"]:before{content:none}.nav button[data-v="club"]:before{content:"🤝"}.nav button[data-v="charts"]:before{content:none}.nav button[data-v="budget"]:before{content:none}.nav button[data-v="real"]:before{content:"✅"}.nav button[data-v="conc"]:before{content:"🧩"}.nav button[data-v="bank"]:before{content:"🏦"}.nav button[data-v="structure"]:before{content:"🛠️"}.nav button[data-v="guia"]:before{content:"🧭"}.nav button[data-v="rules"]:before{content:"📋"}.nav button[data-v="audit"]:before{content:"🛡️"}.nav button[data-v="exp"]:before{content:"📤"}.nav button[data-v="trash"]:before{content:"🗑️"}
+.nav button[data-v="home"]:before{content:"⌂"}.nav button[data-v="rec"]:before{content:"💰"}.nav button[data-v="dept"]:before{content:none}.nav button[data-v="sup"]:before{content:none}.nav button[data-v="club"]:before{content:"🤝"}.nav button[data-v="charts"]:before{content:none}.nav button[data-v="budget"]:before{content:none}.nav button[data-v="real"]:before{content:"✅"}.nav button[data-v="conc"]:before{content:"🧩"}.nav button[data-v="bank"]:before{content:"🏦"}.nav button[data-v="structure"]:before{content:"🛠️"}.nav button[data-v="guia"]:before{content:"🧭"}.nav button[data-v="rules"]:before{content:"📋"}.nav button[data-v="audit"]:before{content:"🛡️"}.nav button[data-v="exp"]:before{content:"📤"}.nav button[data-v="revid"]:before{content:"🏷️"}.nav button[data-v="trash"]:before{content:"🗑️"}
 .nav button:hover{background:rgba(255,255,255,.13);transform:translateY(-1px)}
 .nav button.on{
   background:linear-gradient(180deg,var(--bg),color-mix(in srgb,var(--bg) 93%,var(--card)));
@@ -1506,6 +1511,47 @@ body[data-theme="dark"] .chart-label{fill:#e8f1ed!important}
 body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 
 </style>
+<style id="revid-style">
+/* ===== Revisão de IDs — estilos escopados (não afetam o resto do painel) ===== */
+#v-revid table{table-layout:fixed;font-size:11.5px}
+#v-revid th{position:sticky;top:0;background:var(--nav);color:var(--navtx);z-index:2;white-space:normal;overflow-wrap:anywhere;padding:6px}
+#v-revid td{overflow-wrap:anywhere;word-break:break-word;vertical-align:top;padding:4px 6px}
+#v-revid tr.revid-assigned td{background:var(--okbg)}
+#v-revid tr.revid-suggested td{background:var(--wnbg)}
+#v-revid tr.revid-transfer td{background:var(--acbg)}
+#v-revid tr.revid-hidden-row{display:none}
+#v-revid .revid-dropzone{border:2px dashed var(--bd2);border-radius:14px;padding:36px;text-align:center;color:var(--tx3);cursor:pointer;transition:.15s;background:var(--card)}
+#v-revid .revid-dropzone:hover,#v-revid .revid-dropzone.drag{border-color:var(--ac);color:var(--tx);background:var(--acbg)}
+#v-revid .revid-stat{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;min-width:120px}
+#v-revid .revid-stat .n{font-size:18px;font-weight:800}
+#v-revid .revid-stat .l{font-size:11px;color:var(--tx3)}
+#v-revid .revid-idbox{position:relative;min-width:0}
+#v-revid .revid-idbox input{width:100%;background:var(--card);border:1px solid var(--bd2);color:var(--tx);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit}
+#v-revid .revid-idbox .revid-sugg{position:absolute;z-index:20;top:100%;left:0;right:0;max-height:240px;overflow:auto;background:var(--card);border:1px solid var(--ac);border-radius:6px;margin-top:2px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+#v-revid .revid-idbox .revid-sugg div{padding:6px 9px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--bd);color:var(--tx)}
+#v-revid .revid-idbox .revid-sugg div:last-child{border-bottom:none}
+#v-revid .revid-idbox .revid-sugg div:hover,#v-revid .revid-idbox .revid-sugg div.active{background:var(--ac);color:#fff}
+#v-revid .revid-idbox .revid-sugg .revid-empty{color:var(--tx3);cursor:default}
+#v-revid .revid-badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;background:var(--card);border:1px solid var(--bd);color:var(--tx3)}
+#v-revid .revid-badge.ok{color:var(--ok);border-color:var(--ok);background:var(--okbg)}
+#v-revid .revid-badge.wn{color:var(--wn);border-color:var(--wn);background:var(--wnbg)}
+#v-revid .revid-badge.ac{color:var(--ac);border-color:var(--ac);background:var(--acbg)}
+#v-revid .revid-tablewrap{max-height:65vh;overflow:auto;border:1px solid var(--bd);border-radius:10px}
+#v-revid .revid-amt-in{color:var(--ok);font-weight:600}
+#v-revid .revid-amt-out{color:var(--er);font-weight:600}
+#v-revid .revid-muted{color:var(--tx3)}
+#v-revid .revid-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+#v-revid .revid-bulkbar{background:var(--acbg);border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+#v-revid .revid-bulkbar>div{min-width:140px}
+#v-revid .revid-checkline{display:flex;align-items:center;gap:5px;font-size:12.5px}
+#v-revid .revid-undo-link{font-size:11px;color:var(--ac);cursor:pointer;text-decoration:underline;background:none;border:none;padding:0}
+#v-revid .revid-transfer-note{font-size:11px;color:var(--ac)}
+#v-revid select.revid-suggested-field{background:var(--wnbg);border-color:var(--wn)}
+#v-revid .revid-modal-overlay{position:fixed;inset:0;background:rgba(6,15,20,.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px}
+#v-revid .revid-modal-overlay.hide{display:none}
+#v-revid .revid-modal-box{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:20px;width:min(900px,100%);max-height:85vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+#v-revid select,#v-revid input[type=text],#v-revid input[type=date]{background:var(--card);border:1px solid var(--bd2);color:var(--tx);border-radius:6px;padding:6px 9px;font-size:12.5px;font-family:inherit}
+</style>
 </head>
 <body>
 
@@ -1549,6 +1595,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <button data-v="real">Realizado</button>
     <button data-v="conc">Conciliação</button>
     <button data-v="bank">Conciliação Bancária</button>
+    <button data-v="revid">Revisão de IDs</button>
     <button data-v="plan"><span style="opacity:.65;margin-right:5px;font-size:12px">➕</span>Novo Orçado</button>
     <button data-v="structure">Editar Estrutura</button>
     <button data-v="guia">Guia</button>
@@ -1767,6 +1814,10 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <input type="text" id="bank-ledger-doc" placeholder="filtrar por documento" style="flex:1;min-width:140px">
       <input type="text" id="bank-ledger-desc" placeholder="filtrar por descrição" style="flex:1;min-width:140px">
       <input type="text" id="bank-ledger-fav" placeholder="filtrar por favorecido" style="flex:1;min-width:140px">
+      <label style="display:flex;flex-direction:column;gap:2px;font-size:11px">De<input type="date" id="bank-ledger-de" style="min-width:140px"></label>
+      <label style="display:flex;flex-direction:column;gap:2px;font-size:11px">Até<input type="date" id="bank-ledger-ate" style="min-width:140px"></label>
+      <input type="text" id="bank-ledger-id" list="dl-lines" placeholder="filtrar por ID do orçamento…" style="flex:1;min-width:200px">
+      <button class="act" type="button" id="bank-ledger-clear">Limpar filtros</button>
     </div>
     <div id="bank-ledger"></div>
   </div>
@@ -2058,6 +2109,163 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
     <section class="plan-main">
       <div id="plan-dept-body"></div>
     </section>
+  </div>
+</div>
+
+<div id="v-revid" class="hide">
+  <div class="panel" id="revid-step-upload">
+    <h2>1. Importar planilha do banco</h2>
+    <div class="revid-dropzone" id="revid-dropzone">
+      <div>Arraste o arquivo .xls / .xlsx aqui ou clique para selecionar</div>
+      <div class="revid-muted" style="margin-top:6px;font-size:12px">Formato esperado: extrato bancário com colunas DATA, FAVORECIDO, DESCRIÇÃO, DOCUMENTO, ENTRADA, SAÍDA, SALDO</div>
+      <input type="file" id="revid-fileInput" accept=".xls,.xlsx" style="display:none">
+    </div>
+    <div class="toolbar" id="revid-sheetRow" style="margin-top:14px;display:none">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Aba (mês) da planilha
+        <select id="revid-sheetSelect"></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Banco (aplicado a todas as linhas)
+        <select id="revid-bancoSelect"></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Temporada (aplicada a todas as linhas)
+        <input type="text" id="revid-temporadaInput" style="width:120px">
+      </label>
+      <button class="act pri" type="button" id="revid-loadSheetBtn" style="align-self:flex-end">Carregar linhas desta aba</button>
+    </div>
+  </div>
+
+  <div class="revid-modal-overlay hide" id="revid-idsModal">
+    <div class="revid-modal-box">
+      <div class="toolbar" style="justify-content:space-between">
+        <h2 style="margin:0">Linhas do orçamento cadastradas no sistema (<span id="revid-idsModalCount">0</span>)</h2>
+        <button class="act" type="button" id="revid-idsModalClose">Fechar</button>
+      </div>
+      <input type="text" id="revid-idsModalFilter" placeholder="Filtrar por nome, código ou grupo..." style="width:100%;margin-bottom:10px">
+      <div class="revid-tablewrap" style="max-height:60vh">
+        <table>
+          <thead><tr><th>ID</th><th>Departamento</th><th>Grupo</th><th>Linha do orçamento</th></tr></thead>
+          <tbody id="revid-idsModalBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="revid-modal-overlay hide" id="revid-parcModal">
+    <div class="revid-modal-box" style="max-width:480px">
+      <div class="toolbar" style="justify-content:space-between;margin-bottom:4px">
+        <h2 style="margin:0">Compra parcelada</h2>
+        <button class="act" type="button" id="revid-parcModalClose">Fechar</button>
+      </div>
+      <p class="revid-muted" style="margin:0 0 14px;font-size:12.5px">Marque esta linha como uma parcela de uma compra parcelada. Use o mesmo código em todas as parcelas — só a primeira precisa do valor total e do nº de parcelas.</p>
+      <label style="font-size:12px;font-weight:600">Código do parcelamento</label>
+      <input type="text" id="revid-parcCodigoInput" list="revid-parcCodesList" placeholder="ex.: NFS123-HOTEL" style="width:100%;margin:4px 0 12px">
+      <datalist id="revid-parcCodesList"></datalist>
+      <div id="revid-parcNewFields">
+        <label style="font-size:12px;font-weight:600">Valor total da compra parcelada</label>
+        <input type="text" id="revid-parcTotalInput" placeholder="ex.: 3000,00" style="width:100%;margin:4px 0 12px">
+        <label style="font-size:12px;font-weight:600">Nº de parcelas</label>
+        <input type="text" id="revid-parcNInput" placeholder="ex.: 3" style="width:100%;margin:4px 0 12px">
+      </div>
+      <div id="revid-parcExistingNote" class="revid-muted hide" style="font-size:12px;margin-bottom:12px">Código já usado em outra linha desta planilha — não precisa repetir valor total nem nº de parcelas, só o código.</div>
+      <div class="toolbar" style="justify-content:space-between">
+        <button class="act" type="button" id="revid-parcRemoveBtn" style="border-color:var(--er);color:var(--er)">Remover parcelamento desta linha</button>
+        <button class="act pri" type="button" id="revid-parcSaveBtn">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel hide" id="revid-step-review">
+    <h2>2. Revisão — atribuir ID e informações de cada linha</h2>
+    <div class="toolbar" id="revid-provaPanel"></div>
+
+    <div class="revid-toolbar">
+      <div class="toolbar">
+        <div class="revid-stat"><div class="n" id="revid-statTotal">0</div><div class="l">linhas no total</div></div>
+        <div class="revid-stat"><div class="n" id="revid-statDone">0</div><div class="l">com ID confirmado</div></div>
+        <div class="revid-stat"><div class="n" id="revid-statSuggested">0</div><div class="l">sugestão do motor (revisar)</div></div>
+        <div class="revid-stat"><div class="n" id="revid-statPending">0</div><div class="l">sem ID</div></div>
+        <div class="revid-stat"><div class="n" id="revid-statTransfer">0</div><div class="l">transferências internas</div></div>
+      </div>
+      <div class="revid-muted" style="font-size:11.5px;margin:2px 0 4px">Progresso de classificação por mês — quantos lançamentos daquele mês já têm ID confirmado, do total importado para aquele mês:</div>
+      <div class="toolbar" id="revid-periodProgressPanel" style="gap:8px"></div>
+      <div class="toolbar">
+        <div class="revid-checkline"><input type="checkbox" id="revid-onlyPending"><label for="revid-onlyPending">Mostrar só sem ID</label></div>
+        <div class="revid-checkline"><input type="checkbox" id="revid-hideTransfers"><label for="revid-hideTransfers">Ocultar transferências internas</label></div>
+        <div class="revid-checkline"><input type="checkbox" id="revid-onlyTransfers"><label for="revid-onlyTransfers">Mostrar só transferências</label></div>
+        <input type="text" id="revid-quickFilter" placeholder="Filtrar por favorecido/descrição..." style="min-width:200px">
+        <div class="revid-checkline"><label for="revid-dateFrom">Período de:</label><input type="date" id="revid-dateFrom"></div>
+        <div class="revid-checkline"><label for="revid-dateTo">até:</label><input type="date" id="revid-dateTo"></div>
+        <button class="act" type="button" id="revid-clearDateFilterBtn" style="font-size:11.5px;padding:5px 9px">Limpar período</button>
+        <div class="revid-checkline">
+          <label for="revid-idFilterInput">ID do orçamento:</label>
+          <div class="revid-idbox" id="revid-idFilterBox" style="min-width:240px;width:240px">
+            <input type="text" id="revid-idFilterInput" placeholder="Todos os IDs — digite para buscar...">
+            <div class="revid-sugg" id="revid-idFilterSugg" style="display:none"></div>
+          </div>
+          <button type="button" class="act" id="revid-idFilterClearBtn" style="font-size:11.5px;padding:5px 9px;display:none">× limpar</button>
+        </div>
+        <button class="act" type="button" id="revid-btnViewIds">Ver linhas do orçamento</button>
+      </div>
+      <div class="revid-toolbar" id="revid-filterTotalsBar" style="font-size:12.5px;color:var(--tx2);background:var(--acbg);border:1px solid var(--bd);border-radius:10px;padding:8px 12px"></div>
+    </div>
+
+    <div class="revid-bulkbar">
+      <div style="min-width:220px">
+        <label style="font-size:11.5px;color:var(--tx3);font-weight:600;display:block;margin-bottom:4px">Ação em massa nos filtrados (<span id="revid-bulkCount">0</span> linha(s) visíveis)</label>
+        <div id="revid-bulkIdBoxWrap"></div>
+      </div>
+      <div>
+        <label style="font-size:11.5px;color:var(--tx3);font-weight:600;display:block;margin-bottom:4px">Competição</label>
+        <select id="revid-bulkComp"></select>
+      </div>
+      <div>
+        <label style="font-size:11.5px;color:var(--tx3);font-weight:600;display:block;margin-bottom:4px">Abatimento</label>
+        <select id="revid-bulkAbat">
+          <option value="__keep__">(não alterar)</option>
+          <option value="sim">Marcar como Sim</option>
+          <option value="nao">Desmarcar</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11.5px;color:var(--tx3);font-weight:600;display:block;margin-bottom:4px">Tipo de reembolso</label>
+        <select id="revid-bulkReemb"></select>
+      </div>
+      <div><button class="act pri" type="button" id="revid-applyBulkBtn">Aplicar aos filtrados</button></div>
+      <div style="border-left:1px solid var(--bd2);padding-left:12px">
+        <label style="font-size:11.5px;color:var(--tx3);font-weight:600;display:block;margin-bottom:4px">Motor de sugestão</label>
+        <div class="toolbar" style="gap:6px;margin:0">
+          <button class="act" type="button" id="revid-suggestBtn">Sugerir IDs nos filtrados</button>
+          <button class="act" type="button" id="revid-undoSuggestBtn" style="border-color:var(--er);color:var(--er)">Desfazer sugestões</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="revid-tablewrap">
+      <table>
+        <colgroup>
+          <col style="width:2.2%"><col style="width:5.5%"><col style="width:9%"><col style="width:8.5%"><col style="width:5%">
+          <col style="width:6%"><col style="width:6%"><col style="width:6%"><col style="width:13.5%"><col style="width:8%">
+          <col style="width:7.5%"><col style="width:9%"><col style="width:13.8%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>#</th><th>Data</th><th>Favorecido</th><th>Descrição</th><th>Documento</th>
+            <th style="text-align:right">Entrada</th><th style="text-align:right">Saída</th><th style="text-align:right">Saldo</th>
+            <th>ID do orçamento</th><th>Competição</th><th>Abatimento</th><th>Tipo reembolso</th><th>Parcelamento</th>
+          </tr>
+        </thead>
+        <tbody id="revid-tbody"></tbody>
+      </table>
+    </div>
+    <div class="toolbar" style="margin-top:14px;justify-content:space-between">
+      <button class="act" type="button" id="revid-backBtn">← Importar outro arquivo</button>
+      <div class="toolbar">
+        <span class="revid-muted" id="revid-autosaveMsg" style="font-size:12px"></span>
+        <button class="act" type="button" id="revid-exportBtn">Exportar planilha classificada (.xlsx)</button>
+        <button class="act pri admin-only" type="button" id="revid-importDbBtn">Importar direto no sistema</button>
+      </div>
+    </div>
+    <div class="note" id="revid-importDbMsg" style="margin-top:8px"></div>
   </div>
 </div>
 
@@ -5401,7 +5609,7 @@ function render(){
   __clearPerfCaches();
   renderMtabs();renderSubnav();
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===curV && (!b.dataset.area||b.dataset.area===curDept) && (!b.dataset.sup||b.dataset.sup===curSup)));
-  ['home','rec','club','dept','sup','conc','bank','audit','rules','guia','dash','plan','exp','real','ia','trash'].forEach(v=>document.getElementById('v-'+v).classList.toggle('hide',v!==curV));
+  ['home','rec','club','dept','sup','conc','bank','audit','rules','guia','dash','plan','exp','real','ia','trash','revid'].forEach(v=>document.getElementById('v-'+v).classList.toggle('hide',v!==curV));
   const provaOk=months.every(m=>{const sal=DB.saldos[m]||{};if(sal.fim==null)return true;
     const mtx=txs.filter(t=>t.m===m);const calc=(sal.ini||0)+mtx.reduce((s,t)=>s+t.e,0)-mtx.reduce((s,t)=>s+t.s,0);
     return Math.abs(calc-sal.fim)<0.02;});
@@ -5420,6 +5628,7 @@ function render(){
   if(curV==='plan'){renderPlan();setTimeout(initPlanGovernance,0);}
   if(curV==='bank'){renderBcFiltroBanco();renderBankConsolidado();renderBankTabs();renderBank();}
   if(curV==='real')renderRealizado();
+  if(curV==='revid')renderRevid();
   requestAnimationFrame(fitKpiValues);
 }
 function renderMtabs(){
@@ -6659,7 +6868,15 @@ function renderBank(){
   ['bank-doc','bank-desc','bank-fav'].forEach(id=>{const el=document.getElementById(id); if(el&&!el._bound){el._bound=1;el.oninput=renderBank;}});
   renderBankVerdict(curM==='ALL'?rows:rows.filter(r=>r.m===curM),bankLabel);
   renderBankLedger();
-  ['bank-ledger-doc','bank-ledger-desc','bank-ledger-fav'].forEach(id=>{const el=document.getElementById(id); if(el&&!el._bound){el._bound=1;el.oninput=renderBankLedger;}});
+  ['bank-ledger-doc','bank-ledger-desc','bank-ledger-fav','bank-ledger-de','bank-ledger-ate','bank-ledger-id'].forEach(id=>{const el=document.getElementById(id); if(el&&!el._bound){el._bound=1;el.oninput=renderBankLedger;}});
+  const clearBtn=document.getElementById('bank-ledger-clear');
+  if(clearBtn&&!clearBtn._bound){
+    clearBtn._bound=1;
+    clearBtn.onclick=()=>{
+      ['bank-ledger-doc','bank-ledger-desc','bank-ledger-fav','bank-ledger-de','bank-ledger-ate','bank-ledger-id'].forEach(id=>{const el=document.getElementById(id); if(el)el.value='';});
+      renderBankLedger();
+    };
+  }
 }
 function renderBankVerdict(rows,bankLabel){
   const el=document.getElementById('bank-verdict'); if(!el) return;
@@ -6693,6 +6910,11 @@ function renderBankLedger(){
   const qDoc=norm(document.getElementById('bank-ledger-doc')?.value||'');
   const qDesc=norm(document.getElementById('bank-ledger-desc')?.value||'');
   const qFav=norm(document.getElementById('bank-ledger-fav')?.value||'');
+  const qDe=(document.getElementById('bank-ledger-de')?.value||'');
+  const qAte=(document.getElementById('bank-ledger-ate')?.value||'');
+  const qIdRaw=(document.getElementById('bank-ledger-id')?.value||'').trim();
+  const qIdMatch=qIdRaw.match(/^#?(\S+)/);
+  const qId=qIdMatch?qIdMatch[1]:'';
   let rows=[], noteTxt='';
   const isAll=curM==='ALL';
   if(isAll){
@@ -6711,8 +6933,7 @@ function renderBankLedger(){
       box.innerHTML='';
       return;
     }
-    const totEnt=rows.reduce((s,r)=>s+(Number(r.t.e)||0),0), totSai=rows.reduce((s,r)=>s+(Number(r.t.s)||0),0);
-    noteTxt=`Temporada (extrato) · ${rows.length} lançamento(s) em ${bmonths.length} mês(es) · entradas ${fmt(totEnt)} · saídas ${fmt(totSai)}`;
+    noteTxt=`Temporada (extrato) · ${bmonths.length} mês(es)`;
   }else{
     const sal=salAll[curM]||{};
     rows=bankLedgerRows(curM,curBank).map(r=>Object.assign({mes:curM},r));
@@ -6721,14 +6942,70 @@ function renderBankLedger(){
       box.innerHTML='';
       return;
     }
-    noteTxt=`${mlabel(curM)} · saldo inicial ${fmt(Number(sal.ini)||0)} · ${rows.length} lançamento(s) do extrato, em ordem cronológica, com saldo corrido calculado a partir do saldo inicial.`;
+    noteTxt=`${mlabel(curM)} · saldo inicial ${fmt(Number(sal.ini)||0)}`;
   }
+  const filtered=rows.filter(r=>{
+    if(qDoc&&!norm(r.t.dc).includes(qDoc))return false;
+    if(qDesc&&!norm(r.t.ds).includes(qDesc))return false;
+    if(qFav&&!norm(r.t.f).includes(qFav))return false;
+    if(qDe&&String(r.t.d)<qDe)return false;
+    if(qAte&&String(r.t.d)>qAte)return false;
+    if(qId){
+      const c=classify(r.t);
+      const bate=(c.splits||[]).some(s=>String(s.l)===qId);
+      if(!bate)return false;
+    }
+    return true;
+  });
+  // Totais sempre a partir do que está filtrado (não do total geral) — assim
+  // qualquer filtro aplicado (documento, descrição, favorecido, período, ID
+  // do orçamento) já totaliza na hora, igual pedido na Revisão de IDs.
+  const filtEnt=filtered.reduce((s,r)=>s+(Number(r.t.e)||0),0), filtSai=filtered.reduce((s,r)=>s+(Number(r.t.s)||0),0);
+  const algumFiltro=qDoc||qDesc||qFav||qDe||qAte||qId;
+  noteTxt+=` · ${filtered.length} lançamento(s)${algumFiltro?' filtrado(s)':''} · entradas ${fmt(filtEnt)} · saídas ${fmt(filtSai)}`;
   if(note)note.textContent=noteTxt;
-  const filtered=rows.filter(r=>(!qDoc||norm(r.t.dc).includes(qDoc))&&(!qDesc||norm(r.t.ds).includes(qDesc))&&(!qFav||norm(r.t.f).includes(qFav)));
-  box.innerHTML=filtered.length?`<table><thead><tr>${isAll?'<th>Mês</th>':''}<th>Data</th><th>Documento</th><th>Favorecido / descrição</th><th>Classificação</th><th class="num">Entrada</th><th class="num">Saída</th><th class="num">Saldo corrido</th><th></th></tr></thead><tbody>${filtered.map(r=>{
+  box.innerHTML=filtered.length?`<table><thead><tr>${isAll?'<th>Mês</th>':''}<th>Data</th><th>Documento</th><th>Favorecido / descrição</th><th>Classificação</th><th class="num">Entrada</th><th class="num">Saída</th><th class="num">Saldo corrido</th><th style="min-width:210px">Realocar</th></tr></thead><tbody>${filtered.map(r=>{
     const c=classify(r.t);
-    return `<tr class="${r.t.flowSuspect?'bank-ledger-row-warn':''}">${isAll?`<td>${mlabel(r.mes)}</td>`:''}<td>${brDate(r.t.d)}</td><td>${esc(r.t.dc||'—')}</td><td><b>${esc(r.t.f)}</b><div class="desc">${esc(r.t.ds)}</div></td><td>${destChip(c)}</td><td class="num" style="color:var(--ok)">${r.t.e?fmt2(r.t.e):''}</td><td class="num" style="color:var(--er)">${r.t.s?fmt2(r.t.s):''}</td><td class="num">${fmt2(r.saldo)}</td><td>${txRealocBtn(r.t)}</td></tr>`;
+    return `<tr class="${r.t.flowSuspect?'bank-ledger-row-warn':''}">${isAll?`<td>${mlabel(r.mes)}</td>`:''}<td>${brDate(r.t.d)}</td><td>${esc(r.t.dc||'—')}</td><td><b>${esc(r.t.f)}</b><div class="desc">${esc(r.t.ds)}</div></td><td>${destChip(c)}</td><td class="num" style="color:var(--ok)">${r.t.e?fmt2(r.t.e):''}</td><td class="num" style="color:var(--er)">${r.t.s?fmt2(r.t.s):''}</td><td class="num">${fmt2(r.saldo)}</td><td>${bankLedgerReallocCell(r.t)}</td></tr>`;
   }).join('')}</tbody></table>`:'<div class="desc">Nenhum lançamento encontrado para o filtro atual.</div>';
+}
+// Realocação direta na "Movimentação do extrato bancário": antes só existia
+// o botão "realocar" que trocava de aba para a Conciliação. Agora dá pra
+// escolher a linha do orçamento aqui mesmo (mesmo datalist #dl-lines já usado
+// em Regras), sem sair da tela — só cai de volta pro botão "abrir na
+// Conciliação" quando o lançamento precisa de rateio entre várias linhas
+// (isso continua exigindo a tela de Conciliação).
+function bankLedgerReallocCell(t){
+  const c=classify(t);
+  if(c.splits&&c.splits.length>1){
+    return txRealocBtn(t,'rateado — abrir na Conciliação');
+  }
+  const cur=c.splits&&c.splits[0]&&c.splits[0].l!=null?('#'+c.splits[0].l+' '+esc(c.splits[0].a||'')):'';
+  const cssid_=cssid(t.id);
+  return `<div class="row" style="gap:4px;flex-wrap:nowrap;align-items:center">
+    <input type="text" list="dl-lines" placeholder="ID do orçamento…" value="${cur}" id="bl-inp-${cssid_}" style="flex:1;min-width:130px;font-size:12px" onkeydown="if(event.key==='Enter'){event.preventDefault();bankLedgerQuickAssign('${esc(t.id)}',this);}">
+    <button type="button" class="act pri" style="font-size:11px;padding:4px 8px" onclick="bankLedgerQuickAssign('${esc(t.id)}',document.getElementById('bl-inp-${cssid_}'))">Salvar</button>
+    <span id="bl-ok-${cssid_}" class="revid-muted" style="font-size:11px;color:var(--ok);display:none">✓ salvo</span>
+    ${txRealocBtn(t,'⋯')}
+  </div>`;
+}
+function bankLedgerQuickAssign(id,inp){
+  const m=inp.value.match(/^#?(\S+)/);
+  if(!m){ inp.value=''; return; }
+  const l=lineById(m[1]);
+  if(!l){ alert('ID do orçamento não encontrado — escolha uma opção da lista já sugerida ao digitar.'); return; }
+  const t=txById(id);
+  if(!t)return;
+  const v=t.s>0?t.s:t.e;
+  decisions[id]=[{a:l.area,g:l.g||'',l:l.id,v}];
+  save('decisions',decisions);
+  favRules[norm(t.f)]={a:l.area,g:l.g||'',l:l.id};
+  save('favrules',favRules);
+  // Feedback visível de que salvou, antes do render() recarregar a tabela
+  // inteira (sem isso, o onchange silencioso deixava dúvida se tinha gravado).
+  const okEl=document.getElementById('bl-ok-'+cssid(id));
+  if(okEl){ okEl.style.display='inline'; }
+  setTimeout(()=>render(),450);
 }
 
 function renderRules(){
@@ -10361,6 +10638,1079 @@ async function lnbBootApp(){
   try{ lnbInitBackupManager(); }catch(e){ console.error('lnbInitBackupManager falhou:', e); }
   lnbEnsureDailyBackup().catch(e=>console.error('lnbEnsureDailyBackup falhou:', e));
 }
+
+// ======================================================================
+// ===== Revisão de IDs — classificação de extrato bancário (aba nova) =====
+// Portado da ferramenta standalone "FERRAMENTA DE REVISÃO DE IDS.html".
+// Usa DB.lines/AREAS (já carregados pelo app) como fonte única da lista de
+// IDs do orçamento — não mantém cópia própria, evitando desalinhamento com
+// a estrutura de verdade do sistema. Lançamentos aqui classificados são
+// SEMPRE novos (ainda não existem em `realizado`) — ao "Importar direto no
+// sistema", cada linha vira uma inserção em `realizado` já totalmente
+// classificada, no mesmo formato do Lançamento Manual (ver
+// lnbSaveManualRealizado). Não usa tx_decisions nem importRealizadoClassification
+// — esse é o caminho da Conciliação, que classifica lançamentos JÁ existentes
+// em `realizado`; aqui os lançamentos ainda não existem na base.
+(function(){
+// Antes esta lista era texto livre genérico ('Bradesco','Itaú',...), que não
+// batia com as chaves reais das contas do sistema (BANK_ACCOUNTS: 'BRADESCO',
+// 'CEF1', 'CEF2', 'ITAU', 'OURIBANK', 'BB'). Gravar esse texto livre direto no
+// campo 'banco' do realizado quebrava a Conciliação Bancária (bankOf/bankLabel
+// não reconheciam o valor). Agora usa exatamente as mesmas contas cadastradas
+// no sistema (bankList(), inclui contas custom se houver), pelo mesmo padrão
+// do lançamento manual (#ml-banco).
+function revidBankOptions(){ return (typeof bankList==='function') ? bankList() : [{k:'BRADESCO',n:'Bradesco'}]; }
+const REVID_COMPETICAO_OPTIONS = ['','NBB','LDB','Liga Ouro','Jogo das Estrelas','Copa Super 8','Interligas'];
+const REVID_TIPO_REEMB_OPTIONS = ['','Refeição','Pedágio','Transporte','Combustível','Estacionamento'];
+const REVID_LEARNED_MAP_KEY = 'lnbRevid_learnedMappings';
+
+let revidIdRefNorm = [];
+function revidBuildIdRef(){
+  const list = selectableLines().map(l=>({id:String(l.id), area:l.area, g:l.g, n:l.n}));
+  revidIdRefNorm = list.map(r=>({...r, _norm: norm(r.n+' '+r.id+' '+r.g)}));
+}
+function revidIdLabel(idVal){
+  const r = revidIdRefNorm.find(x=>x.id===idVal);
+  return r ? (r.n + ' — ' + r.id) : idVal;
+}
+
+// ===== Detecção de transferência interna (mesma regra do resto do app) =====
+function revidIsInternalTransferRow(r){
+  const x = norm([r.favorecido, r.descricao, r.documento].join(' '));
+  if(x.includes('taxa inscricao')||x.includes('taxa de inscricao')) return false;
+  if(x.includes('rendimento aplicacao')||x.includes('rendimentos aplicacao')) return false;
+  const transferPatterns=['transf da conta','transf para conta','transf do banco','transf para banco','transferencia entre contas','transferencia entre bancos','transferencia bancaria','transf banco','transf para do bradesco'];
+  if(transferPatterns.some(k=>x.includes(k))) return true;
+  const applicationPatterns=['resgate aplicacao','resgate de aplicacao','resgate aplicacao fundos','resgate fundos','resgate fundo','aplicacao fundo','aplicacao fundos','aplicacao fundo sigma','aplicacao cdb','fundo sigma di'];
+  if(applicationPatterns.some(k=>x.includes(k))) return true;
+  if(norm(r.favorecido)==='lnb' && /^aplicacao$/.test(norm(r.descricao||''))) return true;
+  return false;
+}
+function revidEffectiveTransfer(r){
+  return (r.transferOverride===true || r.transferOverride===false) ? r.transferOverride : r.autoIsTransfer;
+}
+function revidSetTransferOverride(r, val){
+  r.transferOverride = val;
+  r.transferOverrideAt = val===null ? null : new Date().toISOString();
+  r.isTransfer = revidEffectiveTransfer(r);
+  revidRenderTable();
+  revidSaveAutosave();
+}
+
+// ===== Memória de decisões passadas (aprendizado local) =====
+function revidLoadLearnedMap(){
+  try{ const raw=localStorage.getItem(REVID_LEARNED_MAP_KEY); const map=raw?JSON.parse(raw):{}; return (map&&typeof map==='object')?map:{}; }catch(e){ return {}; }
+}
+function revidSaveLearnedMap(map){ try{ localStorage.setItem(REVID_LEARNED_MAP_KEY, JSON.stringify(map)); }catch(e){} }
+function revidLearnMapping(row, id){
+  if(!id || !row) return;
+  const map = revidLoadLearnedMap();
+  const fullKey = norm((row.favorecido||'')+' '+(row.descricao||''));
+  const favKey = norm(row.favorecido||'');
+  if(fullKey) map[fullKey] = id;
+  if(favKey) map['fav::'+favKey] = id;
+  revidSaveLearnedMap(map);
+}
+
+// ===== Motor de sugestão (heurístico, roda 100% no navegador) =====
+function revidSuggestIdFor(row){
+  const text = norm(row.favorecido+' '+(row.descricao||''));
+  if(!text) return null;
+  const learned = revidLoadLearnedMap();
+  const favKey = norm(row.favorecido||'');
+  const learnedId = learned[text] || (favKey ? learned['fav::'+favKey] : null);
+  if(learnedId){
+    const ref = revidIdRefNorm.find(x=>x.id===learnedId);
+    if(ref) return ref;
+  }
+  const tokens = [...new Set(text.split(/[\s.,\-\/]+/).filter(t=>t.length>=4))];
+  if(!tokens.length) return null;
+  let best=null, bestScore=0;
+  revidIdRefNorm.forEach(ref=>{
+    let score=0;
+    if(ref._norm.includes(text)||text.includes(ref._norm)) score+=6;
+    tokens.forEach(t=>{ if(ref._norm.includes(t)) score+=1; });
+    if(score>bestScore){bestScore=score;best=ref;}
+  });
+  return bestScore>=2 ? best : null;
+}
+function revidSuggestExtrasFor(row){
+  const text = norm(row.favorecido+' '+(row.descricao||''));
+  let comp = '';
+  for(const c of REVID_COMPETICAO_OPTIONS){ if(c && text.includes(norm(c))){ comp = c; break; } }
+  let tipoReemb = '';
+  for(const t of REVID_TIPO_REEMB_OPTIONS){ if(t && text.includes(norm(t))){ tipoReemb = t; break; } }
+  return {comp, tipoReemb};
+}
+
+function revidExcelSerialToDate(v){
+  if(v==null || v==='') return null;
+  if(v instanceof Date) return v;
+  if(typeof v==='number'){
+    const utc = XLSX.SSF.parse_date_code(v);
+    if(!utc) return null;
+    return new Date(Date.UTC(utc.y, utc.m-1, utc.d));
+  }
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+function revidFmtDate(d){
+  if(!d) return '';
+  const dd = String(d.getUTCDate()).padStart(2,'0');
+  const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+  const yy = d.getUTCFullYear();
+  return `${dd}/${mm}/${yy}`;
+}
+function revidFmtMoney(v){
+  if(v==null || v==='' || isNaN(v)) return '';
+  return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function revidRowContentKey(row){
+  const d = revidExcelSerialToDate(row.dateRaw);
+  const dateStr = d ? revidFmtDate(d) : '';
+  const ent = r2(Number(row.entrada)||0).toFixed(2);
+  const sai = r2(Number(row.saida)||0).toFixed(2);
+  return norm([dateStr, row.documento, row.favorecido, ent, sai].join('|'));
+}
+
+function revidComputeDuplicateFlags(rows){
+  rows.forEach(r=>{ r.possibleDup = null; });
+  const amtOf = r => (Number(r.entrada)||0) - (Number(r.saida)||0);
+  const dateOf = r => revidExcelSerialToDate(r.dataRaw);
+  const favSimilar = (na, nb) => {
+    if(!na || !nb) return false;
+    if(na===nb) return true;
+    const ta = new Set(na.split(/\s+/).filter(t=>t.length>=3));
+    const tb = new Set(nb.split(/\s+/).filter(t=>t.length>=3));
+    if(!ta.size || !tb.size) return false;
+    const inter = [...ta].filter(t=>tb.has(t)).length;
+    const uni = new Set([...ta,...tb]).size;
+    return uni>0 && (inter/uni) >= 0.6;
+  };
+  for(let i=0;i<rows.length;i++){
+    const a = rows[i];
+    const aAmt = amtOf(a);
+    if(Math.abs(aAmt)<0.01) continue;
+    const da = dateOf(a);
+    if(!da) continue;
+    const na = norm(a.favorecido);
+    for(let j=i+1;j<rows.length;j++){
+      const b = rows[j];
+      const bAmt = amtOf(b);
+      if(Math.abs(bAmt)<0.01) continue;
+      if(Math.abs(aAmt-bAmt)>0.01) continue;
+      const db = dateOf(b);
+      if(!db) continue;
+      const diffDays = Math.abs(da.getTime()-db.getTime())/(1000*60*60*24);
+      if(diffDays>2) continue;
+      if(!favSimilar(na, norm(b.favorecido))) continue;
+      if(!a.possibleDup) a.possibleDup = {otherIdx:b.idx};
+      if(!b.possibleDup) b.possibleDup = {otherIdx:a.idx};
+    }
+  }
+}
+
+let revidState = { rows: [], fileName:'', sheetName:'', banco:'', temporada:'', storageKey:'', prova:null };
+let revidWorkbookGlobal = null;
+const revidBulkState = { id:'' };
+let revidInited = false;
+let revidIdFilterValue = '';
+let revidIdFilterActiveIdx = -1;
+let revidIdFilterCurrentMatches = [];
+let revidParcEditingIdx = null;
+
+function revidEsc(s){ return esc(s); }
+
+function revidKnownParcCodes(excludeIdx){
+  const set = new Set();
+  revidState.rows.forEach(r=>{ if(r.parcCodigo && r.idx!==excludeIdx) set.add(r.parcCodigo); });
+  return [...set];
+}
+function revidOpenParcModal(idx){
+  revidParcEditingIdx = idx;
+  const r = revidState.rows[idx];
+  const $ = id=>document.getElementById(id);
+  $('revid-parcCodigoInput').value = r.parcCodigo || '';
+  $('revid-parcTotalInput').value = r.parcTotal || '';
+  $('revid-parcNInput').value = r.parcN || '';
+  $('revid-parcCodesList').innerHTML = revidKnownParcCodes(idx).map(c=>`<option value="${revidEsc(c)}">`).join('');
+  revidUpdateParcFieldsVisibility();
+  $('revid-parcModal').classList.remove('hide');
+  $('revid-parcCodigoInput').focus();
+}
+function revidUpdateParcFieldsVisibility(){
+  const code = document.getElementById('revid-parcCodigoInput').value.trim();
+  const isExisting = code && revidKnownParcCodes(revidParcEditingIdx).includes(code);
+  document.getElementById('revid-parcNewFields').classList.toggle('hide', isExisting);
+  document.getElementById('revid-parcExistingNote').classList.toggle('hide', !isExisting);
+}
+
+function revidRenderIdsModal(term){
+  const q = norm(term);
+  const list = q ? revidIdRefNorm.filter(r=>r._norm.includes(q)) : revidIdRefNorm;
+  document.getElementById('revid-idsModalCount').textContent = list.length + (q ? (' de '+revidIdRefNorm.length) : '');
+  document.getElementById('revid-idsModalBody').innerHTML = list.map(r=>`<tr><td>${revidEsc(r.id)}</td><td>${revidEsc(AREAS[r.area]||r.area)}</td><td>${revidEsc(r.g)}</td><td>${revidEsc(r.n)}</td></tr>`).join('');
+}
+
+function revidHandleFile(file){
+  revidState.fileName = file.name;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const data = new Uint8Array(e.target.result);
+    revidWorkbookGlobal = XLSX.read(data, {type:'array', cellDates:false});
+    revidPopulateSheetSelect(revidWorkbookGlobal.SheetNames);
+    revidPreselectBanco(file.name);
+    document.getElementById('revid-sheetRow').style.display = 'flex';
+  };
+  reader.readAsArrayBuffer(file);
+}
+function revidPopulateSheetSelect(names){
+  const sheetSelect = document.getElementById('revid-sheetSelect');
+  sheetSelect.innerHTML='';
+  let bestIdx = names.length-1;
+  let bestVal = -1;
+  names.forEach((n,i)=>{
+    const o=document.createElement('option'); o.value=n; o.textContent=n;
+    sheetSelect.appendChild(o);
+    const m = n.trim().match(/^([A-ZÇÃÕa-z]{3})[-]?(\d{4})$/);
+    if(m){
+      const val = parseInt(m[2])*100;
+      if(val>=bestVal){ bestVal=val; bestIdx=i; }
+    }
+  });
+  sheetSelect.selectedIndex = bestIdx;
+}
+function revidPreselectBanco(filename){
+  const f = norm(filename);
+  const bancoSelect = document.getElementById('revid-bancoSelect');
+  const opts = revidBankOptions();
+  let match = opts.find(b=>f.includes(norm(b.n).replace(/[^a-z0-9]/g,''))||f.includes(norm(b.k).replace(/[^a-z0-9]/g,'')));
+  if(!match && f.includes('bradesco')) match=opts.find(b=>b.k==='BRADESCO');
+  if(!match && f.includes('itau')) match=opts.find(b=>b.k==='ITAU');
+  if(!match && (f.includes('bb')||f.includes('brasil'))) match=opts.find(b=>b.k==='BB');
+  if(!match && f.includes('ouribank')) match=opts.find(b=>b.k==='OURIBANK');
+  if(!match && (f.includes('caixa')||f.includes('cef'))) match=opts.find(b=>b.k==='CEF1');
+  bancoSelect.value = match ? match.k : (opts[0] ? opts[0].k : '');
+}
+function revidParseBankSheet(aoa){
+  let headerRowIdx = -1;
+  for(let i=0;i<Math.min(aoa.length,30);i++){
+    const rowStr = norm(aoa[i].join(' '));
+    if(rowStr.includes('data') && rowStr.includes('favorecido')){ headerRowIdx = i; break; }
+  }
+  if(headerRowIdx===-1) return {rows:[],saldoInicial:null,saldoFinal:null,totalEntradasExtrato:0,totalSaidasExtrato:0};
+  const header = aoa[headerRowIdx].map(h=>norm(h));
+  const col = (names)=>{
+    for(const n of names){ const idx = header.findIndex(h=>h.includes(n)); if(idx>=0) return idx; }
+    return -1;
+  };
+  const cData = col(['data']);
+  const cFav = col(['favorecido']);
+  const cDesc = col(['descricao']);
+  const cDoc = col(['documento']);
+  const cEnt = col(['entrada']);
+  const cSai = col(['saida']);
+  const cSaldo = col(['saldo']);
+  const out = [];
+  let saldoInicial=null, saldoFinal=null, totalEntradasExtrato=0, totalSaidasExtrato=0;
+  for(let i=headerRowIdx+1;i<aoa.length;i++){
+    const row = aoa[i];
+    if(!row || row.every(c=>c==='' || c==null)) continue;
+    const fav = (row[cFav]||'').toString().trim();
+    if(!fav) continue;
+    const u = norm(fav);
+    const sld = (cSaldo>=0 && typeof row[cSaldo]==='number') ? row[cSaldo] : null;
+    const e0 = (cEnt>=0 && typeof row[cEnt]==='number') ? row[cEnt] : 0;
+    const s0 = (cSai>=0 && typeof row[cSai]==='number') ? row[cSai] : 0;
+    if(u.includes('saldo inicial')){ if(sld!=null) saldoInicial=sld; continue; }
+    const isColumnSubtotal = u.includes('total') && (u.includes('entrada')||u.includes('saida')||u.includes('saída'));
+    if(isColumnSubtotal) continue;
+    if(u.includes('saldo a transferir')||u.includes('saldo final')||u.startsWith('total')){
+      if(sld!=null) saldoFinal=sld;
+      totalEntradasExtrato = e0;
+      totalSaidasExtrato = s0;
+      break;
+    }
+    out.push({
+      data: row[cData], favorecido: fav,
+      descricao: cDesc>=0 ? (row[cDesc]||'').toString().trim() : '',
+      documento: cDoc>=0 ? (row[cDoc]||'').toString().trim() : '',
+      entrada: cEnt>=0 ? row[cEnt] : '',
+      saida: cSai>=0 ? row[cSai] : '',
+      saldo: (cSaldo>=0 && typeof row[cSaldo]==='number') ? row[cSaldo] : ''
+    });
+  }
+  return {rows:out, saldoInicial, saldoFinal, totalEntradasExtrato: r2(totalEntradasExtrato), totalSaidasExtrato: r2(totalSaidasExtrato)};
+}
+function revidRenderProvaPanel(){
+  const p = revidState.prova || {};
+  const somaEnt = r2(revidState.rows.reduce((a,r)=>a+(Number(r.entrada)||0),0));
+  const somaSai = r2(revidState.rows.reduce((a,r)=>a+(Number(r.saida)||0),0));
+  const calc = (p.saldoInicial!=null) ? r2(p.saldoInicial + somaEnt - somaSai) : null;
+  const confere = (calc!=null && p.saldoFinal!=null) ? Math.abs(calc - p.saldoFinal) < 0.02 : null;
+  const card = (label,val,extra)=>`<div class="revid-stat"><div class="n" style="font-size:14px">${val}</div><div class="l">${label}${extra?' '+extra:''}</div></div>`;
+  document.getElementById('revid-provaPanel').innerHTML = [
+    card('Saldo inicial (extrato)', p.saldoInicial!=null?('R$ '+revidFmtMoney(p.saldoInicial)):'—'),
+    card('Total entradas (lançamentos)', 'R$ '+revidFmtMoney(somaEnt), p.totalEntradasExtrato?('/ extrato: R$ '+revidFmtMoney(p.totalEntradasExtrato)):''),
+    card('Total saídas (lançamentos)', 'R$ '+revidFmtMoney(somaSai), p.totalSaidasExtrato?('/ extrato: R$ '+revidFmtMoney(p.totalSaidasExtrato)):''),
+    card('Saldo final (extrato)', p.saldoFinal!=null?('R$ '+revidFmtMoney(p.saldoFinal)):'—'),
+    confere==null ? '' : `<div class="revid-stat"><div class="n" style="font-size:13px;color:${confere?'var(--ok)':'var(--er)'}">${confere?'✓ Confere':'⚠ Diverge'}</div><div class="l">saldo inicial + entradas − saídas${confere?'':(' = R$ '+revidFmtMoney(calc))}</div></div>`
+  ].join('');
+}
+function revidLoadAutosave(key){
+  try{ const raw = localStorage.getItem(key); if(!raw) return null; return JSON.parse(raw); }catch(e){ return null; }
+}
+function revidSaveAutosave(){
+  try{
+    const byIdx = {}, byContent = {};
+    revidState.rows.forEach(r=>{
+      const hasOverride = (r.transferOverride===true || r.transferOverride===false);
+      if(r.id||r.comp||r.abat||r.tipoReemb||r.parcCodigo||hasOverride){
+        const payload = {
+          id:r.id, sugerido:r.sugerido, comp:r.comp, abat:r.abat, tipoReemb:r.tipoReemb,
+          parcCodigo:r.parcCodigo, parcTotal:r.parcTotal, parcN:r.parcN,
+          compSugerido:r.compSugerido, tipoReembSugerido:r.tipoReembSugerido,
+          transferOverride: hasOverride ? r.transferOverride : null,
+          transferOverrideAt: r.transferOverrideAt || null
+        };
+        byIdx[r.idx] = payload;
+        const ck = revidRowContentKey({dateRaw:r.dataRaw, documento:r.documento, favorecido:r.favorecido, entrada:r.entrada, saida:r.saida});
+        byContent[ck] = payload;
+      }
+    });
+    localStorage.setItem(revidState.storageKey, JSON.stringify({__v:2, byIdx, byContent}));
+    const msgEl=document.getElementById('revid-autosaveMsg');
+    if(msgEl) msgEl.textContent = 'Salvo automaticamente às ' + new Date().toLocaleTimeString('pt-BR');
+  }catch(e){}
+}
+
+function revidIdBox(r, opts){
+  opts = opts || {};
+  const box = document.createElement('div');
+  box.className = 'revid-idbox';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = opts.isBulk ? 'Buscar ID para aplicar em massa...' : 'Digite parte do nome ou código...';
+  input.value = r.id ? revidIdLabel(r.id) : '';
+  const sugg = document.createElement('div');
+  sugg.className = 'revid-sugg';
+  sugg.style.display = 'none';
+  box.appendChild(input);
+  box.appendChild(sugg);
+
+  let activeIdx = -1;
+  let currentMatches = [];
+
+  function showMatches(term){
+    const q = norm(term);
+    currentMatches = q ? revidIdRefNorm.filter(x=>x._norm.includes(q)).slice(0,50) : revidIdRefNorm.slice(0,50);
+    activeIdx = -1;
+    sugg.innerHTML='';
+    if(currentMatches.length===0){
+      const d=document.createElement('div'); d.className='revid-empty'; d.textContent='Nenhum resultado';
+      sugg.appendChild(d);
+    } else {
+      currentMatches.forEach((m,i)=>{
+        const d=document.createElement('div');
+        d.textContent = m.n + '  —  ' + m.id;
+        d.dataset.i = i;
+        d.addEventListener('mousedown', (ev)=>{ ev.preventDefault(); selectMatch(m); });
+        sugg.appendChild(d);
+      });
+    }
+    sugg.style.display='block';
+  }
+  function selectMatch(m){
+    r.id = m.id; r.sugerido = false;
+    input.value = revidIdLabel(m.id);
+    sugg.style.display='none';
+    if(!opts.isBulk){
+      const tr = input.closest('tr');
+      if(tr){ tr.classList.remove('revid-suggested'); tr.classList.add('revid-assigned'); }
+      revidLearnMapping(r, m.id);
+      revidUpdateStats(); revidSaveAutosave(); revidApplyFilters();
+    }
+  }
+  function confirmCurrent(){
+    if(!opts.isBulk && r.id && r.sugerido){
+      r.sugerido = false;
+      const tr = input.closest('tr');
+      if(tr){ tr.classList.remove('revid-suggested'); tr.classList.add('revid-assigned'); }
+      revidLearnMapping(r, r.id);
+      revidUpdateStats(); revidSaveAutosave(); revidApplyFilters();
+    }
+  }
+  input.addEventListener('focus', ()=>showMatches(input.value===revidIdLabel(r.id) ? '' : input.value));
+  input.addEventListener('input', ()=>{
+    if(input.value===''){
+      r.id=''; r.sugerido=false;
+      if(!opts.isBulk){ const tr=input.closest('tr'); if(tr){ tr.classList.remove('revid-assigned','revid-suggested'); } revidUpdateStats(); revidSaveAutosave(); revidApplyFilters(); }
+    }
+    showMatches(input.value);
+  });
+  input.addEventListener('keydown', (ev)=>{
+    const items = sugg.querySelectorAll('div:not(.revid-empty)');
+    if(ev.key==='ArrowDown'){ ev.preventDefault(); activeIdx=Math.min(activeIdx+1, items.length-1); highlight(items); }
+    else if(ev.key==='ArrowUp'){ ev.preventDefault(); activeIdx=Math.max(activeIdx-1,0); highlight(items); }
+    else if(ev.key==='Enter'){
+      ev.preventDefault();
+      if(activeIdx>=0 && currentMatches[activeIdx]){ selectMatch(currentMatches[activeIdx]); }
+      else if(!opts.isBulk && r.id){ confirmCurrent(); }
+      else if(!opts.isBulk && currentMatches.length===1){ selectMatch(currentMatches[0]); }
+      sugg.style.display='none';
+      if(!opts.isBulk){ revidFocusNextRowIdInput(input.closest('tr')); }
+    }
+    else if(ev.key==='Escape'){ sugg.style.display='none'; }
+  });
+  input.addEventListener('blur', ()=>{ setTimeout(()=>{ sugg.style.display='none'; }, 150); });
+  function highlight(items){
+    items.forEach(el=>el.classList.remove('active'));
+    if(items[activeIdx]) { items[activeIdx].classList.add('active'); items[activeIdx].scrollIntoView({block:'nearest'}); }
+  }
+  return box;
+}
+
+function revidRenderTable(){
+  const tbody = document.getElementById('revid-tbody');
+  tbody.innerHTML='';
+  revidState.rows.forEach((r)=>{
+    const tr = document.createElement('tr');
+    tr.dataset.idx = r.idx;
+    if(r.isTransfer) tr.classList.add('revid-transfer');
+    else if((r.id && r.sugerido) || r.compSugerido || r.tipoReembSugerido) tr.classList.add('revid-suggested');
+    else if(r.id) tr.classList.add('revid-assigned');
+    const d = revidExcelSerialToDate(r.dataRaw);
+    const dupBadge = r.possibleDup ? `<span class="revid-badge wn" title="Possível duplicata da linha ${r.possibleDup.otherIdx+1}" style="margin-left:4px">⚠</span>` : '';
+    tr.innerHTML = `
+      <td class="revid-muted">${r.idx+1}${dupBadge}</td>
+      <td>${revidFmtDate(d)}</td>
+      <td>${revidEsc(r.favorecido)}</td>
+      <td>${revidEsc(r.descricao)}</td>
+      <td>${revidEsc(r.documento)}</td>
+      <td style="text-align:right" class="revid-amt-in">${revidFmtMoney(r.entrada)}</td>
+      <td style="text-align:right" class="revid-amt-out">${revidFmtMoney(r.saida)}</td>
+      <td style="text-align:right">${revidFmtMoney(r.saldo)}</td>
+      <td></td>
+      <td></td>
+      <td style="text-align:center"><input type="checkbox" class="revid-abatChk"></td>
+      <td></td>
+      <td></td>
+    `;
+    const idCell = tr.children[8];
+    const overrideNote = (r.transferOverride!=null)
+      ? `<div class="revid-transfer-note" style="margin-top:3px">Classificação manual do usuário${r.transferOverrideAt ? (' em '+new Date(r.transferOverrideAt).toLocaleDateString('pt-BR')) : ''}. <button class="revid-undo-link" data-act="useAuto">usar detecção automática</button></div>`
+      : '';
+    if(r.isTransfer){
+      idCell.innerHTML = `<span class="revid-badge ac">🔁 Transferência interna — não precisa de ID</span><br><button class="revid-undo-link" data-act="markNotTransfer" style="margin-top:4px">não é transferência, quero atribuir ID</button>${overrideNote}`;
+      idCell.querySelector('[data-act="markNotTransfer"]').addEventListener('click', ()=>revidSetTransferOverride(r, false));
+    } else {
+      if(r.sugerido) idCell.appendChild((()=>{const b=document.createElement('span');b.className='revid-badge wn';b.style.display='block';b.style.marginBottom='3px';b.textContent='sugestão do motor';return b;})());
+      idCell.appendChild(revidIdBox(r));
+      const transferMarkDiv = document.createElement('div');
+      transferMarkDiv.style.marginTop = '4px';
+      transferMarkDiv.innerHTML = `<button class="revid-undo-link" data-act="markTransfer">🔁 marcar como transferência interna</button>${overrideNote}`;
+      transferMarkDiv.querySelector('[data-act="markTransfer"]').addEventListener('click', ()=>revidSetTransferOverride(r, true));
+      idCell.appendChild(transferMarkDiv);
+    }
+    const useAutoBtn = idCell.querySelector('[data-act="useAuto"]');
+    if(useAutoBtn) useAutoBtn.addEventListener('click', ()=>revidSetTransferOverride(r, null));
+
+    const compCell = tr.children[9];
+    const compSel = document.createElement('select');
+    REVID_COMPETICAO_OPTIONS.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c||'—';compSel.appendChild(o);});
+    compSel.value = r.comp||'';
+    if(r.compSugerido) compSel.classList.add('revid-suggested-field');
+    compSel.addEventListener('change', ()=>{ r.comp=compSel.value; r.compSugerido=false; compSel.classList.remove('revid-suggested-field'); revidSaveAutosave(); });
+    compCell.appendChild(compSel);
+
+    const abatChk = tr.querySelector('.revid-abatChk');
+    abatChk.checked = !!r.abat;
+    abatChk.addEventListener('change', ()=>{ r.abat=abatChk.checked; revidSaveAutosave(); });
+
+    const reembCell = tr.children[11];
+    const reembSel = document.createElement('select');
+    REVID_TIPO_REEMB_OPTIONS.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t||'—';reembSel.appendChild(o);});
+    reembSel.value = r.tipoReemb||'';
+    if(r.tipoReembSugerido) reembSel.classList.add('revid-suggested-field');
+    reembSel.addEventListener('change', ()=>{ r.tipoReemb=reembSel.value; r.tipoReembSugerido=false; reembSel.classList.remove('revid-suggested-field'); revidSaveAutosave(); });
+    reembCell.appendChild(reembSel);
+
+    const parcCell = tr.children[12];
+    const parcBtn = document.createElement('button');
+    parcBtn.type = 'button';
+    parcBtn.className = 'act';
+    parcBtn.style.fontSize = '10px';
+    parcBtn.style.padding = '3px 6px';
+    parcBtn.style.width = '100%';
+    parcBtn.style.overflow = 'hidden';
+    parcBtn.style.textOverflow = 'ellipsis';
+    if(r.parcCodigo){
+      parcBtn.textContent = '📎 ' + r.parcCodigo;
+      parcBtn.title = 'Parcela: ' + r.parcCodigo;
+      parcBtn.style.background = 'var(--wnbg)';
+      parcBtn.style.borderColor = 'var(--wn)';
+      parcBtn.style.color = 'var(--wn)';
+    } else {
+      parcBtn.textContent = '+ parcela';
+      parcBtn.title = 'Marcar como parcela de compra parcelada';
+    }
+    parcBtn.addEventListener('click', ()=>revidOpenParcModal(r.idx));
+    parcCell.appendChild(parcBtn);
+
+    tbody.appendChild(tr);
+  });
+  revidUpdateStats();
+  revidApplyFilters();
+  const wrap = document.getElementById('revid-bulkIdBoxWrap');
+  wrap.innerHTML='';
+  revidBulkState.id='';
+  wrap.appendChild(revidIdBox(revidBulkState, {isBulk:true}));
+}
+
+function revidUpdateStats(){
+  const total = revidState.rows.length;
+  const transfers = revidState.rows.filter(r=>r.isTransfer).length;
+  const suggested = revidState.rows.filter(r=>!r.isTransfer && r.id && r.sugerido).length;
+  const done = revidState.rows.filter(r=>!r.isTransfer && r.id && !r.sugerido).length;
+  const pending = revidState.rows.filter(r=>!r.isTransfer && !r.id).length;
+  document.getElementById('revid-statTotal').textContent = total;
+  document.getElementById('revid-statDone').textContent = done;
+  document.getElementById('revid-statSuggested').textContent = suggested;
+  document.getElementById('revid-statPending').textContent = pending;
+  document.getElementById('revid-statTransfer').textContent = transfers;
+  revidRenderPeriodProgress();
+}
+function revidRenderPeriodProgress(){
+  const panel = document.getElementById('revid-periodProgressPanel');
+  if(!panel) return;
+  const groups = {};
+  revidState.rows.forEach(r=>{
+    const d = revidExcelSerialToDate(r.dataRaw);
+    const key = d ? (d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')) : '__semdata__';
+    if(!groups[key]) groups[key] = {total:0, done:0};
+    groups[key].total++;
+    if(r.isTransfer || (r.id && !r.sugerido)) groups[key].done++;
+  });
+  const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const keys = Object.keys(groups).sort();
+  panel.innerHTML = keys.map(k=>{
+    const g = groups[k];
+    let label = 'Sem data';
+    if(k!=='__semdata__'){ const [y,m] = k.split('-'); label = monthNames[parseInt(m,10)-1] + '/' + y; }
+    const pct = g.total ? Math.round(100*g.done/g.total) : 0;
+    const color = pct>=100 ? 'var(--ok)' : (pct===0 ? 'var(--tx3)' : 'var(--wn)');
+    return `<div class="revid-stat" style="min-width:100px;padding:6px 9px" title="${g.done} de ${g.total} lançamentos de ${label} já classificados (${pct}%)"><div class="n" style="font-size:13px;color:${color}">${g.done}/${g.total}</div><div class="l">${label} — ${pct}% classificados</div></div>`;
+  }).join('');
+}
+function revidVisibleRows(){
+  return [...document.querySelectorAll('#revid-tbody tr:not(.revid-hidden-row)')].map(tr=>revidState.rows[Number(tr.dataset.idx)]);
+}
+function revidFocusNextRowIdInput(tr){
+  if(!tr) return;
+  let next = tr.nextElementSibling;
+  while(next){
+    if(!next.classList.contains('revid-hidden-row')){
+      const inp = next.querySelector('.revid-idbox input');
+      if(inp){ inp.focus(); return; }
+    }
+    next = next.nextElementSibling;
+  }
+}
+function revidApplyFilters(){
+  const onlyPending = document.getElementById('revid-onlyPending');
+  const hideTransfers = document.getElementById('revid-hideTransfers');
+  const onlyTransfers = document.getElementById('revid-onlyTransfers');
+  const quickFilter = document.getElementById('revid-quickFilter');
+  const dateFrom = document.getElementById('revid-dateFrom');
+  const dateTo = document.getElementById('revid-dateTo');
+  const onlyP = onlyPending.checked;
+  const hideT = hideTransfers.checked;
+  const onlyT = onlyTransfers.checked;
+  const q = norm(quickFilter.value);
+  const idFilter = revidIdFilterValue;
+  const fromVal = dateFrom.value ? new Date(dateFrom.value+'T00:00:00Z') : null;
+  const toVal = dateTo.value ? new Date(dateTo.value+'T23:59:59Z') : null;
+  hideTransfers.disabled = onlyT;
+  document.querySelectorAll('#revid-tbody tr').forEach(tr=>{
+    const idx = Number(tr.dataset.idx);
+    const r = revidState.rows[idx];
+    let show = true;
+    if(onlyT){ if(!r.isTransfer) show=false; }
+    else { if(onlyP && (r.id || r.isTransfer)) show=false; if(hideT && r.isTransfer) show=false; }
+    if(idFilter && r.id!==idFilter) show=false;
+    if(q && !norm(r.favorecido+' '+r.descricao).includes(q)) show=false;
+    if(show && (fromVal || toVal)){
+      const d = revidExcelSerialToDate(r.dataRaw);
+      if(d){ if(fromVal && d < fromVal) show=false; if(toVal && d > toVal) show=false; }
+    }
+    tr.classList.toggle('revid-hidden-row', !show);
+  });
+  document.getElementById('revid-bulkCount').textContent = revidVisibleRows().length;
+  revidUpdateFilterTotals();
+}
+function revidUpdateFilterTotals(){
+  const bar = document.getElementById('revid-filterTotalsBar');
+  if(!bar) return;
+  const rows = revidVisibleRows();
+  let totIn=0, totOut=0;
+  rows.forEach(r=>{ totIn += Number(r.entrada)||0; totOut += Number(r.saida)||0; });
+  const net = totIn - totOut;
+  bar.innerHTML = `Filtrados: <strong>${rows.length}</strong> lançamento(s) — Entradas: <strong class="revid-amt-in">R$ ${revidFmtMoney(totIn)}</strong> · Saídas: <strong class="revid-amt-out">R$ ${revidFmtMoney(totOut)}</strong> · Líquido: <strong>R$ ${revidFmtMoney(net)}</strong>`;
+}
+function revidRefreshIdFilterClearBtn(){
+  const btn=document.getElementById('revid-idFilterClearBtn');
+  if(btn) btn.style.display = revidIdFilterValue ? 'inline-block' : 'none';
+}
+function revidSetIdFilterValue(idVal){
+  revidIdFilterValue = idVal || '';
+  const inp=document.getElementById('revid-idFilterInput');
+  if(inp) inp.value = idVal ? revidIdLabel(idVal) : '';
+  revidRefreshIdFilterClearBtn();
+}
+function revidShowIdFilterMatches(term){
+  const sugg=document.getElementById('revid-idFilterSugg');
+  const q = norm(term);
+  revidIdFilterCurrentMatches = q ? revidIdRefNorm.filter(x=>x._norm.includes(q)).slice(0,50) : revidIdRefNorm.slice(0,50);
+  revidIdFilterActiveIdx = -1;
+  sugg.innerHTML = '';
+  if(revidIdFilterCurrentMatches.length===0){
+    const d=document.createElement('div'); d.className='revid-empty'; d.textContent='Nenhum resultado';
+    sugg.appendChild(d);
+  } else {
+    revidIdFilterCurrentMatches.forEach((m,i)=>{
+      const d=document.createElement('div');
+      d.textContent = m.id + '  —  ' + m.n + (m.g ? '  —  ' + m.g : '');
+      d.dataset.i = i;
+      d.addEventListener('mousedown', (ev)=>{ ev.preventDefault(); revidSelectIdFilterMatch(m); });
+      sugg.appendChild(d);
+    });
+  }
+  sugg.style.display='block';
+}
+function revidSelectIdFilterMatch(m){
+  revidSetIdFilterValue(m.id);
+  document.getElementById('revid-idFilterSugg').style.display='none';
+  revidApplyFilters();
+}
+function revidClearIdFilter(){
+  revidSetIdFilterValue('');
+  document.getElementById('revid-idFilterSugg').style.display='none';
+  revidApplyFilters();
+}
+function revidHighlightIdFilterMatches(items){
+  items.forEach(el=>el.classList.remove('active'));
+  if(items[revidIdFilterActiveIdx]){ items[revidIdFilterActiveIdx].classList.add('active'); items[revidIdFilterActiveIdx].scrollIntoView({block:'nearest'}); }
+}
+
+function revidExportXlsx(){
+  const mainRows = revidState.rows;
+  const needsReview = mainRows.filter(r=>!r.isTransfer && (!r.id || r.sugerido));
+  const msgParts = [];
+  if(needsReview.length>0){
+    const semId = needsReview.filter(r=>!r.id).length;
+    const soSugerido = needsReview.length - semId;
+    const detalhe = [semId?`${semId} sem ID`:'', soSugerido?`${soSugerido} só com sugestão do motor`:''].filter(Boolean).join(' e ');
+    msgParts.push(`${needsReview.length} linha(s) ainda sem ID confirmado (${detalhe}).`);
+  }
+  if(msgParts.length>0){
+    if(!confirm(msgParts.join('\n\n') + '\n\nExportar mesmo assim?')) return;
+  }
+  const header = ['ID (chave do lançamento)','Data','Favorecido','Documento','Descrição','Banco','Entrada','Saída','Saldo','Competição','Abatimento (Sim/Não)','Tipo de reembolso (opcional)','Temporada (opcional, ex: 2026/2027)','Parcelamento (código)','Valor total da compra parcelada','Nº de parcelas'];
+  const buildAoa = (rows)=>{
+    const data = [header];
+    rows.forEach(r=>{
+      const d = revidExcelSerialToDate(r.dataRaw);
+      data.push([
+        r.id || '', d ? revidFmtDate(d) : '', r.favorecido, r.documento, r.descricao,
+        (typeof bankLabel==='function' ? bankLabel(revidState.banco) : revidState.banco), r.entrada || '', r.saida || '', r.saldo || '',
+        r.comp || '', r.abat ? 'Sim' : '', r.tipoReemb || '', revidState.temporada || '',
+        r.parcCodigo || '', r.parcTotal || '', r.parcN || ''
+      ]);
+    });
+    return data;
+  };
+  const colWidths = [{wch:14},{wch:11},{wch:32},{wch:14},{wch:38},{wch:14},{wch:12},{wch:12},{wch:12},{wch:14},{wch:16},{wch:22},{wch:24},{wch:20},{wch:20},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  const wsMain = XLSX.utils.aoa_to_sheet(buildAoa(mainRows));
+  wsMain['!cols'] = colWidths;
+  XLSX.utils.book_append_sheet(wb, wsMain, 'Lançamentos');
+  const outName = 'classificado_' + revidState.sheetName.replace(/[^a-zA-Z0-9]/g,'') + '.xlsx';
+  XLSX.writeFile(wb, outName);
+}
+
+// ===== Importar direto no sistema (grava em `realizado`) =====
+// Cada linha classificada (com ID de orçamento e sem ser transferência
+// interna) vira uma linha nova em `realizado`, já totalmente classificada —
+// mesmo formato de row usado pelo Lançamento Manual (lnbSaveManualRealizado):
+// departamento/grupo/linha_orcamento gravados diretamente na linha, sem
+// passar por tx_decisions. Chama supaInsertIgnoreDup SEM onConflict (mesma
+// convenção dos outros importadores de extrato bancário deste arquivo — ver
+// comentário acima de supaInsertIgnoreDup), confiando na detecção de
+// duplicata do próprio importador (badges ⚠ na tabela) em vez de um alvo de
+// conflito no banco.
+async function revidImportDireto(){
+  if(isReadOnlyUser()){ alert('Seu perfil é somente leitura — peça a um administrador para importar direto no sistema.'); return; }
+  const msgEl = document.getElementById('revid-importDbMsg');
+  // Transferências internas entram também — sem classificação orçamentária
+  // (id_linha/departamento/grupo/linha_orcamento ficam em branco), do mesmo
+  // jeito que o importador clássico de extrato já trata: elas ficam de fora
+  // do Realizado/orçamento (isInternalBankTransferTx exclui automaticamente
+  // dos KPIs/cálculos), mas continuam presentes na tabela para aparecer na
+  // Conciliação Bancária / Movimentação do extrato, senão a prova de saldo
+  // (inicial + entradas − saídas = final) fica sem essas linhas.
+  const candidatas = revidState.rows.filter(r=>r.isTransfer || r.id);
+  if(!candidatas.length){
+    alert('Nenhuma linha classificada (com ID) nem transferência para importar.');
+    return;
+  }
+  const semId = revidState.rows.filter(r=>!r.isTransfer && !r.id).length;
+  const transferCount = revidState.rows.filter(r=>r.isTransfer).length;
+  const dupCount = candidatas.filter(r=>r.possibleDup).length;
+  let totIn=0, totOut=0;
+  candidatas.forEach(r=>{ totIn+=Number(r.entrada)||0; totOut+=Number(r.saida)||0; });
+  const confirmMsg = [
+    `Você está prestes a importar ${candidatas.length} lançamento(s) DIRETO no sistema (tabela realizado).`,
+    `Entradas: R$ ${revidFmtMoney(totIn)} · Saídas: R$ ${revidFmtMoney(totOut)}`,
+    dupCount ? `⚠ ${dupCount} dessas linhas estão marcadas como possível duplicata (badge ⚠ na tabela) — revise antes de continuar, se ainda não revisou.` : '',
+    transferCount ? `${transferCount} transferência(s) interna(s) entram também, sem classificação orçamentária (só para constar na Conciliação Bancária).` : '',
+    semId ? `${semId} linha(s) sem ID ainda NÃO serão importadas — classifique-as antes, ou importe agora e faça o resto depois.` : '',
+    '',
+    'Esta ação grava direto na base de dados em produção. Confirmar importação?'
+  ].filter(Boolean).join('\n');
+  if(!confirm(confirmMsg)) return;
+
+  const btn = document.getElementById('revid-importDbBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Importando...'; }
+  if(msgEl) msgEl.textContent = 'Importando...';
+  try{
+    const temporada = (revidState.temporada && revidState.temporada.trim()) || lnbCurrentTemporada();
+    const banco = revidState.banco || '';
+    const rows = [];
+    for(const r of candidatas){
+      let ref = null;
+      if(!r.isTransfer){
+        ref = revidIdRefNorm.find(x=>x.id===r.id);
+        if(!ref) continue; // ID não existe mais na estrutura (raríssimo) — pula, não trava o resto
+      }
+      const d = revidExcelSerialToDate(r.dataRaw);
+      if(!d) continue;
+      const dataStr = d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+      rows.push({
+        data: dataStr,
+        favorecido: (r.favorecido||'').trim(),
+        temporada: temporada,
+        descricao: (r.descricao||'').trim(),
+        documento: (r.documento||'').trim(),
+        entrada: Number(r.entrada)||0,
+        saida: Number(r.saida)||0,
+        id_linha: ref ? ref.id : null,
+        banco: banco,
+        departamento: ref ? ref.area : '',
+        grupo: ref ? ref.g : '',
+        linha_orcamento: ref ? ref.n : '',
+        competicao: (r.comp||'').trim(),
+        composicao: '',
+        abatimento: r.abat ? 'Sim' : 'Não',
+        tipo_reembolso: r.tipoReemb || ''
+      });
+    }
+    if(!rows.length){ throw new Error('Nenhuma linha válida para importar (verifique se as datas estão preenchidas).'); }
+    // Em lotes, seguindo a mesma cautela de outros envios grandes ao Supabase
+    // no app (evita uma única requisição gigante em extratos muito longos).
+    const BATCH = 500;
+    for(let i=0;i<rows.length;i+=BATCH){
+      await supaInsertIgnoreDup('realizado', rows.slice(i, i+BATCH));
+    }
+    // Saldo inicial/final por mês para a Conciliação Bancária (prova: saldo
+    // inicial + entradas − saídas = saldo final). A planilha da Revisão de
+    // IDs já traz uma coluna Saldo (saldo corrente após cada lançamento) —
+    // usamos a primeira e a última linha de cada mês pra descobrir o saldo
+    // inicial (saldo da 1ª linha, desfazendo a própria entrada/saída dela) e
+    // o saldo final (saldo da última linha), e gravamos em bank_saldos do
+    // mesmo jeito que "Ajustar saldo do mês" na Conciliação Bancária já faz.
+    // Não bloqueia a importação dos lançamentos se isso falhar.
+    let saldoMsg = '';
+    try{
+      if(banco){
+        const porMes = {};
+        revidState.rows.forEach(r=>{
+          const d = revidExcelSerialToDate(r.dataRaw);
+          if(!d || r.saldo==null || r.saldo==='') return;
+          const m = d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0');
+          if(!porMes[m]) porMes[m] = [];
+          porMes[m].push({saldo:Number(r.saldo), entrada:Number(r.entrada)||0, saida:Number(r.saida)||0});
+        });
+        const saldosByMonth = {};
+        Object.keys(porMes).forEach(m=>{
+          const linhas = porMes[m];
+          const primeira = linhas[0], ultima = linhas[linhas.length-1];
+          saldosByMonth[m] = {
+            ini: r2(primeira.saldo - primeira.entrada + primeira.saida),
+            fim: r2(ultima.saldo)
+          };
+        });
+        if(Object.keys(saldosByMonth).length && typeof pushBankSaldosToSupabase==='function'){
+          const res = await pushBankSaldosToSupabase(banco, saldosByMonth);
+          saldoMsg = (res && res.ok) ? `\n\nSaldo inicial/final também atualizado em ${Object.keys(saldosByMonth).length} mês(es) para a Conciliação Bancária.` : `\n\nAtenção: os lançamentos foram importados, mas o saldo inicial/final NÃO foi salvo (${res&&res.error||'erro desconhecido'}) — ajuste manualmente em Conciliação Bancária > Ajustar saldo do mês.`;
+        }
+      }
+    }catch(errSaldo){
+      console.error('Falha ao salvar saldo inicial/final (Revisão de IDs):', errSaldo);
+      saldoMsg = '\n\nAtenção: os lançamentos foram importados, mas o saldo inicial/final NÃO foi salvo — ajuste manualmente em Conciliação Bancária > Ajustar saldo do mês.';
+    }
+    lnbLogActivity('revisao_ids_import', rows.length+' lançamento(s) importado(s) direto — total R$ '+r2(totIn-totOut)+' (entradas R$ '+r2(totIn)+', saídas R$ '+r2(totOut)+')');
+    alert(`${rows.length} lançamento(s) importado(s) direto no sistema com sucesso.${saldoMsg}\n\nA página vai recarregar para atualizar os totais.`);
+    localStorage.removeItem(revidState.storageKey);
+    location.reload();
+  }catch(e){
+    console.error('Falha ao importar direto no sistema (Revisão de IDs):', e);
+    if(msgEl) msgEl.textContent = 'Falhou ao importar: '+e.message;
+    alert('Falhou ao importar: '+e.message);
+  }
+  if(btn){ btn.disabled = false; btn.textContent = 'Importar direto no sistema'; }
+}
+
+function revidInitOnce(){
+  if(revidInited) return;
+  revidInited = true;
+  const $ = id=>document.getElementById(id);
+  const dropzone = $('revid-dropzone');
+  const fileInput = $('revid-fileInput');
+  const sheetRow = $('revid-sheetRow');
+  const sheetSelect = $('revid-sheetSelect');
+  const bancoSelect = $('revid-bancoSelect');
+  const temporadaInput = $('revid-temporadaInput');
+  const loadSheetBtn = $('revid-loadSheetBtn');
+  const stepUpload = $('revid-step-upload');
+  const stepReview = $('revid-step-review');
+  const backBtn = $('revid-backBtn');
+  const exportBtn = $('revid-exportBtn');
+  const importDbBtn = $('revid-importDbBtn');
+  const onlyPending = $('revid-onlyPending');
+  const hideTransfers = $('revid-hideTransfers');
+  const onlyTransfers = $('revid-onlyTransfers');
+  const quickFilter = $('revid-quickFilter');
+  const dateFrom = $('revid-dateFrom');
+  const dateTo = $('revid-dateTo');
+  const clearDateFilterBtn = $('revid-clearDateFilterBtn');
+  const idFilterInput = $('revid-idFilterInput');
+  const idFilterSugg = $('revid-idFilterSugg');
+  const idFilterClearBtn = $('revid-idFilterClearBtn');
+  const bulkComp = $('revid-bulkComp');
+  const bulkAbat = $('revid-bulkAbat');
+  const bulkReemb = $('revid-bulkReemb');
+  const applyBulkBtn = $('revid-applyBulkBtn');
+  const suggestBtn = $('revid-suggestBtn');
+  const undoSuggestBtn = $('revid-undoSuggestBtn');
+  const btnViewIds = $('revid-btnViewIds');
+  const idsModal = $('revid-idsModal');
+  const idsModalClose = $('revid-idsModalClose');
+  const idsModalFilter = $('revid-idsModalFilter');
+  const parcModal = $('revid-parcModal');
+  const parcModalClose = $('revid-parcModalClose');
+  const parcCodigoInput = $('revid-parcCodigoInput');
+  const parcSaveBtn = $('revid-parcSaveBtn');
+  const parcRemoveBtn = $('revid-parcRemoveBtn');
+
+  revidBankOptions().forEach(b=>{ const o=document.createElement('option'); o.value=b.k; o.textContent=b.n; bancoSelect.appendChild(o); });
+  const opt=(v,l)=>{const o=document.createElement('option');o.value=v;o.textContent=l;return o;};
+  bulkComp.appendChild(opt('__keep__','(não alterar)'));
+  bulkComp.appendChild(opt('','— nenhuma —'));
+  REVID_COMPETICAO_OPTIONS.filter(c=>c).forEach(c=>bulkComp.appendChild(opt(c,c)));
+  bulkReemb.appendChild(opt('__keep__','(não alterar)'));
+  bulkReemb.appendChild(opt('','— nenhum —'));
+  REVID_TIPO_REEMB_OPTIONS.filter(c=>c).forEach(c=>bulkReemb.appendChild(opt(c,c)));
+
+  dropzone.addEventListener('click', ()=>fileInput.click());
+  dropzone.addEventListener('dragover', e=>{ e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', ()=>dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', e=>{
+    e.preventDefault(); dropzone.classList.remove('drag');
+    if(e.dataTransfer.files.length) revidHandleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', e=>{ if(e.target.files.length) revidHandleFile(e.target.files[0]); });
+
+  btnViewIds.addEventListener('click', ()=>{
+    revidBuildIdRef();
+    idsModal.classList.remove('hide');
+    idsModalFilter.value = '';
+    revidRenderIdsModal('');
+    idsModalFilter.focus();
+  });
+  idsModalClose.addEventListener('click', ()=>idsModal.classList.add('hide'));
+  idsModal.addEventListener('click', e=>{ if(e.target===idsModal) idsModal.classList.add('hide'); });
+  idsModalFilter.addEventListener('input', ()=>revidRenderIdsModal(idsModalFilter.value));
+
+  parcCodigoInput.addEventListener('input', revidUpdateParcFieldsVisibility);
+  parcModalClose.addEventListener('click', ()=>parcModal.classList.add('hide'));
+  parcModal.addEventListener('click', e=>{ if(e.target===parcModal) parcModal.classList.add('hide'); });
+  parcSaveBtn.addEventListener('click', ()=>{
+    const r = revidState.rows[revidParcEditingIdx];
+    const code = parcCodigoInput.value.trim();
+    if(!code){ alert('Informe um código para o parcelamento (ou use "Remover parcelamento" se não for o caso).'); return; }
+    let novoTotal='', novoN='';
+    if(!revidKnownParcCodes(revidParcEditingIdx).includes(code)){
+      const total = ($('revid-parcTotalInput').value||'').replace(/[^\d,.-]/g,'').replace(/\.(?=\d{3},)/g,'').replace(',', '.');
+      const n = parseInt($('revid-parcNInput').value, 10);
+      if(!total || isNaN(Number(total)) || Number(total)<=0 || !n || n<1){
+        alert('Como este é um código novo, informe o valor total da compra e o número de parcelas (só é necessário nesta primeira vez).');
+        return;
+      }
+      novoTotal = Number(total); novoN = n;
+    }
+    r.parcCodigo = code; r.parcTotal = novoTotal; r.parcN = novoN;
+    parcModal.classList.add('hide');
+    revidRenderTable(); revidSaveAutosave();
+  });
+  parcRemoveBtn.addEventListener('click', ()=>{
+    const r = revidState.rows[revidParcEditingIdx];
+    r.parcCodigo = ''; r.parcTotal = ''; r.parcN = '';
+    parcModal.classList.add('hide');
+    revidRenderTable(); revidSaveAutosave();
+  });
+
+  loadSheetBtn.addEventListener('click', ()=>{
+    const sheetName = sheetSelect.value;
+    const ws = revidWorkbookGlobal.Sheets[sheetName];
+    const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+    const parsed = revidParseBankSheet(aoa);
+    if(parsed.rows.length===0){
+      alert('Não encontrei linhas de lançamento nesta aba. Verifique se selecionou a aba correta (mês com movimentação).');
+      return;
+    }
+    revidBuildIdRef();
+    revidState.sheetName = sheetName;
+    revidState.banco = bancoSelect.value;
+    revidState.temporada = temporadaInput.value.trim();
+    revidState.storageKey = 'lnbRevid::' + revidState.fileName + '::' + sheetName;
+    revidState.prova = { saldoInicial:parsed.saldoInicial, saldoFinal:parsed.saldoFinal, totalEntradasExtrato:parsed.totalEntradasExtrato, totalSaidasExtrato:parsed.totalSaidasExtrato };
+    const savedRaw = revidLoadAutosave(revidState.storageKey);
+    let savedByIdx = {}, savedByContent = {};
+    if(savedRaw){
+      if(savedRaw.__v===2){ savedByIdx = savedRaw.byIdx||{}; savedByContent = savedRaw.byContent||{}; }
+      else { savedByIdx = savedRaw; }
+    }
+    let contentMatches = 0;
+    revidState.rows = parsed.rows.map((r,i)=>{
+      const ck = revidRowContentKey({dateRaw:r.data, documento:r.documento, favorecido:r.favorecido, entrada:r.entrada, saida:r.saida});
+      const svContent = savedByContent[ck];
+      if(svContent) contentMatches++;
+      const sv = svContent || savedByIdx[i] || {};
+      const autoIsTransfer = revidIsInternalTransferRow(r);
+      const transferOverride = (sv.transferOverride===true || sv.transferOverride===false) ? sv.transferOverride : null;
+      return {
+        idx:i, dataRaw:r.data, favorecido:r.favorecido, descricao:r.descricao,
+        documento:r.documento, entrada:r.entrada, saida:r.saida, saldo:r.saldo,
+        autoIsTransfer, transferOverride, transferOverrideAt: sv.transferOverrideAt || null,
+        isTransfer: (transferOverride!=null) ? transferOverride : autoIsTransfer,
+        id: sv.id || '', sugerido: !!sv.sugerido, comp: sv.comp || '', abat: sv.abat || false, tipoReemb: sv.tipoReemb || '',
+        compSugerido: !!sv.compSugerido, tipoReembSugerido: !!sv.tipoReembSugerido,
+        parcCodigo: sv.parcCodigo || '', parcTotal: sv.parcTotal || '', parcN: sv.parcN || '',
+        possibleDup: null
+      };
+    });
+    revidComputeDuplicateFlags(revidState.rows);
+    stepUpload.classList.add('hide');
+    stepReview.classList.remove('hide');
+    revidRenderProvaPanel();
+    revidRenderTable();
+    const autosaveMsg = $('revid-autosaveMsg');
+    if(contentMatches>0 && autosaveMsg){ autosaveMsg.textContent = `Progresso anterior encontrado para ${contentMatches} de ${revidState.rows.length} lançamentos.`; }
+  });
+
+  onlyPending.addEventListener('change', revidApplyFilters);
+  hideTransfers.addEventListener('change', revidApplyFilters);
+  onlyTransfers.addEventListener('change', revidApplyFilters);
+  quickFilter.addEventListener('input', revidApplyFilters);
+  dateFrom.addEventListener('change', revidApplyFilters);
+  dateTo.addEventListener('change', revidApplyFilters);
+  clearDateFilterBtn.addEventListener('click', ()=>{ dateFrom.value=''; dateTo.value=''; revidApplyFilters(); });
+
+  idFilterInput.addEventListener('focus', ()=>revidShowIdFilterMatches(idFilterInput.value===(revidIdFilterValue?revidIdLabel(revidIdFilterValue):'') ? '' : idFilterInput.value));
+  idFilterInput.addEventListener('input', ()=>{
+    if(idFilterInput.value===''){ revidIdFilterValue=''; revidRefreshIdFilterClearBtn(); revidApplyFilters(); }
+    revidShowIdFilterMatches(idFilterInput.value);
+  });
+  idFilterInput.addEventListener('keydown', (ev)=>{
+    const items = idFilterSugg.querySelectorAll('div:not(.revid-empty)');
+    if(ev.key==='ArrowDown'){ ev.preventDefault(); revidIdFilterActiveIdx=Math.min(revidIdFilterActiveIdx+1, items.length-1); revidHighlightIdFilterMatches(items); }
+    else if(ev.key==='ArrowUp'){ ev.preventDefault(); revidIdFilterActiveIdx=Math.max(revidIdFilterActiveIdx-1,0); revidHighlightIdFilterMatches(items); }
+    else if(ev.key==='Enter'){
+      ev.preventDefault();
+      if(revidIdFilterActiveIdx>=0 && revidIdFilterCurrentMatches[revidIdFilterActiveIdx]){ revidSelectIdFilterMatch(revidIdFilterCurrentMatches[revidIdFilterActiveIdx]); }
+      else if(revidIdFilterCurrentMatches.length===1){ revidSelectIdFilterMatch(revidIdFilterCurrentMatches[0]); }
+      idFilterSugg.style.display='none';
+    }
+    else if(ev.key==='Escape'){ idFilterSugg.style.display='none'; }
+  });
+  idFilterInput.addEventListener('blur', ()=>{ setTimeout(()=>{ idFilterSugg.style.display='none'; }, 150); });
+  idFilterClearBtn.addEventListener('click', revidClearIdFilter);
+
+  applyBulkBtn.addEventListener('click', ()=>{
+    const rows = revidVisibleRows();
+    if(!rows.length){ alert('Nenhum lançamento visível com o filtro atual.'); return; }
+    const compVal = bulkComp.value, abatVal = bulkAbat.value, reembVal = bulkReemb.value;
+    let changed=0;
+    rows.forEach(r=>{
+      if(revidBulkState.id){ r.id=revidBulkState.id; r.sugerido=false; changed++; revidLearnMapping(r, revidBulkState.id); }
+      if(compVal!=='__keep__'){ r.comp=compVal; }
+      if(abatVal!=='__keep__'){ r.abat = (abatVal==='sim'); }
+      if(reembVal!=='__keep__'){ r.tipoReemb=reembVal; }
+    });
+    revidRenderTable(); revidSaveAutosave();
+    alert(`Aplicado a ${rows.length} lançamento(s) filtrado(s) — ${changed} tiveram o ID definido.`);
+  });
+  suggestBtn.addEventListener('click', ()=>{
+    revidBuildIdRef();
+    const rows = revidVisibleRows().filter(r=>!r.isTransfer && !r.id);
+    if(!rows.length){ alert('Nenhum lançamento sem ID entre os filtrados.'); return; }
+    let found=0, foundExtras=0;
+    rows.forEach(r=>{
+      const m = revidSuggestIdFor(r);
+      if(m){ r.id=m.id; r.sugerido=true; found++; }
+      const extras = revidSuggestExtrasFor(r);
+      let gotExtra=false;
+      if(extras.comp && !r.comp){ r.comp=extras.comp; r.compSugerido=true; gotExtra=true; }
+      if(extras.tipoReemb && !r.tipoReemb){ r.tipoReemb=extras.tipoReemb; r.tipoReembSugerido=true; gotExtra=true; }
+      if(gotExtra) foundExtras++;
+    });
+    revidRenderTable(); revidSaveAutosave();
+    alert(`${found} de ${rows.length} lançamento(s) sem ID receberam uma sugestão do motor (e ${foundExtras} também tiveram competição e/ou tipo de reembolso sugeridos). Revise as linhas marcadas em amarelo — use "Desfazer sugestões" para limpar as que estiverem erradas.`);
+  });
+  undoSuggestBtn.addEventListener('click', ()=>{
+    const rows = revidVisibleRows().filter(r=>r.sugerido || r.compSugerido || r.tipoReembSugerido);
+    if(!rows.length){ alert('Nenhuma sugestão do motor entre os filtrados.'); return; }
+    rows.forEach(r=>{
+      if(r.sugerido){ r.id=''; r.sugerido=false; }
+      if(r.compSugerido){ r.comp=''; r.compSugerido=false; }
+      if(r.tipoReembSugerido){ r.tipoReemb=''; r.tipoReembSugerido=false; }
+    });
+    revidRenderTable(); revidSaveAutosave();
+  });
+
+  backBtn.addEventListener('click', ()=>{
+    stepReview.classList.add('hide');
+    stepUpload.classList.remove('hide');
+    fileInput.value='';
+    sheetRow.style.display='none';
+  });
+  exportBtn.addEventListener('click', revidExportXlsx);
+  importDbBtn.addEventListener('click', ()=>revidImportDireto());
+}
+
+// Chamado pelo render() principal do app quando a aba "Revisão de IDs" está
+// ativa (curV==='revid') — ver array de views e dispatch dentro de render().
+async function renderRevid(){
+  try{ await ensureXLSX(); }catch(e){ console.error('Falha ao carregar XLSX para Revisão de IDs:', e); }
+  revidBuildIdRef();
+  revidInitOnce();
+  const temporadaInput = document.getElementById('revid-temporadaInput');
+  if(temporadaInput && !temporadaInput.value) temporadaInput.value = lnbCurrentTemporada() || '2026/2027';
+}
+window.renderRevid = renderRevid;
+})();
+
 lnbAuthGate(lnbBootApp);
 </script>
 
