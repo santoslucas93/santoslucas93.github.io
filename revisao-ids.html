@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revisão de IDs — Orçado x Realizado LNB</title>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#edf3f0; --card:#fbfdfc; --bd:#cad8d2; --bd2:#9fb4ac;
+    --tx:#0e251e; --tx2:#455d54; --tx3:#71847d;
+    --ac:#087f63; --acbg:#e3f4ec; --ok:#11845b; --okbg:#dff3e9;
+    --wn:#9a7327; --wnbg:#f8eed8; --er:#bd3945; --erbg:#f9e5e7;
+    --nav:#061d31; --navtx:#f4fbf8; --gold:#c6a153;
+    --body-grad:linear-gradient(135deg,#f3f7f5 0%,#e8f1ed 34%,#e6edf3 69%,#f1eadc 100%);
+    --hero-grad:linear-gradient(112deg,#07100d 0%,#082a45 32%,#0d3d61 66%,#087f63 100%);
+  }
+  body[data-theme="dark"]{
+    --bg:#071218; --card:#0d1d24; --bd:#1d343c; --bd2:#38535b;
+    --tx:#f2f8f5; --tx2:#b9c9c3; --tx3:#82978f;
+    --ac:#39c99a; --acbg:#16332b; --ok:#5bd7aa; --okbg:#12372c;
+    --wn:#e1bd6a; --wnbg:#352c18; --er:#ff818b; --erbg:#3d1d23;
+    --nav:#030c12; --navtx:#f4fbf8; --gold:#d3b267;
+    --body-grad:linear-gradient(135deg,#03090d 0%,#071923 36%,#0a2931 70%,#161b17 100%);
+    --hero-grad:linear-gradient(112deg,#030908 0%,#071927 32%,#0b2f49 66%,#39c99a 100%);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);background-image:var(--body-grad);color:var(--tx);font-size:14px;line-height:1.5;}
+  header{position:relative;padding:20px 70px;background:var(--hero-grad);box-shadow:0 9px 26px rgba(8,42,69,.20);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;}
+  header .htitle{width:100%;max-width:900px;}
+  header .htitle h1{margin:0 0 4px;font-size:19px;color:#f4fbf8;display:flex;align-items:center;justify-content:center;gap:10px;}
+  header .htitle h1:before{content:'';display:inline-block;width:24px;height:24px;border-radius:50%;background:#087f63;box-shadow:inset 0 0 0 3px #c6a153,0 0 0 3px rgba(255,255,255,.16);}
+  header .htitle p{margin:0;color:#d9e8e3;font-size:13px;}
+  header .htitle p.devby{margin-top:4px;color:#c9d9d3;font-size:11.5px;}
+  .themebtns{display:flex;gap:8px;position:absolute;top:18px;right:20px;}
+  .themebtns button{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.28);color:#f4fbf8;border-radius:8px;padding:7px 12px;font-size:12.5px;cursor:pointer;font-weight:600;}
+  .themebtns button.on{background:#fff;color:var(--nav);}
+  .wrap{max-width:1650px;margin:0 auto;padding:14px 20px 40px;}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:14px 16px;margin-bottom:14px;box-shadow:0 9px 26px rgba(8,42,69,.08),0 1px 2px rgba(7,16,13,.05);}
+  .card h2{margin:0 0 12px;font-size:15px;color:var(--tx);}
+  .row{display:flex;gap:14px;flex-wrap:wrap;align-items:center;}
+  label{font-size:12px;color:var(--tx3);display:block;margin-bottom:4px;font-weight:600;}
+  select,input[type=text]{background:var(--card);border:1px solid var(--bd2);color:var(--tx);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;}
+  select:focus,input:focus{outline:2px solid var(--ac);outline-offset:1px;}
+  .btn{background:linear-gradient(135deg,var(--nav),var(--ac));color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(8,42,69,.25);}
+  .btn:hover{filter:brightness(1.08);}
+  .btn.secondary{background:var(--card);border:1px solid var(--bd2);color:var(--tx);box-shadow:none;font-weight:600;}
+  .btn.secondary:hover{border-color:var(--ac);color:var(--ac);}
+  .btn.warn{background:var(--wnbg);border:1px solid var(--wn);color:var(--wn);box-shadow:none;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .dropzone{border:2px dashed var(--bd2);border-radius:14px;padding:36px;text-align:center;color:var(--tx3);cursor:pointer;transition:.15s;background:var(--card);}
+  .dropzone:hover,.dropzone.drag{border-color:var(--ac);color:var(--tx);background:var(--acbg);}
+  .stat{background:linear-gradient(145deg,var(--card) 0%,var(--card) 60%,var(--acbg) 100%);border:1px solid var(--bd);border-radius:14px;padding:10px 14px;min-width:145px;box-shadow:0 9px 26px rgba(8,42,69,.06);}
+  .stat .n{font-size:20px;font-weight:800;color:var(--nav);}
+  body[data-theme="dark"] .stat .n{color:var(--tx);}
+  .stat .l{font-size:11px;color:var(--tx3);}
+  table{width:100%;border-collapse:collapse;font-size:11.5px;table-layout:fixed;}
+  th{text-align:left;padding:6px 6px;background:var(--nav);border-bottom:1px solid var(--bd);position:sticky;top:0;color:var(--navtx);font-weight:600;white-space:normal;z-index:2;overflow-wrap:anywhere;}
+  td{padding:4px 6px;border-bottom:1px solid var(--bd);vertical-align:top;overflow-wrap:anywhere;word-break:break-word;}
+  tr.assigned td{background:var(--okbg);}
+  tr.suggested td{background:var(--wnbg);}
+  tr.transfer td{background:var(--acbg);}
+  tr.hidden-row{display:none;}
+  .idbox{position:relative;min-width:0;}
+  .idbox input{width:100%;}
+  .idbox .sugg{position:absolute;z-index:20;top:100%;left:0;right:0;max-height:240px;overflow:auto;background:var(--card);border:1px solid var(--ac);border-radius:6px;margin-top:2px;box-shadow:0 8px 24px rgba(8,42,69,.25);}
+  .idbox .sugg div{padding:7px 10px;cursor:pointer;font-size:12.5px;border-bottom:1px solid var(--bd);color:var(--tx);}
+  .idbox .sugg div:last-child{border-bottom:none;}
+  .idbox .sugg div:hover,.idbox .sugg div.active{background:var(--ac);color:#fff;}
+  .idbox .sugg .empty{color:var(--tx3);cursor:default;}
+  .idbox .sugg .empty:hover{background:none;}
+  .badge{display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:20px;background:var(--card);border:1px solid var(--bd);color:var(--tx3);}
+  .badge.ok{color:var(--ok);border-color:var(--ok);background:var(--okbg);}
+  .badge.wn{color:var(--wn);border-color:var(--wn);background:var(--wnbg);}
+  .badge.ac{color:var(--ac);border-color:var(--ac);background:var(--acbg);}
+  .tablewrap{max-height:72vh;overflow:auto;border:1px solid var(--bd);border-radius:12px;}
+  .amt-in{color:var(--ok);font-weight:600;} .amt-out{color:var(--er);font-weight:600;}
+  .muted{color:var(--tx3);}
+  .hide{display:none !important;}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;}
+  .checkline{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--tx2);}
+  footer{text-align:center;color:var(--tx3);font-size:11px;padding:20px;}
+  a{color:var(--ac);}
+  .extrabox select,.extrabox input{width:100%;min-width:0;}
+  .extrabox select.suggested-field{background:var(--wnbg);border-color:var(--wn);}
+  .bulkbar{background:var(--acbg);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;}
+  .bulkbar > div{min-width:140px;}
+  .provapanel{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;}
+  .transfer-note{font-size:11.5px;color:var(--ac);}
+  .undo-link{font-size:11px;color:var(--ac);cursor:pointer;text-decoration:underline;background:none;border:none;padding:0;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(6,15,20,.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .modal-box{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:20px;width:min(900px,100%);max-height:85vh;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+</style>
+</head>
+<body>
+<header>
+  <div class="themebtns">
+    <button id="btnThemeLight">Tema branco</button>
+    <button id="btnThemeDark">Tema escuro</button>
+  </div>
+  <div class="htitle">
+    <h1>Revisão de IDs — Orçado x Realizado LNB</h1>
+    <p>Ferramenta independente para classificar lançamentos do extrato bancário com o ID do orçamento antes de importar no sistema.</p>
+    <p class="devby">Desenvolvido por: Lucas Santos</p>
+  </div>
+</header>
+<div class="wrap">
+
+  <div class="card" id="step-upload">
+    <h2>1. Importar planilha do banco</h2>
+    <div class="dropzone" id="dropzone">
+      <div>Arraste o arquivo .xls / .xlsx aqui ou clique para selecionar</div>
+      <div class="muted" style="margin-top:6px;font-size:12px;">Formato esperado: mesma planilha de acompanhamento de extrato usada normalmente (colunas DATA, FAVORECIDO, DESCRIÇÃO, DOCUMENTO, ENTRADA, SAÍDA, SALDO)</div>
+      <input type="file" id="fileInput" accept=".xls,.xlsx" style="display:none;">
+    </div>
+    <div class="row" id="sheetRow" style="margin-top:14px;display:none;">
+      <div>
+        <label>Aba (mês) da planilha</label>
+        <select id="sheetSelect"></select>
+      </div>
+      <div>
+        <label>Banco (aplicado a todas as linhas exportadas)</label>
+        <select id="bancoSelect"></select>
+      </div>
+      <div>
+        <label>Temporada (aplicada a todas as linhas)</label>
+        <input type="text" id="temporadaInput" value="2026/2027" style="width:120px;">
+      </div>
+      <div style="align-self:flex-end;">
+        <button class="btn" id="loadSheetBtn">Carregar linhas desta aba</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="step-idref">
+    <h2>IDs do orçamento usados na busca</h2>
+    <div class="row" style="justify-content:space-between;">
+      <div class="muted" id="idRefStatus" style="font-size:13px;"></div>
+      <div class="row" style="gap:8px;">
+        <button class="btn secondary" id="btnViewIds">Ver lista de IDs</button>
+        <button class="btn secondary" id="btnImportIds">Importar novos IDs (.xlsx)</button>
+        <button class="btn warn hide" id="btnResetIds">Restaurar lista padrão</button>
+        <input type="file" id="idsFileInput" accept=".xls,.xlsx" style="display:none;">
+      </div>
+    </div>
+    <div class="muted" style="margin-top:6px;font-size:11.5px;">Aceita a aba "IDs" baixada do modelo do Orçado x Realizado, ou qualquer planilha com colunas ID, Departamento, Grupo e Linha do orçamento.</div>
+  </div>
+
+  <div class="modal-overlay hide" id="idsModal">
+    <div class="modal-box">
+      <div class="row" style="justify-content:space-between;margin-bottom:10px;">
+        <h2 style="margin:0;">IDs do orçamento cadastrados (<span id="idsModalCount">0</span>)</h2>
+        <button class="btn secondary" id="idsModalClose">Fechar</button>
+      </div>
+      <input type="text" id="idsModalFilter" placeholder="Filtrar por nome, código ou grupo..." style="width:100%;margin-bottom:10px;">
+      <div class="tablewrap" style="max-height:65vh;">
+        <table>
+          <thead><tr><th>ID</th><th>Departamento</th><th>Grupo</th><th>Linha do orçamento</th></tr></thead>
+          <tbody id="idsModalBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hide" id="parcModal">
+    <div class="modal-box" style="max-width:480px;">
+      <div class="row" style="justify-content:space-between;margin-bottom:4px;">
+        <h2 style="margin:0;">Compra parcelada</h2>
+        <button class="btn secondary" id="parcModalClose">Fechar</button>
+      </div>
+      <p class="muted" style="margin:0 0 14px;font-size:12.5px;">Marque esta linha como uma parcela de uma compra parcelada. Use o mesmo código em todas as parcelas da mesma compra — só a primeira precisa do valor total e do número de parcelas; as seguintes só precisam do código.</p>
+      <label>Código do parcelamento</label>
+      <input type="text" id="parcCodigoInput" list="parcCodesList" placeholder="ex.: NFS123-HOTEL" style="width:100%;margin-bottom:12px;">
+      <datalist id="parcCodesList"></datalist>
+      <div id="parcNewFields">
+        <label>Valor total da compra parcelada</label>
+        <input type="text" id="parcTotalInput" placeholder="ex.: 3000,00" style="width:100%;margin-bottom:12px;">
+        <label>Nº de parcelas</label>
+        <input type="text" id="parcNInput" placeholder="ex.: 3" style="width:100%;margin-bottom:12px;">
+      </div>
+      <div id="parcExistingNote" class="muted hide" style="font-size:12px;margin-bottom:12px;">Código já usado em outra linha desta planilha — não precisa repetir valor total nem nº de parcelas, só o código.</div>
+      <div class="row" style="justify-content:space-between;">
+        <button class="btn warn" id="parcRemoveBtn">Remover parcelamento desta linha</button>
+        <button class="btn" id="parcSaveBtn">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card hide" id="step-review">
+    <h2>2. Revisão — atribuir ID e informações de cada linha</h2>
+
+    <div class="provapanel" id="provaPanel"></div>
+
+    <div class="toolbar">
+      <div class="row">
+        <div class="stat"><div class="n" id="statTotal">0</div><div class="l">linhas no total</div></div>
+        <div class="stat"><div class="n" id="statDone">0</div><div class="l">com ID confirmado</div></div>
+        <div class="stat"><div class="n" id="statSuggested">0</div><div class="l">sugestão do motor (revisar)</div></div>
+        <div class="stat"><div class="n" id="statPending">0</div><div class="l">sem ID</div></div>
+        <div class="stat"><div class="n" id="statTransfer">0</div><div class="l">transferências internas</div></div>
+      </div>
+      <div class="row" id="periodProgressWrap" style="gap:8px;flex-wrap:wrap;">
+        <div class="muted" style="font-size:11px;width:100%;">Progresso por período (mês):</div>
+        <div class="row" id="periodProgressPanel" style="gap:8px;flex-wrap:wrap;"></div>
+      </div>
+      <div class="row">
+        <div class="checkline"><input type="checkbox" id="onlyPending"><label for="onlyPending" style="margin:0;">Mostrar só sem ID</label></div>
+        <div class="checkline"><input type="checkbox" id="hideTransfers"><label for="hideTransfers" style="margin:0;">Ocultar transferências internas</label></div>
+        <div class="checkline"><input type="checkbox" id="onlyTransfers"><label for="onlyTransfers" style="margin:0;">Mostrar só transferências entre bancos</label></div>
+        <input type="text" id="quickFilter" placeholder="Filtrar por favorecido/descrição..." style="min-width:220px;">
+        <div class="checkline"><label for="dateFrom" style="margin:0;">Período de:</label><input type="date" id="dateFrom"></div>
+        <div class="checkline"><label for="dateTo" style="margin:0;">até:</label><input type="date" id="dateTo"></div>
+        <button class="btn secondary" id="clearDateFilterBtn" style="font-size:11.5px;padding:6px 10px;">Limpar período</button>
+        <div class="checkline" style="align-items:center;">
+          <label for="idFilterInput" style="margin:0;">ID do orçamento:</label>
+          <div class="idbox" id="idFilterBox" style="min-width:260px;width:260px;">
+            <input type="text" id="idFilterInput" placeholder="Todos os IDs — digite para buscar...">
+            <div class="sugg" id="idFilterSugg" style="display:none;"></div>
+          </div>
+          <button type="button" class="btn secondary" id="idFilterClearBtn" style="font-size:11.5px;padding:6px 10px;display:none;" title="Limpar filtro de ID">× limpar</button>
+        </div>
+      </div>
+      <div class="row" id="filterTotalsBar" style="font-size:12.5px;color:var(--tx2);background:var(--acbg);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;"></div>
+    </div>
+
+    <div class="bulkbar">
+      <div style="min-width:220px;">
+        <label>Ação em massa nos filtrados (<span id="bulkCount">0</span> linha(s) visíveis)</label>
+        <div id="bulkIdBoxWrap"></div>
+      </div>
+      <div>
+        <label>Competição</label>
+        <select id="bulkComp"></select>
+      </div>
+      <div>
+        <label>Abatimento</label>
+        <select id="bulkAbat">
+          <option value="__keep__">(não alterar)</option>
+          <option value="sim">Marcar como Sim</option>
+          <option value="nao">Desmarcar</option>
+        </select>
+      </div>
+      <div>
+        <label>Tipo de reembolso</label>
+        <select id="bulkReemb"></select>
+      </div>
+      <div>
+        <button class="btn" id="applyBulkBtn">Aplicar aos filtrados</button>
+      </div>
+      <div style="border-left:1px solid var(--bd2);padding-left:12px;">
+        <label>Motor de sugestão</label>
+        <div class="row" style="gap:6px;">
+          <button class="btn secondary" id="suggestBtn">Sugerir IDs nos filtrados</button>
+          <button class="btn warn" id="undoSuggestBtn">Desfazer sugestões</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <colgroup>
+          <col style="width:2.5%;">
+          <col style="width:5.5%;">
+          <col style="width:10%;">
+          <col style="width:11%;">
+          <col style="width:6.5%;">
+          <col style="width:6%;">
+          <col style="width:6%;">
+          <col style="width:6%;">
+          <col style="width:15%;">
+          <col style="width:8%;">
+          <col style="width:5%;">
+          <col style="width:9%;">
+          <col style="width:9.5%;">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Data</th>
+            <th>Favorecido</th>
+            <th>Descrição</th>
+            <th>Documento</th>
+            <th style="text-align:right;">Entrada</th>
+            <th style="text-align:right;">Saída</th>
+            <th style="text-align:right;">Saldo</th>
+            <th>ID do orçamento</th>
+            <th>Competição</th>
+            <th>Abatimento</th>
+            <th>Tipo reembolso</th>
+            <th>Parcelamento</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:16px;justify-content:space-between;">
+      <button class="btn secondary" id="backBtn">← Importar outro arquivo</button>
+      <div class="row">
+        <span class="muted" id="autosaveMsg" style="font-size:12px;"></span>
+        <button class="btn" id="exportBtn">Exportar planilha classificada (.xlsx)</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<footer>Ferramenta local e independente do sistema Orçado x Realizado — nenhum dado é enviado para servidor algum. Progresso salvo automaticamente no navegador (localStorage).</footer>
+
+<script>
+const ID_REF_DEFAULT = [{"id":"1.01.1","area":"LNB","g":"RH","n":"SERGIO BARBOSA DOMENICI"},{"id":"1.01.2","area":"LNB","g":"RH","n":"ISABEL DE AZEVEDO SOUZA"},{"id":"1.01.3","area":"LNB","g":"RH","n":"PATRICIA DOS SANTOS PEREIRA"},{"id":"1.02.1","area":"LNB","g":"LOGÍSTICA","n":"Transporte Aéreo do Departamento - Diretoria"},{"id":"1.02.2","area":"LNB","g":"LOGÍSTICA","n":"Transporte Aéreo do Departamento - Superintendente"},{"id":"1.02.3","area":"LNB","g":"LOGÍSTICA","n":"Transporte Terrestre Departamento - Diretoria"},{"id":"1.02.4","area":"LNB","g":"LOGÍSTICA","n":"Transporte Terrestre Departamento - Superintendente"},{"id":"1.02.5","area":"LNB","g":"LOGÍSTICA","n":"Hospedagem do Departamento - Diretoria"},{"id":"1.02.6","area":"LNB","g":"LOGÍSTICA","n":"Hospedagem do Departamento - Superintendente"},{"id":"1.02.7","area":"LNB","g":"LOGÍSTICA","n":"Locação Veiculo - Diretoria"},{"id":"1.02.8","area":"LNB","g":"LOGÍSTICA","n":"Locação Veiculo - Superintendente"},{"id":"1.03.1","area":"LNB","g":"REPRESENTAÇÃO","n":"Verba de Representação - Diretoria"},{"id":"1.03.2","area":"LNB","g":"REPRESENTAÇÃO","n":"Verba de Representação - Superintendente"},{"id":"1.04.1","area":"LNB","g":"REEMBOLSO DESPESA","n":"Restituição Funcionários do departamento"},{"id":"1.05.1","area":"LNB","g":"CORREIOS","n":"Correios"},{"id":"1.06.1","area":"LNB","g":"PESSOAL","n":"Curso Funcionários"},{"id":"1.06.2","area":"LNB","g":"PESSOAL","n":"Gestão com atletas"},{"id":"1.06.3","area":"LNB","g":"PESSOAL","n":"Confraternização"},{"id":"1.07.1","area":"LNB","g":"SERVIÇOS DE TERCEIROS","n":"Honorários Advocatícios"},{"id":"1.07.2","area":"LNB","g":"SERVIÇOS DE TERCEIROS","n":"Consultoria"},{"id":"2.01.1","area":"COM","g":"RH","n":"MARIA BEATRIZ DOS REIS"},{"id":"2.01.2","area":"COM","g":"RH","n":"GUSTAVO DE OLIVEIRA MARINHEIRO"},{"id":"2.01.3","area":"COM","g":"RH","n":"KAUÃ DE CAMPOS RUFINO"},{"id":"2.01.4","area":"COM","g":"RH","n":"MARCOS DE BARROS SILVEIRA"},{"id":"2.01.5","area":"COM","g":"RH","n":"GABRIEL ARAUJO PEREZ"},{"id":"2.01.6","area":"COM","g":"RH","n":"DAVI CELESTINO ALVES"},{"id":"2.01.7","area":"COM","g":"RH","n":"YGOR AUGUSTO DE OLIVEIRA SILVA"},{"id":"2.01.8","area":"COM","g":"RH","n":"DOUGLAS DO AMARAL JUNIOR"},{"id":"2.01.9","area":"COM","g":"RH","n":"YAN PEDRO KAWANO SANTANA"},{"id":"2.01.10","area":"COM","g":"RH","n":"PEDRO HENRIQUE SOUZA SANTANA"},{"id":"2.01.11","area":"COM","g":"RH","n":"MARCIUS TEIXEIRA DE AZEVEDO"},{"id":"2.01.12","area":"COM","g":"RH","n":"ALEX DA SILVA"},{"id":"2.01.13","area":"COM","g":"RH","n":"BRUNO HENRIQUE MACHADO GONÇALVES"},{"id":"2.02.1","area":"COM","g":"LOGÍSTICA","n":"Transporte Aéreo do Departamento"},{"id":"2.02.2","area":"COM","g":"LOGÍSTICA","n":"Transporte Terrestre Departamento"},{"id":"2.02.3","area":"COM","g":"LOGÍSTICA","n":"Hospedagem do Departamento"},{"id":"2.02.4","area":"COM","g":"LOGÍSTICA","n":"Aplicativo - Uber e 99 Táxi"},{"id":"2.02.5","area":"COM","g":"LOGÍSTICA","n":"Envio de kits para influencers"},{"id":"2.03.1","area":"COM","g":"REPRESENTAÇÃO","n":"Verba de Representação"},{"id":"2.04.1","area":"COM","g":"REEMBOLSO DESPESA","n":"Restituição Funcionários do Departamento"},{"id":"2.05.1","area":"COM","g":"CORREIOS","n":"Correios"},{"id":"2.06.1","area":"COM","g":"PESSOAL","n":"Curso Funcionários"},{"id":"2.07.1","area":"COM","g":"PLATAFORMAS E SOFTWARES","n":"Magnifi (IA de vídeos e highlights) - NBB + Liga Ouro + Super 8 + JE"},{"id":"2.07.2","area":"COM","g":"PLATAFORMAS E SOFTWARES","n":"Genius Sports (Mídia Programática = Platform + Ads)"},{"id":"2.07.3","area":"COM","g":"PLATAFORMAS E SOFTWARES","n":"Huntag (Armazenamento de mídias)"},{"id":"2.07.4","area":"COM","g":"PLATAFORMAS E SOFTWARES","n":"iCloud (Armazenamento)"},{"id":"2.07.5","area":"COM","g":"PLATAFORMAS E SOFTWARES","n":"Trello (Organização de fluxos de trabalho)"},{"id":"2.07.6","area":"COM","g":"PLATAFORMAS E SOFTWARES","n":"Flowics (Fan engagement + Gráficos animados p/transmissão)"},{"id":"2.07.7","area":"COM","g":"PLATAFORMAS E SOFTWARES","n":"Magnifi na LDB"},{"id":"2.07.8","area":"COM","g":"PLATAFORMAS E SOFTWARES","n":"YouGov (Plataforma de Pesquisa)"},{"id":"2.07.9","area":"COM","g":"PLATAFORMAS E SOFTWARES","n":"Streamyard (Lives)"},{"id":"2.07.10","area":"COM","g":"PLATAFORMAS E SOFTWARES","n":"Novo Site"},{"id":"2.07.11","area":"COM","g":"PLATAFORMAS E SOFTWARES","n":"Envato"},{"id":"2.07.12","area":"COM","g":"PLATAFORMAS E SOFTWARES","n":"Clipping (Leitura Digital)"},{"id":"2.07.13","area":"COM","g":"PLATAFORMAS E SOFTWARES","n":"MRW (Presskit - envio de releases)"},{"id":"2.08.1","area":"COM","g":"TRANSMISSÃO","n":"Produção de Jogos"},{"id":"2.08.2","area":"COM","g":"TRANSMISSÃO","n":"EAV (Fee mensal)"},{"id":"2.08.3","area":"COM","g":"TRANSMISSÃO","n":"Live U"},{"id":"2.08.4","area":"COM","g":"TRANSMISSÃO","n":"Cabines (Greyhound)"},{"id":"2.08.5","area":"COM","g":"TRANSMISSÃO","n":"Vmix (Transmissões)"},{"id":"2.08.6","area":"COM","g":"TRANSMISSÃO","n":"VIVO BOX"},{"id":"2.09.1","area":"COM","g":"CAMPANHAS/BRANDING","n":"Vídeos Institucionais (Casting/Ilustrador/Drone/Estúdio/Cenários)"},{"id":"2.09.2","area":"COM","g":"CAMPANHAS/BRANDING","n":"Material Gráficos/Impressos (Banners + Materiais para todos os clubes)"},{"id":"2.09.3","area":"COM","g":"CAMPANHAS/BRANDING","n":"Brindes (Adesivo, chaveiro, etc)"},{"id":"2.09.4","area":"COM","g":"CAMPANHAS/BRANDING","n":"Mídia Offline (OOH + Outdoors + Eletromídia)"},{"id":"2.09.5","area":"COM","g":"CAMPANHAS/BRANDING","n":"Mídia Paga (Meta Ads e Google Ads) - Rapmais ?"},{"id":"2.09.6","area":"COM","g":"CAMPANHAS/BRANDING","n":"Influenciadores e artistas"},{"id":"2.09.7","area":"COM","g":"CAMPANHAS/BRANDING","n":"Media Days (Fotógrafo + Logística + Hospedagem + Alimentação)"},{"id":"2.10.1","area":"COM","g":"EQUIPAMENTOS","n":"Equipamentos audiovisual (Câmeras, Lentes, Iluminação, Suportes e Outros)"},{"id":"2.10.2","area":"COM","g":"EQUIPAMENTOS","n":"Seguro dos equipamentos"},{"id":"2.10.3","area":"COM","g":"EQUIPAMENTOS","n":"Estúdio"},{"id":"2.11.1","area":"COM","g":"FREELANCERS/SERVIÇOS","n":"Fotografia"},{"id":"2.11.2","area":"COM","g":"FREELANCERS/SERVIÇOS","n":"Social Media (Extra - Liga Ouro, LDB, JDE)"},{"id":"2.11.3","area":"COM","g":"FREELANCERS/SERVIÇOS","n":"Videomakers (+Filmagem jogo inicio vas x fla)"},{"id":"2.11.4","area":"COM","g":"FREELANCERS/SERVIÇOS","n":"Transmissão"},{"id":"2.12.1","area":"COM","g":"TREINAMENTOS","n":"Media Training das Assessorias"},{"id":"2.12.2","area":"COM","g":"TREINAMENTOS","n":"Treinamento de Produtoras (Câmeras, DTV e operadores)"},{"id":"2.12.3","area":"COM","g":"TREINAMENTOS","n":"Workshops de Fotografia"},{"id":"2.12.4","area":"COM","g":"TREINAMENTOS","n":"Casting (Narradores, Repórteres e Comentaristas)"},{"id":"2.12.5","area":"COM","g":"TREINAMENTOS","n":"Uniforme"},{"id":"3.01.1","area":"MKT","g":"RH","n":"ALVARO COTTA TEIXEIRA DA COSTA"},{"id":"3.01.2","area":"MKT","g":"RH","n":"GABRIELA MARTINS FALCADE"},{"id":"3.01.3","area":"MKT","g":"RH","n":"AUGUSTO LOPES"},{"id":"3.01.4","area":"MKT","g":"RH","n":"PAULA GASTALDELLI"},{"id":"3.01.5","area":"MKT","g":"RH","n":"BRUNA CRISTINA ONGARO MOTTA"},{"id":"3.01.6","area":"MKT","g":"RH","n":"VIVIANE DE SILOS BERNAL CANO"},{"id":"3.01.7","area":"MKT","g":"RH","n":"DIOGO DE MORAES CASTRO"},{"id":"3.01.8","area":"MKT","g":"RH","n":"ALEXIA BABEITO RIBEIRO DA SILVA"},{"id":"3.01.9","area":"MKT","g":"RH","n":"DANIELA TOME GOLÇALVES"},{"id":"3.01.10","area":"MKT","g":"RH","n":"NATHALIA DE ASSIS BRAGA"},{"id":"3.01.11","area":"MKT","g":"RH","n":"STEPHANIE FONSECA"},{"id":"3.02.1","area":"MKT","g":"LOGÍSTICA","n":"Transporte Aéreo do Departamento"},{"id":"3.02.2","area":"MKT","g":"LOGÍSTICA","n":"Transporte Terrestre Departamento"},{"id":"3.02.3","area":"MKT","g":"LOGÍSTICA","n":"Hospedagem do Departamento"},{"id":"3.03.1","area":"MKT","g":"REPRESENTAÇÃO","n":"Verba de Representação"},{"id":"3.04.1","area":"MKT","g":"REEMBOLSO DESPESA","n":"Restituição Funcionários do departamento"},{"id":"3.05.1","area":"MKT","g":"CORREIOS","n":"Correios"},{"id":"3.06.1","area":"MKT","g":"PESSOAL","n":"Curso Funcionários"},{"id":"3.07.1","area":"MKT","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Campanha institucional da temporada & JE (vídeo + digital)"},{"id":"3.07.2","area":"MKT","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Ações promocionais"},{"id":"3.07.3","area":"MKT","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Assessoria Mkt Digital"},{"id":"3.07.4","area":"MKT","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Branding"},{"id":"3.08.1","area":"MKT","g":"COMERCIAL","n":"Prospecção comercial - custos de vendas (%)"},{"id":"3.08.2","area":"MKT","g":"COMERCIAL","n":"Estratégias com foco comercial: M&M, PropMark, Máquina"},{"id":"3.08.3","area":"MKT","g":"COMERCIAL","n":"Pesquisas de mercado & dados (Economapas, outros)"},{"id":"3.08.4","area":"MKT","g":"COMERCIAL","n":"Impulsionamento de campanhas web"},{"id":"3.08.5","area":"MKT","g":"COMERCIAL","n":"Material Comercial (vídeo + impresso)"},{"id":"3.08.6","area":"MKT","g":"COMERCIAL","n":"Prospecção - mala direta + mailling"},{"id":"3.08.7","area":"MKT","g":"COMERCIAL","n":"Participação em eventos corporativos e de publicidade"},{"id":"3.08.8","area":"MKT","g":"COMERCIAL","n":"Relacionamento com mercado - encontros e experiências"},{"id":"3.08.9","area":"MKT","g":"COMERCIAL","n":"Rachão NBB - jogo entre publicitários e executivos"},{"id":"3.09.1","area":"MKT","g":"LOJA NBB","n":"Mkt digital - investimento em plataformas digitais"},{"id":"3.09.2","area":"MKT","g":"LOJA NBB","n":"Pesquisa de mercaddo - visitas a outras lojas, clientes, etc"},{"id":"3.09.3","area":"MKT","g":"LOJA NBB","n":"Desenvolvimento de produtos"},{"id":"3.09.4","area":"MKT","g":"LOJA NBB","n":"Cursos e eventos - feiras de licenciamento"},{"id":"3.10.1","area":"MKT","g":"ATENDIMENTO","n":"Relacionamento com patrocinadores: café, almoço, jantar, datas comemorativas"},{"id":"3.10.2","area":"MKT","g":"ATENDIMENTO","n":"Eventos e cursos"},{"id":"3.10.3","area":"MKT","g":"ATENDIMENTO","n":"Relatórios pós-venda (virtuais e impressos)"},{"id":"3.11.1","area":"MKT","g":"SERVIÇOS DE TERCEIROS","n":"Horizoom"},{"id":"3.11.2","area":"MKT","g":"SERVIÇOS DE TERCEIROS","n":"IBOPE"},{"id":"3.12.1","area":"MKT","g":"ATENDIMENTO","n":"Ingressos (NBB + JE + Copa Super 8)"},{"id":"3.12.2","area":"MKT","g":"ATENDIMENTO","n":"Sustentabilidade - produtos reutilizados, coleta seletiva do lixo, NBB CAIXA Social"},{"id":"3.12.3","area":"MKT","g":"ATENDIMENTO","n":"Ativações da Caixa - (abertura, mega da virada, JE, playoffs)"},{"id":"3.12.4","area":"MKT","g":"ATENDIMENTO","n":"Ativação de outros patrocinadores"},{"id":"3.12.5","area":"MKT","g":"ATENDIMENTO","n":"NBBet - não inclui produção dos programas, apenas cenários e brindes"},{"id":"3.12.6","area":"MKT","g":"ATENDIMENTO","n":"Conteúdos digitais de patrocinadores"},{"id":"3.12.7","area":"MKT","g":"ATENDIMENTO","n":"Lonas de quadra - NBB, Copa Super 8, JE, LDB"},{"id":"3.12.8","area":"MKT","g":"ATENDIMENTO","n":"Adesivos no piso - CAIXA, Sporstbet.io, NBB, FINAIS"},{"id":"3.12.9","area":"MKT","g":"ATENDIMENTO","n":"LED de quadra (abertura, copa super 8, Finais NBB)"},{"id":"3.12.10","area":"MKT","g":"ATENDIMENTO","n":"Backdrops"},{"id":"3.13.1","area":"MKT","g":"EVENTOS","n":"Premiação - NBB, Copa Super 8, JE, LDB (troféus e medalhas)"},{"id":"3.13.2","area":"MKT","g":"EVENTOS","n":"Premiação - cerminonial, pódio"},{"id":"3.13.3","area":"MKT","g":"EVENTOS","n":"Brindes gerais - para atender diretoria, bolas Salomão, ..."},{"id":"3.13.4","area":"MKT","g":"EVENTOS","n":"Uniformes (silk) - staff, arbitragem, ... (não inclui JE, Trio)"},{"id":"3.13.5","area":"MKT","g":"EVENTOS","n":"Lançamento do NBB - coletiva de imprensa"},{"id":"3.13.6","area":"MKT","g":"EVENTOS","n":"Copa Super 8 - operação, hospitalidade"},{"id":"3.13.7","area":"MKT","g":"EVENTOS","n":"Jogo das Estrelas"},{"id":"3.13.8","area":"MKT","g":"EVENTOS","n":"NBB - playoffs (hospitalidade)"},{"id":"3.13.9","area":"MKT","g":"EVENTOS","n":"Liga Ouro - considerar 8 times (extras)"},{"id":"3.13.10","area":"MKT","g":"EVENTOS","n":"LDB"},{"id":"3.13.11","area":"MKT","g":"EVENTOS","n":"Copa Jovens Talentos (premiação + placas)"},{"id":"3.13.12","area":"MKT","g":"EVENTOS","n":"Interligas LDB"},{"id":"3.13.13","area":"MKT","g":"EVENTOS","n":"Interligas Adulto"},{"id":"3.13.14","area":"MKT","g":"EVENTOS","n":"NBB TRIO - 2024 - 2025"},{"id":"3.13.15","area":"MKT","g":"EVENTOS","n":"NBB MKT Summit ou Workshop - setembro"},{"id":"3.13.16","area":"MKT","g":"EVENTOS","n":"TORNEIO ABERTURA"},{"id":"3.13.17","area":"MKT","g":"EVENTOS","n":"Reuniões institucionais: AGO, Conselho"},{"id":"3.13.18","area":"MKT","g":"EVENTOS","n":"Festa de final de ano da Liga"},{"id":"3.13.19","area":"MKT","g":"EVENTOS","n":"Eventos e visitas para pesquisa de mercado"},{"id":"3.14.1","area":"MKT","g":"NBA + LIGAS INTERNACIONAIS","n":"Missão NBA NBB"},{"id":"3.14.2","area":"MKT","g":"NBA + LIGAS INTERNACIONAIS","n":"La Liga - Argentina"},{"id":"3.15.1","area":"MKT","g":"TECNOLOGIA & INOVAÇÃO","n":"NBB ID - FAN BASE"},{"id":"3.15.2","area":"MKT","g":"TECNOLOGIA & INOVAÇÃO","n":"Cursos e eventos"},{"id":"3.15.3","area":"MKT","g":"TECNOLOGIA & INOVAÇÃO","n":"Pesquisas e desenvolvimento para novos projetos"},{"id":"3.16.1","area":"MKT","g":"INFORMAÇÕES E CAPACITAÇÃO","n":"Pesquisas com Fans nos ginásios"},{"id":"3.16.2","area":"MKT","g":"INFORMAÇÕES E CAPACITAÇÃO","n":"Pesquisa Sport Track"},{"id":"3.16.3","area":"MKT","g":"INFORMAÇÕES E CAPACITAÇÃO","n":"Assinatura de Jornais e Revistas: M&M, Valor Econômico"},{"id":"4.01.1","area":"TOP","g":"RH","n":"PAULO ROBERTO BASSUL CAMPOS"},{"id":"4.01.2","area":"TOP","g":"RH","n":"FLAVIA RENATA DE ALMEIDA"},{"id":"4.01.3","area":"TOP","g":"RH","n":"AUDRIN SIRTOLI"},{"id":"4.01.4","area":"TOP","g":"RH","n":"WILLIAN GIOVANI QUEVEDO PIRES"},{"id":"4.01.5","area":"TOP","g":"RH","n":"ANDRE GUSTAVO MARIANO ROCHA"},{"id":"4.01.6","area":"TOP","g":"RH","n":"LARISSA BETTIN GONZAGA"},{"id":"4.01.7","area":"TOP","g":"RH","n":"LILIAN CRISTINA LOPES GONÇALVES"},{"id":"4.01.8","area":"TOP","g":"RH","n":"VICTORIA CRISTINA BARBOSA DE SOUZA"},{"id":"4.01.9","area":"TOP","g":"RH","n":"LUIZ HENRIQUE XIMENES DA COSTA"},{"id":"4.01.10","area":"TOP","g":"RH","n":"ALUISIO ELIAS XAVIER FERREIRA"},{"id":"4.01.11","area":"TOP","g":"RH","n":"MARIO / JOEL / SAMUEL - BASQUETE CIDADÃO"},{"id":"4.02.1","area":"TOP","g":"LOGÍSTICA","n":"Transporte Aéreo - Arbitragem/Staff Depto - NBB"},{"id":"4.02.2","area":"TOP","g":"LOGÍSTICA","n":"Transporte Aéreo - Arbitragem/Staff Depto - L Ouro"},{"id":"4.02.3","area":"TOP","g":"LOGÍSTICA","n":"Transporte Terrestre do Departamento"},{"id":"4.02.4","area":"TOP","g":"LOGÍSTICA","n":"Hospedagem - Arbitragem/Staff Depto - NBB"},{"id":"4.02.5","area":"TOP","g":"LOGÍSTICA","n":"Hospedagem - Arbitragem/Staff Depto - L Ouro"},{"id":"4.03.1","area":"TOP","g":"REPRESENTAÇÃO","n":"Verba de Representação"},{"id":"4.04.1","area":"TOP","g":"REEMBOLSO DESPESA","n":"Restituição Funcionários do departamento"},{"id":"4.04.2","area":"TOP","g":"REEMBOLSO DESPESA","n":"Restituição Árbitros NBB"},{"id":"4.04.3","area":"TOP","g":"REEMBOLSO DESPESA","n":"Restituição Árbitros L Ouro"},{"id":"4.05.1","area":"TOP","g":"CORREIOS","n":"Correios"},{"id":"4.06.1","area":"TOP","g":"PESSOAL","n":"Curso Funcionarios"},{"id":"4.07.1","area":"TOP","g":"INFORMATICA","n":"Núvem Google"},{"id":"4.07.2","area":"TOP","g":"INFORMATICA","n":"YEL - Acompanhamento Jogos NBB"},{"id":"4.07.3","area":"TOP","g":"INFORMATICA","n":"YEL - Acompanhamento Liga Ouro (Complemento"},{"id":"4.07.4","area":"TOP","g":"INFORMATICA","n":"YEL - Software de Arbitragem"},{"id":"4.07.5","area":"TOP","g":"INFORMATICA","n":"YEL - Software de Súmula Eletrônica"},{"id":"4.07.6","area":"TOP","g":"INFORMATICA","n":"YEL - Software de Estatísticas e Suporte Técnico"},{"id":"4.07.7","area":"TOP","g":"INFORMATICA","n":"Software Edição (Análise de Jogos/Arb) - NBB"},{"id":"4.07.8","area":"TOP","g":"INFORMATICA","n":"Eder Gasperin Soluções (WayV)"},{"id":"4.08.1","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Comissão Disciplinar Restituições"},{"id":"4.08.2","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Camp - Atletas (Fora Projeto)"},{"id":"4.08.3","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Clínicas e Congresso Técnico (Fora Projeto)"},{"id":"4.08.4","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Clínicas de Arbitragem Presencial"},{"id":"4.08.5","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Arbitragem - Avaliações"},{"id":"4.08.6","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Copa Super 8"},{"id":"4.08.7","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Interligas LDB (Argentina)"},{"id":"4.08.8","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Interligas Adulto (Brasil)"},{"id":"4.08.9","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"LDB - Sub22 - Orientador de Arbitragem"},{"id":"4.08.10","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Jogo das Estrelas"},{"id":"4.08.11","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Aros/Redinhas/Régua"},{"id":"4.08.12","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Seguro de Vida (Equipe Arbitragem)"},{"id":"4.08.13","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Uniformes para Representantes"},{"id":"4.08.14","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Vistorias e Treinamentos (Representantes/Estat)"},{"id":"4.08.15","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Van Franca/Bauru/Pato Branco - NBB"},{"id":"4.08.16","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Refeição Arbitragem/Staff Depto - NBB"},{"id":"4.08.17","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Refeição Arbitragem/Staff Depto - L Ouro"},{"id":"4.08.18","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Analista de Arbitragem / NBB (taxa / jogo)"},{"id":"4.08.19","area":"TOP","g":"OPERAÇÕES E SERVIÇOS DO DEPARTAMENTO","n":"Analista de Arbitragem / L Ouro (taxa / jogo)"},{"id":"4.09.1","area":"TOP","g":"PROJETOS","n":"Projetos Lei Incentivo - Leonardo Castro (Trilha)"},{"id":"5.01.1","area":"A&F","g":"RH","n":"GILMAR GOMES SILVA"},{"id":"5.01.2","area":"A&F","g":"RH","n":"ERONILDO TELES DE MENEZES"},{"id":"5.01.3","area":"A&F","g":"RH","n":"ARIOSVALDO PRADO SIMÕES"},{"id":"5.01.4","area":"A&F","g":"RH","n":"GEISEANE HONORATO DE ARAUJO"},{"id":"5.01.5","area":"A&F","g":"RH","n":"LUCAS SOUZA DOS SANTOS"},{"id":"5.01.6","area":"A&F","g":"RH","n":"MARIA EDUARDA FIGUEIREDO MONTEIRO"},{"id":"5.02.1","area":"A&F","g":"LOGÍSTICA","n":"Transporte Aéreo do Departamento"},{"id":"5.02.2","area":"A&F","g":"LOGÍSTICA","n":"Transporte Terrestre do Departamento"},{"id":"5.02.3","area":"A&F","g":"LOGÍSTICA","n":"Hospedagem do Departamento"},{"id":"5.03.1","area":"A&F","g":"REPRESENTAÇÃO","n":"Verba de Representação"},{"id":"5.04.1","area":"A&F","g":"REEMBOLSO DESPESA","n":"Restituição Funcionários do departamento"},{"id":"5.05.1","area":"A&F","g":"CORREIOS","n":"Correios"},{"id":"5.06.1","area":"A&F","g":"PESSOAL","n":"Curso Funcionários"},{"id":"5.07.1","area":"A&F","g":"CONTRIBUIÇÃO","n":"NBA Streaming - 2024"},{"id":"5.07.2","area":"A&F","g":"CONTRIBUIÇÃO","n":"NBA Streaming - 2025"},{"id":"5.07.3","area":"A&F","g":"CONTRIBUIÇÃO","n":"CBB"},{"id":"5.08.1","area":"A&F","g":"ESCRITÓRIO (SÃO PAULO/RIO DE JANEIRO)","n":"Escritório Rio de Janeiro - Aluguel"},{"id":"5.08.2","area":"A&F","g":"ESCRITÓRIO (SÃO PAULO/RIO DE JANEIRO)","n":"Escritório São Paulo - Aluguel"},{"id":"5.08.3","area":"A&F","g":"ESCRITÓRIO (SÃO PAULO/RIO DE JANEIRO)","n":"Escritório São Paulo - Condomínio"},{"id":"5.08.4","area":"A&F","g":"ESCRITÓRIO (SÃO PAULO/RIO DE JANEIRO)","n":"Escritório São Paulo - Energia Eletrica"},{"id":"5.08.5","area":"A&F","g":"ESCRITÓRIO (SÃO PAULO/RIO DE JANEIRO)","n":"Escritório São Paulo - IPTU"},{"id":"5.08.6","area":"A&F","g":"ESCRITÓRIO (SÃO PAULO/RIO DE JANEIRO)","n":"Escritório São Paulo - Seguro (Condomínio)"},{"id":"5.08.7","area":"A&F","g":"ESCRITÓRIO (SÃO PAULO/RIO DE JANEIRO)","n":"Escritório São Paulo - Seguro (Incêncio, roubo,outros)"},{"id":"5.08.8","area":"A&F","g":"ESCRITÓRIO (SÃO PAULO/RIO DE JANEIRO)","n":"Escritório São Paulo - TFE"},{"id":"5.08.9","area":"A&F","g":"ESCRITÓRIO (SÃO PAULO/RIO DE JANEIRO)","n":"Manutenção Imóvel"},{"id":"5.09.1","area":"A&F","g":"ADMINISTRATIVAS","n":"Seguro Executivos"},{"id":"5.09.2","area":"A&F","g":"ADMINISTRATIVAS","n":"Serviço de Limpeza"},{"id":"5.09.3","area":"A&F","g":"ADMINISTRATIVAS","n":"Mobiliário - aquisição"},{"id":"5.09.4","area":"A&F","g":"ADMINISTRATIVAS","n":"Mobiliário - manutenção"},{"id":"5.09.5","area":"A&F","g":"ADMINISTRATIVAS","n":"Legais e Judiciais (Publicação/Cartório/Certidões/Registro)"},{"id":"5.09.6","area":"A&F","g":"ADMINISTRATIVAS","n":"Moto Boy"},{"id":"5.09.7","area":"A&F","g":"ADMINISTRATIVAS","n":"Mensalidades Cartão/Zoom/Autentique/Docusign/HQCloud"},{"id":"5.10.1","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"Computadores e Equipamentos - Aquisição"},{"id":"5.10.2","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"Atualização Servidor"},{"id":"5.10.3","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"Assinatura Adobe (Brasoftware) - Docusign - Autentique - HQCloud"},{"id":"5.10.4","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"Internet - Telium"},{"id":"5.10.5","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"Internet - Vivo"},{"id":"5.10.6","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"Material de Informatica"},{"id":"5.10.7","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"Manutenção Equipamentos"},{"id":"5.10.8","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"YEL - Servidor"},{"id":"5.10.9","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"YEL - Portal - Site"},{"id":"5.10.10","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"Backup Remoto - Hardtec"},{"id":"5.10.11","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"Serviço Informatica - Hardtec"},{"id":"5.10.12","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"Telefonia Fixa e Móvel (vivo / claro/embratel)"},{"id":"5.10.13","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"TV a Cabo - SKY"},{"id":"5.10.14","area":"A&F","g":"INFORMÁTICA/TELEFONIA","n":"Nuvem (Google - e-mail)"},{"id":"5.11.1","area":"A&F","g":"SERVIÇOS DE TERCEIROS","n":"Locação Impressoras/Cópias - Conection"},{"id":"5.11.2","area":"A&F","g":"SERVIÇOS DE TERCEIROS","n":"Software de Controle de Ponto - ControlID"},{"id":"5.11.3","area":"A&F","g":"SERVIÇOS DE TERCEIROS","n":"Software Financeiro - Habil"},{"id":"5.11.4","area":"A&F","g":"SERVIÇOS DE TERCEIROS","n":"Auditoria - BDO"},{"id":"5.11.5","area":"A&F","g":"SERVIÇOS DE TERCEIROS","n":"Contabilidade - Go Further"},{"id":"5.12.1","area":"A&F","g":"MATERIAIS","n":"Material de Escritório"},{"id":"5.12.2","area":"A&F","g":"MATERIAIS","n":"Material de Consumo"},{"id":"5.12.3","area":"A&F","g":"MATERIAIS","n":"Material de Limpeza"},{"id":"5.13.1","area":"A&F","g":"FINANCEIRAS","n":"Despesas Bancárias"},{"id":"5.14.1","area":"A&F","g":"ENCARGOS","n":"Encargos sobre emissão de NFS LNB"},{"id":"8.1","area":"EQP","g":"CLUBES","n":"01 - BAURU"},{"id":"8.2","area":"EQP","g":"CLUBES","n":"02 - BOTAFOGO"},{"id":"8.3","area":"EQP","g":"CLUBES","n":"03 - BRASILIA"},{"id":"8.4","area":"EQP","g":"CLUBES","n":"04 - CAXIAS"},{"id":"8.5","area":"EQP","g":"CLUBES","n":"05 - CERRADO"},{"id":"8.6","area":"EQP","g":"CLUBES","n":"06 - CORINTHIANS"},{"id":"8.7","area":"EQP","g":"CLUBES","n":"07 - CRUZEIRO"},{"id":"8.8","area":"EQP","g":"CLUBES","n":"08 - FLAMENGO"},{"id":"8.9","area":"EQP","g":"CLUBES","n":"09 - FORTALEZA"},{"id":"8.10","area":"EQP","g":"CLUBES","n":"10 - FRANCA"},{"id":"8.11","area":"EQP","g":"CLUBES","n":"11 - MINAS"},{"id":"8.12","area":"EQP","g":"CLUBES","n":"12 - MOGI"},{"id":"8.13","area":"EQP","g":"CLUBES","n":"13 - OSACO"},{"id":"8.14","area":"EQP","g":"CLUBES","n":"14 - PATO BRANCO"},{"id":"8.15","area":"EQP","g":"CLUBES","n":"15 - PAULISTANO"},{"id":"8.16","area":"EQP","g":"CLUBES","n":"16 - PINHEIROS"},{"id":"8.17","area":"EQP","g":"CLUBES","n":"17 - RIO CLARO"},{"id":"8.18","area":"EQP","g":"CLUBES","n":"18 - SÃO JOSE"},{"id":"8.19","area":"EQP","g":"CLUBES","n":"19 - SÃO PAULO"},{"id":"8.20","area":"EQP","g":"CLUBES","n":"20 - UNIÃO CORINTHIANS"},{"id":"8.21","area":"EQP","g":"CLUBES","n":"21 - UNIFACISA"},{"id":"8.22","area":"EQP","g":"CLUBES","n":"22 - VASCO"},{"id":"9.1","area":"REC","g":"PATROCINADORES - NBB","n":"CAIXA"},{"id":"9.2","area":"REC","g":"PATROCINADORES - NBB","n":"ESPN"},{"id":"9.3","area":"REC","g":"PATROCINADORES - NBB","n":"XSPORTS"},{"id":"9.4","area":"REC","g":"PATROCINADORES - NBB","n":"YOUTUBE"},{"id":"9.5","area":"REC","g":"PATROCINADORES - NBB","n":"GLOBO"},{"id":"9.6","area":"REC","g":"PATROCINADORES - NBB","n":"CULTURA"},{"id":"9.7","area":"REC","g":"PATROCINADORES - NBB","n":"Conteúdo Digital - GENIUS"},{"id":"9.8","area":"REC","g":"PATROCINADORES - NBB","n":"PRIME VIDEO"},{"id":"9.9","area":"REC","g":"PATROCINADORES - NBB","n":"Direitos de Betting - IMG"},{"id":"9.10","area":"REC","g":"PATROCINADORES - NBB","n":"SportRadar"},{"id":"9.11","area":"REC","g":"PATROCINADORES - NBB","n":"Monetização - GOOGLE"},{"id":"9.12","area":"REC","g":"PATROCINADORES - NBB","n":"Metrópolis"},{"id":"9.13","area":"REC","g":"PATROCINADORES - NBB","n":"Franquia Osasco"},{"id":"9.14","area":"REC","g":"PATROCINADORES - NBB","n":"TV NSports"},{"id":"9.15","area":"REC","g":"PATROCINADORES - NBB","n":"UOL"},{"id":"9.16","area":"REC","g":"PATROCINADORES - NBB","n":"WISCOUT"},{"id":"9.17","area":"REC","g":"PATROCINADORES - NBB","n":"UNIVERSIDADE CRUZEIRO DO SUL"},{"id":"9.18","area":"REC","g":"PATROCINADORES - NBB","n":"VULCABRAS - UNDER ARMOUR"},{"id":"9.19","area":"REC","g":"PATROCINADORES - NBB","n":"LIE JE"},{"id":"9.20","area":"REC","g":"PATROCINADORES - NBB","n":"Caixa Seguradora"},{"id":"9.21","area":"REC","g":"PATROCINADORES - NBB","n":"JOGO DAS ESTRELAS"},{"id":"9.22","area":"REC","g":"PATROCINADORES - NBB","n":"NBBTrio"},{"id":"9.23","area":"REC","g":"RECEITAS DE OUTRAS COMPETIÇÕES","n":"LDB (TAXA DE INSCRIÇÃO E DESPESAS)"},{"id":"9.24","area":"REC","g":"RECEITAS DE OUTRAS COMPETIÇÕES","n":"LIGA OURO"},{"id":"9.25","area":"REC","g":"OUTRAS RECEITAS","n":"Aquisição Direito Filiação"},{"id":"9.26","area":"REC","g":"OUTRAS RECEITAS","n":"Outros Recebimentos"},{"id":"9.27","area":"REC","g":"OUTRAS RECEITAS","n":"Rendimento Aplicação"},{"id":"9.28","area":"REC","g":"PERMUTAS","n":"Bolas Penalty"},{"id":"9.29","area":"REC","g":"PERMUTAS","n":"Uniformes"},{"id":"9.30","area":"REC","g":"FUNDOS","n":"Mensalidades (*)"},{"id":"9.31","area":"REC","g":"FUNDOS","n":"Instat (estatísticas)"},{"id":"9.32","area":"REC","g":"FUNDOS","n":"Restituição Logística Clubes"},{"id":"9.33","area":"REC","g":"FUNDOS","n":"Multas (CD,Adm,Faltas)"},{"id":"9.34","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"BAURU"},{"id":"9.35","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"BOTAFOGO"},{"id":"9.36","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"BRASILIA"},{"id":"9.37","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"CAXIAS"},{"id":"9.38","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"CERRADO"},{"id":"9.39","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"CORINTHIANS"},{"id":"9.40","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"CRUZEIROS"},{"id":"9.41","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"FLAMENGO"},{"id":"9.42","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"FORTALEZA - BASQUETE CEARENSE"},{"id":"9.43","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"FRANCA"},{"id":"9.44","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"MINAS"},{"id":"9.45","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"MOGI"},{"id":"9.46","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"OSASCO"},{"id":"9.47","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"PATO BASQUETE"},{"id":"9.48","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"PAULISTANO"},{"id":"9.49","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"PINHEIROS"},{"id":"9.50","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"RIO CLARO"},{"id":"9.51","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"SÃO JOSE"},{"id":"9.52","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"SÃO PAULO"},{"id":"9.53","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"UNIÃO CORINTHIANS"},{"id":"9.54","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"UNIFACISA"},{"id":"9.55","area":"REC","g":"CRÉDITO DOS CLUBES EM PODER DA LIGA","n":"VASCO"}];
+
+const BANK_OPTIONS = ['Bradesco','Itaú','Banco do Brasil','Santander','Caixa Econômica','Outro'];
+const COMPETICAO_OPTIONS = ['','NBB','LDB','Liga Ouro','Jogo das Estrelas','Copa Super 8','Interligas'];
+const TIPO_REEMB_OPTIONS = ['','Refeição','Pedágio','Transporte','Combustível','Estacionamento'];
+
+// ===== Tema (idêntico ao Orçado x Realizado: claro/escuro, salvo no navegador) =====
+const THEME_KEY = 'revisaoIds_theme';
+function applyTheme(t){
+  document.body.setAttribute('data-theme', t);
+  localStorage.setItem(THEME_KEY, t);
+  document.getElementById('btnThemeLight').classList.toggle('on', t==='light');
+  document.getElementById('btnThemeDark').classList.toggle('on', t==='dark');
+}
+document.getElementById('btnThemeLight').addEventListener('click', ()=>applyTheme('light'));
+document.getElementById('btnThemeDark').addEventListener('click', ()=>applyTheme('dark'));
+applyTheme(localStorage.getItem(THEME_KEY) || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+
+function normalize(s){
+  return (s||'').toString()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .toLowerCase().trim();
+}
+
+const IDREF_STORAGE_KEY = 'revisaoIds_customIdRef';
+const IDREF_META_KEY = 'revisaoIds_customIdRef_meta';
+
+function buildIdRefNorm(list){
+  return list.map(r=>({...r, _norm: normalize(r.n+' '+r.id+' '+r.g)}));
+}
+function loadIdRefFromStorage(){
+  try{
+    const raw = localStorage.getItem(IDREF_STORAGE_KEY);
+    if(!raw) return null;
+    const list = JSON.parse(raw);
+    if(Array.isArray(list) && list.length) return list;
+  }catch(e){}
+  return null;
+}
+let ID_REF = loadIdRefFromStorage() || ID_REF_DEFAULT;
+let ID_REF_NORM = buildIdRefNorm(ID_REF);
+
+function idRefMeta(){
+  try{ return JSON.parse(localStorage.getItem(IDREF_META_KEY)||'null'); }catch(e){ return null; }
+}
+function updateIdRefStatus(){
+  const meta = idRefMeta();
+  const status = document.getElementById('idRefStatus');
+  const resetBtn = document.getElementById('btnResetIds');
+  if(meta){
+    const d = new Date(meta.date);
+    status.textContent = `${ID_REF.length} IDs carregados — atualizado em ${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR')} a partir de "${meta.filename}"`;
+    resetBtn.classList.remove('hide');
+  } else {
+    status.textContent = `${ID_REF.length} IDs carregados (lista padrão embutida na ferramenta)`;
+    resetBtn.classList.add('hide');
+  }
+  syncIdFilterWithIdRef();
+}
+
+// ===== Filtro por ID do orçamento atribuído (toolbar da revisão) =====
+// Mantém o filtro por ID (autocomplete, mesmo padrão visual/interativo do
+// idbox usado por linha) consistente com a lista de IDs atual (padrão ou
+// importada). Se o ID atualmente filtrado não existir mais na lista (ex.:
+// depois de reimportar/resetar a lista de IDs), limpa o filtro.
+function syncIdFilterWithIdRef(){
+  if(!idFilterInput) return;
+  if(idFilterValue && !ID_REF.some(r=>r.id===idFilterValue)){
+    idFilterValue = '';
+  }
+  idFilterInput.value = idFilterValue ? idLabel(idFilterValue) : '';
+  refreshIdFilterClearBtn();
+}
+
+// ===== Detecção de transferência interna entre contas da própria Liga =====
+// Mesma regra usada no Orçado x Realizado (isInternalBankTransferTx): essas
+// movimentações nunca entram como despesa/receita classificada, então não
+// fazem sentido pedir um ID do orçamento para elas.
+function isInternalTransferRow(r){
+  const x = normalize([r.favorecido, r.descricao, r.documento].join(' '));
+  if(x.includes('taxa inscricao')||x.includes('taxa de inscricao')) return false;
+  if(x.includes('rendimento aplicacao')||x.includes('rendimentos aplicacao')) return false;
+  const transferPatterns=['transf da conta','transf para conta','transf do banco','transf para banco','transferencia entre contas','transferencia entre bancos','transferencia bancaria','transf banco','transf para do bradesco'];
+  if(transferPatterns.some(k=>x.includes(k))) return true;
+  const applicationPatterns=['resgate aplicacao','resgate de aplicacao','resgate aplicacao fundos','resgate fundos','resgate fundo','aplicacao fundo','aplicacao fundos','aplicacao fundo sigma','aplicacao cdb','fundo sigma di'];
+  if(applicationPatterns.some(k=>x.includes(k))) return true;
+  if(normalize(r.favorecido)==='lnb' && /^aplicacao$/.test(normalize(r.descricao||''))) return true;
+  return false;
+}
+
+// Status "efetivo" de transferência de uma linha: se o usuário corrigiu
+// manualmente (transferOverride true/false), essa decisão manual prevalece
+// sempre sobre a heurística automática (autoIsTransfer) — inclusive depois
+// de recarregar a planilha/restaurar o autosave. transferOverride===null
+// significa "sem correção manual, usa a detecção automática".
+function effectiveTransfer(r){
+  return (r.transferOverride===true || r.transferOverride===false) ? r.transferOverride : r.autoIsTransfer;
+}
+// Aplica (ou remove, com val=null) uma correção manual de transferência a
+// uma linha, persiste no autosave e re-renderiza.
+function setTransferOverride(r, val){
+  r.transferOverride = val;
+  r.transferOverrideAt = val===null ? null : new Date().toISOString();
+  r.isTransfer = effectiveTransfer(r);
+  renderTable();
+  saveAutosave();
+}
+
+// ===== Memória de decisões passadas de classificação =====
+// Guarda, no navegador, um mapa "texto normalizado do lançamento -> ID
+// escolhido pelo usuário" toda vez que uma linha é confirmada manualmente
+// (seleção direta na caixa de busca, Enter para confirmar sugestão, ou ação
+// em massa). O motor de sugestão consulta esse mapa antes da heurística de
+// texto — mas o resultado continua marcado como "sugestão" para revisão,
+// nunca é aplicado como já confirmado.
+const LEARNED_MAP_KEY = 'revisaoIds_learnedMappings';
+function loadLearnedMap(){
+  try{
+    const raw = localStorage.getItem(LEARNED_MAP_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    return (map && typeof map==='object') ? map : {};
+  }catch(e){ return {}; }
+}
+function saveLearnedMap(map){
+  try{ localStorage.setItem(LEARNED_MAP_KEY, JSON.stringify(map)); }catch(e){}
+}
+function learnMapping(row, id){
+  if(!id || !row) return;
+  const map = loadLearnedMap();
+  const fullKey = normalize((row.favorecido||'')+' '+(row.descricao||''));
+  const favKey = normalize(row.favorecido||'');
+  if(fullKey) map[fullKey] = id;
+  if(favKey) map['fav::'+favKey] = id;
+  saveLearnedMap(map);
+}
+
+// ===== Motor de sugestão (heurístico, roda 100% no navegador) =====
+// Não é o mesmo motor do Orçado x Realizado (que usa regras específicas por
+// prestador/rateio), mas cruza favorecido+descrição contra os nomes do plano
+// orçamentário e só sugere quando encontra uma correspondência com confiança
+// razoável — sempre marcado como "sugestão" para revisão, nunca confirmado.
+// Antes da heurística de texto, primeiro consulta a memória de decisões
+// passadas (revisaoIds_learnedMappings): se o usuário já classificou um
+// lançamento igual (ou do mesmo favorecido) antes, essa escolha vale pelo
+// menos tanto quanto a heurística — mas ainda entra como sugestão a revisar.
+function suggestIdFor(row){
+  const text = normalize(row.favorecido+' '+(row.descricao||''));
+  if(!text) return null;
+  const learned = loadLearnedMap();
+  const favKey = normalize(row.favorecido||'');
+  const learnedId = learned[text] || (favKey ? learned['fav::'+favKey] : null);
+  if(learnedId){
+    const ref = ID_REF_NORM.find(x=>x.id===learnedId);
+    if(ref) return ref;
+  }
+  const tokens = [...new Set(text.split(/[\s.,\-\/]+/).filter(t=>t.length>=4))];
+  if(!tokens.length) return null;
+  let best=null, bestScore=0;
+  ID_REF_NORM.forEach(ref=>{
+    let score=0;
+    if(ref._norm.includes(text)||text.includes(ref._norm)) score+=6;
+    tokens.forEach(t=>{ if(ref._norm.includes(t)) score+=1; });
+    if(score>bestScore){bestScore=score;best=ref;}
+  });
+  return bestScore>=2 ? best : null;
+}
+
+// Além do ID, o motor também tenta reconhecer, pelo texto do favorecido +
+// descrição, uma competição e um tipo de reembolso conhecidos (mesmas
+// opções dos selects da tabela) — sempre como sugestão, nunca sobrescrevendo
+// um valor que o usuário já preencheu manualmente.
+function suggestExtrasFor(row){
+  const text = normalize(row.favorecido+' '+(row.descricao||''));
+  let comp = '';
+  for(const c of COMPETICAO_OPTIONS){ if(c && text.includes(normalize(c))){ comp = c; break; } }
+  let tipoReemb = '';
+  for(const t of TIPO_REEMB_OPTIONS){ if(t && text.includes(normalize(t))){ tipoReemb = t; break; } }
+  return {comp, tipoReemb};
+}
+
+function excelSerialToDate(v){
+  if(v==null || v==='') return null;
+  if(v instanceof Date) return v;
+  if(typeof v==='number'){
+    const utc = XLSX.SSF.parse_date_code(v);
+    if(!utc) return null;
+    return new Date(Date.UTC(utc.y, utc.m-1, utc.d));
+  }
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+function fmtDate(d){
+  if(!d) return '';
+  const dd = String(d.getUTCDate()).padStart(2,'0');
+  const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+  const yy = d.getUTCFullYear();
+  return `${dd}/${mm}/${yy}`;
+}
+function fmtMoney(v){
+  if(v==null || v==='' || isNaN(v)) return '';
+  return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function r2(v){ return Math.round((Number(v)||0)*100)/100; }
+
+// ===== Chave de conteúdo do lançamento (independente da posição na planilha) =====
+// Usada para casar o progresso salvo (autosave) com a linha correta mesmo se
+// a planilha for reimportada com linhas reordenadas ou com pequenas edições
+// em outras partes — combina data + documento + favorecido + entrada + saída
+// normalizados. dateRaw aceita tanto o serial do Excel (linhas recém-lidas
+// da planilha) quanto o mesmo valor já guardado como dataRaw na linha do
+// estado (mesma origem, mesmo formato).
+function rowContentKey(row){
+  const d = excelSerialToDate(row.dateRaw);
+  const dateStr = d ? fmtDate(d) : '';
+  const ent = r2(Number(row.entrada)||0).toFixed(2);
+  const sai = r2(Number(row.saida)||0).toFixed(2);
+  return normalize([dateStr, row.documento, row.favorecido, ent, sai].join('|'));
+}
+
+// ===== Detecção leve de possíveis duplicatas =====
+// Compara cada linha com todas as outras da mesma aba importada: mesmo valor
+// (entrada ou saída, o que for diferente de zero), data igual ou a até 2 dias
+// de distância, e favorecido igual ou com alta sobreposição de palavras.
+// Não bloqueia nada — só marca r.possibleDup com o índice da outra linha,
+// para exibir um aviso visual na tabela.
+function computeDuplicateFlags(rows){
+  rows.forEach(r=>{ r.possibleDup = null; });
+  const amtOf = r => (Number(r.entrada)||0) - (Number(r.saida)||0);
+  const dateOf = r => excelSerialToDate(r.dataRaw);
+  const favSimilar = (na, nb) => {
+    if(!na || !nb) return false;
+    if(na===nb) return true;
+    const ta = new Set(na.split(/\s+/).filter(t=>t.length>=3));
+    const tb = new Set(nb.split(/\s+/).filter(t=>t.length>=3));
+    if(!ta.size || !tb.size) return false;
+    const inter = [...ta].filter(t=>tb.has(t)).length;
+    const uni = new Set([...ta,...tb]).size;
+    return uni>0 && (inter/uni) >= 0.6;
+  };
+  for(let i=0;i<rows.length;i++){
+    const a = rows[i];
+    const aAmt = amtOf(a);
+    if(Math.abs(aAmt)<0.01) continue;
+    const da = dateOf(a);
+    if(!da) continue;
+    const na = normalize(a.favorecido);
+    for(let j=i+1;j<rows.length;j++){
+      const b = rows[j];
+      const bAmt = amtOf(b);
+      if(Math.abs(bAmt)<0.01) continue;
+      if(Math.abs(aAmt-bAmt)>0.01) continue;
+      const db = dateOf(b);
+      if(!db) continue;
+      const diffDays = Math.abs(da.getTime()-db.getTime())/(1000*60*60*24);
+      if(diffDays>2) continue;
+      if(!favSimilar(na, normalize(b.favorecido))) continue;
+      if(!a.possibleDup) a.possibleDup = {otherIdx:b.idx};
+      if(!b.possibleDup) b.possibleDup = {otherIdx:a.idx};
+    }
+  }
+}
+
+let state = { rows: [], fileName:'', sheetName:'', banco:'', temporada:'', storageKey:'', prova:null };
+let workbookGlobal = null;
+const bulkState = { id:'' };
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const sheetRow = document.getElementById('sheetRow');
+const sheetSelect = document.getElementById('sheetSelect');
+const bancoSelect = document.getElementById('bancoSelect');
+const temporadaInput = document.getElementById('temporadaInput');
+const loadSheetBtn = document.getElementById('loadSheetBtn');
+const stepUpload = document.getElementById('step-upload');
+const stepReview = document.getElementById('step-review');
+const tbody = document.getElementById('tbody');
+const backBtn = document.getElementById('backBtn');
+const exportBtn = document.getElementById('exportBtn');
+const onlyPending = document.getElementById('onlyPending');
+const hideTransfers = document.getElementById('hideTransfers');
+const onlyTransfers = document.getElementById('onlyTransfers');
+const quickFilter = document.getElementById('quickFilter');
+const dateFrom = document.getElementById('dateFrom');
+const dateTo = document.getElementById('dateTo');
+const clearDateFilterBtn = document.getElementById('clearDateFilterBtn');
+const idFilterInput = document.getElementById('idFilterInput');
+const idFilterSugg = document.getElementById('idFilterSugg');
+const idFilterClearBtn = document.getElementById('idFilterClearBtn');
+let idFilterValue = '';
+let idFilterActiveIdx = -1;
+let idFilterCurrentMatches = [];
+const filterTotalsBar = document.getElementById('filterTotalsBar');
+const autosaveMsg = document.getElementById('autosaveMsg');
+const btnImportIds = document.getElementById('btnImportIds');
+const btnResetIds = document.getElementById('btnResetIds');
+const btnViewIds = document.getElementById('btnViewIds');
+const idsFileInput = document.getElementById('idsFileInput');
+const idsModal = document.getElementById('idsModal');
+const idsModalClose = document.getElementById('idsModalClose');
+const idsModalFilter = document.getElementById('idsModalFilter');
+const idsModalBody = document.getElementById('idsModalBody');
+const idsModalCount = document.getElementById('idsModalCount');
+const parcModal = document.getElementById('parcModal');
+const parcModalClose = document.getElementById('parcModalClose');
+const parcCodigoInput = document.getElementById('parcCodigoInput');
+const parcCodesList = document.getElementById('parcCodesList');
+const parcNewFields = document.getElementById('parcNewFields');
+const parcExistingNote = document.getElementById('parcExistingNote');
+const parcTotalInput = document.getElementById('parcTotalInput');
+const parcNInput = document.getElementById('parcNInput');
+const parcRemoveBtn = document.getElementById('parcRemoveBtn');
+const parcSaveBtn = document.getElementById('parcSaveBtn');
+let parcEditingIdx = null;
+const bulkComp = document.getElementById('bulkComp');
+const bulkAbat = document.getElementById('bulkAbat');
+const bulkReemb = document.getElementById('bulkReemb');
+const bulkCount = document.getElementById('bulkCount');
+const applyBulkBtn = document.getElementById('applyBulkBtn');
+const suggestBtn = document.getElementById('suggestBtn');
+const undoSuggestBtn = document.getElementById('undoSuggestBtn');
+const provaPanel = document.getElementById('provaPanel');
+
+BANK_OPTIONS.forEach(b=>{
+  const o=document.createElement('option'); o.value=b; o.textContent=b;
+  bancoSelect.appendChild(o);
+});
+const opt=(v,l)=>{const o=document.createElement('option');o.value=v;o.textContent=l;return o;};
+bulkComp.appendChild(opt('__keep__','(não alterar)'));
+bulkComp.appendChild(opt('','— nenhuma —'));
+COMPETICAO_OPTIONS.filter(c=>c).forEach(c=>bulkComp.appendChild(opt(c,c)));
+bulkReemb.appendChild(opt('__keep__','(não alterar)'));
+bulkReemb.appendChild(opt('','— nenhum —'));
+TIPO_REEMB_OPTIONS.filter(c=>c).forEach(c=>bulkReemb.appendChild(opt(c,c)));
+
+dropzone.addEventListener('click', ()=>fileInput.click());
+dropzone.addEventListener('dragover', e=>{e.preventDefault(); dropzone.classList.add('drag');});
+dropzone.addEventListener('dragleave', ()=>dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e=>{
+  e.preventDefault(); dropzone.classList.remove('drag');
+  if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e=>{
+  if(e.target.files.length) handleFile(e.target.files[0]);
+});
+
+// ===== Importar / visualizar a lista de IDs do orçamento =====
+updateIdRefStatus();
+
+btnImportIds.addEventListener('click', ()=>idsFileInput.click());
+idsFileInput.addEventListener('change', e=>{
+  const file = e.target.files[0];
+  idsFileInput.value = '';
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev)=>{
+    try{
+      const data = new Uint8Array(ev.target.result);
+      const wb = XLSX.read(data, {type:'array', cellDates:false});
+      const sheetName = wb.SheetNames.find(n=>normalize(n).includes('id')) || wb.SheetNames[0];
+      const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1, raw:true, defval:''});
+      const parsedList = parseIdRefSheet(aoa);
+      if(!parsedList.length){
+        alert('Não encontrei linhas de ID nessa planilha. Verifique se ela tem colunas ID, Departamento/Área, Grupo e Linha do orçamento (mesmo formato da aba "IDs" do modelo do Orçado x Realizado).');
+        return;
+      }
+      const ok = confirm(`Encontrei ${parsedList.length} ID(s) em "${file.name}" (aba "${sheetName}").\n\nIsso vai SUBSTITUIR a lista atual de ${ID_REF.length} ID(s) usada na busca. Os IDs já preenchidos nas linhas em revisão continuam como estão — só a lista de sugestão muda. Continuar?`);
+      if(!ok) return;
+      ID_REF = parsedList;
+      ID_REF_NORM = buildIdRefNorm(ID_REF);
+      localStorage.setItem(IDREF_STORAGE_KEY, JSON.stringify(ID_REF));
+      localStorage.setItem(IDREF_META_KEY, JSON.stringify({date:new Date().toISOString(), filename:file.name}));
+      updateIdRefStatus();
+      alert(`Lista de IDs atualizada: ${ID_REF.length} ID(s) agora disponíveis na busca.`);
+    }catch(err){
+      alert('Erro ao ler a planilha de IDs: '+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+btnResetIds.addEventListener('click', ()=>{
+  if(!confirm('Restaurar a lista padrão de IDs embutida na ferramenta (descarta a lista importada)?')) return;
+  localStorage.removeItem(IDREF_STORAGE_KEY);
+  localStorage.removeItem(IDREF_META_KEY);
+  ID_REF = ID_REF_DEFAULT;
+  ID_REF_NORM = buildIdRefNorm(ID_REF);
+  updateIdRefStatus();
+});
+
+// Lê uma planilha no formato da aba "IDs" do modelo (colunas ID, Departamento,
+// Grupo, Linha do orçamento) — ou qualquer variação razoável desses nomes.
+function parseIdRefSheet(aoa){
+  let headerRowIdx = -1;
+  for(let i=0;i<Math.min(aoa.length,30);i++){
+    const rowStr = normalize(aoa[i].join(' '));
+    if(rowStr.includes('id') && (rowStr.includes('linha')||rowStr.includes('grupo'))){
+      headerRowIdx = i; break;
+    }
+  }
+  if(headerRowIdx===-1) return [];
+  const header = aoa[headerRowIdx].map(h=>normalize(h));
+  const col = (names)=>{
+    for(const n of names){
+      const idx = header.findIndex(h=>h.includes(n));
+      if(idx>=0) return idx;
+    }
+    return -1;
+  };
+  const cId = col(['id']);
+  const cDep = col(['departamento','area','área']);
+  const cGrupo = col(['grupo']);
+  const cLinha = col(['linha do orcamento','linha']);
+  if(cId<0 || cLinha<0) return [];
+  const out = [];
+  const seen = new Set();
+  for(let i=headerRowIdx+1;i<aoa.length;i++){
+    const row = aoa[i];
+    if(!row || row.every(c=>c==='' || c==null)) continue;
+    const id = (row[cId]==null?'':row[cId]).toString().trim();
+    const linha = cLinha>=0 ? (row[cLinha]||'').toString().trim() : '';
+    if(!id || !linha) continue;
+    if(seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      area: cDep>=0 ? (row[cDep]||'').toString().trim() : '',
+      g: cGrupo>=0 ? (row[cGrupo]||'').toString().trim() : '',
+      n: linha
+    });
+  }
+  return out;
+}
+
+btnViewIds.addEventListener('click', ()=>{
+  idsModal.classList.remove('hide');
+  idsModalFilter.value = '';
+  renderIdsModal('');
+  idsModalFilter.focus();
+});
+idsModalClose.addEventListener('click', ()=>idsModal.classList.add('hide'));
+idsModal.addEventListener('click', e=>{ if(e.target===idsModal) idsModal.classList.add('hide'); });
+idsModalFilter.addEventListener('input', ()=>renderIdsModal(idsModalFilter.value));
+
+// Parcelamento: cada parcela real de uma compra parcelada é uma linha
+// normal do extrato bancário (Data/Favorecido/Valor daquele pagamento
+// específico) — só a coluna "Parcelamento (código)" muda: mesmo código em
+// todas as parcelas da mesma compra. Só a PRIMEIRA parcela de um código
+// novo precisa do valor total e do nº de parcelas; as seguintes só
+// precisam repetir o código, exatamente como no modelo de importação do
+// Orçado x Realizado.
+function knownParcCodes(excludeIdx){
+  const set = new Set();
+  state.rows.forEach(r=>{ if(r.parcCodigo && r.idx!==excludeIdx) set.add(r.parcCodigo); });
+  return [...set];
+}
+function openParcModal(idx){
+  parcEditingIdx = idx;
+  const r = state.rows[idx];
+  parcCodigoInput.value = r.parcCodigo || '';
+  parcTotalInput.value = r.parcTotal || '';
+  parcNInput.value = r.parcN || '';
+  parcCodesList.innerHTML = knownParcCodes(idx).map(c=>`<option value="${escapeHtml(c)}">`).join('');
+  updateParcFieldsVisibility();
+  parcModal.classList.remove('hide');
+  parcCodigoInput.focus();
+}
+function updateParcFieldsVisibility(){
+  const code = parcCodigoInput.value.trim();
+  const isExisting = code && knownParcCodes(parcEditingIdx).includes(code);
+  parcNewFields.classList.toggle('hide', isExisting);
+  parcExistingNote.classList.toggle('hide', !isExisting);
+}
+parcCodigoInput.addEventListener('input', updateParcFieldsVisibility);
+parcModalClose.addEventListener('click', ()=>parcModal.classList.add('hide'));
+parcModal.addEventListener('click', e=>{ if(e.target===parcModal) parcModal.classList.add('hide'); });
+parcSaveBtn.addEventListener('click', ()=>{
+  const r = state.rows[parcEditingIdx];
+  const code = parcCodigoInput.value.trim();
+  if(!code){
+    alert('Informe um código para o parcelamento (ou use "Remover parcelamento" se não for o caso).');
+    return;
+  }
+  // Valida tudo ANTES de mexer na linha — se faltar valor total/nº de
+  // parcelas num código novo, a linha não pode ficar num estado
+  // inconsistente (código marcado sem os dados que ele precisava).
+  let novoTotal='', novoN='';
+  if(!knownParcCodes(parcEditingIdx).includes(code)){
+    const total = (parcTotalInput.value||'').replace(/[^\d,.-]/g,'').replace(/\.(?=\d{3},)/g,'').replace(',', '.');
+    const n = parseInt(parcNInput.value, 10);
+    if(!total || isNaN(Number(total)) || Number(total)<=0 || !n || n<1){
+      alert('Como este é um código novo, informe o valor total da compra e o número de parcelas (só é necessário nesta primeira vez).');
+      return;
+    }
+    novoTotal = Number(total);
+    novoN = n;
+  }
+  r.parcCodigo = code;
+  r.parcTotal = novoTotal;
+  r.parcN = novoN;
+  parcModal.classList.add('hide');
+  renderTable();
+  saveAutosave();
+});
+parcRemoveBtn.addEventListener('click', ()=>{
+  const r = state.rows[parcEditingIdx];
+  r.parcCodigo = '';
+  r.parcTotal = '';
+  r.parcN = '';
+  parcModal.classList.add('hide');
+  renderTable();
+  saveAutosave();
+});
+
+function renderIdsModal(term){
+  const q = normalize(term);
+  const list = q ? ID_REF_NORM.filter(r=>r._norm.includes(q)) : ID_REF;
+  idsModalCount.textContent = list.length + (q ? (' de '+ID_REF.length) : '');
+  idsModalBody.innerHTML = list.map(r=>`<tr><td>${escapeHtml(r.id)}</td><td>${escapeHtml(r.area)}</td><td>${escapeHtml(r.g)}</td><td>${escapeHtml(r.n)}</td></tr>`).join('');
+}
+
+function handleFile(file){
+  state.fileName = file.name;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const data = new Uint8Array(e.target.result);
+    workbookGlobal = XLSX.read(data, {type:'array', cellDates:false});
+    populateSheetSelect(workbookGlobal.SheetNames);
+    preselectBanco(file.name);
+    sheetRow.style.display = 'flex';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function populateSheetSelect(names){
+  sheetSelect.innerHTML='';
+  let bestIdx = names.length-1;
+  let bestVal = -1;
+  names.forEach((n,i)=>{
+    const o=document.createElement('option'); o.value=n; o.textContent=n;
+    sheetSelect.appendChild(o);
+    const m = n.trim().match(/^([A-ZÇÃÕa-z]{3})[-]?(\d{4})$/);
+    if(m){
+      const val = parseInt(m[2])*100;
+      if(val>=bestVal){ bestVal=val; bestIdx=i; }
+    }
+  });
+  sheetSelect.selectedIndex = bestIdx;
+}
+
+function preselectBanco(filename){
+  const f = normalize(filename);
+  let match = BANK_OPTIONS.find(b=>f.includes(normalize(b).replace(/[^a-z]/g,'')));
+  if(!match && f.includes('bradesco')) match='Bradesco';
+  if(!match && f.includes('itau')) match='Itaú';
+  if(!match && (f.includes('bb')||f.includes('brasil'))) match='Banco do Brasil';
+  if(!match && f.includes('santander')) match='Santander';
+  if(!match && (f.includes('caixa')||f.includes('cef'))) match='Caixa Econômica';
+  bancoSelect.value = match || 'Outro';
+}
+
+loadSheetBtn.addEventListener('click', ()=>{
+  const sheetName = sheetSelect.value;
+  const ws = workbookGlobal.Sheets[sheetName];
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+  const parsed = parseBankSheet(aoa);
+  if(parsed.rows.length===0){
+    alert('Não encontrei linhas de lançamento nesta aba. Verifique se selecionou a aba correta (mês com movimentação).');
+    return;
+  }
+  state.sheetName = sheetName;
+  state.banco = bancoSelect.value;
+  state.temporada = temporadaInput.value.trim();
+  state.storageKey = 'revisaoIds::' + state.fileName + '::' + sheetName;
+  state.prova = { saldoInicial:parsed.saldoInicial, saldoFinal:parsed.saldoFinal, totalEntradasExtrato:parsed.totalEntradasExtrato, totalSaidasExtrato:parsed.totalSaidasExtrato };
+  // Formato antigo do autosave: mapa plano {idx: {...}}. Formato novo (__v:2):
+  // {byIdx:{...}, byContent:{...}} — byContent casa pelo conteúdo do
+  // lançamento (data+documento+favorecido+entrada+saída), não pela posição,
+  // então sobrevive a reordenação/reimportação da planilha. byIdx é mantido
+  // só para compatibilidade com sessões salvas antes dessa mudança.
+  const savedRaw = loadAutosave(state.storageKey);
+  let savedByIdx = {}, savedByContent = {};
+  if(savedRaw){
+    if(savedRaw.__v===2){ savedByIdx = savedRaw.byIdx||{}; savedByContent = savedRaw.byContent||{}; }
+    else { savedByIdx = savedRaw; }
+  }
+  let contentMatches = 0;
+  state.rows = parsed.rows.map((r,i)=>{
+    const ck = rowContentKey({dateRaw:r.data, documento:r.documento, favorecido:r.favorecido, entrada:r.entrada, saida:r.saida});
+    const svContent = savedByContent[ck];
+    if(svContent) contentMatches++;
+    const sv = svContent || savedByIdx[i] || {};
+    const autoIsTransfer = isInternalTransferRow(r);
+    const transferOverride = (sv.transferOverride===true || sv.transferOverride===false) ? sv.transferOverride : null;
+    return {
+      idx:i, dataRaw:r.data, favorecido:r.favorecido, descricao:r.descricao,
+      documento:r.documento, entrada:r.entrada, saida:r.saida, saldo:r.saldo,
+      autoIsTransfer, transferOverride, transferOverrideAt: sv.transferOverrideAt || null,
+      isTransfer: (transferOverride!=null) ? transferOverride : autoIsTransfer,
+      id: sv.id || '', sugerido: !!sv.sugerido, comp: sv.comp || '', abat: sv.abat || false, tipoReemb: sv.tipoReemb || '',
+      compSugerido: !!sv.compSugerido, tipoReembSugerido: !!sv.tipoReembSugerido,
+      parcCodigo: sv.parcCodigo || '', parcTotal: sv.parcTotal || '', parcN: sv.parcN || '',
+      possibleDup: null
+    };
+  });
+  computeDuplicateFlags(state.rows);
+  stepUpload.classList.add('hide');
+  stepReview.classList.remove('hide');
+  renderProvaPanel();
+  renderTable();
+  if(contentMatches>0){
+    autosaveMsg.textContent = `Progresso anterior encontrado para ${contentMatches} de ${state.rows.length} lançamentos.`;
+  }
+});
+
+function parseBankSheet(aoa){
+  let headerRowIdx = -1;
+  for(let i=0;i<Math.min(aoa.length,30);i++){
+    const rowStr = normalize(aoa[i].join(' '));
+    if(rowStr.includes('data') && rowStr.includes('favorecido')){
+      headerRowIdx = i; break;
+    }
+  }
+  if(headerRowIdx===-1) return {rows:[],saldoInicial:null,saldoFinal:null,totalEntradasExtrato:0,totalSaidasExtrato:0};
+  const header = aoa[headerRowIdx].map(h=>normalize(h));
+  const col = (names)=>{
+    for(const n of names){
+      const idx = header.findIndex(h=>h.includes(n));
+      if(idx>=0) return idx;
+    }
+    return -1;
+  };
+  const cData = col(['data']);
+  const cFav = col(['favorecido']);
+  const cDesc = col(['descricao']);
+  const cDoc = col(['documento']);
+  const cEnt = col(['entrada']);
+  const cSai = col(['saida']);
+  const cSaldo = col(['saldo']);
+
+  const out = [];
+  let saldoInicial=null, saldoFinal=null, totalEntradasExtrato=0, totalSaidasExtrato=0;
+  for(let i=headerRowIdx+1;i<aoa.length;i++){
+    const row = aoa[i];
+    // Achado real: uma aba pode ter um espaço em branco de mais de 5 linhas
+    // antes da linha "SALDO A TRANSFERIR" (visto no arquivo do usuário — 11
+    // linhas em branco antes do total de julho/2026). Parar de procurar
+    // depois de poucas linhas em branco fazia o "saldo final" nunca ser
+    // encontrado nesses casos. Agora só pula as linhas em branco e continua
+    // procurando até encontrar o total de verdade ou até acabar a aba.
+    if(!row || row.every(c=>c==='' || c==null)) continue;
+    const fav = (row[cFav]||'').toString().trim();
+    if(!fav) continue;
+    const u = normalize(fav);
+    const sld = (cSaldo>=0 && typeof row[cSaldo]==='number') ? row[cSaldo] : null;
+    const e0 = (cEnt>=0 && typeof row[cEnt]==='number') ? row[cEnt] : 0;
+    const s0 = (cSai>=0 && typeof row[cSai]==='number') ? row[cSai] : 0;
+    if(u.includes('saldo inicial')){ if(sld!=null) saldoInicial=sld; continue; }
+    const isColumnSubtotal = u.includes('total') && (u.includes('entrada')||u.includes('saida')||u.includes('saída'));
+    if(isColumnSubtotal) continue;
+    if(u.includes('saldo a transferir')||u.includes('saldo final')||u.startsWith('total')){
+      if(sld!=null) saldoFinal=sld;
+      totalEntradasExtrato = e0;
+      totalSaidasExtrato = s0;
+      // Achado real (conferido no arquivo de julho/2026 do usuário): depois
+      // desta linha, a aba continua com uma seção de "COMPOSIÇÃO FATURA
+      // CARTÃO..." — o detalhamento das faturas de cartão que já entraram
+      // como UM lançamento só no extrato acima. Essa seção reaproveita as
+      // mesmas colunas só que com outro sentido (ex.: coluna "Favorecido"
+      // vira o item do detalhamento, coluna "Entrada" vira o valor do item),
+      // e por isso vinha sendo somada por engano como se fossem novos
+      // lançamentos bancários, inflando a soma de entradas/saídas e fazendo
+      // a prova real (saldo inicial + entradas − saídas = saldo final)
+      // divergir. Essa linha é o fim de verdade do extrato do mês: para
+      // de ler a aba aqui.
+      break;
+    }
+    out.push({
+      data: row[cData],
+      favorecido: fav,
+      descricao: cDesc>=0 ? (row[cDesc]||'').toString().trim() : '',
+      documento: cDoc>=0 ? (row[cDoc]||'').toString().trim() : '',
+      entrada: cEnt>=0 ? row[cEnt] : '',
+      saida: cSai>=0 ? row[cSai] : '',
+      saldo: (cSaldo>=0 && typeof row[cSaldo]==='number') ? row[cSaldo] : ''
+    });
+  }
+  return {rows:out, saldoInicial, saldoFinal, totalEntradasExtrato: r2(totalEntradasExtrato), totalSaidasExtrato: r2(totalSaidasExtrato)};
+}
+
+function renderProvaPanel(){
+  const p = state.prova || {};
+  const somaEnt = r2(state.rows.reduce((a,r)=>a+(Number(r.entrada)||0),0));
+  const somaSai = r2(state.rows.reduce((a,r)=>a+(Number(r.saida)||0),0));
+  const calc = (p.saldoInicial!=null) ? r2(p.saldoInicial + somaEnt - somaSai) : null;
+  const confere = (calc!=null && p.saldoFinal!=null) ? Math.abs(calc - p.saldoFinal) < 0.02 : null;
+  const card = (label,val,extra)=>`<div class="stat"><div class="n" style="font-size:15px;">${val}</div><div class="l">${label}${extra?' '+extra:''}</div></div>`;
+  provaPanel.innerHTML = [
+    card('Saldo inicial (extrato)', p.saldoInicial!=null?('R$ '+fmtMoney(p.saldoInicial)):'—'),
+    card('Total entradas (lançamentos)', 'R$ '+fmtMoney(somaEnt), p.totalEntradasExtrato?('/ extrato: R$ '+fmtMoney(p.totalEntradasExtrato)):''),
+    card('Total saídas (lançamentos)', 'R$ '+fmtMoney(somaSai), p.totalSaidasExtrato?('/ extrato: R$ '+fmtMoney(p.totalSaidasExtrato)):''),
+    card('Saldo final (extrato)', p.saldoFinal!=null?('R$ '+fmtMoney(p.saldoFinal)):'—'),
+    confere==null ? '' : `<div class="stat"><div class="n" style="font-size:14px;color:${confere?'var(--ok)':'var(--er)'};">${confere?'✓ Confere':'⚠ Diverge'}</div><div class="l">saldo inicial + entradas − saídas${confere?'':(' = R$ '+fmtMoney(calc))}</div></div>`
+  ].join('');
+}
+
+function loadAutosave(key){
+  try{
+    const raw = localStorage.getItem(key);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){ return null; }
+}
+function saveAutosave(){
+  try{
+    // Grava em dois mapas: byIdx (posição na planilha, mantido só por
+    // compatibilidade com autosaves salvos antes desta versão) e byContent
+    // (chave pelo conteúdo do lançamento — é o que é usado ao restaurar,
+    // veja loadSheetBtn), incluindo a correção manual de transferência
+    // (transferOverride/transferOverrideAt) para que ela nunca seja
+    // silenciosamente sobrescrita pela heurística automática ao recarregar.
+    const byIdx = {}, byContent = {};
+    state.rows.forEach(r=>{
+      const hasOverride = (r.transferOverride===true || r.transferOverride===false);
+      if(r.id||r.comp||r.abat||r.tipoReemb||r.parcCodigo||hasOverride){
+        const payload = {
+          id:r.id, sugerido:r.sugerido, comp:r.comp, abat:r.abat, tipoReemb:r.tipoReemb,
+          parcCodigo:r.parcCodigo, parcTotal:r.parcTotal, parcN:r.parcN,
+          compSugerido:r.compSugerido, tipoReembSugerido:r.tipoReembSugerido,
+          transferOverride: hasOverride ? r.transferOverride : null,
+          transferOverrideAt: r.transferOverrideAt || null
+        };
+        byIdx[r.idx] = payload;
+        const ck = rowContentKey({dateRaw:r.dataRaw, documento:r.documento, favorecido:r.favorecido, entrada:r.entrada, saida:r.saida});
+        byContent[ck] = payload;
+      }
+    });
+    localStorage.setItem(state.storageKey, JSON.stringify({__v:2, byIdx, byContent}));
+    autosaveMsg.textContent = 'Salvo automaticamente às ' + new Date().toLocaleTimeString('pt-BR');
+  }catch(e){}
+}
+
+function idLabel(idVal){
+  const r = ID_REF.find(x=>x.id===idVal);
+  return r ? (r.n + ' — ' + r.id) : idVal;
+}
+
+function renderTable(){
+  tbody.innerHTML='';
+  state.rows.forEach((r)=>{
+    const tr = document.createElement('tr');
+    tr.dataset.idx = r.idx;
+    if(r.isTransfer) tr.classList.add('transfer');
+    else if((r.id && r.sugerido) || r.compSugerido || r.tipoReembSugerido) tr.classList.add('suggested');
+    else if(r.id) tr.classList.add('assigned');
+    const d = excelSerialToDate(r.dataRaw);
+    const dupBadge = r.possibleDup ? `<span class="badge wn dupbadge" title="Possível duplicata da linha ${r.possibleDup.otherIdx+1}" style="margin-left:4px;">⚠</span>` : '';
+    tr.innerHTML = `
+      <td class="muted">${r.idx+1}${dupBadge}</td>
+      <td>${fmtDate(d)}</td>
+      <td>${escapeHtml(r.favorecido)}</td>
+      <td>${escapeHtml(r.descricao)}</td>
+      <td>${escapeHtml(r.documento)}</td>
+      <td style="text-align:right;" class="amt-in">${fmtMoney(r.entrada)}</td>
+      <td style="text-align:right;" class="amt-out">${fmtMoney(r.saida)}</td>
+      <td style="text-align:right;">${fmtMoney(r.saldo)}</td>
+      <td></td>
+      <td class="extrabox"></td>
+      <td class="extrabox" style="text-align:center;"><input type="checkbox" class="abatChk"></td>
+      <td class="extrabox"></td>
+      <td class="extrabox"></td>
+    `;
+    const idCell = tr.children[8];
+    // Nota exibida quando há uma correção manual do usuário (transferOverride
+    // != null) sobre o status de transferência da linha — deixa claro que a
+    // classificação atual veio do usuário, não da heurística automática, e
+    // oferece um link para voltar a usar a detecção automática.
+    const overrideNote = (r.transferOverride!=null)
+      ? `<div class="transfer-note" style="margin-top:3px;">Classificação manual do usuário${r.transferOverrideAt ? (' em '+new Date(r.transferOverrideAt).toLocaleDateString('pt-BR')) : ''}. <button class="undo-link" data-act="useAuto">usar detecção automática</button></div>`
+      : '';
+    if(r.isTransfer){
+      idCell.innerHTML = `<span class="badge ac">🔁 Transferência interna — não precisa de ID</span><br><button class="undo-link" data-act="markNotTransfer" style="margin-top:4px;">não é transferência, quero atribuir ID</button>${overrideNote}`;
+      idCell.querySelector('[data-act="markNotTransfer"]').addEventListener('click', ()=>setTransferOverride(r, false));
+    } else {
+      if(r.sugerido) idCell.appendChild((()=>{const b=document.createElement('span');b.className='badge wn';b.style.display='block';b.style.marginBottom='3px';b.textContent='sugestão do motor';return b;})());
+      idCell.appendChild(buildIdBox(r));
+      const transferMarkDiv = document.createElement('div');
+      transferMarkDiv.style.marginTop = '4px';
+      transferMarkDiv.innerHTML = `<button class="undo-link" data-act="markTransfer">🔁 marcar como transferência interna</button>${overrideNote}`;
+      transferMarkDiv.querySelector('[data-act="markTransfer"]').addEventListener('click', ()=>setTransferOverride(r, true));
+      idCell.appendChild(transferMarkDiv);
+    }
+    const useAutoBtn = idCell.querySelector('[data-act="useAuto"]');
+    if(useAutoBtn) useAutoBtn.addEventListener('click', ()=>setTransferOverride(r, null));
+
+    const compCell = tr.children[9];
+    const compSel = document.createElement('select');
+    COMPETICAO_OPTIONS.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c||'—';compSel.appendChild(o);});
+    compSel.value = r.comp||'';
+    if(r.compSugerido) compSel.classList.add('suggested-field');
+    compSel.addEventListener('change', ()=>{ r.comp=compSel.value; r.compSugerido=false; compSel.classList.remove('suggested-field'); saveAutosave(); });
+    compCell.appendChild(compSel);
+
+    const abatChk = tr.querySelector('.abatChk');
+    abatChk.checked = !!r.abat;
+    abatChk.addEventListener('change', ()=>{ r.abat=abatChk.checked; saveAutosave(); });
+
+    const reembCell = tr.children[11];
+    const reembSel = document.createElement('select');
+    TIPO_REEMB_OPTIONS.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t||'—';reembSel.appendChild(o);});
+    reembSel.value = r.tipoReemb||'';
+    if(r.tipoReembSugerido) reembSel.classList.add('suggested-field');
+    reembSel.addEventListener('change', ()=>{ r.tipoReemb=reembSel.value; r.tipoReembSugerido=false; reembSel.classList.remove('suggested-field'); saveAutosave(); });
+    reembCell.appendChild(reembSel);
+
+    const parcCell = tr.children[12];
+    const parcBtn = document.createElement('button');
+    parcBtn.type = 'button';
+    parcBtn.className = 'btn secondary';
+    parcBtn.style.fontSize = '11.5px';
+    parcBtn.style.padding = '5px 9px';
+    parcBtn.style.whiteSpace = 'nowrap';
+    if(r.parcCodigo){
+      parcBtn.textContent = '📎 ' + r.parcCodigo;
+      parcBtn.style.background = 'var(--wnbg)';
+      parcBtn.style.borderColor = 'var(--wn)';
+      parcBtn.style.color = 'var(--wn)';
+    } else {
+      parcBtn.textContent = '+ marcar parcela';
+    }
+    parcBtn.addEventListener('click', ()=>openParcModal(r.idx));
+    parcCell.appendChild(parcBtn);
+
+    tbody.appendChild(tr);
+  });
+  updateStats();
+  applyFilters();
+  const wrap = document.getElementById('bulkIdBoxWrap');
+  wrap.innerHTML='';
+  bulkState.id='';
+  wrap.appendChild(buildIdBox(bulkState, {isBulk:true}));
+}
+
+function escapeHtml(s){
+  return (s==null?'':s.toString()).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function buildIdBox(r, opts){
+  opts = opts || {};
+  const box = document.createElement('div');
+  box.className = 'idbox';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = opts.isBulk ? 'Buscar ID para aplicar em massa...' : 'Digite parte do nome ou código...';
+  input.value = r.id ? idLabel(r.id) : '';
+  const sugg = document.createElement('div');
+  sugg.className = 'sugg';
+  sugg.style.display = 'none';
+  box.appendChild(input);
+  box.appendChild(sugg);
+
+  let activeIdx = -1;
+  let currentMatches = [];
+
+  function showMatches(term){
+    const norm = normalize(term);
+    if(!norm){
+      currentMatches = ID_REF_NORM.slice(0,50);
+    } else {
+      currentMatches = ID_REF_NORM.filter(x=>x._norm.includes(norm)).slice(0,50);
+    }
+    activeIdx = -1;
+    sugg.innerHTML='';
+    if(currentMatches.length===0){
+      const d=document.createElement('div'); d.className='empty'; d.textContent='Nenhum resultado';
+      sugg.appendChild(d);
+    } else {
+      currentMatches.forEach((m,i)=>{
+        const d=document.createElement('div');
+        d.textContent = m.n + '  —  ' + m.id;
+        d.dataset.i = i;
+        d.addEventListener('mousedown', (ev)=>{
+          ev.preventDefault();
+          selectMatch(m);
+        });
+        sugg.appendChild(d);
+      });
+    }
+    sugg.style.display='block';
+  }
+
+  function selectMatch(m){
+    r.id = m.id;
+    r.sugerido = false;
+    input.value = idLabel(m.id);
+    sugg.style.display='none';
+    if(!opts.isBulk){
+      const tr = input.closest('tr');
+      if(tr){ tr.classList.remove('suggested'); tr.classList.add('assigned'); }
+      learnMapping(r, m.id);
+      updateStats();
+      saveAutosave();
+      applyFilters();
+    }
+  }
+
+  // Confirma o valor atual da linha (sugestão do motor ou ID já digitado)
+  // sem trocar de ID — usado pelo atalho de teclado (Enter).
+  function confirmCurrent(){
+    if(!opts.isBulk && r.id && r.sugerido){
+      r.sugerido = false;
+      const tr = input.closest('tr');
+      if(tr){ tr.classList.remove('suggested'); tr.classList.add('assigned'); }
+      learnMapping(r, r.id);
+      updateStats();
+      saveAutosave();
+      applyFilters();
+    }
+  }
+
+  input.addEventListener('focus', ()=>showMatches(input.value===idLabel(r.id) ? '' : input.value));
+  input.addEventListener('input', ()=>{
+    if(input.value===''){
+      r.id=''; r.sugerido=false;
+      if(!opts.isBulk){ const tr=input.closest('tr'); if(tr){ tr.classList.remove('assigned','suggested'); } updateStats(); saveAutosave(); applyFilters(); }
+    }
+    showMatches(input.value);
+  });
+  input.addEventListener('keydown', (ev)=>{
+    const items = sugg.querySelectorAll('div:not(.empty)');
+    if(ev.key==='ArrowDown'){ ev.preventDefault(); activeIdx=Math.min(activeIdx+1, items.length-1); highlight(items); }
+    else if(ev.key==='ArrowUp'){ ev.preventDefault(); activeIdx=Math.max(activeIdx-1,0); highlight(items); }
+    else if(ev.key==='Enter'){
+      ev.preventDefault();
+      // Atalho de revisão: Enter confirma a sugestão marcada na lista, ou
+      // (se não houver item destacado) confirma o valor já sugerido/digitado
+      // na linha, e move o foco para o ID da próxima linha visível.
+      if(activeIdx>=0 && currentMatches[activeIdx]){
+        selectMatch(currentMatches[activeIdx]);
+      } else if(!opts.isBulk && r.id){
+        confirmCurrent();
+      } else if(!opts.isBulk && currentMatches.length===1){
+        selectMatch(currentMatches[0]);
+      }
+      sugg.style.display='none';
+      if(!opts.isBulk){
+        focusNextRowIdInput(input.closest('tr'));
+      }
+    }
+    else if(ev.key==='Escape'){ sugg.style.display='none'; }
+  });
+  input.addEventListener('blur', ()=>{ setTimeout(()=>{ sugg.style.display='none'; }, 150); });
+  function highlight(items){
+    items.forEach(el=>el.classList.remove('active'));
+    if(items[activeIdx]) { items[activeIdx].classList.add('active'); items[activeIdx].scrollIntoView({block:'nearest'}); }
+  }
+
+  return box;
+}
+
+function updateStats(){
+  const total = state.rows.length;
+  const transfers = state.rows.filter(r=>r.isTransfer).length;
+  const suggested = state.rows.filter(r=>!r.isTransfer && r.id && r.sugerido).length;
+  const done = state.rows.filter(r=>!r.isTransfer && r.id && !r.sugerido).length;
+  const pending = state.rows.filter(r=>!r.isTransfer && !r.id).length;
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statDone').textContent = done;
+  document.getElementById('statSuggested').textContent = suggested;
+  document.getElementById('statPending').textContent = pending;
+  document.getElementById('statTransfer').textContent = transfers;
+  renderPeriodProgress();
+}
+
+// ===== Progresso de classificação por período (agrupado por mês) =====
+// Passa por todas as linhas importadas (não só as visíveis pelo filtro
+// atual) e agrupa por mês/ano da data do lançamento, mostrando quantas já
+// têm ID confirmado (ou são transferência interna, que não precisa de ID)
+// contra o total do mês — um jeito rápido de ver em quais meses ainda falta
+// revisar mais, sem precisar de gráfico.
+function renderPeriodProgress(){
+  const panel = document.getElementById('periodProgressPanel');
+  if(!panel) return;
+  const groups = {};
+  state.rows.forEach(r=>{
+    const d = excelSerialToDate(r.dataRaw);
+    const key = d ? (d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')) : '__semdata__';
+    if(!groups[key]) groups[key] = {total:0, done:0};
+    groups[key].total++;
+    if(r.isTransfer || (r.id && !r.sugerido)) groups[key].done++;
+  });
+  const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const keys = Object.keys(groups).sort();
+  panel.innerHTML = keys.map(k=>{
+    const g = groups[k];
+    let label = 'Sem data';
+    if(k!=='__semdata__'){
+      const [y,m] = k.split('-');
+      label = monthNames[parseInt(m,10)-1] + '/' + y;
+    }
+    const pct = g.total ? Math.round(100*g.done/g.total) : 0;
+    const color = pct>=100 ? 'var(--ok)' : (pct===0 ? 'var(--tx3)' : 'var(--wn)');
+    return `<div class="stat" style="min-width:110px;padding:7px 10px;"><div class="n" style="font-size:13.5px;color:${color};">${g.done}/${g.total}</div><div class="l">${label} (${pct}%)</div></div>`;
+  }).join('');
+}
+
+function visibleRows(){
+  return [...document.querySelectorAll('#tbody tr:not(.hidden-row)')].map(tr=>state.rows[Number(tr.dataset.idx)]);
+}
+
+// Move o foco para a caixa de ID da próxima linha visível (pula linhas
+// escondidas pelos filtros) — usado pelo atalho de teclado Enter na revisão.
+function focusNextRowIdInput(tr){
+  if(!tr) return;
+  let next = tr.nextElementSibling;
+  while(next){
+    if(!next.classList.contains('hidden-row')){
+      const inp = next.querySelector('.idbox input');
+      if(inp){ inp.focus(); return; }
+    }
+    next = next.nextElementSibling;
+  }
+}
+
+function applyFilters(){
+  const onlyP = onlyPending.checked;
+  const hideT = hideTransfers.checked;
+  const onlyT = onlyTransfers.checked;
+  const q = normalize(quickFilter.value);
+  const idFilter = idFilterValue;
+  const fromVal = dateFrom.value ? new Date(dateFrom.value+'T00:00:00Z') : null;
+  const toVal = dateTo.value ? new Date(dateTo.value+'T23:59:59Z') : null;
+  // "Mostrar só transferências" tem precedência sobre "Ocultar transferências"
+  // e sobre "Mostrar só sem ID" (que por si só já esconde as transferências) —
+  // combinação das duas ao mesmo tempo não faria sentido.
+  hideTransfers.disabled = onlyT;
+  document.querySelectorAll('#tbody tr').forEach(tr=>{
+    const idx = Number(tr.dataset.idx);
+    const r = state.rows[idx];
+    let show = true;
+    if(onlyT){
+      if(!r.isTransfer) show=false;
+    } else {
+      if(onlyP && (r.id || r.isTransfer)) show=false;
+      if(hideT && r.isTransfer) show=false;
+    }
+    if(idFilter && r.id!==idFilter) show=false;
+    if(q && !normalize(r.favorecido+' '+r.descricao).includes(q)) show=false;
+    if(show && (fromVal || toVal)){
+      const d = excelSerialToDate(r.dataRaw);
+      if(d){
+        if(fromVal && d < fromVal) show=false;
+        if(toVal && d > toVal) show=false;
+      }
+    }
+    tr.classList.toggle('hidden-row', !show);
+  });
+  bulkCount.textContent = visibleRows().length;
+  updateFilterTotals();
+}
+
+// ===== Totais dos lançamentos atualmente visíveis (após todos os filtros) =====
+// Sempre que a lista filtrada muda (qualquer checkbox, busca, período ou o
+// filtro por ID do orçamento), recalcula entrada/saída/líquido só das linhas
+// visíveis — permite, por exemplo, selecionar um ID específico no filtro e
+// ver imediatamente quanto entrou/saiu naquela linha do orçamento.
+function updateFilterTotals(){
+  if(!filterTotalsBar) return;
+  const rows = visibleRows();
+  let totIn=0, totOut=0;
+  rows.forEach(r=>{
+    totIn += Number(r.entrada)||0;
+    totOut += Number(r.saida)||0;
+  });
+  const net = totIn - totOut;
+  filterTotalsBar.innerHTML = `Filtrados: <strong>${rows.length}</strong> lançamento(s) — Entradas: <strong class="amt-in">R$ ${fmtMoney(totIn)}</strong> · Saídas: <strong class="amt-out">R$ ${fmtMoney(totOut)}</strong> · Líquido: <strong>R$ ${fmtMoney(net)}</strong>`;
+}
+onlyPending.addEventListener('change', applyFilters);
+hideTransfers.addEventListener('change', applyFilters);
+onlyTransfers.addEventListener('change', applyFilters);
+quickFilter.addEventListener('input', applyFilters);
+dateFrom.addEventListener('change', applyFilters);
+dateTo.addEventListener('change', applyFilters);
+clearDateFilterBtn.addEventListener('click', ()=>{ dateFrom.value=''; dateTo.value=''; applyFilters(); });
+
+// ===== Autocomplete do filtro por ID do orçamento (mesmo padrão do idbox) =====
+// Reaproveita ID_REF_NORM/normalize()/idLabel() e as classes .idbox/.sugg do
+// campo de ID por linha (buildIdBox) para dar consistência visual e de
+// teclado, mas mantém um valor de filtro único (idFilterValue) em vez de
+// mexer em cada linha — usado por applyFilters() para o AND em r.id.
+function refreshIdFilterClearBtn(){
+  if(idFilterClearBtn) idFilterClearBtn.style.display = idFilterValue ? 'inline-block' : 'none';
+}
+
+function setIdFilterValue(idVal){
+  idFilterValue = idVal || '';
+  if(idFilterInput) idFilterInput.value = idVal ? idLabel(idVal) : '';
+  refreshIdFilterClearBtn();
+}
+
+function showIdFilterMatches(term){
+  const norm = normalize(term);
+  idFilterCurrentMatches = norm ? ID_REF_NORM.filter(x=>x._norm.includes(norm)).slice(0,50) : ID_REF_NORM.slice(0,50);
+  idFilterActiveIdx = -1;
+  idFilterSugg.innerHTML = '';
+  if(idFilterCurrentMatches.length===0){
+    const d=document.createElement('div'); d.className='empty'; d.textContent='Nenhum resultado';
+    idFilterSugg.appendChild(d);
+  } else {
+    idFilterCurrentMatches.forEach((m,i)=>{
+      const d=document.createElement('div');
+      d.textContent = m.id + '  —  ' + m.n + (m.g ? '  —  ' + m.g : '');
+      d.dataset.i = i;
+      d.addEventListener('mousedown', (ev)=>{
+        ev.preventDefault();
+        selectIdFilterMatch(m);
+      });
+      idFilterSugg.appendChild(d);
+    });
+  }
+  idFilterSugg.style.display='block';
+}
+
+function selectIdFilterMatch(m){
+  setIdFilterValue(m.id);
+  idFilterSugg.style.display='none';
+  applyFilters();
+}
+
+function clearIdFilter(){
+  setIdFilterValue('');
+  idFilterSugg.style.display='none';
+  applyFilters();
+}
+
+function highlightIdFilterMatches(items){
+  items.forEach(el=>el.classList.remove('active'));
+  if(items[idFilterActiveIdx]){ items[idFilterActiveIdx].classList.add('active'); items[idFilterActiveIdx].scrollIntoView({block:'nearest'}); }
+}
+
+if(idFilterInput){
+  idFilterInput.addEventListener('focus', ()=>showIdFilterMatches(idFilterInput.value===(idFilterValue?idLabel(idFilterValue):'') ? '' : idFilterInput.value));
+  idFilterInput.addEventListener('input', ()=>{
+    if(idFilterInput.value===''){
+      idFilterValue=''; refreshIdFilterClearBtn(); applyFilters();
+    }
+    showIdFilterMatches(idFilterInput.value);
+  });
+  idFilterInput.addEventListener('keydown', (ev)=>{
+    const items = idFilterSugg.querySelectorAll('div:not(.empty)');
+    if(ev.key==='ArrowDown'){ ev.preventDefault(); idFilterActiveIdx=Math.min(idFilterActiveIdx+1, items.length-1); highlightIdFilterMatches(items); }
+    else if(ev.key==='ArrowUp'){ ev.preventDefault(); idFilterActiveIdx=Math.max(idFilterActiveIdx-1,0); highlightIdFilterMatches(items); }
+    else if(ev.key==='Enter'){
+      ev.preventDefault();
+      if(idFilterActiveIdx>=0 && idFilterCurrentMatches[idFilterActiveIdx]){
+        selectIdFilterMatch(idFilterCurrentMatches[idFilterActiveIdx]);
+      } else if(idFilterCurrentMatches.length===1){
+        selectIdFilterMatch(idFilterCurrentMatches[0]);
+      }
+      idFilterSugg.style.display='none';
+    }
+    else if(ev.key==='Escape'){ idFilterSugg.style.display='none'; }
+  });
+  idFilterInput.addEventListener('blur', ()=>{ setTimeout(()=>{ idFilterSugg.style.display='none'; }, 150); });
+}
+if(idFilterClearBtn){ idFilterClearBtn.addEventListener('click', clearIdFilter); }
+
+applyBulkBtn.addEventListener('click', ()=>{
+  const rows = visibleRows();
+  if(!rows.length){ alert('Nenhum lançamento visível com o filtro atual.'); return; }
+  const compVal = bulkComp.value;
+  const abatVal = bulkAbat.value;
+  const reembVal = bulkReemb.value;
+  let changed=0;
+  rows.forEach(r=>{
+    if(bulkState.id){ r.id=bulkState.id; r.sugerido=false; changed++; learnMapping(r, bulkState.id); }
+    if(compVal!=='__keep__'){ r.comp=compVal; }
+    if(abatVal!=='__keep__'){ r.abat = (abatVal==='sim'); }
+    if(reembVal!=='__keep__'){ r.tipoReemb=reembVal; }
+  });
+  renderTable();
+  saveAutosave();
+  alert(`Aplicado a ${rows.length} lançamento(s) filtrado(s) — ${changed} tiveram o ID definido.`);
+});
+
+suggestBtn.addEventListener('click', ()=>{
+  const rows = visibleRows().filter(r=>!r.isTransfer && !r.id);
+  if(!rows.length){ alert('Nenhum lançamento sem ID entre os filtrados.'); return; }
+  let found=0, foundExtras=0;
+  rows.forEach(r=>{
+    const m = suggestIdFor(r);
+    if(m){ r.id=m.id; r.sugerido=true; found++; }
+    const extras = suggestExtrasFor(r);
+    let gotExtra=false;
+    if(extras.comp && !r.comp){ r.comp=extras.comp; r.compSugerido=true; gotExtra=true; }
+    if(extras.tipoReemb && !r.tipoReemb){ r.tipoReemb=extras.tipoReemb; r.tipoReembSugerido=true; gotExtra=true; }
+    if(gotExtra) foundExtras++;
+  });
+  renderTable();
+  saveAutosave();
+  alert(`${found} de ${rows.length} lançamento(s) sem ID receberam uma sugestão do motor (e ${foundExtras} também tiveram competição e/ou tipo de reembolso sugeridos). Revise as linhas marcadas em amarelo — use "Desfazer sugestões" para limpar as que estiverem erradas.`);
+});
+
+undoSuggestBtn.addEventListener('click', ()=>{
+  const rows = visibleRows().filter(r=>r.sugerido || r.compSugerido || r.tipoReembSugerido);
+  if(!rows.length){ alert('Nenhuma sugestão do motor entre os filtrados.'); return; }
+  rows.forEach(r=>{
+    if(r.sugerido){ r.id=''; r.sugerido=false; }
+    if(r.compSugerido){ r.comp=''; r.compSugerido=false; }
+    if(r.tipoReembSugerido){ r.tipoReemb=''; r.tipoReembSugerido=false; }
+  });
+  renderTable();
+  saveAutosave();
+});
+
+backBtn.addEventListener('click', ()=>{
+  stepReview.classList.add('hide');
+  stepUpload.classList.remove('hide');
+  fileInput.value='';
+  sheetRow.style.display='none';
+});
+
+exportBtn.addEventListener('click', ()=>{
+  // A exportação espelha o extrato bancário completo, uma linha por
+  // lançamento importado — inclusive transferências internas (considerando
+  // a correção manual do usuário, se houver — veja r.isTransfer /
+  // effectiveTransfer) — pois isso é necessário para a conciliação
+  // bancária. Transferências ficam com o ID vazio, mas seguem na mesma aba.
+  const mainRows = state.rows;
+
+  // Considera "sem ID confirmado" tanto as linhas sem nenhum ID quanto as
+  // que só têm uma sugestão do motor ainda não revisada pelo usuário
+  // (r.sugerido) — transferências internas não precisam de ID, então ficam
+  // de fora dessa contagem/aviso.
+  const needsReview = mainRows.filter(r=>!r.isTransfer && (!r.id || r.sugerido));
+  const msgParts = [];
+  if(needsReview.length>0){
+    const semId = needsReview.filter(r=>!r.id).length;
+    const soSugerido = needsReview.length - semId;
+    const detalhe = [semId?`${semId} sem ID`:'', soSugerido?`${soSugerido} só com sugestão do motor`:''].filter(Boolean).join(' e ');
+    msgParts.push(`${needsReview.length} linha(s) ainda sem ID confirmado (${detalhe}).`);
+  }
+  if(msgParts.length>0){
+    if(!confirm(msgParts.join('\n\n') + '\n\nExportar mesmo assim?')) return;
+  }
+
+  const header = ['ID (chave do lançamento)','Data','Favorecido','Documento','Descrição','Banco','Entrada','Saída','Saldo','Competição','Abatimento (Sim/Não)','Tipo de reembolso (opcional)','Temporada (opcional, ex: 2026/2027)','Parcelamento (código)','Valor total da compra parcelada','Nº de parcelas'];
+  const buildAoa = (rows)=>{
+    const data = [header];
+    rows.forEach(r=>{
+      const d = excelSerialToDate(r.dataRaw);
+      data.push([
+        r.id || '',
+        d ? fmtDate(d) : '',
+        r.favorecido,
+        r.documento,
+        r.descricao,
+        state.banco,
+        r.entrada || '',
+        r.saida || '',
+        r.saldo || '',
+        r.comp || '',
+        r.abat ? 'Sim' : '',
+        r.tipoReemb || '',
+        state.temporada || '',
+        r.parcCodigo || '',
+        r.parcTotal || '',
+        r.parcN || ''
+      ]);
+    });
+    return data;
+  };
+  const colWidths = [{wch:14},{wch:11},{wch:32},{wch:14},{wch:38},{wch:14},{wch:12},{wch:12},{wch:12},{wch:14},{wch:16},{wch:22},{wch:24},{wch:20},{wch:20},{wch:14}];
+
+  const wb = XLSX.utils.book_new();
+  const wsMain = XLSX.utils.aoa_to_sheet(buildAoa(mainRows));
+  wsMain['!cols'] = colWidths;
+  XLSX.utils.book_append_sheet(wb, wsMain, 'Lançamentos');
+
+  const outName = 'classificado_' + state.sheetName.replace(/[^a-zA-Z0-9]/g,'') + '.xlsx';
+  XLSX.writeFile(wb, outName);
+});
+</script>
+</body>
+</html>
