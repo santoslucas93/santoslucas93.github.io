@@ -1706,7 +1706,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   <div class="kpis" id="dept-kpis"></div>
   <div class="grid2">
     <div class="panel"><h2>Evolução mensal</h2><div class="cols" id="dept-cols"></div></div>
-    <div class="panel"><h2>Principais favorecidos no período</h2><div id="dept-top"></div></div>
+    <div class="panel"><h2>Principais linhas do orçamento no período</h2><div id="dept-top"></div></div>
   </div>
   <div class="panel"><h2 id="dept-grp-title">Grupos e linhas do orçamento</h2><div id="dept-groups"></div></div>
 </div>
@@ -1718,7 +1718,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
   <div id="sup-clubes"></div>
   <div class="grid2">
     <div class="panel"><h2>Evolução mensal</h2><div class="cols" id="sup-cols"></div></div>
-    <div class="panel"><h2>Principais favorecidos no período</h2><div id="sup-top"></div></div>
+    <div class="panel"><h2>Principais linhas do orçamento no período</h2><div id="sup-top"></div></div>
   </div>
   <div class="panel"><h2>Lançamentos</h2>
     <div class="toolbar"><input type="text" id="sup-q" placeholder="buscar favorecido ou descrição" style="flex:1"></div>
@@ -5320,6 +5320,31 @@ function topFavs(filter,limit){
   const mx=arr.length?arr[0][1]:1;
   return arr.map(([f,v])=>`<div class="hbar click" onclick="goConcFilter('all',decodeURIComponent('${encodeURIComponent(f)}'))" title="Ver lançamentos de ${esc(f)} na Conciliação"><div title="${esc(f)}">${esc(f.slice(0,26))}</div><div class="tk"><div class="rz" style="width:${v/mx*100}%"></div></div><div class="nums">${fmt(v)}</div></div>`).join('')||'<div class="desc">Sem movimentação no período.</div>';
 }
+// Ranking por LINHA do orçamento (não por favorecido): um mesmo favorecido
+// pode aparecer com nomes diferentes no extrato (ex.: pagamentos feitos a
+// terceiros em nome de alguém — INSS, FGTS, seguro, vale-refeição — todos
+// "da linha" de uma pessoa, mas cada um com um favorecido literal distinto),
+// então ranquear por favorecido fragmentava o valor e confundia mais do que
+// ajudava. Clicar na barra abre a linha correspondente dentro de Grupos e
+// linhas do orçamento (mesmo lugar que a "Abertura do realizado" já mostra),
+// em vez de ir pra Conciliação.
+function topLines(filter,limit){
+  const agg={};
+  txs.forEach(t=>{
+    if(curM!=='ALL'&&t.m!==curM)return;
+    if(!filter(t))return;
+    const c=classify(t); if(!c.splits)return;
+    c.splits.forEach(sp=>{
+      if(sp.a==='TRF'||sp.l==null)return;
+      const key=sp.a+'|'+sp.l;
+      if(!agg[key]){ const line=lineById(sp.l); agg[key]={area:sp.a,lineId:sp.l,name:line?line.n:String(sp.l),v:0}; }
+      agg[key].v+=sp.v;
+    });
+  });
+  const arr=Object.values(agg).sort((a,b)=>b.v-a.v).slice(0,limit||8);
+  const mx=arr.length?arr[0].v:1;
+  return arr.map(x=>`<div class="hbar click" onclick="openLine('${esc(x.area)}','${esc(String(x.lineId))}')" title="Ver a linha ${esc(x.name)} em Grupos e linhas do orçamento"><div title="${esc(x.name)}">${esc(x.name.slice(0,26))}</div><div class="tk"><div class="rz" style="width:${x.v/mx*100}%"></div></div><div class="nums">${fmt(x.v)}</div></div>`).join('')||'<div class="desc">Sem movimentação no período.</div>';
+}
 function sumbar(p,r){
   const pct=p>0?Math.round(r/p*100):null;
   return `<div class="sumbar"><div class="bar" style="height:6px"><div class="${pct!==null&&pct>100?'ov':''}" style="width:${pct===null?(r>0?100:0):Math.min(100,pct)}%"></div></div>
@@ -5904,7 +5929,7 @@ function renderDept(){
    <div class="kpi click" onclick="scrollToId('dept-groups')" title="Ver composição por grupo e linha"><div class="l">Lançamentos</div><div class="v">${n}</div></div>`;
   document.getElementById('dept-cols').innerHTML=colsHTML(months.map(m=>{const rm=realized(m);
     return {l:mlabel(m),p:budP(m,a),r:rm.A[a]||0,m};}));
-  document.getElementById('dept-top').innerHTML=topFavs(t=>areaOfTx(t).includes(a),8);
+  document.getElementById('dept-top').innerHTML=topLines(t=>areaOfTx(t).includes(a),8);
   document.getElementById('dept-grp-title').textContent='Grupos e linhas — '+AREAS[a];
   document.getElementById('dept-groups').innerHTML=a==='EQP'
    ?'<div class="note">Equipes é abastecida primariamente por Filiados, com pagamentos, despesas e créditos individualizados por clube. O detalhe pode ser aberto na aba <span class="chip big gy" onclick="goSup(\'FILIADOS\')" style="cursor:pointer">Filiados</span></div>'+groupsHTML(a,r)
@@ -5926,7 +5951,7 @@ function renderSup(){
    <div class="kpi"><div class="l">Aba da planilha</div><div class="v" style="font-size:15px">${s.n}</div><div class="d">derivada automaticamente do extrato</div></div>`;
   document.getElementById('sup-cols').innerHTML=colsHTML(months.map(m=>{
     let v=0;txs.forEach(t=>{if(t.m!==m||!flt(t))return;v+=t.s>0?t.s:t.e;});return {l:mlabel(m),r:v,m};}));
-  document.getElementById('sup-top').innerHTML=topFavs(flt,8);
+  document.getElementById('sup-top').innerHTML=topLines(flt,8);
   const porLinha={};let semDestino=0;
   txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;if(!flt(t))return;if(!(t.s>0))return;
     const c=classify(t);
