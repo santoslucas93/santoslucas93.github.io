@@ -5329,16 +5329,34 @@ function topFavs(filter,limit){
 // linhas do orçamento (mesmo lugar que a "Abertura do realizado" já mostra),
 // em vez de ir pra Conciliação.
 function topLines(filter,limit){
+  // Compras parceladas ativas: o lançamento que abriu o compromisso deve
+  // contar pelo valor TOTAL da nota (comprometendo a linha inteira), não só
+  // pela parcela paga — mesmo critério já usado no total da linha do
+  // orçamento (ver detailHTML). As parcelas seguintes, quando já viraram
+  // lançamento real, ficam de fora daqui pra não contar duas vezes (o total
+  // já embutiu elas na linha "mãe").
+  const anchorByKey=new Map(), hiddenKeys=new Set();
+  compromissos.forEach(c=>{
+    if(c.status!=='ativo')return;
+    (c.parcelas||[]).forEach(p=>{
+      if(p.numero===1) anchorByKey.set(compTxKey(p.vencimento,c.fornecedor,p.valorPago),c);
+      else if(p.status==='paga') hiddenKeys.add(compTxKey(p.vencimento,c.fornecedor,p.valorPago));
+    });
+  });
   const agg={};
   txs.forEach(t=>{
     if(curM!=='ALL'&&t.m!==curM)return;
     if(!filter(t))return;
+    const tkey=txKeyOf(t);
+    if(hiddenKeys.has(tkey))return;
+    const anchorComp=anchorByKey.get(tkey);
     const c=classify(t); if(!c.splits)return;
     c.splits.forEach(sp=>{
       if(sp.a==='TRF'||sp.l==null)return;
       const key=sp.a+'|'+sp.l;
       if(!agg[key]){ const line=lineById(sp.l); agg[key]={area:sp.a,lineId:sp.l,name:line?line.n:String(sp.l),v:0}; }
-      agg[key].v+=sp.v;
+      const useTotal=anchorComp&&String(sp.l)===String(anchorComp.linhaId);
+      agg[key].v+=useTotal?Number(anchorComp.valorTotal)||0:sp.v;
     });
   });
   const arr=Object.values(agg).sort((a,b)=>b.v-a.v).slice(0,limit||8);
