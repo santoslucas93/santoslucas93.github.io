@@ -5443,16 +5443,23 @@ function compromissoAnchorRowHTML(x,c){
 // pendente, sem nenhum pagamento real naquele mês). Quando o "mãe" está
 // visível, o drill-down fica pendurado nele mesmo (ver detailHTML) e não
 // duplica aqui.
-function compromissosDetailHTML(lineId,shownAnchorTxIds){
+function compromissosDetailHTML(lineId,shownCompromissoIds){
   const list=compromissosDaLinha(lineId);
   if(!list.length)return '';
-  const pending=list.filter(c=>{
-    const anchorId=(c.parcelas||[]).find(p=>p.numero===1)?.txId;
-    return !(anchorId&&shownAnchorTxIds&&shownAnchorTxIds.has(anchorId));
-  });
+  const pending=list.filter(c=>!(shownCompromissoIds&&shownCompromissoIds.has(c.id)));
   if(!pending.length)return '';
   return pending.map(c=>`<div class="desc" style="margin-top:10px"><b>${esc(c.documento||c.codigo)} — EM ${c.parcelas.length}X — ${esc(c.fornecedor||'(sem fornecedor)')} — total ${fmt2(c.valorTotal)}</b></div>${parcelasTableHTML(c)}`).join('');
 }
+// Chave de conteúdo (data+favorecido+valor) usada para casar a parcela nº1
+// de um compromisso com o lançamento real que a originou — em vez de
+// comparar o id opaco do lançamento (t.id), que é recalculado toda vez que
+// a base recarrega (posição no array) e nunca bate com o id "sintético"
+// gravado no momento em que o compromisso foi criado (ex.: importação
+// direta da Revisão de IDs, que grava e recarrega a página logo em
+// seguida). Casar pelo conteúdo é imune a isso — é por isso que o
+// drill-down inline sumia e caía sempre no bloco de fallback separado.
+function compTxKey(d,fav,valor){ return (d||'')+'|'+norm(fav||'').slice(0,18)+'|'+r2(Number(valor)||0); }
+function txKeyOf(t){ const v=(Number(t.s)||0)>0?Number(t.s):(Number(t.e)||0); return compTxKey(t.d,t.f,v); }
 function detailHTML(rows,lineId){
   // anchorByTxId: id do lançamento que abriu o compromisso (parcela nº1) →
   // compromisso. hiddenTxIds: ids de pagamentos reais de parcelas
@@ -5464,13 +5471,16 @@ function detailHTML(rows,lineId){
   // entre os lançamentos exibidos agora — se por algum motivo a nº1 sumiu
   // (base de dados inconsistente, teste manual etc.), a parcela seguinte
   // não pode desaparecer sem deixar rastro nenhum.
-  const rowTxIds=new Set(rows.map(x=>x.t.id));
-  const anchorByTxId={},hiddenTxIds=new Set();
+  const rowByKey=new Map();
+  rows.forEach(x=>{ const k=txKeyOf(x.t); if(!rowByKey.has(k))rowByKey.set(k,x); });
+  const anchorByTxId={},hiddenTxIds=new Set(),shownCompromissoIds=new Set();
   if(lineId!=null)compromissosParaDrilldown(lineId).forEach(c=>{
-    const anchorTxId=(c.parcelas||[]).find(p=>p.numero===1)?.txId;
-    const anchorShown=anchorTxId&&rowTxIds.has(anchorTxId);
-    if(!anchorShown)return; // âncora não está entre os lançamentos exibidos agora — vira fallback, não linha "mãe"
-    anchorByTxId[anchorTxId]=c;
+    const p1=(c.parcelas||[]).find(p=>p.numero===1);
+    if(!p1)return;
+    const anchorRow=rowByKey.get(compTxKey(p1.vencimento,c.fornecedor,p1.valorPago));
+    if(!anchorRow)return; // âncora não está entre os lançamentos exibidos agora — vira fallback, não linha "mãe"
+    anchorByTxId[anchorRow.t.id]=c;
+    shownCompromissoIds.add(c.id);
     // Enquanto o compromisso está 'ativo', a linha "mãe" já mostra o valor
     // TOTAL da compra (comprometendo o orçamento desde já), então as
     // parcelas seguintes — quando viram lançamento real — ficam escondidas
@@ -5478,12 +5488,12 @@ function detailHTML(rows,lineId){
     // já são lançamentos reais), não há mais nada "projetado": cada parcela
     // volta a aparecer como o lançamento real que é, na sua própria data.
     if(c.status==='ativo')(c.parcelas||[]).forEach(p=>{
-      if(!p.txId)return;
-      if(p.numero!==1)hiddenTxIds.add(p.txId);
+      if(p.numero===1||p.status!=='paga')return;
+      const hitRow=rowByKey.get(compTxKey(p.vencimento,c.fornecedor,p.valorPago));
+      if(hitRow)hiddenTxIds.add(hitRow.t.id);
     });
   });
-  const shownAnchorTxIds=new Set(Object.keys(anchorByTxId));
-  const fallback=lineId!=null?compromissosDetailHTML(lineId,shownAnchorTxIds):'';
+  const fallback=lineId!=null?compromissosDetailHTML(lineId,shownCompromissoIds):'';
   const displayRows=rows.filter(x=>!hiddenTxIds.has(x.t.id));
   if(!displayRows.length)return '<div class="desc">Nenhum lançamento encontrado para esta abertura no período selecionado.</div>'+fallback;
   const total=displayRows.reduce((s,x)=>{const c=anchorByTxId[x.t.id];return s+(c&&c.status==='ativo'?c.valorTotal:x.sp.v);},0);
