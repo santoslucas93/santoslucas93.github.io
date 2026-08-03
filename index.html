@@ -11468,6 +11468,12 @@ async function revidImportDireto(){
     const temporada = (revidState.temporada && revidState.temporada.trim()) || lnbCurrentTemporada();
     const banco = revidState.banco || '';
     const rows = [];
+    // Parcelamentos marcados nesta leva (código/valor total/nº de parcelas
+    // preenchidos no modal "Compra parcelada"): guardamos aqui para processar
+    // DEPOIS que os lançamentos forem gravados com sucesso no Supabase — usa
+    // exatamente a mesma lógica (registrarPagamentoParcelamento) do importador
+    // clássico de planilha, que já cria/atualiza o compromisso corretamente.
+    const parcEvents = [];
     for(const r of candidatas){
       let ref = null;
       if(!r.isTransfer){
@@ -11477,6 +11483,7 @@ async function revidImportDireto(){
       const d = revidExcelSerialToDate(r.dataRaw);
       if(!d) continue;
       const dataStr = d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+      const valorLancamento = r2((Number(r.entrada)||0)>0 ? Number(r.entrada) : Number(r.saida)||0);
       rows.push({
         data: dataStr,
         favorecido: (r.favorecido||'').trim(),
@@ -11495,6 +11502,16 @@ async function revidImportDireto(){
         abatimento: r.abat ? 'Sim' : 'Não',
         tipo_reembolso: r.tipoReemb || ''
       });
+      if(!r.isTransfer && ref && r.parcCodigo && String(r.parcCodigo).trim()){
+        parcEvents.push({
+          codigo: String(r.parcCodigo).trim(),
+          linha: ref,
+          data: dataStr,
+          valorPago: valorLancamento,
+          valorTotalDeclarado: r.parcTotal!=='' && r.parcTotal!=null ? Number(r.parcTotal) : null,
+          nParcelasDeclarado: r.parcN!=='' && r.parcN!=null ? parseInt(r.parcN,10) : null
+        });
+      }
     }
     if(!rows.length){ throw new Error('Nenhuma linha válida para importar (verifique se as datas estão preenchidas).'); }
     // Em lotes, seguindo a mesma cautela de outros envios grandes ao Supabase
@@ -11502,6 +11519,27 @@ async function revidImportDireto(){
     const BATCH = 500;
     for(let i=0;i<rows.length;i+=BATCH){
       await supaInsertIgnoreDup('realizado', rows.slice(i, i+BATCH));
+    }
+    // Compras parceladas marcadas nesta leva: cria/atualiza o(s) compromisso(s)
+    // com a MESMA função usada pelo importador clássico de planilha (garante
+    // que "valor total ÷ nº de parcelas" seja calculado uma única vez, sobre o
+    // valor total de verdade — nunca sobre o valor da própria parcela paga).
+    let parcMsg = '';
+    if(parcEvents.length){
+      try{
+        parcEvents.forEach(ev=>{
+          registrarPagamentoParcelamento(
+            ev.codigo, ev.linha,
+            {d: ev.data, id: 'revid-'+ev.codigo+'-'+ev.data+'-'+Math.random().toString(36).slice(2)},
+            ev.valorPago, ev.valorTotalDeclarado, ev.nParcelasDeclarado
+          );
+        });
+        save('compromissos', compromissos);
+        parcMsg = `\n\n${parcEvents.length} lançamento(s) de compra parcelada processado(s) — confira o compromisso na linha do orçamento (ele cria as parcelas futuras como Comprometido).`;
+      }catch(errParc){
+        console.error('Falha ao registrar compromisso de parcelamento (Revisão de IDs):', errParc);
+        parcMsg = '\n\nAtenção: os lançamentos foram importados, mas o compromisso de parcelamento NÃO foi criado — confira em Compromissos/Comprometido e refaça se necessário.';
+      }
     }
     // Saldo inicial/final por mês para a Conciliação Bancária (prova: saldo
     // inicial + entradas − saídas = saldo final). A planilha da Revisão de
@@ -11541,7 +11579,7 @@ async function revidImportDireto(){
       saldoMsg = '\n\nAtenção: os lançamentos foram importados, mas o saldo inicial/final NÃO foi salvo — ajuste manualmente em Conciliação Bancária > Ajustar saldo do mês.';
     }
     lnbLogActivity('revisao_ids_import', rows.length+' lançamento(s) importado(s) direto — total R$ '+r2(totIn-totOut)+' (entradas R$ '+r2(totIn)+', saídas R$ '+r2(totOut)+')');
-    alert(`${rows.length} lançamento(s) importado(s) direto no sistema com sucesso.${saldoMsg}\n\nA página vai recarregar para atualizar os totais.`);
+    alert(`${rows.length} lançamento(s) importado(s) direto no sistema com sucesso.${parcMsg}${saldoMsg}\n\nA página vai recarregar para atualizar os totais.`);
     localStorage.removeItem(revidState.storageKey);
     location.reload();
   }catch(e){
