@@ -1516,6 +1516,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 #v-revid table{table-layout:fixed;font-size:11.5px}
 #v-revid th{position:sticky;top:0;background:var(--nav);color:var(--navtx);z-index:2;white-space:normal;overflow-wrap:anywhere;padding:6px}
 #v-revid td{overflow-wrap:anywhere;word-break:break-word;vertical-align:top;padding:4px 6px}
+#v-revid td:nth-child(13),#v-revid th:nth-child(13){padding-left:16px}
 #v-revid tr.revid-assigned td{background:var(--okbg)}
 #v-revid tr.revid-suggested td{background:var(--wnbg)}
 #v-revid tr.revid-transfer td{background:var(--acbg)}
@@ -1523,6 +1524,9 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 #v-revid .revid-dropzone{border:2px dashed var(--bd2);border-radius:14px;padding:36px;text-align:center;color:var(--tx3);cursor:pointer;transition:.15s;background:var(--card)}
 #v-revid .revid-dropzone:hover,#v-revid .revid-dropzone.drag{border-color:var(--ac);color:var(--tx);background:var(--acbg)}
 #v-revid .revid-stat{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;min-width:120px}
+#v-revid .revid-stat[data-status]{cursor:pointer;transition:border-color .12s,box-shadow .12s}
+#v-revid .revid-stat[data-status]:hover{border-color:var(--ac)}
+#v-revid .revid-stat[data-status].revid-stat-active{border-color:var(--ac);border-width:2px;box-shadow:0 0 0 1px var(--ac) inset}
 #v-revid .revid-stat .n{font-size:18px;font-weight:800}
 #v-revid .revid-stat .l{font-size:11px;color:var(--tx3)}
 #v-revid .revid-idbox{position:relative;min-width:0}
@@ -1550,7 +1554,17 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 #v-revid .revid-modal-overlay{position:fixed;inset:0;background:rgba(6,15,20,.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px}
 #v-revid .revid-modal-overlay.hide{display:none}
 #v-revid .revid-modal-box{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:20px;width:min(900px,100%);max-height:85vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.35)}
-#v-revid select,#v-revid input[type=text],#v-revid input[type=date]{background:var(--card);border:1px solid var(--bd2);color:var(--tx);border-radius:6px;padding:6px 9px;font-size:12.5px;font-family:inherit}
+#v-revid select,#v-revid input[type=text],#v-revid input[type=date]{background:var(--card);border:1px solid var(--bd2);color:var(--tx);border-radius:6px;padding:6px 9px;font-size:12.5px;font-family:inherit;box-sizing:border-box;height:36px;line-height:20px;vertical-align:middle}
+/* Linha "Aba / Banco / Temporada" do passo 1 — todos os controles com a
+   mesma altura fixa (36px, herdada da regra acima) e alinhados na base,
+   num cartão levemente destacado do dropzone, em vez de soltos no toolbar
+   genérico do app (que não garantia altura/alinhamento consistentes aqui). */
+#v-revid .revid-uploadRow{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;margin-top:16px;padding:14px 16px;background:var(--acbg);border:1px solid var(--bd);border-radius:12px}
+#v-revid .revid-field{display:flex;flex-direction:column;gap:5px;min-width:190px}
+#v-revid .revid-field-sm{min-width:130px}
+#v-revid .revid-field label{font-size:11.5px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.02em}
+#v-revid .revid-field select,#v-revid .revid-field input{width:100%}
+#v-revid .revid-loadBtn{height:36px;box-sizing:border-box;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -2120,17 +2134,20 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
       <div class="revid-muted" style="margin-top:6px;font-size:12px">Formato esperado: extrato bancário com colunas DATA, FAVORECIDO, DESCRIÇÃO, DOCUMENTO, ENTRADA, SAÍDA, SALDO</div>
       <input type="file" id="revid-fileInput" accept=".xls,.xlsx" style="display:none">
     </div>
-    <div class="toolbar" id="revid-sheetRow" style="margin-top:14px;display:none">
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Aba (mês) da planilha
+    <div class="revid-uploadRow" id="revid-sheetRow" style="display:none">
+      <div class="revid-field">
+        <label for="revid-sheetSelect">Aba (mês) da planilha</label>
         <select id="revid-sheetSelect"></select>
-      </label>
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Banco (aplicado a todas as linhas)
+      </div>
+      <div class="revid-field">
+        <label for="revid-bancoSelect">Banco (aplicado a todas as linhas)</label>
         <select id="revid-bancoSelect"></select>
-      </label>
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px">Temporada (aplicada a todas as linhas)
-        <input type="text" id="revid-temporadaInput" style="width:120px">
-      </label>
-      <button class="act pri" type="button" id="revid-loadSheetBtn" style="align-self:flex-end">Carregar linhas desta aba</button>
+      </div>
+      <div class="revid-field revid-field-sm">
+        <label for="revid-temporadaInput">Temporada</label>
+        <input type="text" id="revid-temporadaInput" autocomplete="off" placeholder="ex.: 2026/2027">
+      </div>
+      <button class="act pri revid-loadBtn" type="button" id="revid-loadSheetBtn">Carregar linhas desta aba</button>
     </div>
   </div>
 
@@ -2180,11 +2197,11 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 
     <div class="revid-toolbar">
       <div class="toolbar">
-        <div class="revid-stat"><div class="n" id="revid-statTotal">0</div><div class="l">linhas no total</div></div>
-        <div class="revid-stat"><div class="n" id="revid-statDone">0</div><div class="l">com ID confirmado</div></div>
-        <div class="revid-stat"><div class="n" id="revid-statSuggested">0</div><div class="l">sugestão do motor (revisar)</div></div>
-        <div class="revid-stat"><div class="n" id="revid-statPending">0</div><div class="l">sem ID</div></div>
-        <div class="revid-stat"><div class="n" id="revid-statTransfer">0</div><div class="l">transferências internas</div></div>
+        <div class="revid-stat" data-status="all" title="Ver todas as linhas" onclick="revidSetStatusFilter('all')"><div class="n" id="revid-statTotal">0</div><div class="l">linhas no total</div></div>
+        <div class="revid-stat" data-status="done" title="Ver só as linhas com ID confirmado" onclick="revidSetStatusFilter('done')"><div class="n" id="revid-statDone">0</div><div class="l">com ID confirmado</div></div>
+        <div class="revid-stat" data-status="suggested" title="Ver só as sugestões do motor, ainda por revisar" onclick="revidSetStatusFilter('suggested')"><div class="n" id="revid-statSuggested">0</div><div class="l">sugestão do motor (revisar)</div></div>
+        <div class="revid-stat" data-status="pending" title="Ver só as linhas ainda sem ID" onclick="revidSetStatusFilter('pending')"><div class="n" id="revid-statPending">0</div><div class="l">sem ID</div></div>
+        <div class="revid-stat" data-status="transfer" title="Ver só as transferências internas" onclick="revidSetStatusFilter('transfer')"><div class="n" id="revid-statTransfer">0</div><div class="l">transferências internas</div></div>
       </div>
       <div class="revid-muted" style="font-size:11.5px;margin:2px 0 4px">Progresso de classificação por mês — quantos lançamentos daquele mês já têm ID confirmado, do total importado para aquele mês:</div>
       <div class="toolbar" id="revid-periodProgressPanel" style="gap:8px"></div>
@@ -2245,7 +2262,7 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
         <colgroup>
           <col style="width:2.2%"><col style="width:5.5%"><col style="width:9%"><col style="width:8.5%"><col style="width:5%">
           <col style="width:6%"><col style="width:6%"><col style="width:6%"><col style="width:13.5%"><col style="width:8%">
-          <col style="width:7.5%"><col style="width:9%"><col style="width:13.8%">
+          <col style="width:7.5%"><col style="width:8%"><col style="width:14.8%">
         </colgroup>
         <thead>
           <tr>
@@ -10813,6 +10830,31 @@ function revidComputeDuplicateFlags(rows){
 
 let revidState = { rows: [], fileName:'', sheetName:'', banco:'', temporada:'', storageKey:'', prova:null };
 let revidWorkbookGlobal = null;
+// Filtro por status vindo dos cards de estatística clicáveis (2. Revisão) —
+// 'all'|'done'|'suggested'|'pending'|'transfer'. Clicar num card zera os
+// outros filtros (busca, período, checkboxes) e mostra só aquele grupo, pra
+// deixar claro o que compõe cada número.
+let revidStatusFilter = 'all';
+function revidSetStatusFilter(status){
+  revidStatusFilter = (revidStatusFilter===status) ? 'all' : status;
+  const $ = id=>document.getElementById(id);
+  const onlyPending=$('revid-onlyPending'), hideTransfers=$('revid-hideTransfers'), onlyTransfers=$('revid-onlyTransfers'), quickFilter=$('revid-quickFilter'), dateFrom=$('revid-dateFrom'), dateTo=$('revid-dateTo');
+  if(onlyPending) onlyPending.checked=false;
+  if(hideTransfers) hideTransfers.checked=false;
+  if(onlyTransfers) onlyTransfers.checked = revidStatusFilter==='transfer';
+  if(quickFilter) quickFilter.value='';
+  if(dateFrom) dateFrom.value='';
+  if(dateTo) dateTo.value='';
+  revidPeriodFilterKey='';
+  revidSetIdFilterValue('');
+  document.querySelectorAll('.revid-stat[data-status]').forEach(el=>el.classList.toggle('revid-stat-active', el.dataset.status===revidStatusFilter));
+  revidApplyFilters();
+}
+// Achado real: esta função (e os cards que a chamam via onclick="" no HTML)
+// fica dentro da IIFE da Revisão de IDs — sem expor no window, o onclick
+// inline não encontra a função (roda no escopo global) e não fazia nada.
+// Mesma correção que window.renderRevid já precisou antes.
+window.revidSetStatusFilter = revidSetStatusFilter;
 const revidBulkState = { id:'' };
 let revidInited = false;
 let revidIdFilterValue = '';
@@ -11142,9 +11184,11 @@ function revidRenderTable(){
     parcBtn.className = 'act';
     parcBtn.style.fontSize = '10px';
     parcBtn.style.padding = '3px 6px';
-    parcBtn.style.width = '100%';
+    parcBtn.style.marginLeft = '22px';
+    parcBtn.style.maxWidth = 'calc(100% - 22px)';
     parcBtn.style.overflow = 'hidden';
     parcBtn.style.textOverflow = 'ellipsis';
+    parcBtn.style.display = 'inline-block';
     if(r.parcCodigo){
       parcBtn.textContent = '📎 ' + r.parcCodigo;
       parcBtn.title = 'Parcela: ' + r.parcCodigo;
@@ -11179,6 +11223,7 @@ function revidUpdateStats(){
   document.getElementById('revid-statSuggested').textContent = suggested;
   document.getElementById('revid-statPending').textContent = pending;
   document.getElementById('revid-statTransfer').textContent = transfers;
+  document.querySelectorAll('.revid-stat[data-status]').forEach(el=>el.classList.toggle('revid-stat-active', el.dataset.status===revidStatusFilter));
   revidRenderPeriodProgress();
 }
 function revidRenderPeriodProgress(){
@@ -11200,9 +11245,41 @@ function revidRenderPeriodProgress(){
     if(k!=='__semdata__'){ const [y,m] = k.split('-'); label = monthNames[parseInt(m,10)-1] + '/' + y; }
     const pct = g.total ? Math.round(100*g.done/g.total) : 0;
     const color = pct>=100 ? 'var(--ok)' : (pct===0 ? 'var(--tx3)' : 'var(--wn)');
-    return `<div class="revid-stat" style="min-width:100px;padding:6px 9px" title="${g.done} de ${g.total} lançamentos de ${label} já classificados (${pct}%)"><div class="n" style="font-size:13px;color:${color}">${g.done}/${g.total}</div><div class="l">${label} — ${pct}% classificados</div></div>`;
+    const clickable = k!=='__semdata__';
+    const attrs = clickable ? ` data-status="period-${esc(k)}" style="min-width:100px;padding:6px 9px;cursor:pointer" onclick="revidSetPeriodFilter('${esc(k)}')" title="${g.done} de ${g.total} lançamentos de ${label} já classificados (${pct}%) — clique para ver só este mês"` : ` style="min-width:100px;padding:6px 9px" title="${g.done} de ${g.total} lançamentos sem data reconhecida já classificados (${pct}%)"`;
+    return `<div class="revid-stat"${attrs}><div class="n" style="font-size:13px;color:${color}">${g.done}/${g.total}</div><div class="l">${label} — ${pct}% classificados</div></div>`;
   }).join('');
+  document.querySelectorAll('#revid-periodProgressPanel .revid-stat[data-status]').forEach(el=>el.classList.toggle('revid-stat-active', el.dataset.status===('period-'+revidPeriodFilterKey)));
 }
+// Mesma ideia dos cards de status: clicar num mês do "Progresso por mês"
+// filtra a tabela pra esse mês (usa o próprio filtro de período De/Até que
+// já existe), e clicar de novo no mesmo mês limpa o filtro.
+let revidPeriodFilterKey = '';
+function revidSetPeriodFilter(key){
+  const $ = id=>document.getElementById(id);
+  const dateFrom=$('revid-dateFrom'), dateTo=$('revid-dateTo');
+  if(revidPeriodFilterKey===key){
+    revidPeriodFilterKey = '';
+    if(dateFrom) dateFrom.value='';
+    if(dateTo) dateTo.value='';
+  } else {
+    revidPeriodFilterKey = key;
+    const [y,m] = key.split('-');
+    const lastDay = new Date(Date.UTC(Number(y), Number(m), 0)).getUTCDate();
+    if(dateFrom) dateFrom.value = `${y}-${m}-01`;
+    if(dateTo) dateTo.value = `${y}-${m}-${String(lastDay).padStart(2,'0')}`;
+  }
+  const onlyPending=$('revid-onlyPending'), hideTransfers=$('revid-hideTransfers'), onlyTransfers=$('revid-onlyTransfers'), quickFilter=$('revid-quickFilter');
+  if(onlyPending) onlyPending.checked=false;
+  if(hideTransfers) hideTransfers.checked=false;
+  if(onlyTransfers) onlyTransfers.checked=false;
+  if(quickFilter) quickFilter.value='';
+  revidSetIdFilterValue('');
+  revidStatusFilter = 'all';
+  document.querySelectorAll('.revid-stat[data-status]').forEach(el=>el.classList.toggle('revid-stat-active', !!revidPeriodFilterKey && el.dataset.status===('period-'+revidPeriodFilterKey)));
+  revidApplyFilters();
+}
+window.revidSetPeriodFilter = revidSetPeriodFilter;
 function revidVisibleRows(){
   return [...document.querySelectorAll('#revid-tbody tr:not(.revid-hidden-row)')].map(tr=>revidState.rows[Number(tr.dataset.idx)]);
 }
@@ -11238,6 +11315,10 @@ function revidApplyFilters(){
     let show = true;
     if(onlyT){ if(!r.isTransfer) show=false; }
     else { if(onlyP && (r.id || r.isTransfer)) show=false; if(hideT && r.isTransfer) show=false; }
+    if(revidStatusFilter==='done'){ if(r.isTransfer || !r.id || r.sugerido) show=false; }
+    else if(revidStatusFilter==='suggested'){ if(r.isTransfer || !r.id || !r.sugerido) show=false; }
+    else if(revidStatusFilter==='pending'){ if(r.isTransfer || r.id) show=false; }
+    else if(revidStatusFilter==='transfer'){ if(!r.isTransfer) show=false; }
     if(idFilter && r.id!==idFilter) show=false;
     if(q && !norm(r.favorecido+' '+r.descricao).includes(q)) show=false;
     if(show && (fromVal || toVal)){
@@ -11585,6 +11666,7 @@ function revidInitOnce(){
     revidState.temporada = temporadaInput.value.trim();
     revidState.storageKey = 'lnbRevid::' + revidState.fileName + '::' + sheetName;
     revidState.prova = { saldoInicial:parsed.saldoInicial, saldoFinal:parsed.saldoFinal, totalEntradasExtrato:parsed.totalEntradasExtrato, totalSaidasExtrato:parsed.totalSaidasExtrato };
+    revidStatusFilter = 'all';
     const savedRaw = revidLoadAutosave(revidState.storageKey);
     let savedByIdx = {}, savedByContent = {};
     if(savedRaw){
