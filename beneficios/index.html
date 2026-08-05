@@ -14401,12 +14401,53 @@ async function benInicializarHistoricos(){
    INICIALIZAÇÃO DO MÓDULO
    --------------------------------------------------------------------------- */
 let mobIniciado = false;
+/* Overlay de carregamento — a primeira abertura do módulo sincroniza com o
+   Supabase e pode levar alguns segundos; sem isso a tela fica em branco e
+   parece que travou. */
+function mobLoaderMostrar(texto){
+  let ov = document.getElementById('mob-boot-loader');
+  if (!ov){
+    ov = document.createElement('div');
+    ov.id = 'mob-boot-loader';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:999998;display:flex;align-items:center;justify-content:center;'+
+      'flex-direction:column;gap:16px;background:radial-gradient(circle at 50% 30%,rgba(214,173,76,.10),transparent 40%),'+
+      'linear-gradient(160deg,#03111f,#0c2f52 60%,#071d32);color:#F8FAFC;font-family:inherit;text-align:center;padding:24px';
+    ov.innerHTML =
+      '<div style="width:52px;height:52px;border-radius:50%;border:4px solid rgba(214,173,76,.25);'+
+        'border-top-color:#D6AD4C;animation:mob-spin .85s linear infinite"></div>'+
+      '<div id="mob-boot-loader-texto" style="font-size:14px;font-weight:700;letter-spacing:.3px;color:rgba(255,255,255,.9)"></div>'+
+      '<div style="font-size:12px;color:rgba(255,255,255,.55);max-width:320px">Sincronizando corridas, colaboradores e departamentos com a nuvem…</div>';
+    if (!document.getElementById('mob-spin-keyframes')){
+      const st = document.createElement('style');
+      st.id = 'mob-spin-keyframes';
+      st.textContent = '@keyframes mob-spin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(st);
+    }
+    document.body.appendChild(ov);
+  }
+  const t = document.getElementById('mob-boot-loader-texto');
+  if (t) t.textContent = texto || 'Abrindo Mobilidade Corporativa…';
+  ov.style.display = 'flex';
+}
+function mobLoaderAtualizar(texto){
+  const t = document.getElementById('mob-boot-loader-texto');
+  if (t) t.textContent = texto;
+}
+function mobLoaderEsconder(){
+  const ov = document.getElementById('mob-boot-loader');
+  if (ov) ov.remove();
+}
+
 async function mobIniciar(){
   if (mobIniciado) return;
   mobIniciado = true;
+  mobLoaderMostrar('Abrindo Mobilidade Corporativa…');
   try {
+    mobLoaderAtualizar('Sincronizando com a nuvem…');
     await MobCore.carregar();
+    mobLoaderAtualizar('Organizando departamentos…');
     await MobCore.aplicarEstruturaExecutiva();
+    mobLoaderAtualizar('Conferindo histórico de corridas…');
     await MobCore.carregarHistoricoEmbutido();
     const el = document.getElementById('mob-f-comp');
     if (el) el.value = Mob.cfg.competenciaAtual;
@@ -14418,6 +14459,8 @@ async function mobIniciar(){
       'Isso costuma acontecer em janela anônima ou com o armazenamento bloqueado nas configurações do ' +
       'navegador. Use uma janela normal do Chrome ou Edge.</div></div>',
       [{r:'Fechar', c:'btn-ghost', f:'mobFecharModal()'}], 'sm');
+  } finally {
+    mobLoaderEsconder();
   }
 }
 
