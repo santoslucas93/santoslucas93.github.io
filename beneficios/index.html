@@ -13685,7 +13685,16 @@ MobCore.carregarHistoricoEmbutido = async function(){
       formaPgto:'Faturamento corporativo',status:'Concluída',rateio:[],flags:[],observacoes:'',excluida:false,
       importadoEm:'2026-08-04T12:00:00.000Z',arquivoOrigem:r.a,linhaOrigem:r.l,historico:true,historicoVersao:versao,demo:false};
     const existente=porId.get(r.i)||porOrigem.get(r.a+'#'+r.l);
-    if(existente){Object.assign(existente,dados);atualizadas.push(existente);}
+    if(existente){
+      /* Só marca como alterada (e reenvia pro Supabase) se algo que este
+         recarregamento pode realmente mudar for diferente — evita regravar
+         e reenviar as 6.480 corridas inteiras, sem necessidade, toda vez
+         que o módulo abre numa sessão nova. */
+      const mudou = existente.deptoId!==dados.deptoId || existente.colabId!==dados.colabId ||
+        existente.historicoVersao!==dados.historicoVersao;
+      Object.assign(existente,dados);
+      if(mudou) atualizadas.push(existente);
+    }
     else{const novo=Object.assign({id:r.i},dados);novas.push(novo);porId.set(novo.id,novo);porOrigem.set(r.a+'#'+r.l,novo);}
   });
   if(novas.length)Mob.corridas=Mob.corridas.concat(novas);
