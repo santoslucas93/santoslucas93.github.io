@@ -2743,7 +2743,12 @@ const LIGA_KEYS = [
   'liga_emp','liga_cfg','liga_avulsos','liga_hist',
   'liga_vt_registros','liga_vt_historico','liga_vt_cfg','liga_vt_avulsos',
   'liga_med_registros','liga_med_historico','liga_med_cfg',
-  'liga_prud_registros','liga_prud_historico','liga_prud_cfg'
+  'liga_prud_registros','liga_prud_historico','liga_prud_cfg',
+  /* Mobilidade (Uber/99) — colaboradores, departamentos, competências e config
+     compartilhados via ben_state, no mesmo padrão dos demais módulos.
+     As CORRIDAS (grande demais para um blob) ficam numa tabela própria,
+     mob_corridas, sincronizada linha a linha (ver MobDB). */
+  'liga_mob_colaboradores','liga_mob_departamentos','liga_mob_competencias','liga_mob_cfg'
 ];
 // Puxa a base oficial do Supabase (síncrono) e grava no localStorage antes
 // do restante da página (que já lê localStorage de forma síncrona logo na
@@ -6827,6 +6832,69 @@ const MobDB = (function(){
                   'documentos','mapeamentos','auditoria','config'];
   let _db = null;
 
+  /* ------------------------------------------------------------------
+     SINCRONIZAÇÃO COM O SUPABASE (compartilhada entre todos os usuários)
+     - colaboradores / departamentos / competencias / config: pequenos,
+       replicados como um blob em ben_state (mesmo mecanismo do resto do
+       Sistema de Benefícios — ver LIGA_KEYS).
+     - corridas: grande demais para um blob (~5MB), tem tabela própria
+       (mob_corridas), sincronizada linha a linha.
+     Tudo aqui é "best effort": se a rede/Supabase falhar, o dado local
+     (IndexedDB) já foi salvo normalmente e a tela não quebra — só fica
+     sem propagar para os outros até a próxima escrita bem-sucedida.
+     ------------------------------------------------------------------ */
+  const BLOB_KEY = {colaboradores:'liga_mob_colaboradores', departamentos:'liga_mob_departamentos',
+                     competencias:'liga_mob_competencias', config:'liga_mob_cfg'};
+
+  function corridaToRow(c){
+    return {
+      id: c.id, competencia: c.competencia||null, fornecedor: c.fornecedor||null,
+      data: c.data||null, data_fim: c.dataFim||null, hora: c.hora||null,
+      passageiro_raw: c.passageiroRaw||null, email: c.email||null, telefone: c.telefone||null,
+      colab_id: c.colabId||null, match_metodo: c.matchMetodo||null, match_confianca: c.matchConfianca||null,
+      setor_raw: c.setorRaw||null, depto_id: c.deptoId||null, cc: c.cc||null,
+      origem: c.origem||null, destino: c.destino||null, motivo: c.motivo||null,
+      projeto: c.projeto||null, numero_viagem: c.numeroViagem||null,
+      valor: c.valor||0, taxas: c.taxas||0, descontos: c.descontos||0, total: c.total||0,
+      forma_pgto: c.formaPgto||null, status: c.status||null,
+      rateio: c.rateio||[], flags: c.flags||[], observacoes: c.observacoes||null,
+      excluida: !!c.excluida, importado_em: c.importadoEm||null, arquivo_origem: c.arquivoOrigem||null,
+      demo: !!c.demo, updated_by: (typeof AUTH_SESSION!=='undefined' && AUTH_SESSION && (AUTH_SESSION.nome||AUTH_SESSION.role)) || 'painel'
+    };
+  }
+  function rowToCorrida(r){
+    return {
+      id: r.id, competencia: r.competencia, fornecedor: r.fornecedor,
+      data: r.data, dataFim: r.data_fim, hora: r.hora,
+      passageiroRaw: r.passageiro_raw, email: r.email, telefone: r.telefone,
+      colabId: r.colab_id, matchMetodo: r.match_metodo, matchConfianca: r.match_confianca,
+      setorRaw: r.setor_raw, deptoId: r.depto_id, cc: r.cc,
+      origem: r.origem, destino: r.destino, motivo: r.motivo,
+      projeto: r.projeto, numeroViagem: r.numero_viagem,
+      valor: Number(r.valor)||0, taxas: Number(r.taxas)||0, descontos: Number(r.descontos)||0, total: Number(r.total)||0,
+      formaPgto: r.forma_pgto, status: r.status,
+      rateio: r.rateio||[], flags: r.flags||[], observacoes: r.observacoes,
+      excluida: !!r.excluida, importadoEm: r.importado_em, arquivoOrigem: r.arquivo_origem, demo: !!r.demo
+    };
+  }
+  function syncBlob(store){
+    const chave = BLOB_KEY[store];
+    if (!chave) return;
+    all(store).then(arr => { try{ localStorage.setItem(chave, JSON.stringify(arr)); }catch(e){ console.error('Falha ao sincronizar '+store+':', e); } })
+      .catch(e => console.error('Falha ao ler '+store+' para sincronizar:', e));
+  }
+  function syncCorridasUpsert(objs){
+    if (typeof supaUpsert !== 'function') return;
+    const rows = (Array.isArray(objs)?objs:[objs]).map(corridaToRow);
+    supaUpsert('mob_corridas', rows, 'id').catch(e => console.error('Falha ao sincronizar corridas com o Supabase:', e));
+  }
+  function syncCorridasDelete(ids){
+    if (typeof supaFetch !== 'function') return;
+    const lista = (Array.isArray(ids)?ids:[ids]).map(id => '"'+String(id).replace(/"/g,'')+'"').join(',');
+    supaFetch(SUPABASE_URL+'/rest/v1/mob_corridas?id=in.('+lista+')', {method:'DELETE', headersExtra:{'Prefer':'return=minimal'}})
+      .catch(e => console.error('Falha ao excluir corridas no Supabase:', e));
+  }
+
   function open(){
     return new Promise((resolve, reject) => {
       if (_db) return resolve(_db);
@@ -6858,14 +6926,49 @@ const MobDB = (function(){
   function wrap(request){
     return new Promise((res, rej) => { request.onsuccess = () => res(request.result); request.onerror = () => rej(request.error); });
   }
+  function all(store){ return tx(store).then(os => wrap(os.getAll())); }
+
+  /* Busca todas as corridas direto do Supabase (paginado, 1000 por vez) e
+     substitui o conteúdo local — usada no boot para que todo mundo que abre
+     o painel veja o mesmo histórico de corridas, já refletindo qualquer
+     correção feita por outra pessoa. */
+  async function puxarCorridasDaNuvem(){
+    if (typeof supaFetch !== 'function') return null;
+    const PAGE = 1000;
+    let offset = 0, todas = [];
+    while (true){
+      const res = await supaFetch(SUPABASE_URL+'/rest/v1/mob_corridas?select=*&order=id&limit='+PAGE+'&offset='+offset, {});
+      if (!res.ok) throw new Error('Falha ao ler mob_corridas: '+res.status);
+      const lote = await res.json();
+      todas = todas.concat(lote);
+      if (lote.length < PAGE) break;
+      offset += PAGE;
+    }
+    return todas.map(rowToCorrida);
+  }
+
+  /* Regrava um store local a partir de dados vindos da nuvem, SEM reenviar
+     para o Supabase (evita reupload em loop toda vez que a página abre). */
+  function hydrateFromCloud(store, arr){
+    return open().then(db => new Promise((res, rej) => {
+      const t = db.transaction(store, 'readwrite'), os = t.objectStore(store);
+      os.clear();
+      (arr||[]).forEach(o => { if (!o.id) o.id = MobFmt.uid(); os.put(o); });
+      t.oncomplete = () => res(arr);
+      t.onerror = () => rej(t.error);
+    }));
+  }
 
   return {
-    open, STORES,
-    all(store){ return tx(store).then(os => wrap(os.getAll())); },
+    open, STORES, puxarCorridasDaNuvem, hydrateFromCloud,
+    all,
     get(store, id){ return tx(store).then(os => wrap(os.get(id))); },
     put(store, obj){
       if (!obj.id) obj.id = MobFmt.uid();
-      return tx(store,'readwrite').then(os => wrap(os.put(obj))).then(() => obj);
+      return tx(store,'readwrite').then(os => wrap(os.put(obj))).then(() => {
+        if (store === 'corridas') syncCorridasUpsert(obj); else syncBlob(store);
+        return obj;
+      });
     },
     putMany(store, arr){
       return open().then(db => new Promise((res, rej) => {
@@ -6873,17 +6976,33 @@ const MobDB = (function(){
         (arr||[]).forEach(o => { if (!o.id) o.id = MobFmt.uid(); os.put(o); });
         t.oncomplete = () => res(arr);
         t.onerror = () => rej(t.error);
-      }));
+      })).then(res => {
+        if (store === 'corridas') syncCorridasUpsert(arr||[]); else syncBlob(store);
+        return res;
+      });
     },
-    del(store, id){ return tx(store,'readwrite').then(os => wrap(os.delete(id))); },
+    del(store, id){
+      return tx(store,'readwrite').then(os => wrap(os.delete(id))).then(res => {
+        if (store === 'corridas') syncCorridasDelete(id); else syncBlob(store);
+        return res;
+      });
+    },
     delMany(store, ids){
       return open().then(db => new Promise((res, rej) => {
         const t = db.transaction(store,'readwrite'), os = t.objectStore(store);
         (ids||[]).forEach(id => os.delete(id));
         t.oncomplete = () => res(true); t.onerror = () => rej(t.error);
-      }));
+      })).then(res => {
+        if (store === 'corridas') syncCorridasDelete(ids||[]); else syncBlob(store);
+        return res;
+      });
     },
-    clear(store){ return tx(store,'readwrite').then(os => wrap(os.clear())); },
+    clear(store){
+      return tx(store,'readwrite').then(os => wrap(os.clear())).then(res => {
+        if (store !== 'corridas') syncBlob(store);
+        return res;
+      });
+    },
     byIndex(store, index, value){
       return tx(store).then(os => wrap(os.index(index).getAll(value)));
     },
@@ -6962,7 +7081,32 @@ const MobCore = {
   /* ---------------------------------------------------------------------
      5.1 CARGA INICIAL
      --------------------------------------------------------------------- */
+  /* Puxa colaboradores/departamentos/competencias/config (via ben_state,
+     já pré-carregados no localStorage pelo boot da página) e as corridas
+     (via mob_corridas) e regrava o cache local (IndexedDB) com a versão
+     da nuvem, para que todo mundo que abre o painel veja os mesmos dados
+     — inclusive correções feitas por outra pessoa/navegador. Se a nuvem
+     não responder (offline, sessão expirada etc.), mantém o que já está
+     salvo localmente e segue em frente. */
+  async sincronizarDaNuvem(){
+    const blobs = {colaboradores:'liga_mob_colaboradores', departamentos:'liga_mob_departamentos',
+                    competencias:'liga_mob_competencias', config:'liga_mob_cfg'};
+    for (const store in blobs){
+      let raw = null;
+      try{ raw = localStorage.getItem(blobs[store]); }catch(e){}
+      if (raw == null) continue;
+      let arr; try{ arr = JSON.parse(raw); }catch(e){ continue; }
+      if (!Array.isArray(arr)) continue;
+      try{ await MobDB.hydrateFromCloud(store, arr); }catch(e){ console.error('Falha ao aplicar '+store+' vindo da nuvem:', e); }
+    }
+    try{
+      const corridasNuvem = await MobDB.puxarCorridasDaNuvem();
+      if (corridasNuvem) await MobDB.hydrateFromCloud('corridas', corridasNuvem);
+    }catch(e){ console.error('Falha ao puxar corridas da nuvem, usando cópia local:', e); }
+  },
+
   async carregar(){
+    await MobCore.sincronizarDaNuvem();
     const [comps, corr, colab, dept, docs, maps, aud, cfg] = await Promise.all([
       MobDB.all('competencias'), MobDB.all('corridas'), MobDB.all('colaboradores'),
       MobDB.all('departamentos'), MobDB.all('documentos'), MobDB.all('mapeamentos'),
