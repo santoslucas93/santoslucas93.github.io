@@ -14077,10 +14077,11 @@ async function iaGeminiAnswerBen(q,onDelta){
   const prompt='Você é o assistente do Sistema de Benefícios da Liga Nacional de Basquete (VR/VA/CB, Vale Transporte, Assistência Médica SulAmérica e Prudential Seguro de Vida). '+
     'Responda em português, de forma direta e objetiva, com base apenas no resumo estruturado abaixo. Se faltar informação, diga o que revisar no painel — não invente números.\n\n'+
     'RESUMO DOS DADOS ATUAIS:\n'+JSON.stringify(iaBenData(),null,2)+'\n\nPERGUNTA: '+q;
+  const history=iaMsgs.slice(0,-1).map(function(m){ return {role:(m.role==='assistant'?'model':'user'),parts:[{text:m.content}]}; });
   const res=await fetch('/api/gemini',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model,contents:[...iaMsgs,{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.2,maxOutputTokens:2048}})
+    body:JSON.stringify({model,contents:[...history,{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.2,maxOutputTokens:2048}})
   });
   const j=await res.json().catch(()=>({}));
   if(!res.ok||j.error)throw new Error((j.error&&j.error.message)||('Erro HTTP '+res.status));
