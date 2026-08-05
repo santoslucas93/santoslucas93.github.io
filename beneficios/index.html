@@ -2881,6 +2881,13 @@ body.theme-dark .card,body.theme-dark .stat-card{box-shadow:0 18px 48px rgba(0,0
   .app-header,.nav-wrap{box-shadow:none!important}
   #benefit-home .benefit-choice-card{break-inside:avoid;box-shadow:none!important}
 }
+
+/* Perfil "somente leitura — Uber e 99": só pode ver o módulo de Mobilidade */
+body.lnb-mob-only #benefit-home .benefit-choice-card:not(.module-card-mob){ display:none!important; }
+body.lnb-mob-only .nav-tab.benefit-vr,
+body.lnb-mob-only .nav-tab.benefit-vt,
+body.lnb-mob-only .nav-tab.benefit-med,
+body.lnb-mob-only .nav-tab.benefit-prud{ display:none!important; }
 </style>
 </head>
 <body>
@@ -2893,6 +2900,7 @@ body.theme-dark .card,body.theme-dark .stat-card{box-shadow:0 18px 48px rgba(0,0
       <select id="lnb-auth-perfil" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d7cdc4;font-size:14px;box-sizing:border-box">
         <option value="admin">Administrador (leitura e edição)</option>
         <option value="readonly">Somente leitura</option>
+        <option value="mob">Somente leitura — Uber e 99</option>
       </select>
     </div>
     <div class="form-group">
@@ -2924,6 +2932,7 @@ const SUPABASE_URL = (__lnbCfg && __lnbCfg.SUPABASE_URL) || 'https://iiheewndotc
 const SUPABASE_KEY = (__lnbCfg && __lnbCfg.SUPABASE_KEY) || 'sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz';
 const AUTH_ADMIN_EMAIL = 'admin-beneficios@painel-lnb.local';
 const AUTH_READONLY_EMAIL = 'leitura-beneficios@painel-lnb.local';
+const AUTH_MOB_READONLY_EMAIL = 'leitura-mobilidade@painel-lnb.local';
 let AUTH_SESSION = null;
 
 function lnbLoadSession(){
@@ -2996,16 +3005,19 @@ function lnbAttachProfileSync(sess){
   return sess;
 }
 function lnbLoginWithPasswordSync(perfil, password){
-  const email = perfil==='admin' ? AUTH_ADMIN_EMAIL : AUTH_READONLY_EMAIL;
+  const email = perfil==='admin' ? AUTH_ADMIN_EMAIL : (perfil==='mob' ? AUTH_MOB_READONLY_EMAIL : AUTH_READONLY_EMAIL);
   const sess = lnbTryLoginSync(email, password);
   if (!sess) return false;
   sess.role = perfil==='admin' ? 'admin' : 'readonly';
+  sess.mobOnly = (perfil==='mob');
   lnbAttachProfileSync(sess);
+  sess.mobOnly = (perfil==='mob'); // lnbAttachProfileSync não deve sobrescrever esta flag
   AUTH_SESSION = sess;
   lnbSaveSession();
   return true;
 }
 function isReadOnlyUser(){ return !!(AUTH_SESSION && AUTH_SESSION.role && AUTH_SESSION.role!=='admin'); }
+function lnbIsMobOnlyUser(){ return !!(AUTH_SESSION && AUTH_SESSION.mobOnly); }
 function guardReadOnly(){
   if (isReadOnlyUser()){
     alert('Seu perfil é somente leitura — peça a um administrador para fazer esta alteração.');
@@ -3107,6 +3119,7 @@ window.__lnbPullState = function(){
 function lnbUnlockApp(){
   document.body.classList.remove('lnb-not-authed');
   document.body.classList.toggle('lnb-readonly', isReadOnlyUser());
+  document.body.classList.toggle('lnb-mob-only', lnbIsMobOnlyUser());
   document.getElementById('lnb-auth-overlay').classList.add('hide');
   lnbShowAuthBadge();
 }
@@ -14488,6 +14501,8 @@ async function mobIniciar(){
       window.__mobPatchModo = true;
       const original = window.selectBenefitMode;
       window.selectBenefitMode = function(modo){
+        /* perfil "somente leitura — Uber e 99" não pode abrir nenhum outro módulo */
+        if (typeof lnbIsMobOnlyUser === 'function' && lnbIsMobOnlyUser()) { modo = 'mob'; }
         if (modo !== 'mob') {
           const r = original.apply(this, arguments);
           setTimeout(mobInjetarBuscas, 60);
@@ -14508,6 +14523,10 @@ async function mobIniciar(){
           if (primeiro) showTab(primeiro, 'mob');
         });
       };
+      /* perfil somente-leitura da Mobilidade: abre direto no módulo, sem passar pelo hub */
+      if (typeof lnbIsMobOnlyUser === 'function' && lnbIsMobOnlyUser()){
+        window.selectBenefitMode('mob');
+      }
     }
 
     /* estende showTab para desenhar as abas do módulo */
