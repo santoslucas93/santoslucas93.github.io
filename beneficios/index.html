@@ -14042,9 +14042,51 @@ function iaBenData(){
   };
 }
 function iaMoneyBen(v){ return (Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+function iaNormBen(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
+function iaFindColaboradorBen(q){
+  function parse(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } }
+  const emp=parse('liga_emp')||[], vt=parse('liga_vt_registros')||[], med=parse('liga_med_registros')||[], prud=parse('liga_prud_registros')||[];
+  const nq=iaNormBen(q);
+  const tokens=nq.split(/[^a-z0-9]+/).filter(function(w){ return w.length>=3; });
+  if(!tokens.length) return null;
+  function scoreMatch(nome){
+    const nn=iaNormBen(nome);
+    if(!nn) return 0;
+    let hits=0;
+    tokens.forEach(function(tok){ if(nn.indexOf(tok)>-1) hits++; });
+    return hits;
+  }
+  function bestOf(list){
+    let best=null, bestScore=0;
+    list.forEach(function(item){
+      const sc=scoreMatch(item.nome);
+      if(sc>bestScore){ bestScore=sc; best=item; }
+    });
+    return bestScore>=1 ? best : null;
+  }
+  const empM=bestOf(emp), vtM=bestOf(vt), medM=bestOf(med), prudM=bestOf(prud);
+  if(!empM && !vtM && !medM && !prudM) return null;
+  const nome=(empM&&empM.nome)||(vtM&&vtM.nome)||(medM&&medM.nome)||(prudM&&prudM.nome);
+  const out={ nome:nome };
+  if(empM) out.vr_va_cb={ ativo: empM.ativo!==false, tipo: empM.tipo||null, centroCusto: empM.cc||null };
+  if(vtM) out.vale_transporte={ ativo: !!vtM.ativoVT, tarifaTipo: vtM.tarifaTipo||null, tarifa: Number(vtM.tarifa)||null, dias: Number(vtM.dias)||null };
+  if(medM) out.assistencia_medica_sulamerica={ ativo: !!medM.ativo, valor: Number(medM.valor)||0, iof: Number(medM.iof)||0 };
+  if(prudM) out.prudential_seguro_vida={ ativo: !!prudM.ativo, valor: Number(prudM.valor)||0 };
+  out.observacao='Valores de VR/VA/CB são calculados no momento do processamento mensal e não ficam guardados por colaborador neste resumo — confira a aba VR/VA/CB no painel para o valor exato.';
+  return out;
+}
 function iaLocalAnswerBen(q){
   const d=iaBenData();
   const nq=q.toLowerCase();
+  const colaborador=iaFindColaboradorBen(q);
+  if(colaborador && /quem|receb|valor|quanto|ativo|cadastr/.test(nq)){
+    let out='Colaborador encontrado: '+colaborador.nome+'\n';
+    if(colaborador.vale_transporte) out+='• Vale Transporte: '+(colaborador.vale_transporte.ativo?'ativo':'inativo')+(colaborador.vale_transporte.tarifa?', tarifa '+iaMoneyBen(colaborador.vale_transporte.tarifa)+'/dia, '+colaborador.vale_transporte.dias+' dia(s)':'')+'\n';
+    if(colaborador.assistencia_medica_sulamerica) out+='• Assistência Médica SulAmérica: '+(colaborador.assistencia_medica_sulamerica.ativo?'ativo':'inativo')+', valor '+iaMoneyBen(colaborador.assistencia_medica_sulamerica.valor+colaborador.assistencia_medica_sulamerica.iof)+'\n';
+    if(colaborador.prudential_seguro_vida) out+='• Prudential Seguro de Vida: '+(colaborador.prudential_seguro_vida.ativo?'ativo':'inativo')+', valor '+iaMoneyBen(colaborador.prudential_seguro_vida.valor)+'\n';
+    if(colaborador.vr_va_cb) out+='• VR/VA/CB: '+(colaborador.vr_va_cb.ativo?'ativo':'inativo')+' — valor exato calculado no processamento mensal, confira a aba VR/VA/CB.\n';
+    return out.trim();
+  }
   if(/resum|geral|panorama|situa/.test(nq)){
     return 'Panorama do Sistema de Benefícios:\n\n'+
       '• VR/VA/CB: '+d.vr_va_cb.ativos+' colaborador(es) ativo(s) de '+d.vr_va_cb.cadastrados+' cadastrado(s), '+d.vr_va_cb.processamentos+' processamento(s) no histórico.\n'+
@@ -14074,9 +14116,12 @@ function iaLocalAnswerBen(q){
 }
 async function iaGeminiAnswerBen(q,onDelta){
   const model=(document.getElementById('ia-model')?.value)||'gemini-flash-latest';
+  const colaborador=iaFindColaboradorBen(q);
   const prompt='Você é o assistente do Sistema de Benefícios da Liga Nacional de Basquete (VR/VA/CB, Vale Transporte, Assistência Médica SulAmérica e Prudential Seguro de Vida). '+
     'Responda em português, de forma direta e objetiva, com base apenas no resumo estruturado abaixo. Se faltar informação, diga o que revisar no painel — não invente números.\n\n'+
-    'RESUMO DOS DADOS ATUAIS:\n'+JSON.stringify(iaBenData(),null,2)+'\n\nPERGUNTA: '+q;
+    'RESUMO DOS DADOS ATUAIS:\n'+JSON.stringify(iaBenData(),null,2)+
+    (colaborador?('\n\nDADOS DO COLABORADOR ENCONTRADO NA BUSCA:\n'+JSON.stringify(colaborador,null,2)):'')+
+    '\n\nPERGUNTA: '+q;
   const history=iaMsgs.slice(0,-1).map(function(m){ return {role:(m.role==='assistant'?'model':'user'),parts:[{text:m.content}]}; });
   const res=await fetch('/api/gemini',{
     method:'POST',
@@ -14130,6 +14175,27 @@ async function iaSend(){
   const toggle=document.getElementById('ia-toggle'), pop=document.getElementById('ia-pop'), close=document.getElementById('ia-close');
   if(toggle)toggle.onclick=function(){ pop.classList.toggle('hide'); if(!pop.classList.contains('hide'))iaInit(); };
   if(close)close.onclick=function(){ pop.classList.add('hide'); };
+  const head=document.getElementById('ia-head-drag')||(pop&&pop.querySelector('.ia-head'));
+  if(head&&pop){
+    let dragging=false, startX=0, startY=0, startLeft=0, startTop=0;
+    head.addEventListener('mousedown',function(e){
+      if(e.target&&e.target.closest('button'))return;
+      const r=pop.getBoundingClientRect();
+      pop.style.left=r.left+'px'; pop.style.top=r.top+'px';
+      pop.style.right='auto'; pop.style.bottom='auto';
+      dragging=true; startX=e.clientX; startY=e.clientY; startLeft=r.left; startTop=r.top;
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove',function(e){
+      if(!dragging)return;
+      let nl=startLeft+(e.clientX-startX), nt=startTop+(e.clientY-startY);
+      const maxL=window.innerWidth-60, maxT=window.innerHeight-40;
+      nl=Math.max(-pop.offsetWidth+60,Math.min(nl,maxL));
+      nt=Math.max(0,Math.min(nt,maxT));
+      pop.style.left=nl+'px'; pop.style.top=nt+'px';
+    });
+    document.addEventListener('mouseup',function(){ dragging=false; });
+  }
 })();
 </script>
 
