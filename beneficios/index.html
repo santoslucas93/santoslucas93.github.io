@@ -2522,9 +2522,9 @@ body.lnb-readonly input,body.lnb-readonly select,body.lnb-readonly textarea{poin
 /* Assistente IA (mesmo padrão do painel Orçado x Realizado) */
 .ia-float{position:fixed;right:22px;bottom:22px;z-index:99997}
 .ia-launch{width:58px;height:58px;border-radius:22px;border:1px solid rgba(232,93,4,.5);background:linear-gradient(135deg,#E85D04,#0c2f52);color:#fff;box-shadow:0 16px 46px rgba(0,0,0,.28);cursor:pointer;font-size:24px;font-weight:800}
-.ia-pop{position:fixed;right:22px;bottom:90px;width:min(420px,calc(100vw - 32px));height:min(560px,calc(100vh - 120px));min-width:300px;min-height:220px;max-width:96vw;max-height:90vh;background:#fff;border:1px solid #e2d9cd;border-radius:18px;box-shadow:0 28px 80px rgba(0,0,0,.28);overflow:hidden;display:flex;flex-direction:column;z-index:99997}
+.ia-pop{position:fixed;right:22px;bottom:90px;width:min(420px,calc(100vw - 32px));height:min(560px,calc(100vh - 120px));min-width:300px;min-height:220px;max-width:96vw;max-height:90vh;resize:both;background:#fff;border:1px solid #e2d9cd;border-radius:18px;box-shadow:0 28px 80px rgba(0,0,0,.28);overflow:hidden;display:flex;flex-direction:column;z-index:99997}
 .ia-pop.hide{display:none}
-.ia-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#0D1B2A;color:#fff;flex:none}
+.ia-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#0D1B2A;color:#fff;cursor:move;user-select:none;flex:none}
 .ia-head b{font-size:14px}
 .ia-head button{border:none;background:transparent;color:#fff;font-size:20px;cursor:pointer}
 .ia-body{padding:12px;overflow-y:auto;flex:1 1 auto;background:#F8F5F0}
