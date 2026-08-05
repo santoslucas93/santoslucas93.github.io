@@ -13328,8 +13328,14 @@ MobCore.carregarHistoricoEmbutido = async function(){
   const novas=[],atualizadas=[];
   fonte.forEach(r=>{
     const col=colabPorNome[MobFmt.normName(r.n)],dep=deptos[r.g]||null;
+    /* O cadastro atual do colaborador (se existir e tiver departamento definido)
+       tem prioridade sobre o grupo gravado neste snapshot histórico embutido —
+       senão, toda correção de departamento feita depois da importação original
+       (por exemplo, via edição de cadastro) seria desfeita sempre que este
+       histórico for recarregado, mesmo em outro navegador. */
+    const deptoFinal = (col && col.deptoId) ? col.deptoId : (dep ? dep.id : null);
     const dados={competencia:r.c||String(r.d).slice(0,7),fornecedor:r.f,data:r.d,hora:r.h||'',
-      passageiroRaw:r.n,setorRaw:r.s||'',email:'',telefone:'',colabId:col?col.id:null,deptoId:dep?dep.id:null,cc:'',
+      passageiroRaw:r.n,setorRaw:r.s||'',email:'',telefone:'',colabId:col?col.id:null,deptoId:deptoFinal,cc:'',
       origem:r.o||'',destino:r.t||'',motivo:r.m||'',projeto:'',numeroViagem:'',valor:r.b!=null?r.b:r.v,taxas:r.x||0,descontos:0,total:r.v,
       formaPgto:'Faturamento corporativo',status:'Concluída',rateio:[],flags:[],observacoes:'',excluida:false,
       importadoEm:'2026-08-04T12:00:00.000Z',arquivoOrigem:r.a,linhaOrigem:r.l,historico:true,historicoVersao:versao,demo:false};
