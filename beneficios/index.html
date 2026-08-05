@@ -2538,19 +2538,26 @@ body.lnb-readonly input,body.lnb-readonly select,body.lnb-readonly textarea{poin
 /* Perfil "Somente leitura — Uber e 99": os filtros (não são edição de dados)
    continuam liberados, só a edição/gravação permanece bloqueada. */
 body.lnb-readonly.lnb-mob-only [id^="mob-f-"],
-body.lnb-readonly.lnb-mob-only #mob-conf-busca{
+body.lnb-readonly.lnb-mob-only #mob-conf-busca,
+body.lnb-readonly.lnb-mob-only .mob-search input,
+body.lnb-readonly.lnb-mob-only #mob-relatorios select,
+body.lnb-readonly.lnb-mob-only #mob-relatorios input{
   pointer-events:auto!important;
   opacity:1!important;
   background:#fff!important;
   cursor:pointer;
 }
 body.theme-dark.lnb-readonly.lnb-mob-only [id^="mob-f-"],
-body.theme-dark.lnb-readonly.lnb-mob-only #mob-conf-busca{
+body.theme-dark.lnb-readonly.lnb-mob-only #mob-conf-busca,
+body.theme-dark.lnb-readonly.lnb-mob-only .mob-search input,
+body.theme-dark.lnb-readonly.lnb-mob-only #mob-relatorios select,
+body.theme-dark.lnb-readonly.lnb-mob-only #mob-relatorios input{
   background:var(--surface-2)!important;
   color:var(--text)!important;
   border-color:var(--border)!important;
 }
-body.lnb-readonly.lnb-mob-only .btn[onclick="mobLimparFiltros()"]:not(#___nunca___){
+body.lnb-readonly.lnb-mob-only .btn[onclick="mobLimparFiltros()"]:not(#___nunca___),
+body.lnb-readonly.lnb-mob-only #mob-relatorios .btn:not(#___nunca___){
   display:inline-flex!important;
   align-items:center;
   gap:6px;
