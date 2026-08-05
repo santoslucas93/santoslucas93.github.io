@@ -2522,20 +2522,24 @@ body.lnb-readonly input,body.lnb-readonly select,body.lnb-readonly textarea{poin
 /* Assistente IA (mesmo padrão do painel Orçado x Realizado) */
 .ia-float{position:fixed;right:22px;bottom:22px;z-index:99997}
 .ia-launch{width:58px;height:58px;border-radius:22px;border:1px solid rgba(232,93,4,.5);background:linear-gradient(135deg,#E85D04,#0c2f52);color:#fff;box-shadow:0 16px 46px rgba(0,0,0,.28);cursor:pointer;font-size:24px;font-weight:800}
-.ia-pop{position:fixed;right:22px;bottom:90px;width:min(420px,calc(100vw - 32px));height:min(560px,calc(100vh - 120px));min-width:300px;min-height:220px;max-width:96vw;max-height:90vh;resize:both;background:#fff;border:1px solid #e2d9cd;border-radius:18px;box-shadow:0 28px 80px rgba(0,0,0,.28);overflow:hidden;display:flex;flex-direction:column;z-index:99997}
+.ia-pop{position:fixed;right:22px;bottom:90px;width:min(420px,calc(100vw - 32px));height:min(560px,calc(100vh - 120px));min-width:300px;min-height:220px;max-width:96vw;max-height:90vh;resize:both;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:18px;box-shadow:0 28px 80px rgba(0,0,0,.28);overflow:hidden;display:flex;flex-direction:column;z-index:99997}
 .ia-pop.hide{display:none}
 .ia-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#0D1B2A;color:#fff;cursor:move;user-select:none;flex:none}
 .ia-head b{font-size:14px}
 .ia-head button{border:none;background:transparent;color:#fff;font-size:20px;cursor:pointer}
-.ia-body{padding:12px;overflow-y:auto;flex:1 1 auto;background:#F8F5F0}
-.ia-chatbox{height:280px;overflow-y:auto;border:1px solid #e2d9cd;border-radius:12px;padding:10px;margin-bottom:10px;background:#fff}
+.ia-body{padding:12px;overflow-y:auto;flex:1 1 auto;background:var(--surface-2);color:var(--text)}
+.ia-chatbox{height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:10px;background:var(--surface);color:var(--text)}
+.ia-bubble-ai{background:var(--surface-2);border:1px solid var(--border);color:var(--text)}
+.ia-bubble-eu{background:#FDE8D8;color:#0D1B2A}
 .ia-body .note,.ia-body .how{border-radius:10px;padding:8px 10px;font-size:12.5px;line-height:1.5;margin-bottom:8px}
 .ia-body .note{background:#FDE8D8;color:#7A3A0A;border:1px solid #f2c9a3}
-.ia-body .how{background:#EEF3F8;color:#334;border:1px solid #d7e2ee}
+.ia-body .how{background:var(--surface-2);color:var(--text-mid);border:1px solid var(--border)}
 .ia-body .toolbar{display:flex;gap:8px;flex-wrap:wrap}
-.ia-body select{flex:1;min-width:120px;padding:7px 9px;border-radius:8px;border:1px solid #d7cdc4;font-size:12.5px;background:#fff}
-.ia-body input[type=text]{padding:9px 11px;border-radius:10px;border:1px solid #d7cdc4;font-size:13px}
+.ia-body select{flex:1;min-width:120px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;background:var(--surface);color:var(--text)}
+.ia-body input[type=text]{padding:9px 11px;border-radius:10px;border:1px solid var(--border);font-size:13px;background:var(--surface);color:var(--text)}
+.ia-body input[type=text]::placeholder{color:var(--text-mid)}
 .ia-body .act.pri{padding:9px 14px;border:none;border-radius:10px;background:linear-gradient(135deg,#E85D04,#B23A00);color:#fff;font-weight:800;cursor:pointer;font-size:13px}
+.ia-body .chip{background:var(--surface-2)!important;border:1px solid var(--border)!important;color:var(--text-mid)!important}
 </style>
 </head>
 <body>
@@ -14136,7 +14140,8 @@ async function iaGeminiAnswerBen(q,onDelta){
 function iaBubble(who,txt){
   const c=document.getElementById('ia-chat');
   const d=document.createElement('div');
-  d.style.cssText='margin-bottom:10px;max-width:88%;padding:8px 12px;border-radius:10px;font-size:13.5px;white-space:pre-wrap;'+(who==='eu'?'margin-left:auto;background:#FDE8D8;color:#0D1B2A':'background:#F1EEE8;border:1px solid #e2d9cd');
+  d.className = who==='eu' ? 'ia-bubble-eu' : 'ia-bubble-ai';
+  d.style.cssText='margin-bottom:10px;max-width:88%;padding:8px 12px;border-radius:10px;font-size:13.5px;white-space:pre-wrap;'+(who==='eu'?'margin-left:auto':'');
   d.textContent=txt;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;
 }
 function iaInit(){
