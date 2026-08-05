@@ -41,7 +41,9 @@ body{
 .hub-card .hub-icon{width:124px; height:124px; margin:0 auto 22px; display:flex; align-items:center; justify-content:center; border-radius:26px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
 .hub-card .hub-icon svg{width:64px; height:64px}
 .hub-card.orc .hub-icon{background:radial-gradient(circle,rgba(30,99,201,.32),rgba(30,99,201,.05))}
-.hub-card.ben .hub-icon{background:radial-gradient(circle,rgba(15,91,68,.36),rgba(15,91,68,.06))}
+.hub-logos-grid{width:220px; margin:0 auto 22px; padding:10px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); gap:8px; border-radius:18px; background:radial-gradient(circle,rgba(15,91,68,.30),rgba(15,91,68,.06)); box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.hub-logos-grid .logo-box{background:#fff; border-radius:10px; height:56px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,.18); overflow:hidden; padding:4px}
+.hub-logos-grid .logo-box b{font-weight:800; line-height:1.05; text-align:center}
 .hub-card h3{font-size:20px; margin:0 0 8px; letter-spacing:.4px; font-weight:800}
 .hub-card p{color:var(--txt-muted); font-size:13.5px; margin:0 0 24px; line-height:1.5; min-height:38px}
 .hub-btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:13px; border-radius:10px; border:none; font-weight:800; font-size:13.5px; letter-spacing:.4px; cursor:pointer; color:#fff; text-decoration:none}
@@ -80,12 +82,13 @@ body{
   <div class="hub-card orc">
     <div class="hub-icon">
       <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="6" y="52" width="10" height="6" rx="1.5" fill="#8fb6f2"/>
-        <rect x="20" y="38" width="10" height="20" rx="1.5" fill="#5a94ec"/>
-        <rect x="34" y="24" width="10" height="34" rx="1.5" fill="#2C74E8"/>
-        <rect x="48" y="14" width="10" height="44" rx="1.5" fill="#1447A0"/>
-        <path d="M6 40 L22 26 L34 32 L56 10" stroke="#E8B93C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-        <path d="M46 10 H56 V20" stroke="#E8B93C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <rect x="14" y="30" width="14" height="28" rx="2" fill="#2C74E8"/>
+        <rect x="36" y="14" width="14" height="44" rx="2" fill="#E4483C"/>
+        <polyline points="10,38 24,20 38,26 54,8" fill="none" stroke="#E8B93C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="10" cy="38" r="3" fill="#fff" stroke="#E8B93C" stroke-width="2"/>
+        <circle cx="24" cy="20" r="3" fill="#fff" stroke="#E8B93C" stroke-width="2"/>
+        <circle cx="38" cy="26" r="3" fill="#fff" stroke="#E8B93C" stroke-width="2"/>
+        <circle cx="54" cy="8" r="3" fill="#fff" stroke="#E8B93C" stroke-width="2"/>
       </svg>
     </div>
     <h3>ORÇADO X REALIZADO</h3>
@@ -93,11 +96,19 @@ body{
     <a class="hub-btn" href="/orcado/">ACESSAR MÓDULO</a>
   </div>
   <div class="hub-card ben">
-    <div class="hub-icon">
-      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M32 4 L54 12 V29 C54 45 44 55 32 60 C20 55 10 45 10 29 V12 Z" fill="#15825F" stroke="#8FE3C6" stroke-width="2"/>
-        <path d="M32 16 V44 M20 30 H44" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
-      </svg>
+    <div class="hub-logos-grid">
+      <div class="logo-box"><b style="color:#7A1E33;font-family:Georgia,serif;font-style:italic;font-size:11px">Prudential</b></div>
+      <div class="logo-box"><b style="color:#F7941D;font-family:Arial,sans-serif;font-size:9.5px">SulAmérica</b></div>
+      <div class="logo-box" style="flex-direction:column;gap:1px">
+        <b style="color:#003C71;font-family:Arial,sans-serif;font-size:12px;letter-spacing:.3px">CAIXA</b>
+        <span style="color:#8a8a8a;font-size:7px;font-weight:700">Pré-Pagos</span>
+      </div>
+      <div class="logo-box" style="flex-direction:column;gap:0">
+        <b style="color:#EE3A24;font-family:Arial,sans-serif;font-size:16px">VR</b>
+        <span style="color:#8a8a8a;font-size:6.5px;font-weight:700;letter-spacing:.2px">MOBILIDADE</span>
+      </div>
+      <div class="logo-box"><b style="color:#000;font-family:'Segoe UI',Arial,sans-serif;font-size:13px;letter-spacing:.3px">Uber</b></div>
+      <div class="logo-box" style="background:#FF6600"><b style="color:#fff;font-family:Arial,sans-serif;font-size:16px">99</b></div>
     </div>
     <h3>GESTÃO DE BENEFÍCIOS</h3>
     <p>Controle integrado dos benefícios dos colaboradores</p>
