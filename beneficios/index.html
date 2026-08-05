@@ -2937,8 +2937,9 @@ function lnbUnlockApp(){
         <div class="benefit-choice-card module-card-mob" onclick="selectBenefitMode('mob')"
              style="--module-color:#FFD100;--module-glow:rgba(255,209,0,.16)">
           <div>
-            <div class="module-brand-row">
-              <span class="module-benefit-icon" aria-hidden="true"><span>🚕</span></span>
+            <div class="module-brand-row" style="gap:8px">
+              <img class="module-logo" src="/logos/logos-novos/uber.png" alt="Uber" style="flex:1 1 0;min-width:0;max-width:56px">
+              <img class="module-logo" src="/logos/logos-novos/99_logo.png" alt="99" style="flex:1 1 0;min-width:0;max-width:56px">
             </div>
             <span class="module-tag">Mobilidade</span>
             <div class="benefit-choice-title">Mobilidade Corporativa</div>
@@ -14038,11 +14039,41 @@ function iaBenData(){
   const emp=parse('liga_emp')||[], vt=parse('liga_vt_registros')||[], med=parse('liga_med_registros')||[], prud=parse('liga_prud_registros')||[];
   const hist=parse('liga_hist')||[], vtHist=parse('liga_vt_historico')||[], medHist=parse('liga_med_historico')||[], prudHist=parse('liga_prud_historico')||[];
   const avulsos=parse('liga_avulsos')||[];
+
+  // Último processamento de VR/VA/CB (para detalhar valor por colaborador)
+  const ultimoHist=hist.slice().sort(function(a,b){ return (b.competencia||'').localeCompare(a.competencia||'') || (b.id||0)-(a.id||0); })[0];
+  const detalhesUltimo = (ultimoHist && Array.isArray(ultimoHist.detalhes)) ? ultimoHist.detalhes : [];
+
+  // Lista de colaboradores (SEM cpf e SEM data de nascimento — dados sensíveis nunca são enviados à IA)
+  const colaboradores = emp.map(function(e){
+    const nn=iaNormBen(e.nome);
+    const linhasVR = detalhesUltimo.filter(function(d){ return iaNormBen(d.nome)===nn; });
+    const totalVR = linhasVR.length ? +linhasVR.reduce(function(s,d){ return s+(Number(d.valor)||0); },0).toFixed(2) : null;
+    const vtReg = vt.find(function(v){ return iaNormBen(v.nome)===nn; });
+    const medReg = med.find(function(v){ return iaNormBen(v.nome)===nn; });
+    const prudReg = prud.find(function(v){ return iaNormBen(v.nome)===nn; });
+    return {
+      nome: e.nome,
+      tipo: e.tipo || null,
+      departamento: e.cc || null,
+      ativo: e.ativo!==false,
+      vr_va_cb: {
+        ativo: e.ativo!==false,
+        ultimoProcessamento: totalVR!=null ? { competencia: ultimoHist.competencia, valor: totalVR } : null
+      },
+      vale_transporte: vtReg ? { ativo: !!vtReg.ativoVT, tarifaTipo: vtReg.tarifaTipo||null, tarifa: Number(vtReg.tarifa)||null, dias: Number(vtReg.dias)||null } : null,
+      assistencia_medica_sulamerica: medReg ? { ativo: !!medReg.ativo, valor: +((Number(medReg.valor)||0)+(Number(medReg.iof)||0)).toFixed(2) } : null,
+      prudential_seguro_vida: prudReg ? { ativo: !!prudReg.ativo, valor: Number(prudReg.valor)||0 } : null
+    };
+  });
+
   return {
-    vr_va_cb:{cadastrados:emp.length, ativos:emp.filter(e=>e.ativo!==false).length, processamentos:hist.length, avulsos:avulsos.length},
+    vr_va_cb:{cadastrados:emp.length, ativos:emp.filter(e=>e.ativo!==false).length, processamentos:hist.length, avulsos:avulsos.length, ultimaCompetencia: ultimoHist?ultimoHist.competencia:null},
     vale_transporte:{cadastrados:vt.length, ativos:vt.filter(e=>e.ativoVT).length, processamentos:vtHist.length},
     assistencia_medica_sulamerica:{cadastrados:med.length, ativos:med.filter(e=>e.ativo).length, processamentos:medHist.length, valorTotalAtivos:+med.filter(e=>e.ativo).reduce((s,e)=>s+(Number(e.valor)||0)+(Number(e.iof)||0),0).toFixed(2)},
-    prudential_seguro_vida:{cadastrados:prud.length, ativos:prud.filter(e=>e.ativo).length, processamentos:prudHist.length, valorTotalAtivos:+prud.filter(e=>e.ativo).reduce((s,e)=>s+(Number(e.valor)||0),0).toFixed(2)}
+    prudential_seguro_vida:{cadastrados:prud.length, ativos:prud.filter(e=>e.ativo).length, processamentos:prudHist.length, valorTotalAtivos:+prud.filter(e=>e.ativo).reduce((s,e)=>s+(Number(e.valor)||0),0).toFixed(2)},
+    colaboradores: colaboradores,
+    observacao_privacidade: 'Por política do sistema, CPF e data de nascimento dos colaboradores NUNCA são incluídos neste resumo e não devem ser solicitados nem inventados.'
   };
 }
 function iaMoneyBen(v){ return (Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
@@ -14072,11 +14103,26 @@ function iaFindColaboradorBen(q){
   if(!empM && !vtM && !medM && !prudM) return null;
   const nome=(empM&&empM.nome)||(vtM&&vtM.nome)||(medM&&medM.nome)||(prudM&&prudM.nome);
   const out={ nome:nome };
-  if(empM) out.vr_va_cb={ ativo: empM.ativo!==false, tipo: empM.tipo||null, centroCusto: empM.cc||null };
+  if(empM){
+    out.vr_va_cb={ ativo: empM.ativo!==false, tipo: empM.tipo||null, centroCusto: empM.cc||null };
+    const hist=parse('liga_hist')||[];
+    const ultimo=hist.slice().sort(function(a,b){ return (b.competencia||'').localeCompare(a.competencia||'') || (b.id||0)-(a.id||0); })[0];
+    if(ultimo && Array.isArray(ultimo.detalhes)){
+      const nn=iaNormBen(nome);
+      const linhas=ultimo.detalhes.filter(function(d){ return iaNormBen(d.nome)===nn; });
+      if(linhas.length){
+        out.vr_va_cb.ultimoProcessamento={
+          competencia: ultimo.competencia||null,
+          itens: linhas.map(function(d){ return { descricao:d.descricao, valor:Number(d.valor)||0 }; }),
+          total: +linhas.reduce(function(s,d){ return s+(Number(d.valor)||0); },0).toFixed(2)
+        };
+      }
+    }
+  }
   if(vtM) out.vale_transporte={ ativo: !!vtM.ativoVT, tarifaTipo: vtM.tarifaTipo||null, tarifa: Number(vtM.tarifa)||null, dias: Number(vtM.dias)||null };
   if(medM) out.assistencia_medica_sulamerica={ ativo: !!medM.ativo, valor: Number(medM.valor)||0, iof: Number(medM.iof)||0 };
   if(prudM) out.prudential_seguro_vida={ ativo: !!prudM.ativo, valor: Number(prudM.valor)||0 };
-  out.observacao='Valores de VR/VA/CB são calculados no momento do processamento mensal e não ficam guardados por colaborador neste resumo — confira a aba VR/VA/CB no painel para o valor exato.';
+  out.observacao='Para VR/VA/CB, "ultimoProcessamento" (quando presente) mostra o valor real do último processamento salvo no histórico para este colaborador. Se não houver "ultimoProcessamento", ainda não foi processado nenhum mês para essa pessoa — diga isso e sugira processar em VR/VA/CB no painel.';
   return out;
 }
 function iaLocalAnswerBen(q){
@@ -14088,7 +14134,12 @@ function iaLocalAnswerBen(q){
     if(colaborador.vale_transporte) out+='• Vale Transporte: '+(colaborador.vale_transporte.ativo?'ativo':'inativo')+(colaborador.vale_transporte.tarifa?', tarifa '+iaMoneyBen(colaborador.vale_transporte.tarifa)+'/dia, '+colaborador.vale_transporte.dias+' dia(s)':'')+'\n';
     if(colaborador.assistencia_medica_sulamerica) out+='• Assistência Médica SulAmérica: '+(colaborador.assistencia_medica_sulamerica.ativo?'ativo':'inativo')+', valor '+iaMoneyBen(colaborador.assistencia_medica_sulamerica.valor+colaborador.assistencia_medica_sulamerica.iof)+'\n';
     if(colaborador.prudential_seguro_vida) out+='• Prudential Seguro de Vida: '+(colaborador.prudential_seguro_vida.ativo?'ativo':'inativo')+', valor '+iaMoneyBen(colaborador.prudential_seguro_vida.valor)+'\n';
-    if(colaborador.vr_va_cb) out+='• VR/VA/CB: '+(colaborador.vr_va_cb.ativo?'ativo':'inativo')+' — valor exato calculado no processamento mensal, confira a aba VR/VA/CB.\n';
+    if(colaborador.vr_va_cb){
+      out+='• VR/VA/CB: '+(colaborador.vr_va_cb.ativo?'ativo':'inativo');
+      const up=colaborador.vr_va_cb.ultimoProcessamento;
+      if(up){ out+=', último processamento ('+up.competencia+'): '+iaMoneyBen(up.total)+'\n'; }
+      else { out+=' — ainda sem processamento salvo no histórico para esta pessoa.\n'; }
+    }
     return out.trim();
   }
   if(/resum|geral|panorama|situa/.test(nq)){
@@ -14122,7 +14173,8 @@ async function iaGeminiAnswerBen(q,onDelta){
   const model=(document.getElementById('ia-model')?.value)||'gemini-flash-latest';
   const colaborador=iaFindColaboradorBen(q);
   const prompt='Você é o assistente do Sistema de Benefícios da Liga Nacional de Basquete (VR/VA/CB, Vale Transporte, Assistência Médica SulAmérica e Prudential Seguro de Vida). '+
-    'Responda em português, de forma direta e objetiva, com base apenas no resumo estruturado abaixo. Se faltar informação, diga o que revisar no painel — não invente números.\n\n'+
+    'Responda em português, de forma direta e objetiva, com base apenas no resumo estruturado abaixo — ele já inclui a lista de colaboradores com nome, tipo, departamento e valores por benefício, então busque diretamente nela para responder perguntas sobre uma pessoa específica ou totais. Se faltar informação, diga o que revisar no painel — não invente números. '+
+    'IMPORTANTE: nunca mencione, solicite ou invente CPF ou data de nascimento — esses dados nunca são enviados a você e não existem no resumo por política de privacidade.\n\n'+
     'RESUMO DOS DADOS ATUAIS:\n'+JSON.stringify(iaBenData(),null,2)+
     (colaborador?('\n\nDADOS DO COLABORADOR ENCONTRADO NA BUSCA:\n'+JSON.stringify(colaborador,null,2)):'')+
     '\n\nPERGUNTA: '+q;
