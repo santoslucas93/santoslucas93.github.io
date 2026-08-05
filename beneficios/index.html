@@ -2547,6 +2547,327 @@ body.lnb-readonly input,body.lnb-readonly select,body.lnb-readonly textarea{poin
 .ia-body .act.pri{padding:9px 14px;border:none;border-radius:10px;background:linear-gradient(135deg,#E85D04,#B23A00);color:#fff;font-weight:800;cursor:pointer;font-size:13px}
 .ia-body .chip{background:var(--surface-2)!important;border:1px solid var(--border)!important;color:var(--text-mid)!important}
 </style>
+
+<!-- ============================================================
+     IDENTIDADE EXECUTIVA PREMIUM V10
+     Camada exclusivamente visual: preserva IDs, eventos, cálculos,
+     armazenamento, importações, exportações, PDFs e autenticação.
+     ============================================================ -->
+<style id="lnb-executive-premium-v10">
+:root{
+  --executive-navy:#061729;
+  --executive-navy-2:#0A233A;
+  --executive-emerald:#087F6A;
+  --executive-emerald-2:#064E47;
+  --executive-gold:#D6AD4C;
+  --executive-gold-soft:#F5D987;
+  --executive-white:#F8FAFC;
+  --executive-line:rgba(214,173,76,.42);
+  --executive-shadow:0 26px 70px rgba(1,12,24,.30);
+}
+
+html{scroll-behavior:smooth}
+body{
+  background:
+    radial-gradient(circle at 10% 5%,rgba(214,173,76,.11),transparent 24%),
+    radial-gradient(circle at 92% 2%,rgba(8,127,106,.12),transparent 28%),
+    linear-gradient(180deg,#F7F8FA 0%,#EEF2F5 100%);
+}
+
+/* Cabeçalho — mesma linguagem da Central de Gestão */
+.app-header{
+  min-height:94px;
+  padding:17px 34px;
+  background:
+    radial-gradient(circle at 78% -45%,rgba(214,173,76,.22),transparent 38%),
+    linear-gradient(104deg,#03111F 0%,#07192D 56%,#07362F 130%);
+  border-bottom:1px solid var(--executive-line);
+  box-shadow:0 16px 46px rgba(1,12,24,.32);
+}
+.app-header::before{
+  width:100%;height:2px;left:0;top:auto;bottom:0;
+  background:linear-gradient(90deg,transparent 0%,var(--executive-gold) 28%,#F6D878 50%,var(--executive-gold) 72%,transparent 100%);
+  box-shadow:0 0 22px rgba(214,173,76,.42);
+}
+.app-header::after{
+  content:'';
+  width:230px;height:230px;right:-80px;top:-118px;
+  border:1px solid rgba(214,173,76,.20);
+  box-shadow:0 0 0 22px rgba(214,173,76,.025),0 0 0 48px rgba(214,173,76,.018);
+}
+.app-header > svg{
+  width:56px;height:56px;
+  padding:5px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#FFE8A3,var(--executive-gold) 64%,#9B6B12);
+  border:1px solid rgba(255,255,255,.28);
+  box-shadow:0 10px 30px rgba(214,173,76,.25),inset 0 1px 0 rgba(255,255,255,.48);
+}
+.app-header .header-text{gap:10px 15px;position:relative;z-index:2}
+.app-header .header-text h1{
+  color:#FFF;
+  font-size:clamp(19px,2vw,29px);
+  font-weight:900;
+  letter-spacing:.65px;
+  text-shadow:0 8px 24px rgba(0,0,0,.34);
+}
+.header-credit{
+  background:rgba(255,255,255,.075);
+  border:1px solid rgba(214,173,76,.26);
+  color:rgba(255,255,255,.74);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+}
+.header-credit strong{color:var(--executive-gold-soft)}
+.theme-toggle{
+  width:42px;height:42px;right:30px;
+  border:1px solid rgba(214,173,76,.40);
+  background:rgba(255,255,255,.075);
+  box-shadow:0 9px 24px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.12);
+  backdrop-filter:blur(12px);
+}
+.theme-toggle:hover{background:rgba(214,173,76,.18);transform:translateY(-1px)}
+
+/* Navegação interna */
+.nav-wrap{
+  background:rgba(4,20,35,.97);
+  border-bottom:1px solid rgba(214,173,76,.20);
+  box-shadow:0 14px 32px rgba(1,12,24,.20);
+  backdrop-filter:blur(16px);
+}
+.nav-tab{color:rgba(255,255,255,.60);border-radius:0;transition:color .18s ease,background .18s ease,transform .18s ease}
+.nav-tab:hover{color:#FFF;background:rgba(255,255,255,.055)}
+.nav-tab.active{
+  color:#FFF;
+  background:linear-gradient(180deg,rgba(214,173,76,.13),rgba(214,173,76,.035));
+  outline-color:rgba(214,173,76,.15);
+  box-shadow:inset 0 -3px 0 var(--executive-gold);
+}
+body.benefit-mode-prud .nav-tab.active{box-shadow:inset 0 -3px 0 #1696D2}
+body.benefit-mode-med .nav-tab.active{box-shadow:inset 0 -3px 0 #F26A21}
+body.benefit-mode-vr .nav-tab.active{box-shadow:inset 0 -3px 0 #42A5F5}
+body.benefit-mode-vt .nav-tab.active{box-shadow:inset 0 -3px 0 #35C263}
+body.benefit-mode-mob .nav-tab.active{box-shadow:inset 0 -3px 0 #FFD100}
+
+/* Home — palco escuro, dourado e esmeralda inspirado no mockup */
+body:not(.benefit-mode-vr):not(.benefit-mode-vt):not(.benefit-mode-med):not(.benefit-mode-prud):not(.benefit-mode-mob){
+  background:
+    radial-gradient(circle at 86% 18%,rgba(8,127,106,.26),transparent 28%),
+    radial-gradient(circle at 14% 8%,rgba(20,66,112,.25),transparent 28%),
+    linear-gradient(135deg,#020C17 0%,#061729 50%,#052D29 100%);
+}
+body:not(.benefit-mode-vr):not(.benefit-mode-vt):not(.benefit-mode-med):not(.benefit-mode-prud):not(.benefit-mode-mob)::before{
+  content:'';
+  position:fixed;inset:94px 0 0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(circle at -6% 48%,transparent 0 104px,rgba(214,173,76,.15) 105px 107px,transparent 108px 174px,rgba(214,173,76,.09) 175px 177px,transparent 178px),
+    radial-gradient(circle at 106% 48%,transparent 0 104px,rgba(214,173,76,.15) 105px 107px,transparent 108px 174px,rgba(214,173,76,.09) 175px 177px,transparent 178px),
+    linear-gradient(90deg,transparent 49.94%,rgba(214,173,76,.07) 50%,transparent 50.06%);
+}
+#benefit-home{padding:12px 0 30px}
+#benefit-home > .card{overflow:visible}
+.lnb-home-hero{
+  min-height:218px;
+  padding:42px 44px 36px;
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(circle at 82% 10%,rgba(8,127,106,.26),transparent 28%),
+    linear-gradient(112deg,rgba(3,17,31,.98),rgba(7,29,50,.97) 54%,rgba(5,62,55,.88));
+  border:1px solid rgba(214,173,76,.50);
+  box-shadow:var(--executive-shadow),inset 0 1px 0 rgba(255,255,255,.08);
+}
+.lnb-home-hero::before{
+  background:
+    radial-gradient(circle at 50% 102%,rgba(214,173,76,.15),transparent 30%),
+    repeating-linear-gradient(90deg,transparent 0 72px,rgba(255,255,255,.018) 72px 73px);
+}
+.lnb-home-hero::after{right:2%;bottom:-96px;font-size:260px;color:var(--executive-gold);opacity:.075;filter:none}
+.lnb-hero-kicker{color:var(--executive-gold-soft);letter-spacing:4.8px;font-size:11px}
+.lnb-home-hero h2{
+  max-width:none;
+  font-size:clamp(31px,4vw,56px);
+  color:#FFF;
+  letter-spacing:-1.8px;
+  text-transform:none;
+}
+.lnb-home-hero p{max-width:780px;color:rgba(255,255,255,.76);font-size:15px}
+.lnb-premium-summary{justify-content:center}
+.lnb-summary-pill{
+  color:rgba(255,255,255,.84);
+  background:rgba(255,255,255,.065);
+  border-color:rgba(214,173,76,.22);
+}
+
+#benefit-home .benefit-choice-grid{
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  gap:18px !important;
+  align-items:stretch;
+}
+#benefit-home .benefit-choice-card{
+  min-width:0;
+  min-height:410px;
+  padding:20px;
+  border-radius:23px;
+  color:#FFF;
+  border:1px solid rgba(214,173,76,.28);
+  box-shadow:0 22px 54px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.08);
+  isolation:isolate;
+}
+#benefit-home .benefit-choice-card::before{
+  height:3px;
+  background:linear-gradient(90deg,transparent,var(--module-color),transparent);
+  box-shadow:0 4px 22px var(--module-glow);
+}
+#benefit-home .benefit-choice-card::after{
+  width:180px;height:180px;right:-76px;bottom:-82px;
+  background:radial-gradient(circle,var(--module-glow),transparent 68%);
+  opacity:.85;z-index:-1;
+}
+#benefit-home .module-card-prud{background:linear-gradient(155deg,#0B2945 0%,#061A2D 58%,#063E61 135%)}
+#benefit-home .module-card-med{background:linear-gradient(155deg,#2A1B19 0%,#111C2A 58%,#743818 140%)}
+#benefit-home .module-card-vr{background:linear-gradient(155deg,#0A2947 0%,#071A2C 58%,#075B8F 140%)}
+#benefit-home .module-card-mob{background:linear-gradient(155deg,#2A270B 0%,#111D28 60%,#7A6B08 145%)}
+#benefit-home .module-card-vt{background:linear-gradient(155deg,#083324 0%,#071C29 60%,#087F48 145%)}
+#benefit-home .benefit-choice-card:hover{
+  transform:translateY(-8px);
+  border-color:rgba(214,173,76,.72);
+  box-shadow:0 32px 72px rgba(0,0,0,.38),0 0 0 1px rgba(214,173,76,.10),inset 0 1px 0 rgba(255,255,255,.12);
+}
+#benefit-home .module-brand-row{align-items:center;justify-content:space-between;gap:12px}
+#benefit-home .module-logo,
+#benefit-home .module-card-mob .module-brand-row > div:first-child{
+  height:82px;
+  min-height:82px;
+  max-width:calc(100% - 54px);
+  padding:12px 14px;
+  margin:0;
+  border-radius:17px;
+  background:rgba(255,255,255,.94);
+  border:1px solid rgba(255,255,255,.65);
+  box-shadow:0 14px 30px rgba(0,0,0,.22),inset 0 1px 0 #FFF;
+}
+#benefit-home .module-card-mob .module-brand-row > div:first-child{display:flex!important;align-items:center!important;gap:8px!important;flex:1 1 auto!important}
+#benefit-home .module-card-mob .module-brand-row > div:first-child img{max-width:calc(50% - 4px);height:auto!important;max-height:54px;object-fit:contain}
+.module-benefit-icon{
+  width:48px;height:48px;min-width:48px;
+  color:#FFF!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.035));
+  border:1px solid rgba(214,173,76,.30);
+  box-shadow:0 12px 26px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.10);
+}
+#benefit-home .module-tag{
+  margin-top:14px;
+  background:var(--module-color);
+  color:#FFF;
+  border:1px solid rgba(255,255,255,.14);
+}
+#benefit-home .module-card-mob .module-tag{color:#1A1A14}
+#benefit-home .benefit-choice-title{color:#FFF;font-size:20px;margin-top:15px;text-shadow:0 7px 18px rgba(0,0,0,.24)}
+#benefit-home .benefit-choice-sub{color:rgba(232,239,246,.76);min-height:94px;font-size:12.8px}
+#benefit-home .module-metrics{
+  padding:13px 14px;
+  background:linear-gradient(135deg,var(--module-color),rgba(5,24,42,.94));
+  border:1px solid rgba(255,255,255,.13);
+  box-shadow:0 14px 30px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.14);
+}
+#benefit-home .module-card-mob .module-metrics{color:#FFF;background:linear-gradient(135deg,#C7A900,#263129)}
+#benefit-home .benefit-choice-badge{
+  position:relative;z-index:2;
+  margin-top:18px;
+  color:#FFF;
+  background:linear-gradient(135deg,var(--module-color),rgba(5,24,42,.96));
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 14px 30px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.12);
+}
+#benefit-home .module-card-mob .benefit-choice-badge{color:#FFF;background:linear-gradient(135deg,#C7A900,#384330)}
+
+/* Telas operacionais — acabamento coerente sem mexer no dimensionamento */
+.main{padding-top:30px;padding-bottom:34px}
+body[class*="benefit-mode-"] .card,
+body[class*="benefit-mode-"] .stat-card,
+body[class*="benefit-mode-"] .rateio-panel,
+body[class*="benefit-mode-"] .month-bar{
+  border:1px solid rgba(191,203,214,.76)!important;
+  box-shadow:0 16px 42px rgba(3,17,31,.085),inset 0 1px 0 rgba(255,255,255,.72);
+}
+body[class*="benefit-mode-"] .card{border-radius:20px}
+body[class*="benefit-mode-"] .card-header{border-bottom:1px solid rgba(191,203,214,.55);padding-bottom:14px}
+.card-title{font-weight:800}
+.stat-card{transition:transform .18s ease,box-shadow .18s ease}
+.stat-card:hover{transform:translateY(-3px);box-shadow:0 20px 48px rgba(3,17,31,.13)}
+.table-wrap{box-shadow:0 12px 34px rgba(3,17,31,.07)}
+thead th{background:linear-gradient(180deg,#0A233A,#061729)}
+.btn{transition:transform .15s ease,filter .15s ease,box-shadow .15s ease}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:linear-gradient(135deg,#E7802E,#C65D0D);box-shadow:0 8px 20px rgba(198,93,13,.24)}
+.btn-navy{background:linear-gradient(135deg,#0A2D4A,#061729);box-shadow:0 8px 20px rgba(3,17,31,.20)}
+.btn-green{background:linear-gradient(135deg,#0B8E71,#05614F);box-shadow:0 8px 20px rgba(5,97,79,.20)}
+
+/* Login com a mesma identidade premium */
+#lnb-auth-overlay{
+  background:
+    radial-gradient(circle at 82% 20%,rgba(8,127,106,.38),transparent 30%),
+    radial-gradient(circle at 14% 8%,rgba(214,173,76,.16),transparent 24%),
+    linear-gradient(145deg,#020C17,#07192D 58%,#06433B);
+}
+#lnb-auth-box{
+  width:min(420px,100%);
+  padding:36px 32px;
+  border-radius:24px;
+  border:1px solid rgba(214,173,76,.46);
+  box-shadow:0 38px 100px rgba(0,0,0,.50),inset 0 1px 0 rgba(255,255,255,.86);
+}
+#lnb-auth-box::before{
+  content:'CENTRAL DE GESTÃO LNB';display:block;margin-bottom:12px;
+  color:#9A701A;font-size:10px;font-weight:900;letter-spacing:2.4px;
+}
+#lnb-auth-box h2{font-size:23px;color:var(--executive-navy)}
+#lnb-auth-box input,#lnb-auth-box select{border-radius:12px!important;border-color:#CBD5DF!important;min-height:44px}
+#lnb-auth-box input:focus,#lnb-auth-box select:focus{outline:none;border-color:var(--executive-gold)!important;box-shadow:0 0 0 4px rgba(214,173,76,.16)}
+#lnb-auth-box button{min-height:46px;border-radius:12px;background:linear-gradient(135deg,var(--executive-emerald),var(--executive-navy));box-shadow:0 12px 26px rgba(6,23,41,.24)}
+
+/* Tema escuro: conserva contraste nas telas internas */
+body.theme-dark{
+  background:
+    radial-gradient(circle at 92% 2%,rgba(8,127,106,.12),transparent 26%),
+    linear-gradient(180deg,#09131F,#0D1825 72%,#0B1520)!important;
+}
+body.theme-dark .app-header{background:linear-gradient(104deg,#020A13,#061729 58%,#06342F 130%)!important}
+body.theme-dark .card,body.theme-dark .stat-card{box-shadow:0 18px 48px rgba(0,0,0,.26)!important}
+
+@media(max-width:1380px){
+  #benefit-home .benefit-choice-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media(max-width:940px){
+  #benefit-home .benefit-choice-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .app-header{justify-content:flex-start;text-align:left;padding-right:84px}
+  .app-header .header-text h1{text-align:left}
+  .app-header > svg{position:static!important}
+}
+@media(max-width:620px){
+  .app-header{min-height:82px;padding:13px 68px 13px 14px}
+  .app-header > svg{width:46px;height:46px}
+  .app-header .header-text{display:block}
+  .app-header .header-text h1{font-size:15px;line-height:1.25}
+  .header-credit{display:inline-flex;margin-top:5px;font-size:8.5px}
+  .theme-toggle{right:13px}
+  .main{padding:18px 12px 28px}
+  .lnb-home-hero{padding:30px 20px 26px;border-radius:22px}
+  .lnb-home-hero h2{font-size:32px}
+  .lnb-premium-summary{gap:7px}
+  .lnb-summary-pill{font-size:10px;padding:7px 10px}
+  #benefit-home .benefit-choice-grid{grid-template-columns:1fr!important}
+  #benefit-home .benefit-choice-card{min-height:390px}
+}
+@media print{
+  body{background:#FFF!important}
+  .app-header,.nav-wrap{box-shadow:none!important}
+  #benefit-home .benefit-choice-card{break-inside:avoid;box-shadow:none!important}
+}
+</style>
 </head>
 <body>
 <div id="lnb-auth-overlay">
