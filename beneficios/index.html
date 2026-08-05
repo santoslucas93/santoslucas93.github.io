@@ -13648,6 +13648,16 @@ MobCore.carregarHistoricoEmbutido = async function(){
   /* Substitui integralmente versões históricas anteriores. Assim, abrir este
      HTML recalcula a base existente sem manter valores ou adicionais antigos. */
   const antigos=Mob.corridas.filter(c=>c.historico&&c.historicoVersao!==versao);
+  /* Atalho de desempenho: como as corridas agora vêm sempre atualizadas do
+     Supabase (fonte compartilhada), só vale a pena reprocessar esse snapshot
+     embutido de ~6 mil linhas quando ele realmente tem algo novo — versão
+     mudou, ou falta alguma corrida do snapshot na base atual. Quando não há
+     nada para atualizar, isso poupa alguns segundos de processamento toda
+     vez que o módulo abre, sem mudar o resultado final. */
+  if(!antigos.length){
+    const qtdHistoricoAtual=Mob.corridas.filter(c=>c.historico&&c.historicoVersao===versao).length;
+    if(qtdHistoricoAtual>=fonte.length) return;
+  }
   if(antigos.length){await MobDB.delMany('corridas',antigos.map(c=>c.id));const idsAntigos=new Set(antigos.map(c=>c.id));Mob.corridas=Mob.corridas.filter(c=>!idsAntigos.has(c.id));}
   const deptos={};Mob.departamentos.forEach(d=>{if(d.sigla)deptos[d.sigla]=d;});
   const grupos={};
