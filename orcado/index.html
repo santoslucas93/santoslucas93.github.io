@@ -12031,17 +12031,20 @@ lnbAuthGate(lnbBootApp);
 <script>
 (function(){
   function lnbAddBackLink(){
-    if (document.getElementById('lnb-back-link')) return;
-    if (!document.getElementById('lnb-auth-badge')) return;
+    if (document.getElementById('lnb-back-link')) return true;
+    if (!document.getElementById('lnb-auth-badge')) return false;
     var back = document.createElement('a');
     back.id = 'lnb-back-link';
     back.href = '/';
     back.innerHTML = '\u2190 Painel LNB';
     document.body.appendChild(back);
+    return true;
   }
-  var obs = new MutationObserver(lnbAddBackLink);
-  obs.observe(document.body, {childList:true, subtree:true});
-  lnbAddBackLink();
+  var tentativas = 0;
+  var iv = setInterval(function(){
+    tentativas++;
+    if (lnbAddBackLink() || tentativas > 60){ clearInterval(iv); }
+  }, 500);
 })();
 </script>
 
