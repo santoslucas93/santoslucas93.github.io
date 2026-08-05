@@ -2397,6 +2397,20 @@ body.theme-dark .mob-badge.uber{color:#D5DCE6;}
     border-color:#52647B!important;
     caret-color:#FFFFFF;
   }
+  /* Alguns navegadores/SO desenham o "select" fechado com o widget nativo
+     (branco), ignorando a cor de fundo definida acima. Forçar appearance:none
+     e desenhar a setinha via CSS garante que o campo realmente fique escuro
+     e legível no tema escuro. */
+  body.theme-dark select{
+    -webkit-appearance:none!important;
+    -moz-appearance:none!important;
+    appearance:none!important;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path fill='%23D2DCE8' d='M5.5 7.5l4.5 4.5 4.5-4.5z'/></svg>")!important;
+    background-repeat:no-repeat!important;
+    background-position:right 10px center!important;
+    background-size:14px!important;
+    padding-right:30px!important;
+  }
   body.theme-dark input::placeholder,
   body.theme-dark textarea::placeholder{color:#9EADBF!important;opacity:1;}
   body.theme-dark select option{background:#1A2635;color:#F5F8FC;}
@@ -7249,22 +7263,32 @@ const MobDB = (function(){
   }
   function all(store){ return tx(store).then(os => wrap(os.getAll())); }
 
-  /* Busca todas as corridas direto do Supabase (paginado, 1000 por vez) e
-     substitui o conteúdo local — usada no boot para que todo mundo que abre
-     o painel veja o mesmo histórico de corridas, já refletindo qualquer
-     correção feita por outra pessoa. */
+  /* Busca todas as corridas direto do Supabase e substitui o conteúdo local —
+     usada no boot para que todo mundo que abre o painel veja o mesmo
+     histórico de corridas, já refletindo qualquer correção feita por outra
+     pessoa. O Supabase limita a 1000 linhas por página, então em vez de
+     buscar página por página (uma esperando a outra terminar — ~1,9s cada,
+     ~13s no total), primeiro descobrimos quantas linhas existem e disparamos
+     todas as páginas necessárias EM PARALELO, o que reduz o carregamento
+     para o tempo de uma única viagem de rede. */
   async function puxarCorridasDaNuvem(){
     if (typeof supaFetch !== 'function') return null;
     const PAGE = 1000;
-    let offset = 0, todas = [];
-    while (true){
-      const res = await supaFetch(SUPABASE_URL+'/rest/v1/mob_corridas?select=*&order=id&limit='+PAGE+'&offset='+offset, {});
-      if (!res.ok) throw new Error('Falha ao ler mob_corridas: '+res.status);
-      const lote = await res.json();
-      todas = todas.concat(lote);
-      if (lote.length < PAGE) break;
-      offset += PAGE;
+    const resCount = await supaFetch(SUPABASE_URL+'/rest/v1/mob_corridas?select=id', {method:'HEAD', headersExtra:{'Prefer':'count=exact'}});
+    if (!resCount.ok) throw new Error('Falha ao contar mob_corridas: '+resCount.status);
+    const range = resCount.headers.get('content-range') || '';
+    const total = Number((range.split('/')[1] || '').trim()) || 0;
+    const paginas = total ? Math.ceil(total / PAGE) : 1;
+    const pedidos = [];
+    for (let p = 0; p < paginas; p++){
+      const offset = p * PAGE;
+      pedidos.push(
+        supaFetch(SUPABASE_URL+'/rest/v1/mob_corridas?select=*&order=id&limit='+PAGE+'&offset='+offset, {})
+          .then(async res => { if (!res.ok) throw new Error('Falha ao ler mob_corridas: '+res.status); return res.json(); })
+      );
     }
+    const lotes = await Promise.all(pedidos);
+    const todas = lotes.flat();
     return todas.map(rowToCorrida);
   }
 
