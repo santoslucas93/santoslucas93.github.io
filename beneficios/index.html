@@ -2535,6 +2535,26 @@ body.theme-dark .mob-badge.uber{color:#D5DCE6;}
 body.lnb-not-authed > *:not(#lnb-auth-overlay){display:none!important}
 body.lnb-readonly .btn:not(.nav-tab):not(#lnb-logout-link){display:none!important}
 body.lnb-readonly input,body.lnb-readonly select,body.lnb-readonly textarea{pointer-events:none!important;opacity:.65;background:#f1efe9!important}
+/* Perfil "Somente leitura — Uber e 99": os filtros (não são edição de dados)
+   continuam liberados, só a edição/gravação permanece bloqueada. */
+body.lnb-readonly.lnb-mob-only [id^="mob-f-"],
+body.lnb-readonly.lnb-mob-only #mob-conf-busca{
+  pointer-events:auto!important;
+  opacity:1!important;
+  background:#fff!important;
+  cursor:pointer;
+}
+body.theme-dark.lnb-readonly.lnb-mob-only [id^="mob-f-"],
+body.theme-dark.lnb-readonly.lnb-mob-only #mob-conf-busca{
+  background:var(--surface-2)!important;
+  color:var(--text)!important;
+  border-color:var(--border)!important;
+}
+body.lnb-readonly.lnb-mob-only .btn[onclick="mobLimparFiltros()"]{
+  display:inline-flex!important;
+  align-items:center;
+  gap:6px;
+}
 #lnb-auth-badge{position:fixed;bottom:10px;left:10px;z-index:99998;background:#111827;color:#fff;padding:8px 12px;border-radius:20px;font-size:12px;display:flex;gap:10px;align-items:center;box-shadow:0 2px 10px rgba(0,0,0,.3);font-family:inherit}
 #lnb-back-link{position:fixed;bottom:48px;left:10px;z-index:99998;background:#fff;color:#0c2f52;padding:7px 13px;border-radius:20px;font-size:12px;font-weight:700;text-decoration:none;box-shadow:0 2px 10px rgba(0,0,0,.25);border:1px solid rgba(12,47,82,.25);display:inline-flex;align-items:center;gap:6px;transition:background .15s}
 #lnb-back-link:hover{background:#f1f5fb}
@@ -7317,11 +7337,19 @@ const MobDB = (function(){
     }));
   }
 
+  // Trava de segurança centralizada: nenhum perfil de leitura grava dados,
+  // mesmo que algum controle da tela (ex.: filtros liberados para o perfil
+  // "Somente leitura — Uber e 99") acabe chamando um desses métodos.
+  function bloqueadoParaLeitura(){
+    return typeof isReadOnlyUser === 'function' && isReadOnlyUser();
+  }
+
   return {
     open, STORES, puxarCorridasDaNuvem, hydrateFromCloud,
     all,
     get(store, id){ return tx(store).then(os => wrap(os.get(id))); },
     put(store, obj){
+      if (bloqueadoParaLeitura()) return Promise.resolve(obj);
       if (!obj.id) obj.id = MobFmt.uid();
       return tx(store,'readwrite').then(os => wrap(os.put(obj))).then(() => {
         if (store === 'corridas') syncCorridasUpsert(obj); else syncBlob(store);
@@ -7329,6 +7357,7 @@ const MobDB = (function(){
       });
     },
     putMany(store, arr){
+      if (bloqueadoParaLeitura()) return Promise.resolve(arr);
       return open().then(db => new Promise((res, rej) => {
         const t = db.transaction(store, 'readwrite'), os = t.objectStore(store);
         (arr||[]).forEach(o => { if (!o.id) o.id = MobFmt.uid(); os.put(o); });
@@ -7340,12 +7369,14 @@ const MobDB = (function(){
       });
     },
     del(store, id){
+      if (bloqueadoParaLeitura()) return Promise.resolve();
       return tx(store,'readwrite').then(os => wrap(os.delete(id))).then(res => {
         if (store === 'corridas') syncCorridasDelete(id); else syncBlob(store);
         return res;
       });
     },
     delMany(store, ids){
+      if (bloqueadoParaLeitura()) return Promise.resolve(true);
       return open().then(db => new Promise((res, rej) => {
         const t = db.transaction(store,'readwrite'), os = t.objectStore(store);
         (ids||[]).forEach(id => os.delete(id));
@@ -7356,6 +7387,7 @@ const MobDB = (function(){
       });
     },
     clear(store){
+      if (bloqueadoParaLeitura()) return Promise.resolve();
       return tx(store,'readwrite').then(os => wrap(os.clear())).then(res => {
         if (store !== 'corridas') syncBlob(store);
         return res;
@@ -7497,7 +7529,12 @@ const MobCore = {
     Mob.pronto = true;
   },
 
-  salvarCfg(){ return MobDB.put('config', {id:'principal', dados: Mob.cfg}); },
+  salvarCfg(){
+    // Perfis de leitura nunca gravam config compartilhada (ex.: ao usar os
+    // filtros de período), mesmo que os campos estejam liberados na tela.
+    if (typeof isReadOnlyUser === 'function' && isReadOnlyUser()) return Promise.resolve();
+    return MobDB.put('config', {id:'principal', dados: Mob.cfg});
+  },
 
   /* ---------------------------------------------------------------------
      5.2 AUDITORIA — toda alteração relevante é registrada
