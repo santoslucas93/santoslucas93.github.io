@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Central de Gestão LNB</title>
+<style>
+:root{
+  --deep:#0a1930; --deep2:#0d2140; --gold:#E8B93C; --gold-dim:rgba(232,185,60,.35);
+  --card-orc:#1E63C9; --card-ben:#0F5B44;
+  --txt:#EAF0FA; --txt-muted:#9FB0C7;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh; font-family:'Segoe UI',Arial,sans-serif; color:var(--txt);
+  background:
+    radial-gradient(circle at 15% 20%, rgba(232,185,60,.08), transparent 30%),
+    radial-gradient(circle at 85% 75%, rgba(30,99,201,.10), transparent 32%),
+    linear-gradient(180deg,#081428 0%, #0a1930 55%, #081020 100%);
+  background-attachment:fixed;
+}
+.hub-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 32px; border-bottom:1px solid var(--gold-dim);
+}
+.hub-brand{display:flex; align-items:center; gap:14px}
+.hub-brand h1{font-size:20px; letter-spacing:.5px; margin:0; font-weight:800}
+.hub-actions{display:flex; align-items:center; gap:22px; font-size:14px}
+.hub-theme{display:flex; align-items:center; gap:6px; color:var(--txt-muted); cursor:pointer}
+.hub-user{position:relative}
+.hub-user-btn{display:flex; align-items:center; gap:8px; background:transparent; border:1px solid var(--gold-dim); color:var(--txt); padding:7px 14px; border-radius:999px; cursor:pointer; font-size:13px}
+.hub-user-menu{position:absolute; right:0; top:calc(100% + 8px); background:#0f2544; border:1px solid var(--gold-dim); border-radius:10px; min-width:150px; box-shadow:0 18px 40px rgba(0,0,0,.4); display:none; overflow:hidden; z-index:20}
+.hub-user-menu.open{display:block}
+.hub-user-menu a{display:block; padding:10px 14px; color:var(--txt); text-decoration:none; font-size:13px}
+.hub-user-menu a:hover{background:rgba(255,255,255,.06)}
+.hub-hero{text-align:center; padding:64px 20px 20px}
+.hub-hero h2{font-size:38px; margin:0 0 10px; font-weight:900}
+.hub-hero p{color:var(--txt-muted); font-size:16px; margin:0}
+.hub-divider{width:120px; height:3px; margin:26px auto 0; background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hub-cards{display:flex; gap:28px; justify-content:center; flex-wrap:wrap; padding:44px 24px 60px; max-width:1000px; margin:0 auto}
+.hub-card{
+  width:340px; border-radius:18px; padding:34px 26px 30px; text-align:center;
+  border:1px solid var(--gold-dim); background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.hub-card:hover{transform:translateY(-4px); box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.hub-card .hub-icon{width:96px; height:96px; margin:0 auto 22px; display:flex; align-items:center; justify-content:center; border-radius:20px}
+.hub-card.orc .hub-icon{background:radial-gradient(circle,rgba(30,99,201,.28),rgba(30,99,201,.06))}
+.hub-card.ben .hub-icon{background:radial-gradient(circle,rgba(15,91,68,.32),rgba(15,91,68,.08))}
+.hub-card h3{font-size:20px; margin:0 0 8px; letter-spacing:.4px; font-weight:800}
+.hub-card p{color:var(--txt-muted); font-size:13.5px; margin:0 0 24px; line-height:1.5; min-height:38px}
+.hub-btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:13px; border-radius:10px; border:none; font-weight:800; font-size:13.5px; letter-spacing:.4px; cursor:pointer; color:#fff; text-decoration:none}
+.hub-card.orc .hub-btn{background:linear-gradient(135deg,#2C74E8,#1447A0)}
+.hub-card.ben .hub-btn{background:linear-gradient(135deg,#15825F,#0B4A34)}
+.hub-btn:hover{filter:brightness(1.08)}
+.hub-footer{text-align:center; padding:18px; color:var(--txt-muted); font-size:12px; border-top:1px solid var(--gold-dim); display:flex; align-items:center; justify-content:center; gap:10px}
+.hub-footer::before,.hub-footer::after{content:'';display:inline-block;width:60px;height:1px;background:var(--gold-dim)}
+
+#lnb-auth-overlay{position:fixed;inset:0;z-index:999999;background:linear-gradient(160deg,#03111f,#0c2f52 60%,#071d32);display:flex;align-items:center;justify-content:center;padding:16px}
+#lnb-auth-overlay.hide{display:none}
+#lnb-auth-box{background:#fff;border-radius:20px;box-shadow:0 34px 90px rgba(3,17,31,.5);padding:32px 28px;width:min(380px,100%);color:#0D1B2A}
+#lnb-auth-box h2{margin:0 0 4px;font-size:19px}
+#lnb-auth-box p{margin:0 0 18px;font-size:13px;color:#5b6b7a}
+#lnb-auth-box .form-group{margin-bottom:12px}
+#lnb-auth-box label{display:block;font-size:12px;font-weight:700;color:#334;margin-bottom:5px}
+#lnb-auth-box input,#lnb-auth-box select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d7cdc4;font-size:14px;box-sizing:border-box}
+#lnb-auth-box button{width:100%;margin-top:6px;padding:11px;border:none;border-radius:10px;background:linear-gradient(135deg,#E85D04,#B23A00);color:#fff;font-weight:800;cursor:pointer;font-size:14px}
+#lnb-auth-box button:disabled{opacity:.6;cursor:default}
+#lnb-auth-box .lnb-auth-hint{margin-top:14px;font-size:11px;color:#8592a1;line-height:1.5}
+#lnb-auth-err{color:#b3261e;font-size:12.5px;margin-top:8px;min-height:14px}
+body.lnb-not-authed > *:not(#lnb-auth-overlay){display:none!important}
+</style>
+</head>
+<body class="lnb-not-authed">
+
+<div id="lnb-auth-overlay">
+  <div id="lnb-auth-box">
+    <h2>Liga Nacional de Basquete</h2>
+    <p>Central de Gestão — entre com a senha do painel.</p>
+    <div class="form-group">
+      <label>Perfil</label>
+      <select id="lnb-auth-perfil">
+        <option value="admin">Administrador (leitura e edição)</option>
+        <option value="readonly">Somente leitura</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Senha</label>
+      <input type="password" id="lnb-auth-senha" placeholder="Senha do painel" autocomplete="current-password">
+    </div>
+    <button type="button" id="lnb-auth-btn">Entrar</button>
+    <div id="lnb-auth-err"></div>
+    <div class="lnb-auth-hint">Mesma senha usada nos módulos Orçado x Realizado e Gestão de Benefícios.</div>
+  </div>
+</div>
+
+<header class="hub-header">
+  <div class="hub-brand">
+    <svg width="40" height="40" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="24" cy="24" r="22" fill="#0d2140" stroke="#E8B93C" stroke-width="2"/>
+      <circle cx="24" cy="24" r="17" fill="none" stroke="#E8B93C" stroke-width="1.3"/>
+      <path d="M7,24 Q24,10 41,24" fill="none" stroke="#E8B93C" stroke-width="1.3"/>
+      <path d="M7,24 Q24,38 41,24" fill="none" stroke="#E8B93C" stroke-width="1.3"/>
+      <line x1="24" y1="7" x2="24" y2="41" stroke="#E8B93C" stroke-width="1.3"/>
+    </svg>
+    <h1>CENTRAL DE GESTÃO LNB</h1>
+  </div>
+  <div class="hub-actions">
+    <div class="hub-theme" id="hub-theme-toggle">☀️ Tema</div>
+    <div class="hub-user">
+      <button class="hub-user-btn" id="hub-user-btn">👤 <span id="hub-user-name">—</span> ▾</button>
+      <div class="hub-user-menu" id="hub-user-menu">
+        <a href="#" id="hub-logout">Sair</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="hub-hero">
+  <h2>Bem-vindo à Central de Gestão</h2>
+  <p>Escolha o módulo que deseja acessar</p>
+  <div class="hub-divider"></div>
+</div>
+
+<div class="hub-cards">
+  <div class="hub-card orc">
+    <div class="hub-icon">📊</div>
+    <h3>ORÇADO X REALIZADO</h3>
+    <p>Planejamento, acompanhamento e análise financeira</p>
+    <a class="hub-btn" href="/orcado/">ACESSAR MÓDULO</a>
+  </div>
+  <div class="hub-card ben">
+    <div class="hub-icon">🛡️</div>
+    <h3>GESTÃO DE BENEFÍCIOS</h3>
+    <p>Controle integrado dos benefícios dos colaboradores</p>
+    <a class="hub-btn" href="/beneficios/">ACESSAR MÓDULO</a>
+  </div>
+</div>
+
+<div class="hub-footer">Desenvolvido por Lucas Santos</div>
+
+<script>
+// ============================================================
+// LOGIN / SESSÃO — mesma base do Orçado x Realizado e do Sistema
+// de Benefícios (a sessão é compartilhada entre os três, mesmo
+// localStorage e mesmo Supabase Auth).
+// ============================================================
+let __lnbCfg = null;
+try {
+  const __xhr = new XMLHttpRequest();
+  __xhr.open('GET', '/api/config', false);
+  __xhr.send(null);
+  if (__xhr.status === 200) __lnbCfg = JSON.parse(__xhr.responseText);
+} catch (e) { console.error('Falha ao carregar /api/config, usando valores padrao:', e); }
+const SUPABASE_URL = (__lnbCfg && __lnbCfg.SUPABASE_URL) || 'https://iiheewndotcwqntppjrw.supabase.co';
+const SUPABASE_KEY = (__lnbCfg && __lnbCfg.SUPABASE_KEY) || 'sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz';
+const AUTH_ADMIN_EMAIL = 'admin@painel-lnb.local';
+const AUTH_READONLY_EMAIL = 'leitura@painel-lnb.local';
+let AUTH_SESSION = null;
+
+function lnbLoadSession(){
+  try{ const raw=localStorage.getItem('lnb_auth_session_v1'); if(raw) AUTH_SESSION=JSON.parse(raw); }catch(e){ AUTH_SESSION=null; }
+}
+function lnbSaveSession(){
+  try{ localStorage.setItem('lnb_auth_session_v1', JSON.stringify(AUTH_SESSION)); }catch(e){}
+}
+function lnbClearSession(){ AUTH_SESSION=null; try{ localStorage.removeItem('lnb_auth_session_v1'); }catch(e){} }
+
+function lnbTryLoginSync(email, password){
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', SUPABASE_URL+'/auth/v1/token?grant_type=password', false);
+  xhr.setRequestHeader('apikey', SUPABASE_KEY);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  try{ xhr.send(JSON.stringify({email:email, password:password})); }catch(e){ return null; }
+  if (xhr.status < 200 || xhr.status >= 300) return null;
+  let j; try{ j = JSON.parse(xhr.responseText); }catch(e){ return null; }
+  if (!j.access_token) return null;
+  return {access_token:j.access_token, refresh_token:j.refresh_token, expires_at: Date.now()+((j.expires_in||3600)*1000)};
+}
+function lnbRefreshSessionSync(){
+  if (!AUTH_SESSION || !AUTH_SESSION.refresh_token) return false;
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', false);
+  xhr.setRequestHeader('apikey', SUPABASE_KEY);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  try{ xhr.send(JSON.stringify({refresh_token: AUTH_SESSION.refresh_token})); }catch(e){ return false; }
+  if (xhr.status < 200 || xhr.status >= 300) return false;
+  let j; try{ j = JSON.parse(xhr.responseText); }catch(e){ return false; }
+  if (!j.access_token) return false;
+  AUTH_SESSION.access_token = j.access_token;
+  AUTH_SESSION.refresh_token = j.refresh_token;
+  AUTH_SESSION.expires_at = Date.now()+((j.expires_in||3600)*1000);
+  lnbSaveSession();
+  return true;
+}
+function lnbFetchProfileSync(token, uid){
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', SUPABASE_URL+'/rest/v1/profiles?id=eq.'+uid+'&select=nome,role', false);
+  xhr.setRequestHeader('apikey', SUPABASE_KEY);
+  xhr.setRequestHeader('Authorization', 'Bearer '+token);
+  try{ xhr.send(null); }catch(e){ return null; }
+  if (xhr.status < 200 || xhr.status >= 300) return null;
+  try{ const arr = JSON.parse(xhr.responseText); return arr[0]||null; }catch(e){ return null; }
+}
+function lnbFetchAuthUserSync(token){
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', SUPABASE_URL+'/auth/v1/user', false);
+  xhr.setRequestHeader('apikey', SUPABASE_KEY);
+  xhr.setRequestHeader('Authorization', 'Bearer '+token);
+  try{ xhr.send(null); }catch(e){ return null; }
+  if (xhr.status < 200 || xhr.status >= 300) return null;
+  try{ return JSON.parse(xhr.responseText); }catch(e){ return null; }
+}
+function lnbRoleToLegacy(dbRole){ return (dbRole==='administrador'||dbRole==='gestor'||dbRole==='editor') ? 'admin' : 'readonly'; }
+function lnbAttachProfileSync(sess){
+  const user = lnbFetchAuthUserSync(sess.access_token);
+  if (user && user.id){
+    sess.uid = user.id; sess.email = user.email;
+    const prof = lnbFetchProfileSync(sess.access_token, user.id);
+    if (prof){ sess.nome = prof.nome; sess.dbRole = prof.role; sess.role = lnbRoleToLegacy(prof.role); }
+  }
+  return sess;
+}
+function lnbLoginWithPasswordSync(perfil, password){
+  const email = perfil==='admin' ? AUTH_ADMIN_EMAIL : AUTH_READONLY_EMAIL;
+  const sess = lnbTryLoginSync(email, password);
+  if (!sess) return false;
+  sess.role = perfil==='admin' ? 'admin' : 'readonly';
+  lnbAttachProfileSync(sess);
+  AUTH_SESSION = sess;
+  lnbSaveSession();
+  return true;
+}
+
+function lnbUnlockHub(){
+  document.body.classList.remove('lnb-not-authed');
+  document.getElementById('lnb-auth-overlay').classList.add('hide');
+  const label = (AUTH_SESSION && (AUTH_SESSION.nome || (AUTH_SESSION.role==='admin'?'Admin':'Leitura'))) || 'Usuário';
+  document.getElementById('hub-user-name').textContent = label;
+}
+
+(function lnbBoot(){
+  lnbLoadSession();
+  if (AUTH_SESSION && AUTH_SESSION.access_token){
+    if (AUTH_SESSION.expires_at && Date.now() >= (AUTH_SESSION.expires_at - 60000)){
+      const ok = lnbRefreshSessionSync();
+      if (!ok) lnbClearSession();
+    }
+  }
+  if (AUTH_SESSION && AUTH_SESSION.access_token){
+    window.addEventListener('DOMContentLoaded', lnbUnlockHub);
+  } else {
+    window.addEventListener('DOMContentLoaded', function(){
+      const btn = document.getElementById('lnb-auth-btn');
+      const err = document.getElementById('lnb-auth-err');
+      const senha = document.getElementById('lnb-auth-senha');
+      const perfil = document.getElementById('lnb-auth-perfil');
+      function tentar(){
+        btn.disabled = true; err.textContent='';
+        setTimeout(function(){
+          try{
+            const ok = lnbLoginWithPasswordSync(perfil.value, senha.value);
+            if (!ok){ err.textContent='Senha incorreta para este perfil.'; btn.disabled=false; return; }
+            lnbUnlockHub();
+          }catch(e){ err.textContent='Falha ao entrar: '+e.message; btn.disabled=false; }
+        }, 10);
+      }
+      btn.onclick = tentar;
+      senha.addEventListener('keydown', function(ev){ if(ev.key==='Enter') tentar(); });
+    });
+  }
+})();
+
+document.addEventListener('DOMContentLoaded', function(){
+  const userBtn = document.getElementById('hub-user-btn');
+  const menu = document.getElementById('hub-user-menu');
+  userBtn.onclick = function(){ menu.classList.toggle('open'); };
+  document.addEventListener('click', function(ev){ if(!userBtn.contains(ev.target) && !menu.contains(ev.target)) menu.classList.remove('open'); });
+  document.getElementById('hub-logout').onclick = function(ev){ ev.preventDefault(); lnbClearSession(); location.reload(); };
+
+  const themeToggle = document.getElementById('hub-theme-toggle');
+  let light = localStorage.getItem('lnb_hub_theme') === 'light';
+  function applyTheme(){
+    document.body.style.background = light
+      ? 'linear-gradient(180deg,#F8F5F0 0%, #EFE9E0 100%)'
+      : '';
+    document.body.style.color = light ? '#0D1B2A' : '';
+    themeToggle.textContent = light ? '🌙 Tema' : '☀️ Tema';
+  }
+  applyTheme();
+  themeToggle.onclick = function(){ light = !light; localStorage.setItem('lnb_hub_theme', light?'light':'dark'); applyTheme(); };
+});
+</script>
+
+</body>
+</html>
