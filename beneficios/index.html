@@ -2439,6 +2439,11 @@ body.theme-dark .mob-badge.uber{color:#D5DCE6;}
   body.theme-dark .benefit-choice-title{color:#F8FAFC!important;}
   body.theme-dark .benefit-choice-sub{color:#C0CCDA!important;}
   body.theme-dark .module-benefit-icon{background:linear-gradient(145deg,#233348,#172334)!important;border-color:#4C5F77!important;box-shadow:0 12px 26px rgba(0,0,0,.28)!important;}
+  body.theme-dark .module-logo{background:rgba(255,255,255,.94)!important;border-color:#4C5F77!important;}
+  body.theme-dark .module-tag{box-shadow:0 9px 18px rgba(0,0,0,.35)!important;}
+  body.theme-dark .module-metrics{border-color:rgba(255,255,255,.10)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 10px 22px rgba(0,0,0,.30)!important;}
+  body.theme-dark .benefit-choice-badge{background:linear-gradient(135deg,#233348,#101925)!important;color:#F8FAFC!important;box-shadow:0 8px 18px rgba(0,0,0,.30)!important;}
+  .module-card-mob .module-tag{color:#0D1B2A!important;}
   body.theme-dark .lnb-home-hero{background:linear-gradient(116deg,#071421 0%,#0A2238 62%,#3A1F12 100%)!important;color:#FFFFFF!important;border-color:#40526A!important;}
   body.theme-dark .lnb-home-hero p{color:#CFD9E5!important;}
   body.theme-dark .lnb-summary-pill{color:#F5F8FC!important;background:rgba(255,255,255,.10)!important;border-color:rgba(255,255,255,.24)!important;}
@@ -2937,9 +2942,12 @@ function lnbUnlockApp(){
         <div class="benefit-choice-card module-card-mob" onclick="selectBenefitMode('mob')"
              style="--module-color:#FFD100;--module-glow:rgba(255,209,0,.16)">
           <div>
-            <div class="module-brand-row" style="gap:8px">
-              <img class="module-logo" src="/logos/logos-novos/uber.png" alt="Uber" style="flex:1 1 0;min-width:0;max-width:56px">
-              <img class="module-logo" src="/logos/logos-novos/99_logo.png" alt="99" style="flex:1 1 0;min-width:0;max-width:56px">
+            <div class="module-brand-row">
+              <div style="height:76px;display:flex;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:8px 16px;box-shadow:0 8px 14px rgba(3,17,31,.12);flex:0 0 auto">
+                <img src="/logos/logos-novos/uber.png" alt="Uber" style="height:100%;width:auto;object-fit:contain">
+                <img src="/logos/logos-novos/99_logo.png" alt="99" style="height:100%;width:auto;object-fit:contain">
+              </div>
+              <span class="module-benefit-icon" aria-hidden="true"><span>🚕</span></span>
             </div>
             <span class="module-tag">Mobilidade</span>
             <div class="benefit-choice-title">Mobilidade Corporativa</div>
