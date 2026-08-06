@@ -13507,6 +13507,27 @@ mobMontarEstruturaDossie = function(comp){
     observacoes:anterior.observacoes || '',numeroProcesso:'',conferente:'',aprovador:'',campoAssinatura:false,omitirVazios:true};
 };
 
+window.__mobPendList = [];
+function mobRenderPendenciasColab(comp){
+  const corridas = MobCore.corridasDa(comp).filter(c => !c.colabId && c.passageiroRaw);
+  const grupos = {};
+  corridas.forEach(c => {
+    const k = c.passageiroRaw;
+    if (!grupos[k]) grupos[k] = {nome:k, setorRaw:c.setorRaw||'', fornecedor:c.fornecedor, qtd:0, total:0};
+    grupos[k].qtd++; grupos[k].total += Number(c.total)||0;
+  });
+  window.__mobPendList = Object.values(grupos).sort((a,b)=>b.qtd-a.qtd);
+  return window.__mobPendList;
+}
+function mobCadastrarPendente(i){
+  const p = window.__mobPendList[i];
+  if (!p) return;
+  window.__mobColabEdit = {nome:p.nome, nomePlanilha:p.nome, aliases:[], email:'', emails:[], cpf:'',
+    deptoId:'', cc:'', cargo:'', situacao:'ativo', dataAdmissao:'', dataDesligamento:'',
+    observacoes:'Cadastrado a partir de corridas sem colaborador (' + p.qtd + ' corrida(s) · ' + (p.setorRaw||'sem setor informado') + ')'};
+  mobRenderColabModal(false);
+}
+
 mobRenderDossie = function(){
   mobRenderFluxo(['mob-flow-dossie']);
   const alvo = document.getElementById('mob-dossie');
@@ -13518,6 +13539,17 @@ mobRenderDossie = function(){
   const dos = Mob.ui.dossie;
   let html = '<div class="mob-card"><div class="mob-card-title"><span class="ico">📕</span>Dossiê executivo · ' + MobFmt.competLabel(comp) + '</div>' +
     '<div class="mob-alert info"><span class="ai">🖨️</span><div>Estrutura direta: <strong>capa, documentos oficiais, resumo executivo e relatórios departamentais</strong>. Os PDFs anexados mantêm a qualidade original.</div></div>' +
+    (function(){
+      const pend = mobRenderPendenciasColab(comp);
+      if (!pend.length) return '';
+      return '<div class="mob-alert warn" style="flex-direction:column;align-items:stretch;gap:8px">' +
+        '<div><span class="ai">⚠️</span><strong>' + pend.length + ' colaborador(es) não identificado(s)</strong> — ' +
+        pend.reduce((s,p)=>s+p.qtd,0) + ' corrida(s) no total. Cadastre-os para regularizar antes de gerar o dossiê.</div>' +
+        pend.map((p,i) => '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:rgba(0,0,0,.15);padding:6px 10px;border-radius:6px;flex-wrap:wrap">' +
+          '<span>' + MobFmt.esc(p.nome) + (p.setorRaw ? ' · ' + MobFmt.esc(p.setorRaw) : '') + ' — ' + p.qtd + ' corrida(s) · ' + MobFmt.money(p.total) + '</span>' +
+          '<button class="btn btn-ghost btn-sm" onclick="mobCadastrarPendente(' + i + ')">Cadastrar</button></div>').join('') +
+        '</div>';
+    })() +
     '<div class="mob-form" style="margin-bottom:16px"><div><label>Fornecedor no dossiê</label><select onchange="Mob.ui.dossie.fornecedor=this.value;mobMontarEstruturaDossie(Mob.ui.dossie.comp);mobRenderDossie();">' +
     '<option value="ambos"' + (dos.fornecedor!=='uber' && dos.fornecedor!=='99' ? ' selected' : '') + '>Ambos (Uber + 99)</option>' +
     '<option value="uber"' + (dos.fornecedor==='uber' ? ' selected' : '') + '>Somente Uber</option>' +
