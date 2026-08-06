@@ -9786,11 +9786,49 @@ function mobWizPasso7(w){
     mobWizNav('mobWizIr(6)', 'mobConfirmarImportacao()', '✅ Confirmar e importar');
 }
 
+async function mobAutoCadastrarNaoReconhecidos(lista, todasCorridas){
+  let criados = 0;
+  for (const n of (lista||[])){
+    if (!n || !n.nome) continue;
+    const partes = n.nome.trim().split(/\s+/).filter(Boolean);
+    if (partes.length < 2) continue;
+    let deptoId = '';
+    if (n.setor){
+      const alvo = MobFmt.normName(n.setor);
+      const dep = Mob.departamentos.find(d => MobFmt.normName(d.nome) === alvo || (d.sigla && MobFmt.normName(d.sigla) === alvo));
+      if (dep) deptoId = dep.id;
+    }
+    if (!deptoId) continue;
+    const c = {
+      id: MobFmt.uid(), nome: n.nome, nomePlanilha: n.nome, aliases: [],
+      email: n.email || '', emails: n.email ? [n.email] : [], cpf: '',
+      deptoId, cc: '', cargo: '', situacao: 'ativo',
+      dataAdmissao: '', dataDesligamento: '',
+      observacoes: 'Cadastrado automaticamente durante a importação (departamento identificado na planilha)'
+    };
+    Mob.colaboradores.push(c);
+    await MobDB.put('colaboradores', c);
+    await MobCore.auditar('colaborador', c.id, 'criacao', 'cadastro automático (importação)', '', c.nome, '');
+    todasCorridas.forEach(corrida => {
+      if (!corrida.colabId && corrida.passageiroRaw === n.nome){
+        corrida.colabId = c.id;
+        corrida.deptoId = corrida.deptoId || deptoId;
+        corrida.matchMetodo = 'automático (cadastro na importação)';
+        corrida.matchConfianca = 0.8;
+      }
+    });
+    criados++;
+  }
+  return criados;
+}
+
 async function mobConfirmarImportacao(){
   const w = Mob.ui.wizard, r = w.resultado;
   const comp = w.competenciaDestino || Mob.cfg.competenciaAtual;
   const todas = r.corridas.concat(r.ajustes);
   todas.forEach(c => { c.competencia = comp; });
+
+  const mobAutoCriados = await mobAutoCadastrarNaoReconhecidos(r.naoReconhecidosLista, todas);
 
   await MobDB.putMany('corridas', todas);
   Mob.corridas = Mob.corridas.concat(todas);
@@ -9825,6 +9863,8 @@ async function mobConfirmarImportacao(){
     '<div class="mob-alert ok"><span class="ai">✅</span><div>' +
     '<strong>' + MobFmt.num(todas.length) + ' registros importados</strong> em ' + MobFmt.competLabel(comp) +
     ', totalizando <strong>' + MobFmt.money(r.totalArquivo) + '</strong>.</div></div>' +
+    (mobAutoCriados ? ('<div class="mob-alert info"><span class="ai">🧾</span><div><strong>' + mobAutoCriados +
+      ' colaborador(es) cadastrado(s) automaticamente</strong>, com departamento identificado na planilha.</div></div>') : '') +
     '<p style="font-size:13px;line-height:1.7;margin-top:12px">Próximo passo: conferir a classificação por ' +
     'colaborador e departamento, e tratar as pendências apontadas.</p>',
     [{r:'Ficar aqui', c:'btn-ghost', f:'mobFecharModal();mobRenderImport()'},
