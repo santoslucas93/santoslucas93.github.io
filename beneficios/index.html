@@ -14715,6 +14715,7 @@ async function mobIniciar(){
         document.body.classList.add('benefit-mode-mob');
         const home = document.getElementById('benefit-home'); if (home) home.classList.add('hidden');
         const nav = document.getElementById('main-nav'); if (nav) nav.classList.remove('mode-hidden');
+        const __modLbl2 = document.getElementById('current-module-label'); if (__modLbl2) __modLbl2.textContent = '🚗 Mobilidade (Uber/99)';
         document.querySelectorAll('.nav-tab').forEach(b => {
           if (b.classList.contains('mode-back')) return;
           b.classList.add('mode-hidden'); b.classList.remove('active');
