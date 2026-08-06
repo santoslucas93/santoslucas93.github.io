@@ -14669,6 +14669,12 @@ const IA_SUGS_BEN=[
   'Quais módulos têm mais colaboradores cadastrados?'
 ];
 let iaMsgs=[];
+let __iaBenHistReady=false;
+async function iaGarantirHistoricoBen(){
+  if(__iaBenHistReady) return;
+  try{ await benMigrarHistoricos(); }catch(e){ console.warn('iaGarantirHistoricoBen:', e); }
+  __iaBenHistReady=true;
+}
 function iaHistoricoColab(h, nn){
   const out=[];
   (h||[]).forEach(function(reg){
@@ -14684,10 +14690,11 @@ function iaHistoricoColab(h, nn){
 }
 function iaSomaHistoricoColab(lista){ return +(lista||[]).reduce(function(s,x){ return s+(Number(x.valor)||0); },0).toFixed(2); }
 function iaCompetenciasOrdenadas(h){ return (h||[]).map(function(x){ return x.competencia; }).filter(Boolean).sort(); }
-function iaBenData(){
+async function iaBenData(){
+  await iaGarantirHistoricoBen();
   function parse(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } }
   const emp=parse('liga_emp')||[], vt=parse('liga_vt_registros')||[], med=parse('liga_med_registros')||[], prud=parse('liga_prud_registros')||[];
-  const hist=parse('liga_hist')||[], vtHist=parse('liga_vt_historico')||[], medHist=parse('liga_med_historico')||[], prudHist=parse('liga_prud_historico')||[];
+  const hist=benHistorico('vr')||[], vtHist=benHistorico('vt')||[], medHist=benHistorico('med')||[], prudHist=benHistorico('prud')||[];
   const avulsos=parse('liga_avulsos')||[];
 
   const ultimoHist=hist.slice().sort(function(a,b){ return (b.competencia||'').localeCompare(a.competencia||'') || (b.id||0)-(a.id||0); })[0];
@@ -14748,7 +14755,8 @@ function iaBenData(){
 }
 function iaMoneyBen(v){ return (Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
 function iaNormBen(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
-function iaFindColaboradorBen(q){
+async function iaFindColaboradorBen(q){
+  await iaGarantirHistoricoBen();
   function parse(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } }
   const emp=parse('liga_emp')||[], vt=parse('liga_vt_registros')||[], med=parse('liga_med_registros')||[], prud=parse('liga_prud_registros')||[];
   const nq=iaNormBen(q);
@@ -14773,7 +14781,7 @@ function iaFindColaboradorBen(q){
   if(!empM && !vtM && !medM && !prudM) return null;
   const nome=(empM&&empM.nome)||(vtM&&vtM.nome)||(medM&&medM.nome)||(prudM&&prudM.nome);
   const nn=iaNormBen(nome);
-  const hist=parse('liga_hist')||[], vtHist=parse('liga_vt_historico')||[], medHist=parse('liga_med_historico')||[], prudHist=parse('liga_prud_historico')||[];
+  const hist=benHistorico('vr')||[], vtHist=benHistorico('vt')||[], medHist=benHistorico('med')||[], prudHist=benHistorico('prud')||[];
   const histVR=iaHistoricoColab(hist, nn);
   const histVT=iaHistoricoColab(vtHist, nn);
   const histMED=iaHistoricoColab(medHist, nn);
@@ -14810,10 +14818,10 @@ function iaFindColaboradorBen(q){
   out.observacao='Os campos "historicoMensal" e "totalPagoNoPeriodo" em cada beneficio contem TODOS os meses ja processados e armazenados no sistema para esta pessoa (nao apenas o mais recente). Use-os sempre que for perguntado sobre gastos totais, historico ou periodo. Se "historicoMensal" vier null, ainda nao foi processado nenhum mes para essa pessoa nesse beneficio.';
   return out;
 }
-function iaLocalAnswerBen(q){
-  const d=iaBenData();
+async function iaLocalAnswerBen(q){
+  const d=await iaBenData();
   const nq=q.toLowerCase();
-  const colaborador=iaFindColaboradorBen(q);
+  const colaborador=await iaFindColaboradorBen(q);
   if(colaborador && /quem|receb|valor|quanto|ativo|cadastr/.test(nq)){
     let out='Colaborador encontrado: '+colaborador.nome+'\n';
     if(colaborador.vale_transporte) out+='• Vale Transporte: '+(colaborador.vale_transporte.ativo?'ativo':'inativo')+(colaborador.vale_transporte.tarifa?', tarifa '+iaMoneyBen(colaborador.vale_transporte.tarifa)+'/dia, '+colaborador.vale_transporte.dias+' dia(s)':'')+'\n';
@@ -14856,11 +14864,11 @@ function iaLocalAnswerBen(q){
 }
 async function iaGeminiAnswerBen(q,onDelta){
   const model=(document.getElementById('ia-model')?.value)||'gemini-flash-latest';
-  const colaborador=iaFindColaboradorBen(q);
+  const colaborador=await iaFindColaboradorBen(q);
   const prompt='Você é o assistente do Sistema de Benefícios da Liga Nacional de Basquete (VR/VA/CB, Vale Transporte, Assistência Médica SulAmérica e Prudential Seguro de Vida). '+
     'Responda em português, de forma direta e objetiva, com base apenas no resumo estruturado abaixo — ele já inclui a lista de colaboradores com nome, tipo, departamento e valores por benefício, então busque diretamente nela para responder perguntas sobre uma pessoa específica ou totais. Se faltar informação, diga o que revisar no painel — não invente números. '+
     'IMPORTANTE: nunca mencione, solicite ou invente CPF ou data de nascimento — esses dados nunca são enviados a você e não existem no resumo por política de privacidade.\n\n'+
-    'RESUMO DOS DADOS ATUAIS:\n'+JSON.stringify(iaBenData(),null,2)+
+    'RESUMO DOS DADOS ATUAIS:\n'+JSON.stringify(await iaBenData(),null,2)+
     (colaborador?('\n\nDADOS DO COLABORADOR ENCONTRADO NA BUSCA:\n'+JSON.stringify(colaborador,null,2)):'')+
     '\n\nPERGUNTA: '+q;
   const history=iaMsgs.slice(0,-1).map(function(m){ return {role:(m.role==='assistant'?'model':'user'),parts:[{text:m.content}]}; });
@@ -14901,12 +14909,12 @@ async function iaSend(){
   const provider=document.getElementById('ia-provider')?.value||localStorage.getItem('lnb_ben_ia_provider')||'local';
   const wait=iaBubble('ai',provider==='gemini'?'Consultando Gemini API com resumo dos dados relevantes…':'Analisando localmente os dados carregados…');
   try{
-    const txt=provider==='gemini'?await iaGeminiAnswerBen(q):iaLocalAnswerBen(q);
+    const txt=provider==='gemini'?await iaGeminiAnswerBen(q):await iaLocalAnswerBen(q);
     iaMsgs.push({role:'assistant',content:txt});
     wait.textContent=txt;
   }catch(err){
     if(provider==='gemini'){
-      const fallback=iaLocalAnswerBen(q);
+      const fallback=await iaLocalAnswerBen(q);
       wait.textContent='Não consegui consultar o Gemini: '+err.message+'\n\nResposta local provisória:\n'+fallback;
     }else{
       wait.textContent='Não consegui montar a resposta local: '+err.message;
