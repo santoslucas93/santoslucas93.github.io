@@ -14669,24 +14669,39 @@ const IA_SUGS_BEN=[
   'Quais módulos têm mais colaboradores cadastrados?'
 ];
 let iaMsgs=[];
+function iaHistoricoColab(h, nn){
+  const out=[];
+  (h||[]).forEach(function(reg){
+    if(!Array.isArray(reg.detalhes)) return;
+    const linhas=reg.detalhes.filter(function(d){ return iaNormBen(d.nome)===nn; });
+    if(linhas.length){
+      const total=+linhas.reduce(function(s,d){ return s+(Number(d.valor!=null?d.valor:d.total)||0); },0).toFixed(2);
+      out.push({competencia:reg.competencia||null, valor:total});
+    }
+  });
+  out.sort(function(a,b){ return (a.competencia||'').localeCompare(b.competencia||''); });
+  return out;
+}
+function iaSomaHistoricoColab(lista){ return +(lista||[]).reduce(function(s,x){ return s+(Number(x.valor)||0); },0).toFixed(2); }
+function iaCompetenciasOrdenadas(h){ return (h||[]).map(function(x){ return x.competencia; }).filter(Boolean).sort(); }
 function iaBenData(){
   function parse(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } }
   const emp=parse('liga_emp')||[], vt=parse('liga_vt_registros')||[], med=parse('liga_med_registros')||[], prud=parse('liga_prud_registros')||[];
   const hist=parse('liga_hist')||[], vtHist=parse('liga_vt_historico')||[], medHist=parse('liga_med_historico')||[], prudHist=parse('liga_prud_historico')||[];
   const avulsos=parse('liga_avulsos')||[];
 
-  // Último processamento de VR/VA/CB (para detalhar valor por colaborador)
   const ultimoHist=hist.slice().sort(function(a,b){ return (b.competencia||'').localeCompare(a.competencia||'') || (b.id||0)-(a.id||0); })[0];
-  const detalhesUltimo = (ultimoHist && Array.isArray(ultimoHist.detalhes)) ? ultimoHist.detalhes : [];
 
   // Lista de colaboradores (SEM cpf e SEM data de nascimento — dados sensíveis nunca são enviados à IA)
-  const colaboradores = emp.map(function(e){
+  const colaboradores=emp.map(function(e){
     const nn=iaNormBen(e.nome);
-    const linhasVR = detalhesUltimo.filter(function(d){ return iaNormBen(d.nome)===nn; });
-    const totalVR = linhasVR.length ? +linhasVR.reduce(function(s,d){ return s+(Number(d.valor)||0); },0).toFixed(2) : null;
-    const vtReg = vt.find(function(v){ return iaNormBen(v.nome)===nn; });
-    const medReg = med.find(function(v){ return iaNormBen(v.nome)===nn; });
-    const prudReg = prud.find(function(v){ return iaNormBen(v.nome)===nn; });
+    const vtReg=vt.find(function(v){ return iaNormBen(v.nome)===nn; });
+    const medReg=med.find(function(v){ return iaNormBen(v.nome)===nn; });
+    const prudReg=prud.find(function(v){ return iaNormBen(v.nome)===nn; });
+    const histVR=iaHistoricoColab(hist, nn);
+    const histVT=iaHistoricoColab(vtHist, nn);
+    const histMED=iaHistoricoColab(medHist, nn);
+    const histPRUD=iaHistoricoColab(prudHist, nn);
     return {
       nome: e.nome,
       tipo: e.tipo || null,
@@ -14694,20 +14709,40 @@ function iaBenData(){
       ativo: e.ativo!==false,
       vr_va_cb: {
         ativo: e.ativo!==false,
-        ultimoProcessamento: totalVR!=null ? { competencia: ultimoHist.competencia, valor: totalVR } : null
+        ultimoProcessamento: histVR.length ? histVR[histVR.length-1] : null,
+        historicoMensal: histVR.length ? histVR : null,
+        totalPagoNoPeriodo: histVR.length ? iaSomaHistoricoColab(histVR) : null
       },
-      vale_transporte: vtReg ? { ativo: !!vtReg.ativoVT, tarifaTipo: vtReg.tarifaTipo||null, tarifa: Number(vtReg.tarifa)||null, dias: Number(vtReg.dias)||null } : null,
-      assistencia_medica_sulamerica: medReg ? { ativo: !!medReg.ativo, valor: +((Number(medReg.valor)||0)+(Number(medReg.iof)||0)).toFixed(2) } : null,
-      prudential_seguro_vida: prudReg ? { ativo: !!prudReg.ativo, valor: Number(prudReg.valor)||0 } : null
+      vale_transporte: {
+        ativo: vtReg ? !!vtReg.ativoVT : false,
+        tarifaTipo: vtReg ? (vtReg.tarifaTipo||null) : null,
+        tarifa: vtReg ? (Number(vtReg.tarifa)||null) : null,
+        dias: vtReg ? (Number(vtReg.dias)||null) : null,
+        historicoMensal: histVT.length ? histVT : null,
+        totalPagoNoPeriodo: histVT.length ? iaSomaHistoricoColab(histVT) : null
+      },
+      assistencia_medica_sulamerica: {
+        ativo: medReg ? !!medReg.ativo : false,
+        valorAtual: medReg ? +((Number(medReg.valor)||0)+(Number(medReg.iof)||0)).toFixed(2) : null,
+        historicoMensal: histMED.length ? histMED : null,
+        totalPagoNoPeriodo: histMED.length ? iaSomaHistoricoColab(histMED) : null
+      },
+      prudential_seguro_vida: {
+        ativo: prudReg ? !!prudReg.ativo : false,
+        valorAtual: prudReg ? (Number(prudReg.valor)||0) : null,
+        historicoMensal: histPRUD.length ? histPRUD : null,
+        totalPagoNoPeriodo: histPRUD.length ? iaSomaHistoricoColab(histPRUD) : null
+      }
     };
   });
 
   return {
-    vr_va_cb:{cadastrados:emp.length, ativos:emp.filter(e=>e.ativo!==false).length, processamentos:hist.length, avulsos:avulsos.length, ultimaCompetencia: ultimoHist?ultimoHist.competencia:null},
-    vale_transporte:{cadastrados:vt.length, ativos:vt.filter(e=>e.ativoVT).length, processamentos:vtHist.length},
-    assistencia_medica_sulamerica:{cadastrados:med.length, ativos:med.filter(e=>e.ativo).length, processamentos:medHist.length, valorTotalAtivos:+med.filter(e=>e.ativo).reduce((s,e)=>s+(Number(e.valor)||0)+(Number(e.iof)||0),0).toFixed(2)},
-    prudential_seguro_vida:{cadastrados:prud.length, ativos:prud.filter(e=>e.ativo).length, processamentos:prudHist.length, valorTotalAtivos:+prud.filter(e=>e.ativo).reduce((s,e)=>s+(Number(e.valor)||0),0).toFixed(2)},
+    vr_va_cb:{cadastrados:emp.length, ativos:emp.filter(e=>e.ativo!==false).length, processamentos:hist.length, avulsos:avulsos.length, competenciasProcessadas: iaCompetenciasOrdenadas(hist), ultimaCompetencia: ultimoHist?ultimoHist.competencia:null},
+    vale_transporte:{cadastrados:vt.length, ativos:vt.filter(e=>e.ativoVT).length, processamentos:vtHist.length, competenciasProcessadas: iaCompetenciasOrdenadas(vtHist)},
+    assistencia_medica_sulamerica:{cadastrados:med.length, ativos:med.filter(e=>e.ativo).length, processamentos:medHist.length, competenciasProcessadas: iaCompetenciasOrdenadas(medHist), valorTotalAtivos:+med.filter(e=>e.ativo).reduce((s,e)=>s+(Number(e.valor)||0)+(Number(e.iof)||0),0).toFixed(2)},
+    prudential_seguro_vida:{cadastrados:prud.length, ativos:prud.filter(e=>e.ativo).length, processamentos:prudHist.length, competenciasProcessadas: iaCompetenciasOrdenadas(prudHist), valorTotalAtivos:+prud.filter(e=>e.ativo).reduce((s,e)=>s+(Number(e.valor)||0),0).toFixed(2)},
     colaboradores: colaboradores,
+    instrucao_historico: 'Cada colaborador traz "historicoMensal" (todos os meses ja processados e armazenados, com competencia e valor) e "totalPagoNoPeriodo" (soma de todo o historico disponivel) em cada beneficio. Quando o usuario perguntar sobre gastos totais, historico completo, ou quanto foi gasto com alguem, SEMPRE use esses campos completos (somando ou listando todos os meses) em vez de responder apenas com o ultimo mes.',
     observacao_privacidade: 'Por política do sistema, CPF e data de nascimento dos colaboradores NUNCA são incluídos neste resumo e não devem ser solicitados nem inventados.'
   };
 }
@@ -14737,27 +14772,42 @@ function iaFindColaboradorBen(q){
   const empM=bestOf(emp), vtM=bestOf(vt), medM=bestOf(med), prudM=bestOf(prud);
   if(!empM && !vtM && !medM && !prudM) return null;
   const nome=(empM&&empM.nome)||(vtM&&vtM.nome)||(medM&&medM.nome)||(prudM&&prudM.nome);
+  const nn=iaNormBen(nome);
+  const hist=parse('liga_hist')||[], vtHist=parse('liga_vt_historico')||[], medHist=parse('liga_med_historico')||[], prudHist=parse('liga_prud_historico')||[];
+  const histVR=iaHistoricoColab(hist, nn);
+  const histVT=iaHistoricoColab(vtHist, nn);
+  const histMED=iaHistoricoColab(medHist, nn);
+  const histPRUD=iaHistoricoColab(prudHist, nn);
   const out={ nome:nome };
-  if(empM){
-    out.vr_va_cb={ ativo: empM.ativo!==false, tipo: empM.tipo||null, centroCusto: empM.cc||null };
-    const hist=parse('liga_hist')||[];
-    const ultimo=hist.slice().sort(function(a,b){ return (b.competencia||'').localeCompare(a.competencia||'') || (b.id||0)-(a.id||0); })[0];
-    if(ultimo && Array.isArray(ultimo.detalhes)){
-      const nn=iaNormBen(nome);
-      const linhas=ultimo.detalhes.filter(function(d){ return iaNormBen(d.nome)===nn; });
-      if(linhas.length){
-        out.vr_va_cb.ultimoProcessamento={
-          competencia: ultimo.competencia||null,
-          itens: linhas.map(function(d){ return { descricao:d.descricao, valor:Number(d.valor)||0 }; }),
-          total: +linhas.reduce(function(s,d){ return s+(Number(d.valor)||0); },0).toFixed(2)
-        };
-      }
-    }
-  }
-  if(vtM) out.vale_transporte={ ativo: !!vtM.ativoVT, tarifaTipo: vtM.tarifaTipo||null, tarifa: Number(vtM.tarifa)||null, dias: Number(vtM.dias)||null };
-  if(medM) out.assistencia_medica_sulamerica={ ativo: !!medM.ativo, valor: Number(medM.valor)||0, iof: Number(medM.iof)||0 };
-  if(prudM) out.prudential_seguro_vida={ ativo: !!prudM.ativo, valor: Number(prudM.valor)||0 };
-  out.observacao='Para VR/VA/CB, "ultimoProcessamento" (quando presente) mostra o valor real do último processamento salvo no histórico para este colaborador. Se não houver "ultimoProcessamento", ainda não foi processado nenhum mês para essa pessoa — diga isso e sugira processar em VR/VA/CB no painel.';
+  out.vr_va_cb={
+    ativo: empM ? empM.ativo!==false : false,
+    tipo: empM ? (empM.tipo||null) : null,
+    centroCusto: empM ? (empM.cc||null) : null,
+    ultimoProcessamento: histVR.length ? histVR[histVR.length-1] : null,
+    historicoMensal: histVR.length ? histVR : null,
+    totalPagoNoPeriodo: histVR.length ? iaSomaHistoricoColab(histVR) : null
+  };
+  out.vale_transporte={
+    ativo: vtM ? !!vtM.ativoVT : false,
+    tarifaTipo: vtM ? (vtM.tarifaTipo||null) : null,
+    tarifa: vtM ? (Number(vtM.tarifa)||null) : null,
+    dias: vtM ? (Number(vtM.dias)||null) : null,
+    historicoMensal: histVT.length ? histVT : null,
+    totalPagoNoPeriodo: histVT.length ? iaSomaHistoricoColab(histVT) : null
+  };
+  out.assistencia_medica_sulamerica={
+    ativo: medM ? !!medM.ativo : false,
+    valorAtual: medM ? +((Number(medM.valor)||0)+(Number(medM.iof)||0)).toFixed(2) : null,
+    historicoMensal: histMED.length ? histMED : null,
+    totalPagoNoPeriodo: histMED.length ? iaSomaHistoricoColab(histMED) : null
+  };
+  out.prudential_seguro_vida={
+    ativo: prudM ? !!prudM.ativo : false,
+    valorAtual: prudM ? (Number(prudM.valor)||0) : null,
+    historicoMensal: histPRUD.length ? histPRUD : null,
+    totalPagoNoPeriodo: histPRUD.length ? iaSomaHistoricoColab(histPRUD) : null
+  };
+  out.observacao='Os campos "historicoMensal" e "totalPagoNoPeriodo" em cada beneficio contem TODOS os meses ja processados e armazenados no sistema para esta pessoa (nao apenas o mais recente). Use-os sempre que for perguntado sobre gastos totais, historico ou periodo. Se "historicoMensal" vier null, ainda nao foi processado nenhum mes para essa pessoa nesse beneficio.';
   return out;
 }
 function iaLocalAnswerBen(q){
