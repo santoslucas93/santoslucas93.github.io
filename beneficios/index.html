@@ -5739,22 +5739,53 @@ function saveVTTarifas(){
 function ensureVTRegistros(){
   vtCfg.tarifas = Object.assign(vtTarifasDefault(), vtCfg.tarifas || {});
   vtCfg.excluidos = vtCfg.excluidos || [];
-  const existing = {}; (vtRegistros || []).forEach(r=>{ existing[normalizeName(r.nome)] = r; });
+  const existingById = {};
+  const existingByName = {};
+  (vtRegistros || []).forEach(r=>{
+    if (r.employeeId != null) existingById[String(r.employeeId)] = r;
+    existingByName[normalizeName(r.nome)] = r;
+  });
   const base = activeEmployees().filter(e=>!vtCfg.excluidos.includes(e.id)).map(e=>hydrateEmployeeData(e));
+  const idsBase = new Set(base.map(e=>String(e.id)));
   const nomesBase = new Set(base.map(e=>vtKey(e)));
   const baseRows = base.map(e=>{
-    const old = existing[vtKey(e)] || {};
-    return { employeeId:e.id, nome:e.nome, cpf:empCpf(e), nascimento:empNascimento(e), cc:e.cc, tipo:e.tipo, competencia:vtCfg.competencia || '2026-06', ativoVT:old.ativoVT === true, tarifaTipo:old.tarifaTipo || 'sptransOnibus', tarifa:Number(old.tarifa)||tarifaValueVT(old.tarifaTipo || 'sptransOnibus'), dias:Number(old.dias)||Number(vtCfg.diasPadrao)||22, obs:old.obs || '', origem:old.origem || 'CADASTRO' };
+    const old = existingById[String(e.id)] || existingByName[vtKey(e)] || {};
+    return {
+      ...old,
+      employeeId: e.id,
+      nome: e.nome,
+      cpf: empCpf(e),
+      nascimento: empNascimento(e),
+      cc: e.cc,
+      tipo: e.tipo,
+      competencia: old.competencia || vtCfg.competencia || '2026-06',
+      ativoVT: old.ativoVT === true,
+      tarifaTipo: old.tarifaTipo || 'sptransOnibus',
+      tarifa: Number(old.tarifa) || tarifaValueVT(old.tarifaTipo || 'sptransOnibus'),
+      dias: Number(old.dias) || Number(vtCfg.diasPadrao) || 22,
+      obs: old.obs || '',
+      origem: old.origem || 'CADASTRO'
+    };
   });
-  const manuais = (vtRegistros || []).filter(r=>r.origem === 'MANUAL' && !nomesBase.has(normalizeName(r.nome))).map(r=>({
+  const manuais = (vtRegistros || []).filter(r=>r.origem === 'MANUAL' && !nomesBase.has(normalizeName(r.nome)) && !idsBase.has(String(r.employeeId))).map(r=>({
     ...r,
     competencia: vtCfg.competencia || '2026-06',
-    dias: Number(r.dias)||Number(vtCfg.diasPadrao)||22,
-    tarifa: Number(r.tarifa)||0,
+    dias: Number(r.dias) || Number(vtCfg.diasPadrao) || 22,
+    tarifa: Number(r.tarifa) || 0,
     ativoVT: r.ativoVT === true,
     origem: 'MANUAL'
   }));
-  vtRegistros = [...baseRows, ...manuais];
+  const idsExistentesEmp = new Set((employees || []).map(e=>String(e.id)));
+  const orfaos = (vtRegistros || []).filter(r=>
+    r.origem !== 'MANUAL' &&
+    !idsBase.has(String(r.employeeId)) &&
+    !idsExistentesEmp.has(String(r.employeeId)) &&
+    !baseRows.some(b=>String(b.employeeId)===String(r.employeeId))
+  );
+  if (orfaos.length) {
+    console.warn('[VT] Registros orfaos preservados (funcionario sumiu de liga_emp, revisar manualmente):', orfaos.map(o=>o.nome));
+  }
+  vtRegistros = [...baseRows, ...manuais, ...orfaos];
   saveVTRegistros();
 }
 function setVTField(idx, field, value){
