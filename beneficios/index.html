@@ -12004,12 +12004,14 @@ function mobRelatorioParaPdf(secao, dos, indice, totalPaginas){
 
 function mobPdfCapa(doc, dos, comp, corridas, L, W){
   const H = 841.89;
+  const CORES_FORN = {ambos:[255,209,0], uber:[6,193,103], '99':[255,105,0]};
+  const AC = CORES_FORN[dos.fornecedor] || CORES_FORN.ambos;
   doc.setFillColor(13, 27, 42); doc.rect(0, 0, W, H, 'F');
-  doc.setFillColor(255, 209, 0); doc.rect(0, 0, 7, H, 'F');
+  doc.setFillColor(AC[0], AC[1], AC[2]); doc.rect(0, 0, 7, H, 'F');
 
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(11);
   doc.text('LIGA NACIONAL DE BASQUETE', L + 12, 108);
-  doc.setDrawColor(255, 209, 0); doc.setLineWidth(2);
+  doc.setDrawColor(AC[0], AC[1], AC[2]); doc.setLineWidth(2);
   doc.line(L + 12, 122, L + 92, 122);
 
   doc.setFontSize(31);
@@ -12017,7 +12019,7 @@ function mobPdfCapa(doc, dos, comp, corridas, L, W){
   doc.text('Mobilidade', L + 12, 226);
   doc.text('Corporativa', L + 12, 262);
 
-  doc.setFont('helvetica','normal'); doc.setFontSize(14); doc.setTextColor(255, 209, 0);
+  doc.setFont('helvetica','normal'); doc.setFontSize(14); doc.setTextColor(AC[0], AC[1], AC[2]);
   doc.text(MobFmt.competLabel(comp), L + 12, 300);
 
   const total = MobFmt.sum(corridas, c => c.total);
@@ -13487,19 +13489,20 @@ mobRenderConciliacao = function(){
 };
 
 mobMontarEstruturaDossie = function(comp){
-  const corridas = MobCore.corridasDa(comp);
-  const porDep = MobCore.porDepartamento(corridas).filter(d => !d.semDepto && d.total !== 0);
-  const docs = Mob.documentos.filter(d => d.competencia === comp).sort((a,b) => (a.ordem||0)-(b.ordem||0));
   const anterior = Mob.ui.dossie || {};
+  const fornecedor = anterior.fornecedor || 'ambos';
+  const corridas = MobCore.corridasDa(comp).filter(c => fornecedor==='ambos' || c.fornecedor===fornecedor);
+  const porDep = MobCore.porDepartamento(corridas).filter(d => !d.semDepto && d.total !== 0);
+  const docs = Mob.documentos.filter(d => d.competencia === comp && (fornecedor==='ambos' || d.fornecedor===fornecedor)).sort((a,b) => (a.ordem||0)-(b.ordem||0));
   const secoes = [{tipo:'capa',titulo:'Capa',descricao:'Competência e valor total',incluir:true}];
   docs.forEach(d => secoes.push({tipo:'documento',docId:d.id,
     titulo:mobTipoDoc(d.tipo).r + ' · ' + (d.fornecedor === 'uber' ? 'Uber' : '99'),
     descricao:d.nome + (d.paginas ? ' · ' + d.paginas + ' pág.' : ''),incluir:true,valor:d.valor}));
-  secoes.push({tipo:'resumo',titulo:'Resumo executivo',descricao:'Indicadores, conciliação e ranking',incluir:true});
+  secoes.push({tipo:'resumo',titulo:'Resumo executivo',descricao:'Indicadores e ranking',incluir:true});
   porDep.forEach(d => secoes.push({tipo:'departamento',deptoId:d.deptoId,
     titulo:'Relatório · ' + (d.sigla ? d.sigla + ' — ' : '') + d.nome,
     descricao:d.qtd + ' corridas',incluir:true,valor:d.total}));
-  Mob.ui.dossie = {comp,secoes,detalhado:anterior.detalhado !== false,
+  Mob.ui.dossie = {comp,secoes,fornecedor,detalhado:anterior.detalhado !== false,
     enderecos:anterior.enderecos !== false && !Mob.cfg.ocultarEnderecos,
     observacoes:anterior.observacoes || '',numeroProcesso:'',conferente:'',aprovador:'',campoAssinatura:false,omitirVazios:true};
 };
@@ -13512,12 +13515,14 @@ mobRenderDossie = function(){
   const corridas = MobCore.corridasDa(comp);
   if (!corridas.length){ alvo.innerHTML = '<div class="mob-card"><div class="mob-empty"><div class="big">📕</div><div class="t">Nenhuma corrida nesta competência</div></div></div>'; return; }
   if (!Mob.ui.dossie || Mob.ui.dossie.comp !== comp || Mob.ui.dossie.somenteRelatorios) mobMontarEstruturaDossie(comp);
-  const dos = Mob.ui.dossie, conc = MobCore.conciliar(comp);
+  const dos = Mob.ui.dossie;
   let html = '<div class="mob-card"><div class="mob-card-title"><span class="ico">📕</span>Dossiê executivo · ' + MobFmt.competLabel(comp) + '</div>' +
     '<div class="mob-alert info"><span class="ai">🖨️</span><div>Estrutura direta: <strong>capa, documentos oficiais, resumo executivo e relatórios departamentais</strong>. Os PDFs anexados mantêm a qualidade original.</div></div>' +
-    (conc.okGeral ? '<div class="mob-alert ok"><span class="ai">✅</span><div>Planilhas e documentos conciliados.</div></div>' :
-      '<div class="mob-alert warn"><span class="ai">🔎</span><div>Diferença atual: <strong>' + MobFmt.money(conc.diferencaGeral) + '</strong>. O dossiê ainda pode ser gerado.</div></div>') +
-    '<div class="mob-form" style="margin-bottom:16px"><div><label>Relatórios departamentais</label><select onchange="Mob.ui.dossie.detalhado=this.value===\'1\';mobRenderDossie()">' +
+    '<div class="mob-form" style="margin-bottom:16px"><div><label>Fornecedor no dossiê</label><select onchange="Mob.ui.dossie.fornecedor=this.value;mobMontarEstruturaDossie(Mob.ui.dossie.comp);mobRenderDossie();">' +
+    '<option value="ambos"' + (dos.fornecedor!=='uber' && dos.fornecedor!=='99' ? ' selected' : '') + '>Ambos (Uber + 99)</option>' +
+    '<option value="uber"' + (dos.fornecedor==='uber' ? ' selected' : '') + '>Somente Uber</option>' +
+    '<option value="99"' + (dos.fornecedor==='99' ? ' selected' : '') + '>Somente 99</option>' +
+    '</select></div><div><label>Relatórios departamentais</label><select onchange="Mob.ui.dossie.detalhado=this.value===\'1\';mobRenderDossie()">' +
     '<option value="1"' + (dos.detalhado ? ' selected' : '') + '>Executivo + detalhamento</option><option value="0"' + (!dos.detalhado ? ' selected' : '') + '>Somente executivo</option></select></div>' +
     '<div><label>Endereços</label><select onchange="Mob.ui.dossie.enderecos=this.value===\'1\';mobRenderDossie()"><option value="0"' + (!dos.enderecos ? ' selected' : '') + '>Ocultar</option><option value="1"' + (dos.enderecos ? ' selected' : '') + '>Mostrar</option></select></div>' +
     '<div class="full"><label>Observações da capa</label><textarea id="mob-dos-obs">' + MobFmt.esc(dos.observacoes) + '</textarea></div></div>' +
