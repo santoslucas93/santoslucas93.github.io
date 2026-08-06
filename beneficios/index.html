@@ -5252,41 +5252,7 @@ function exportTableById(tableId, fname) {
 // VALE TRANSPORTE
 // ============================================================
 function vtKey(e){ return normalizeName(e.nome); }
-function ensureVTRegistros(){
-  const existing = {};
-  (vtRegistros || []).forEach(r=>{ existing[normalizeName(r.nome)] = r; });
-  const base = activeEmployees().map(e=>hydrateEmployeeData(e));
-  const nomesBase = new Set(base.map(e=>vtKey(e)));
-  const baseRows = base.map(e=>{
-    const old = existing[vtKey(e)] || {};
-    return {
-      employeeId: e.id,
-      nome: e.nome,
-      cpf: empCpf(e),
-      nascimento: empNascimento(e),
-      cc: e.cc,
-      tipo: e.tipo,
-      competencia: old.competencia || vtCfg.competencia || '2026-06',
-      ativoVT: old.ativoVT === true,
-      tarifa: Number(old.tarifa)||0,
-      dias: Number(old.dias)||Number(vtCfg.diasPadrao)||22,
-      obs: old.obs || '',
-      origem: old.origem || 'CADASTRO'
-    };
-  });
-  const manuais = (vtRegistros || []).filter(r=>r.origem === 'MANUAL' && !nomesBase.has(normalizeName(r.nome))).map(r=>({
-    ...r,
-    cpf: r.cpf || '',
-    nascimento: r.nascimento || '',
-    competencia: r.competencia || vtCfg.competencia || '2026-06',
-    dias: Number(r.dias)||Number(vtCfg.diasPadrao)||22,
-    tarifa: Number(r.tarifa)||0,
-    ativoVT: r.ativoVT === true,
-    origem: 'MANUAL'
-  }));
-  vtRegistros = [...baseRows, ...manuais];
-  saveVTRegistros();
-}
+
 function vtRows(){ ensureVTRegistros(); return [...vtRegistros].sort((a,b)=>a.nome.localeCompare(b.nome)); }
 function vtValorDia(r){ return (Number(r.tarifa)||0) * 2; }
 function vtBase(r){ return r.ativoVT ? vtValorDia(r) * (Number(r.dias)||0) : 0; }
