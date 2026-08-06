@@ -11661,6 +11661,11 @@ function mobRenderDossie(){
     '<div><label>Endereços no detalhamento</label><select onchange="Mob.ui.dossie.enderecos=this.value===\'1\';mobRenderDossie()">' +
     '<option value="1"' + (dos.enderecos ? ' selected' : '') + '>Mostrar</option>' +
     '<option value="0"' + (!dos.enderecos ? ' selected' : '') + '>Ocultar (LGPD)</option></select></div>' +
+    '<div><label>Fornecedor no dossiê</label><select onchange="Mob.ui.dossie.fornecedor=this.value;mobMontarEstruturaDossie(Mob.ui.dossie.comp);mobRenderDossie();">' +
+    '<option value="ambos"' + (dos.fornecedor!=='uber' && dos.fornecedor!=='99' ? ' selected' : '') + '>Ambos (Uber + 99)</option>' +
+    '<option value="uber"' + (dos.fornecedor==='uber' ? ' selected' : '') + '>Somente Uber</option>' +
+    '<option value="99"' + (dos.fornecedor==='99' ? ' selected' : '') + '>Somente 99</option>' +
+    '</select></div>' +
     '<div><label>Número do processo</label><input type="text" id="mob-dos-processo" value="' +
       MobFmt.esc(dos.numeroProcesso) + '"></div>' +
     '<div><label>Conferido por</label><input type="text" id="mob-dos-conferente" value="' + MobFmt.esc(dos.conferente) + '"></div>' +
@@ -11700,11 +11705,12 @@ function mobRenderDossie(){
 }
 
 function mobMontarEstruturaDossie(comp){
-  const corridas = MobCore.corridasDa(comp);
-  const porDep = MobCore.porDepartamento(corridas);
-  const docs = Mob.documentos.filter(d => d.competencia === comp).sort((a,b) => (a.ordem||0)-(b.ordem||0));
-  const compObj = Mob.competencias.find(x => x.id === comp) || {};
   const anterior = Mob.ui.dossie || {};
+  const fornecedor = anterior.fornecedor || 'ambos';
+  const corridas = MobCore.corridasDa(comp).filter(c => fornecedor==='ambos' || c.fornecedor===fornecedor);
+  const porDep = MobCore.porDepartamento(corridas);
+  const docs = Mob.documentos.filter(d => d.competencia === comp && (fornecedor==='ambos' || d.fornecedor===fornecedor)).sort((a,b) => (a.ordem||0)-(b.ordem||0));
+  const compObj = Mob.competencias.find(x => x.id === comp) || {};
 
   const secoes = [
     {tipo:'capa',    titulo:'Capa',            descricao:'Identificação do processo, competência e totais', incluir:true},
@@ -11733,7 +11739,7 @@ function mobMontarEstruturaDossie(comp){
     descricao:'Declaração e campos para assinatura', incluir:true});
 
   Mob.ui.dossie = {
-    comp, secoes,
+    comp, secoes, fornecedor,
     detalhado: anterior.detalhado !== false,
     omitirVazios: anterior.omitirVazios !== false,
     enderecos: anterior.enderecos !== false && !Mob.cfg.ocultarEnderecos,
@@ -11887,7 +11893,7 @@ async function mobGerarDossie(){
     prog(96, 'Finalizando o arquivo…');
     const bytes = await final.save();
     const blob = new Blob([bytes], {type:'application/pdf'});
-    const nome = (dos.somenteRelatorios ? 'Relatorio_Executivo_Mobilidade_' : 'Dossie_Mobilidade_') + comp.replace('-','_') + '.pdf';
+    const nome = (dos.somenteRelatorios ? 'Relatorio_Executivo_Mobilidade_' : 'Dossie_Mobilidade_') + comp.replace('-','_') + (dos.fornecedor && dos.fornecedor!=='ambos' ? ('_' + (dos.fornecedor==='uber'?'UBER':'99')) : '') + '.pdf';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = nome; a.click();
 
@@ -11965,7 +11971,7 @@ function mobRelatorioParaPdf(secao, dos, indice, totalPaginas){
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({unit:'pt', format:'a4', orientation:'portrait'});
   const L = 40, W = 595.28, comp = dos.comp;
-  const corridas = MobCore.corridasDa(comp);
+  const corridas = MobCore.corridasDa(comp).filter(c => !dos.fornecedor || dos.fornecedor==='ambos' || c.fornecedor===dos.fornecedor);
   MobCore.validar(corridas, comp);
 
   const cabecalho = (titulo, sub) => {
@@ -13527,56 +13533,7 @@ mobRenderDossie = function(){
   alvo.innerHTML = html;
 };
 
-/* Capa e resumo do PDF sem aprovações, centro de custo ou termos. */
-mobPdfCapa = function(doc,dos,comp,corridas,L,W){
-  const H = 841.89, k = MobCore.indicadores(corridas,comp,{}), conc = MobCore.conciliar(comp);
-  doc.setFillColor(13,27,42); doc.rect(0,0,W,H,'F');
-  doc.setFillColor(255,209,0); doc.rect(0,0,8,H,'F');
-  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(11);
-  doc.text('LIGA NACIONAL DE BASQUETE',L+12,108);
-  doc.setFontSize(29); doc.text('Dossiê de Mobilidade',L+12,186); doc.text('Corporativa',L+12,222);
-  doc.setFont('helvetica','normal'); doc.setFontSize(13); doc.setTextColor(255,209,0);
-  doc.text('Uber + 99  ·  ' + MobFmt.competLabel(comp),L+12,258);
-  doc.setFillColor(24,42,61); doc.roundedRect(L+12,320,W-L*2-24,142,8,8,'F');
-  const dados = [['VALOR TOTAL',MobFmt.money(k.total)],['CORRIDAS',MobFmt.num(k.qtd)],
-    ['COLABORADORES',MobFmt.num(k.colaboradores)],['CONCILIAÇÃO',conc.okGeral?'VALORES CONCILIADOS':'DIFERENÇA ' + MobFmt.money(conc.diferencaGeral)]];
-  dados.forEach((x,i) => { const xx=L+32+(i%2)*245, yy=354+Math.floor(i/2)*62;
-    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(150,169,190);doc.text(x[0],xx,yy);
-    doc.setFont('helvetica','bold');doc.setFontSize(i===0?16:12);doc.setTextColor(255,255,255);doc.text(x[1],xx,yy+21); });
-  if (dos.observacoes){ doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(205,216,229);
-    doc.text(doc.splitTextToSize(dos.observacoes,W-L*2-24),L+12,515); }
-  doc.setFontSize(8);doc.setTextColor(125,145,166);doc.text('Emitido em ' + new Date().toLocaleString('pt-BR'),L+12,H-70);
-  doc.text('Desenvolvido por: Lucas Santos',L+12,H-52);
-};
 
-mobPdfResumo = function(doc,cabecalho,comp,corridas,L,W){
-  let y = cabecalho('Resumo executivo',MobFmt.competLabel(comp));
-  const k = MobCore.indicadores(corridas,comp,{}), conc = MobCore.conciliar(comp);
-  const w3=(W-L*2-20)/3;
-  const card=(x,yy,rot,val,cor)=>{doc.setFillColor(247,249,251);doc.roundedRect(x,yy,w3,50,4,4,'F');doc.setFillColor(...cor);doc.rect(x,yy,3,50,'F');
-    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(112,128,148);doc.text(rot.toUpperCase(),x+10,yy+16);
-    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(20,32,46);doc.text(val,x+10,yy+36);};
-  card(L,y,'Total',MobFmt.money(k.total),[29,78,216]);card(L+w3+10,y,'Uber',MobFmt.money(k.tUber),[31,33,38]);card(L+(w3+10)*2,y,'99',MobFmt.money(k.t99),[229,184,0]);
-  y+=60;card(L,y,'Corridas',MobFmt.num(k.qtd),[12,124,89]);card(L+w3+10,y,'Ticket médio',MobFmt.money(k.ticket),[12,124,89]);card(L+(w3+10)*2,y,'Colaboradores',MobFmt.num(k.colaboradores),[91,33,182]);
-  y+=70;
-  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(20,32,46);doc.text('Consumo por departamento',L,y);
-  doc.autoTable({startY:y+8,head:[['Sigla','Departamento','Corridas','Valor','Participação']],
-    body:k.porDepartamento.map(d=>[d.sigla||'–',d.nome,String(d.qtd),MobFmt.money(d.total),MobFmt.pct(k.total?d.total/k.total*100:0)]),
-    foot:[['','TOTAL',String(k.qtd),MobFmt.money(k.total),'100,0%']],theme:'striped',styles:{fontSize:8,cellPadding:4},
-    headStyles:{fillColor:[13,27,42],textColor:255},footStyles:{fillColor:[255,209,0],textColor:[20,32,46],fontStyle:'bold'},
-    columnStyles:{0:{cellWidth:42,fontStyle:'bold'},1:{cellWidth:175},2:{cellWidth:55,halign:'center'},3:{cellWidth:95,halign:'right'},4:{cellWidth:82,halign:'right'}},margin:{left:L,right:L,bottom:46}});
-  y=doc.lastAutoTable.finalY+18;
-  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text('Maiores consumidores',L,y);
-  const top=k.porColaborador.slice(0,10);
-  doc.autoTable({startY:y+8,head:[['#','Colaborador','Departamento','Corridas','Total']],
-    body:top.map((c,i)=>[String(i+1),c.nome,c.depto,String(c.qtd),MobFmt.money(c.total)]),theme:'striped',styles:{fontSize:7.8,cellPadding:3.8},
-    headStyles:{fillColor:[31,33,38],textColor:255},columnStyles:{0:{cellWidth:25,halign:'center'},1:{cellWidth:175},2:{cellWidth:130},3:{cellWidth:55,halign:'center'},4:{cellWidth:75,halign:'right'}},margin:{left:L,right:L,bottom:46}});
-  y=doc.lastAutoTable.finalY+16;
-  if (y>760){doc.addPage();y=60;}
-  doc.setFillColor(conc.okGeral?230:253,conc.okGeral?247:236,conc.okGeral?242:234);doc.roundedRect(L,y,W-L*2,38,5,5,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(conc.okGeral?12:192,conc.okGeral?124:57,conc.okGeral?89:43);
-  doc.text(conc.okGeral?'Valores conciliados com sucesso.':'Diferença entre planilhas e documentos: ' + MobFmt.money(conc.diferencaGeral),L+12,y+23);
-};
 
 /* ------------------------- EXCEL EXECUTIVO ------------------------- */
 const MOB_XLS_COLORS={navy:'0D1B2A',yellow:'FFD100',blue:'1D4ED8',green:'0C7C59',light:'F3F6F9',white:'FFFFFF',text:'243447',muted:'6B7C93'};
