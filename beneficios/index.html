@@ -4282,6 +4282,15 @@ function lnbUnlockApp(){
         <input type="date" class="form-control" id="f-desligamento">
       </div>
     </div>
+    <div class="form-group">
+      <label class="form-label">Módulos ativos</label>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;">
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;"><input type="checkbox" id="f-mod-vt"> Vale Transporte</label>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;"><input type="checkbox" id="f-mod-med"> Assistência Médica</label>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;"><input type="checkbox" id="f-mod-prud"> Seguro de Vida</label>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;"><input type="checkbox" id="f-mod-vr"> VR/VA/Cesta Básica</label>
+      </div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveEmployee()">Salvar Colaborador</button>
@@ -4598,7 +4607,7 @@ const badge = tipo => tipo === 'CLT' ? `<span class="badge badge-clt">CLT</span>
 const ccPill = cc => `<span class="cc-pill">${cc}</span>`;
 const contaPill = c => `<span class="conta-pill">${c}</span>`;
 const isActive = e => e.ativo !== false;
-const activeEmployees = () => employees.filter(isActive);
+const activeEmployees = () => employees.filter(e => isActive(e) && (!e.modulos || e.modulos.vr !== false));
 const statusBadge = e => isActive(e) ? `<span class="badge badge-active"><span class="status-dot"></span>Ativo</span>` : `<span class="badge badge-off"><span class="status-dot off"></span>Desligado</span>`;
 const brDateTime = iso => iso ? new Date(iso).toLocaleString('pt-BR') : '–';
 const getEmployee = id => employees.find(e=>String(e.id)===String(id));
@@ -4864,9 +4873,17 @@ function openModal(id) {
     document.getElementById('f-desligamento').value = e.desligamento || '';
     document.getElementById('f-cpf').value = empCpf(e);
     document.getElementById('f-nascimento').value = empNascimento(e);
+    document.getElementById('f-mod-vt').checked = !e.modulos || e.modulos.vt !== false;
+    document.getElementById('f-mod-vr').checked = !e.modulos || e.modulos.vr !== false;
+    document.getElementById('f-mod-med').checked = (typeof medRegistros!=='undefined') && medRegistros.some(r=>r.ativo && normName(r.nome)===normName(e.nome));
+    document.getElementById('f-mod-prud').checked = (typeof prudRegistros!=='undefined') && prudRegistros.some(r=>r.ativo && normName(r.nome)===normName(e.nome));
   } else {
     ['f-nome','f-cc','f-desligamento','f-cpf','f-nascimento'].forEach(id=>document.getElementById(id).value='');
     ['f-tipo','f-area'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f-mod-vt').checked = true;
+    document.getElementById('f-mod-vr').checked = true;
+    document.getElementById('f-mod-med').checked = false;
+    document.getElementById('f-mod-prud').checked = false;
     document.getElementById('f-ativo').value = 'true';
   }
   setupCadastroMasks();
@@ -4895,16 +4912,44 @@ function saveEmployee() {
   const nascimento = maskDateValue(document.getElementById('f-nascimento').value);
   if (!nome||!tipo||!cc) { alert('Preencha todos os campos obrigatórios.'); return; }
   if (cc.length!==6||!/^[0-9]+$/.test(cc)) { alert('Centro de custo deve ter 6 dígitos numéricos.'); return; }
+  const modVT = document.getElementById('f-mod-vt').checked;
+  const modVR = document.getElementById('f-mod-vr').checked;
+  const modMED = document.getElementById('f-mod-med').checked;
+  const modPRUD = document.getElementById('f-mod-prud').checked;
+  let __empRef;
   if (editingId) {
     const idx = employees.findIndex(e=>e.id===editingId);
-    employees[idx] = {...employees[idx], nome, tipo, cc, cpf, nascimento, ativo, desligamento: ativo ? '' : desligamento};
+    employees[idx] = {...employees[idx], nome, tipo, cc, cpf, nascimento, ativo, desligamento: ativo ? '' : desligamento, modulos:{vt:modVT, vr:modVR}};
+    __empRef = employees[idx];
     showToast('✅ Colaborador atualizado.');
   } else {
     const maxId = employees.length ? Math.max(...employees.map(e=>e.id)) : 0;
-    employees.push({id:maxId+1, nome, tipo, cc, cpf, nascimento, ativo, desligamento: ativo ? '' : desligamento});
+    __empRef = {id:maxId+1, nome, tipo, cc, cpf, nascimento, ativo, desligamento: ativo ? '' : desligamento, modulos:{vt:modVT, vr:modVR}};
+    employees.push(__empRef);
     showToast('✅ Colaborador adicionado.');
   }
+  try { sincronizarModuloRegistro('med', __empRef, modMED); } catch(__e) { console.error('sync med', __e); }
+  try { sincronizarModuloRegistro('prud', __empRef, modPRUD); } catch(__e) { console.error('sync prud', __e); }
   save(); closeModal(); renderAll(); renderCalculo(); renderRateio(); renderAvulsos();
+}
+
+function sincronizarModuloRegistro(modulo, emp, ativoDesejado) {
+  const registros = modulo==='med' ? medRegistros : prudRegistros;
+  const salvar = modulo==='med' ? saveMed : savePrud;
+  const idx = registros.findIndex(r => normName(r.nome) === normName(emp.nome));
+  const extra = (modulo==='prud' && typeof prudContaByCC==='function') ? { conta: prudContaByCC(emp.cc, emp.tipo) } : {};
+  if (ativoDesejado) {
+    if (idx >= 0) {
+      registros[idx] = {...registros[idx], nome: emp.nome, tipo: emp.tipo, cc: emp.cc, cpf: emp.cpf, nascimento: emp.nascimento, ativo: true, ...extra};
+    } else {
+      const novo = { id: (registros.length ? Math.max(...registros.map(r=>r.id||0)) : 0) + 1, nome: emp.nome, tipo: emp.tipo, cc: emp.cc, cpf: emp.cpf, nascimento: emp.nascimento, valor: 0, iof: 0, ativo: true, origem: 'cadastro geral', ...extra };
+      registros.push(novo);
+    }
+    salvar();
+  } else if (idx >= 0 && registros[idx].ativo) {
+    registros[idx].ativo = false;
+    salvar();
+  }
 }
 
 function toggleEmployee(id) {
@@ -5754,7 +5799,7 @@ function ensureVTRegistros(){
     if (r.employeeId != null) existingById[String(r.employeeId)] = r;
     existingByName[normalizeName(r.nome)] = r;
   });
-  const base = activeEmployees().filter(e=>!vtCfg.excluidos.includes(e.id)).map(e=>hydrateEmployeeData(e));
+  const base = employees.filter(isActive).filter(e=>!vtCfg.excluidos.includes(e.id) && (!e.modulos || e.modulos.vt !== false)).map(e=>hydrateEmployeeData(e));
   const idsBase = new Set(base.map(e=>String(e.id)));
   const nomesBase = new Set(base.map(e=>vtKey(e)));
   const baseRows = base.map(e=>{
