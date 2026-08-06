@@ -10695,6 +10695,7 @@ async function mobSalvarColaborador(){
   const c = window.__mobColabEdit;
   if (!c.nome.trim()) return mobToast('⚠️ Informe o nome do colaborador.');
   c.email = (c.emails||[])[0] || c.email || '';
+  const eraNovo = !c.id;
   if (!c.id){
     c.id = MobFmt.uid();
     Mob.colaboradores.push(c);
@@ -10705,9 +10706,23 @@ async function mobSalvarColaborador(){
     await MobCore.auditar('colaborador', c.id, 'edicao', 'cadastro', '', c.nome, '');
   }
   await MobDB.put('colaboradores', c);
+  let vinculadas = 0;
+  if (eraNovo){
+    const semColab = Mob.corridas.filter(x => !x.colabId && x.passageiroRaw);
+    for (const corrida of semColab){
+      const r = MobCore.resolverColaborador(corrida.passageiroRaw, corrida.email, '');
+      if (r.colabId === c.id){
+        corrida.colabId = c.id;
+        corrida.matchMetodo = 'manual (cadastro pós-importação)';
+        corrida.matchConfianca = r.confianca;
+        await MobDB.put('corridas', corrida);
+        vinculadas++;
+      }
+    }
+  }
   mobFecharModal();
-  mobToast('✅ Colaborador salvo.');
-  mobRenderCadastros();
+  mobToast(vinculadas ? ('✅ Colaborador salvo e ' + vinculadas + ' corrida(s) vinculada(s).') : '✅ Colaborador salvo.');
+  mobRefrescar();
 }
 
 function mobExcluirColaborador(id){
