@@ -3292,18 +3292,6 @@ function lnbUnlockApp(){
         </div>
       </div>
       <div class="benefit-choice-grid">
-        <div class="benefit-choice-card module-card-geral" onclick="abrirCadastroGeral()">
-          <div>
-            <div class="module-brand-row">
-              <span class="module-benefit-icon" aria-hidden="true"><span>👥</span></span>
-            </div>
-            <span class="module-tag">Cadastro Geral</span>
-            <div class="benefit-choice-title">Colaboradores</div>
-            <div class="benefit-choice-sub">Cadastre um colaborador uma única vez e escolha em quais módulos ele fica ativo: Vale Transporte, Assistência Médica, Seguro de Vida e VR/VA/Cesta Básica.</div>
-            <div class="module-metrics"><small>Categoria</small><strong>Cadastro unificado</strong></div>
-          </div>
-          <div class="benefit-choice-badge">Abrir cadastro</div>
-        </div>
         <div class="benefit-choice-card module-card-prud" onclick="selectBenefitMode('prud')">
           <div>
             <div class="module-brand-row">
@@ -14762,6 +14750,8 @@ async function mobIniciar(){
       bar.className = 'no-print';
       bar.style.cssText = 'display:flex;gap:9px;flex-wrap:wrap;margin-top:18px';
       bar.innerHTML =
+        '<button class="btn btn-ghost btn-sm" onclick="abrirCadastroGeral()">' +
+        '👤 Cadastro unificado</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="mobIniciar().then(mobPainelConsolidado)">' +
         '📊 Consolidado geral do mês</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="mobIniciar().then(()=>mobBackupTudo(true))">' +
