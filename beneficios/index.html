@@ -14755,6 +14755,50 @@ async function iaBenData(){
 }
 function iaMoneyBen(v){ return (Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
 function iaNormBen(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
+async function iaCorridasColab(nomeOuQuery){
+  try{
+    function parse(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } }
+    const mobColabs=parse('liga_mob_colaboradores')||[];
+    if(!mobColabs.length) return null;
+    const nq=iaNormBen(nomeOuQuery);
+    const tokens=nq.split(/[^a-z0-9]+/).filter(function(w){ return w.length>=3; });
+    if(!tokens.length) return null;
+    function scoreMatch(nome){
+      const nn=iaNormBen(nome);
+      if(!nn) return 0;
+      let hits=0;
+      tokens.forEach(function(tok){ if(nn.indexOf(tok)>-1) hits++; });
+      return hits;
+    }
+    let best=null, bestScore=0;
+    mobColabs.forEach(function(c){
+      const sc=scoreMatch(c.nome);
+      if(sc>bestScore){ bestScore=sc; best=c; }
+    });
+    if(!best || bestScore<1) return null;
+    const url=SUPABASE_URL+'/rest/v1/mob_corridas?colab_id=eq.'+encodeURIComponent(best.id)+'&excluida=eq.false&select=competencia,fornecedor,data,valor,total,status,motivo&order=data.desc&limit=1000';
+    const res=await supaFetch(url, {method:'GET'});
+    if(!res || !res.ok) return null;
+    const rows=await res.json();
+    const concluidas=rows.filter(function(r){ return String(r.status||'').toLowerCase().indexOf('cancel')===-1; });
+    const totalGasto=+concluidas.reduce(function(s,r){ return s+(Number(r.total)||0); },0).toFixed(2);
+    const porFornecedor={};
+    concluidas.forEach(function(r){ const f=r.fornecedor||'outro'; porFornecedor[f]=(porFornecedor[f]||0)+1; });
+    const datas=concluidas.map(function(r){ return r.data; }).filter(Boolean).sort();
+    return {
+      nomeEncontrado: best.nome,
+      totalCorridas: concluidas.length,
+      totalCorridasCanceladas: rows.length-concluidas.length,
+      totalGasto: totalGasto,
+      corridasPorFornecedor: porFornecedor,
+      primeiraCorrida: datas.length?datas[0]:null,
+      ultimaCorrida: datas.length?datas[datas.length-1]:null
+    };
+  }catch(e){
+    console.warn('iaCorridasColab:', e);
+    return null;
+  }
+}
 async function iaFindColaboradorBen(q){
   await iaGarantirHistoricoBen();
   function parse(k){ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } }
@@ -14778,7 +14822,11 @@ async function iaFindColaboradorBen(q){
     return bestScore>=1 ? best : null;
   }
   const empM=bestOf(emp), vtM=bestOf(vt), medM=bestOf(med), prudM=bestOf(prud);
-  if(!empM && !vtM && !medM && !prudM) return null;
+  if(!empM && !vtM && !medM && !prudM){
+    const corridasSolo=await iaCorridasColab(q);
+    if(corridasSolo) return { nome: corridasSolo.nomeEncontrado, corridas: corridasSolo };
+    return null;
+  }
   const nome=(empM&&empM.nome)||(vtM&&vtM.nome)||(medM&&medM.nome)||(prudM&&prudM.nome);
   const nn=iaNormBen(nome);
   const hist=benHistorico('vr')||[], vtHist=benHistorico('vt')||[], medHist=benHistorico('med')||[], prudHist=benHistorico('prud')||[];
@@ -14815,14 +14863,16 @@ async function iaFindColaboradorBen(q){
     historicoMensal: histPRUD.length ? histPRUD : null,
     totalPagoNoPeriodo: histPRUD.length ? iaSomaHistoricoColab(histPRUD) : null
   };
-  out.observacao='Os campos "historicoMensal" e "totalPagoNoPeriodo" em cada beneficio contem TODOS os meses ja processados e armazenados no sistema para esta pessoa (nao apenas o mais recente). Use-os sempre que for perguntado sobre gastos totais, historico ou periodo. Se "historicoMensal" vier null, ainda nao foi processado nenhum mes para essa pessoa nesse beneficio.';
+  const corridas=await iaCorridasColab(nome);
+  if(corridas) out.corridas=corridas;
+  out.observacao='Os campos "historicoMensal" e "totalPagoNoPeriodo" em cada beneficio contem TODOS os meses ja processados e armazenados no sistema para esta pessoa (nao apenas o mais recente). Use-os sempre que for perguntado sobre gastos totais, historico ou periodo. Se "historicoMensal" vier null, ainda nao foi processado nenhum mes para essa pessoa nesse beneficio. O campo "corridas" (quando presente) traz o total de corridas de Uber/99 dessa pessoa.';
   return out;
 }
 async function iaLocalAnswerBen(q){
   const d=await iaBenData();
   const nq=q.toLowerCase();
   const colaborador=await iaFindColaboradorBen(q);
-  if(colaborador && /quem|receb|valor|quanto|ativo|cadastr/.test(nq)){
+  if(colaborador && /quem|receb|valor|quanto|ativo|cadastr|corrida|uber|99|viagem/.test(nq)){
     let out='Colaborador encontrado: '+colaborador.nome+'\n';
     if(colaborador.vale_transporte) out+='• Vale Transporte: '+(colaborador.vale_transporte.ativo?'ativo':'inativo')+(colaborador.vale_transporte.tarifa?', tarifa '+iaMoneyBen(colaborador.vale_transporte.tarifa)+'/dia, '+colaborador.vale_transporte.dias+' dia(s)':'')+'\n';
     if(colaborador.assistencia_medica_sulamerica) out+='• Assistência Médica SulAmérica: '+(colaborador.assistencia_medica_sulamerica.ativo?'ativo':'inativo')+', valor '+iaMoneyBen(colaborador.assistencia_medica_sulamerica.valor+colaborador.assistencia_medica_sulamerica.iof)+'\n';
@@ -14832,6 +14882,10 @@ async function iaLocalAnswerBen(q){
       const up=colaborador.vr_va_cb.ultimoProcessamento;
       if(up){ out+=', último processamento ('+up.competencia+'): '+iaMoneyBen(up.total)+'\n'; }
       else { out+=' — ainda sem processamento salvo no histórico para esta pessoa.\n'; }
+    }
+    if(colaborador.corridas){
+      const cr=colaborador.corridas;
+      out+='• Corridas (Uber/99): '+cr.totalCorridas+' concluída(s)'+(cr.totalCorridasCanceladas?' e '+cr.totalCorridasCanceladas+' cancelada(s)':'')+', total gasto '+iaMoneyBen(cr.totalGasto)+(cr.primeiraCorrida?', de '+cr.primeiraCorrida+' até '+cr.ultimaCorrida:'')+'\n';
     }
     return out.trim();
   }
@@ -14865,7 +14919,7 @@ async function iaLocalAnswerBen(q){
 async function iaGeminiAnswerBen(q,onDelta){
   const model=(document.getElementById('ia-model')?.value)||'gemini-flash-latest';
   const colaborador=await iaFindColaboradorBen(q);
-  const prompt='Você é o assistente do Sistema de Benefícios da Liga Nacional de Basquete (VR/VA/CB, Vale Transporte, Assistência Médica SulAmérica e Prudential Seguro de Vida). '+
+  const prompt='Você é o assistente do Sistema de Benefícios da Liga Nacional de Basquete (VR/VA/CB, Vale Transporte, Assistência Médica SulAmérica, Prudential Seguro de Vida e Corridas Uber/99). '+
     'Responda em português, de forma direta e objetiva, com base apenas no resumo estruturado abaixo — ele já inclui a lista de colaboradores com nome, tipo, departamento e valores por benefício, então busque diretamente nela para responder perguntas sobre uma pessoa específica ou totais. Se faltar informação, diga o que revisar no painel — não invente números. '+
     'IMPORTANTE: nunca mencione, solicite ou invente CPF ou data de nascimento — esses dados nunca são enviados a você e não existem no resumo por política de privacidade.\n\n'+
     'RESUMO DOS DADOS ATUAIS:\n'+JSON.stringify(await iaBenData(),null,2)+
