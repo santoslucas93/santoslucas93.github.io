@@ -3141,7 +3141,10 @@ window.__lnbPullState = function(){
   xhr.setRequestHeader('apikey', SUPABASE_KEY);
   xhr.setRequestHeader('Authorization', 'Bearer '+AUTH_SESSION.access_token);
   xhr.send(null);
-  if (xhr.status < 200 || xhr.status >= 300) throw new Error('Falha ao ler ben_state: '+xhr.status);
+  if (xhr.status < 200 || xhr.status >= 300){
+    if (xhr.status === 401) lnbClearSession();
+    throw new Error('Falha ao ler ben_state: '+xhr.status);
+  }
   const rows = JSON.parse(xhr.responseText);
   rows.forEach(function(r){
     if (r.valor !== null && r.valor !== undefined){
@@ -3170,7 +3173,17 @@ function lnbUnlockApp(){
   if (AUTH_SESSION && AUTH_SESSION.access_token){
     // Sessão válida: puxa a base de Benefícios do Supabase (síncrono) antes
     // do restante do script (que lê localStorage de forma síncrona) rodar.
-    try{ window.__lnbPullState(); }catch(e){ console.error('Falha ao carregar base de Benefícios do Supabase:', e); }
+    try{ window.__lnbPullState(); }catch(e){
+      console.error('Falha ao carregar base de Benefícios do Supabase:', e);
+      window.addEventListener('DOMContentLoaded', function(){
+        var el = document.getElementById('lnb-sync-badge');
+        if (!el){ el = document.createElement('span'); el.id = 'lnb-sync-badge'; el.className = 'lnb-sync-inline';
+          var header = document.querySelector('.app-header'); if (header) header.appendChild(el); else document.body.appendChild(el); }
+        el.textContent = '⚠️ Falha ao carregar dados do servidor — recarregue a página (' + (e.message||'erro desconhecido') + ')';
+        el.style.color = '#b91c1c';
+        el.style.fontWeight = '700';
+      });
+    }
     window.addEventListener('DOMContentLoaded', lnbUnlockApp);
   } else {
     window.addEventListener('DOMContentLoaded', function(){
