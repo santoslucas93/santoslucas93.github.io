@@ -4662,8 +4662,10 @@ function load() {
   const vt = localStorage.getItem('liga_vt_registros');
   const vth = localStorage.getItem('liga_vt_historico');
   const vtc = localStorage.getItem('liga_vt_cfg');
-  if (e) employees = JSON.parse(e).map((x,i)=>hydrateEmployeeData({ativo:true, desligamento:'', id:i+1, ...x, ativo:x.ativo !== false}));
-  else { employees = ORIGINAL.map((o,i)=>hydrateEmployeeData({...o,id:i+1,ativo:true,desligamento:''})); save(); }
+  let __empParsed = null;
+  try{ __empParsed = e ? JSON.parse(e) : null; }catch(err){ __empParsed = null; }
+  if (Array.isArray(__empParsed) && __empParsed.length) employees = __empParsed.map((x,i)=>hydrateEmployeeData({ativo:true, desligamento:'', id:i+1, ...x, ativo:x.ativo !== false}));
+  else { employees = ORIGINAL.map((o,i)=>hydrateEmployeeData({...o,id:i+1,ativo:true,desligamento:''})); if (__empParsed && __empParsed.length === 0) console.error('load(): liga_emp veio vazio do localStorage — usando lista original de reserva e NÃO salvando por segurança.'); else save(); }
   if (a) avulsos = JSON.parse(a);
   if (h) historico = JSON.parse(h);
   if (vt) vtRegistros = JSON.parse(vt);
@@ -4672,10 +4674,28 @@ function load() {
   if (c) { const p = JSON.parse(c); cfg.vd = p.vd||44.69; cfg.cb = p.cb||333.69; }
   save(); ensureVTRegistros();
 }
-function save() { employees.sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{numeric:true})); localStorage.setItem('liga_emp', JSON.stringify(employees)); }
+function save() {
+  try{
+    const anterior = JSON.parse(localStorage.getItem('liga_emp')||'[]');
+    if (Array.isArray(anterior) && anterior.length > 3 && employees.length === 0){
+      console.error('save() bloqueado: employees está vazio mas liga_emp tinha ' + anterior.length + ' registro(s). Recarregue a página antes de continuar para evitar perda de dados.');
+      return;
+    }
+  }catch(e){}
+  employees.sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{numeric:true})); localStorage.setItem('liga_emp', JSON.stringify(employees));
+}
 function saveAvulsos() { localStorage.setItem('liga_avulsos', JSON.stringify(avulsos)); }
 function saveHistorico() { localStorage.setItem('liga_hist', JSON.stringify(historico.filter(h=>!h.historicoFonte))); }
-function saveVTRegistros() { vtRegistros.sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{numeric:true})); localStorage.setItem('liga_vt_registros', JSON.stringify(vtRegistros)); }
+function saveVTRegistros() {
+  try{
+    const anterior = JSON.parse(localStorage.getItem('liga_vt_registros')||'[]');
+    if (Array.isArray(anterior) && anterior.length > 3 && vtRegistros.length === 0){
+      console.error('saveVTRegistros() bloqueado: vtRegistros está vazio mas liga_vt_registros tinha ' + anterior.length + ' registro(s). Recarregue a página antes de continuar para evitar perda de dados.');
+      return;
+    }
+  }catch(e){}
+  vtRegistros.sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{numeric:true})); localStorage.setItem('liga_vt_registros', JSON.stringify(vtRegistros));
+}
 function saveVTHistorico() { localStorage.setItem('liga_vt_historico', JSON.stringify(vtHistorico.filter(h=>!h.historicoFonte))); }
 function saveVTConfig() { vtCfg.competencia = document.getElementById('vt-comp')?.value || document.getElementById('vt-rateio-comp')?.value || vtCfg.competencia || '2026-06'; vtCfg.taxaSPTrans = parseFloat(document.getElementById('vt-taxa-sptrans')?.value)||0; vtCfg.taxaCMT = parseFloat(document.getElementById('vt-taxa-cmt')?.value)||0; vtCfg.taxa = vtCfg.taxaSPTrans + vtCfg.taxaCMT; vtCfg.diasPadrao = parseInt(document.getElementById('vt-dias-padrao')?.value)||22; localStorage.setItem('liga_vt_cfg', JSON.stringify(vtCfg)); }
 function saveConfig() {
