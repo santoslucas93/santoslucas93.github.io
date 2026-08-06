@@ -9799,10 +9799,11 @@ async function mobAutoCadastrarNaoReconhecidos(lista, todasCorridas){
       if (dep) deptoId = dep.id;
     }
     if (!deptoId) continue;
+    const mestre = mobBuscarNaEmpMestre(n.nome);
     const c = {
       id: MobFmt.uid(), nome: n.nome, nomePlanilha: n.nome, aliases: [],
-      email: n.email || '', emails: n.email ? [n.email] : [], cpf: '',
-      deptoId, cc: '', cargo: '', situacao: 'ativo',
+      email: n.email || '', emails: n.email ? [n.email] : [], cpf: (mestre&&mestre.cpf)||'',
+      deptoId, cc: (mestre&&mestre.cc)||'', cargo: '', situacao: 'ativo',
       dataAdmissao: '', dataDesligamento: '',
       observacoes: 'Cadastrado automaticamente durante a importação (departamento identificado na planilha)'
     };
@@ -13574,12 +13575,24 @@ function mobRenderPendenciasColab(comp){
   window.__mobPendList = Object.values(grupos).sort((a,b)=>b.qtd-a.qtd);
   return window.__mobPendList;
 }
+function mobBuscarNaEmpMestre(nome){
+  try{
+    const raw = JSON.parse(localStorage.getItem('liga_emp')||'null');
+    if (!Array.isArray(raw) || !raw.length) return null;
+    const alvo = MobFmt.normName(nome);
+    if (!alvo) return null;
+    const achado = raw.find(f => MobFmt.normName(f.nome||'') === alvo);
+    return achado ? {cpf: achado.cpf||'', tipo: achado.tipo||'', cc: achado.cc||''} : null;
+  }catch(e){ return null; }
+}
 function mobCadastrarPendente(i){
   const p = window.__mobPendList[i];
   if (!p) return;
-  window.__mobColabEdit = {nome:p.nome, nomePlanilha:p.nome, aliases:[], email:'', emails:[], cpf:'',
-    deptoId:'', cc:'', cargo:'', situacao:'ativo', dataAdmissao:'', dataDesligamento:'',
-    observacoes:'Cadastrado a partir de corridas sem colaborador (' + p.qtd + ' corrida(s) · ' + (p.setorRaw||'sem setor informado') + ')'};
+  const mestre = mobBuscarNaEmpMestre(p.nome);
+  window.__mobColabEdit = {nome:p.nome, nomePlanilha:p.nome, aliases:[], email:'', emails:[], cpf:(mestre&&mestre.cpf)||'',
+    deptoId:'', cc:(mestre&&mestre.cc)||'', cargo:'', situacao:'ativo', dataAdmissao:'', dataDesligamento:'',
+    observacoes:'Cadastrado a partir de corridas sem colaborador (' + p.qtd + ' corrida(s) · ' + (p.setorRaw||'sem setor informado') + ')' +
+      (mestre ? ' · CPF preenchido a partir do cadastro de benefícios (VT/MED/PRUD)' : '')};
   mobRenderColabModal(false);
 }
 
