@@ -4325,13 +4325,35 @@ function lnbUnlockApp(){
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-danger" id="f-btn-excluir-tudo" style="display:none;margin-right:auto" onclick="excluirColaboradorCompletoDoModal()">🗑️ Excluir de todos os módulos</button>
+      <button class="btn btn-danger" id="f-btn-excluir-tudo" style="display:none;margin-right:auto" onclick="excluirColaboradorCompletoDoModal()">🗑️ Excluir...</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveEmployee()">Salvar Colaborador</button>
     </div>
   </div>
 </div>
 
+<!-- MODAL EXCLUSAO POR MODULO: funciona como o cadastro (inclusao), soh que
+     ao contrario -- marque os modulos dos quais quer remover o colaborador
+     e confirme. So aparecem aqui os modulos aos quais a pessoa pertence. -->
+<div class="modal-overlay" id="excluir-modal-overlay" onclick="if(event.target===this) fecharExclusaoModal()">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-title"><span class="bar"></span>Excluir colaborador</div>
+    <div class="form-group">
+      <div style="margin-bottom:10px">Selecione de quais módulos remover <strong id="excl-nome"></strong>:</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;" id="excl-label-vt"><input type="checkbox" id="excl-mod-vt"> Vale Transporte</label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;" id="excl-label-med"><input type="checkbox" id="excl-mod-med"> Assistência Médica</label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;" id="excl-label-prud"><input type="checkbox" id="excl-mod-prud"> Seguro de Vida</label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;" id="excl-label-vr"><input type="checkbox" id="excl-mod-vr"> VR/VA/Cesta Básica (Cadastro Geral)</label>
+      </div>
+      <div class="info-box" style="margin-top:12px">Todos os módulos aos quais o colaborador pertence vêm marcados. Desmarque os que devem <strong>permanecer</strong> — a exclusão dos módulos marcados é definitiva e não pode ser desfeita.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharExclusaoModal()">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmarExclusaoSelecionada()">🗑️ Excluir dos módulos marcados</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL VT -->
 <div class="modal-overlay" id="vt-modal-overlay" onclick="closeVTModalBg(event)">
@@ -5156,7 +5178,7 @@ function renderTable() {
             <div class="action-buttons">
               <button class="btn btn-ghost btn-xs" onclick="openModal(${e.id})" title="Editar colaborador (dá para desmarcar só alguns módulos e salvar)">✏️</button>
               <button class="btn btn-ghost btn-xs" onclick="toggleEmployee(${e.id})">${toggleLabel}</button>
-              <button class="btn btn-danger btn-xs" onclick="excluirColaboradorTodosModulos(${e.id})" title="Excluir definitivamente de todos os módulos">🗑️</button>
+              <button class="btn btn-danger btn-xs" onclick="excluirColaboradorTodosModulos(${e.id})" title="Excluir (escolher módulos)">🗑️</button>
             </div>
           </td>
         </tr>`;
@@ -5210,19 +5232,16 @@ function openModal(id, presetModulo) {
     if (presetModulo === 'prud') document.getElementById('f-mod-prud').checked = true;
   }
   const btnExcluir = document.getElementById('f-btn-excluir-tudo');
-  if (btnExcluir) btnExcluir.style.display = id ? '' : 'none';
+  if (btnExcluir) btnExcluir.style.display = (id != null) ? '' : 'none';
   setupCadastroMasks();
   document.getElementById('modal-overlay').classList.add('open');
 }
 
-// Exclusão total a partir do próprio cadastro unificado: some com a pessoa
-// do Cadastro Geral e de todos os módulos de uma vez. Para excluir de só
-// alguns módulos, desmarque as caixinhas correspondentes em "Módulos
-// ativos" acima e clique em "Salvar Colaborador" — mesmo caminho de quem
-// inclui, só que ao contrário.
+// Abre a exclusão granular por módulo a partir do próprio cadastro
+// unificado (mesma tela de quem inclui, só que ao contrário).
 function excluirColaboradorCompletoDoModal(){
-  if (!editingId) return;
-  excluirColaboradorTodosModulos(editingId);
+  if (editingId == null) return;
+  abrirExclusaoModal(editingId);
 }
 
 // Abrem o cadastro unificado a partir de dentro de cada módulo (VT, Saúde,
@@ -5326,18 +5345,71 @@ function toggleEmployee(id) {
   save(); renderAll(); renderCalculo(); renderRateio(); renderAvulsos();
 }
 
-function excluirColaboradorTodosModulos(ref){
-  let emp = null, nome = null;
-  if (typeof ref === 'number') { emp = employees.find(e=>e.id===ref); nome = emp ? emp.nome : null; }
-  else { nome = ref; emp = employees.find(e=>normName(e.nome)===normName(ref)); }
-  if (!nome) return;
+// ------------------------------------------------------------------
+// EXCLUSAO GRANULAR POR MODULO ("funciona como a de incluir"): mostra os
+// modulos aos quais o colaborador pertence, com caixinhas marcadas, e
+// remove definitivamente somente dos modulos que continuarem marcados na
+// hora de confirmar.
+// ------------------------------------------------------------------
+let __exclRef = null;
+function resolverColaborador(ref){
+  if (typeof ref === 'number') { const emp = employees.find(e=>e.id===ref); return {emp, nome: emp ? emp.nome : null}; }
+  const emp = employees.find(e=>normName(e.nome)===normName(ref));
+  return {emp, nome: ref};
+}
+function abrirExclusaoModal(ref){
+  const {emp, nome} = resolverColaborador(ref);
+  if (!nome) { alert('Não foi possível localizar este colaborador para exclusão.'); return; }
   if (normName(nome) === 'ARBITRAGEM') { alert('A linha ARBITRAGEM é o total da conta 053917 e não pode ser excluída.'); return; }
-  if (!confirm('Remover "'+nome+'" de TODOS os módulos de benefícios (Cadastro Geral, Vale Transporte, Assistência Médica e Seguro de Vida)? Esta ação não pode ser desfeita.')) return;
   const chave = normName(nome);
-  if (emp) employees = employees.filter(e=>e.id!==emp.id);
-  vtRegistros = (vtRegistros||[]).filter(r=>normName(r.nome)!==chave);
-  medRegistros = (medRegistros||[]).filter(r=>normName(r.nome)!==chave);
-  prudRegistros = (prudRegistros||[]).filter(r=>normName(r.nome)!==chave);
+  const inVT = (vtRegistros||[]).some(r=>normName(r.nome)===chave);
+  const inMED = (medRegistros||[]).some(r=>normName(r.nome)===chave);
+  const inPRUD = (prudRegistros||[]).some(r=>normName(r.nome)===chave);
+  const inVR = !!emp && (!emp.modulos || emp.modulos.vr !== false);
+  if (!inVT && !inMED && !inPRUD && !inVR) { alert('Este colaborador não foi encontrado em nenhum módulo.'); return; }
+  __exclRef = ref;
+  document.getElementById('excl-nome').textContent = nome;
+  const cfgs = [['vt',inVT],['med',inMED],['prud',inPRUD],['vr',inVR]];
+  cfgs.forEach(([k,pertence])=>{
+    const cb = document.getElementById('excl-mod-'+k);
+    const lbl = document.getElementById('excl-label-'+k);
+    cb.checked = pertence;
+    lbl.style.display = pertence ? '' : 'none';
+  });
+  document.getElementById('excluir-modal-overlay').classList.add('open');
+}
+function fecharExclusaoModal(){
+  document.getElementById('excluir-modal-overlay').classList.remove('open');
+  __exclRef = null;
+}
+function confirmarExclusaoSelecionada(){
+  if (__exclRef == null) return;
+  const sel = {
+    vt: document.getElementById('excl-mod-vt').checked,
+    med: document.getElementById('excl-mod-med').checked,
+    prud: document.getElementById('excl-mod-prud').checked,
+    vr: document.getElementById('excl-mod-vr').checked
+  };
+  executarExclusaoModulos(__exclRef, sel);
+}
+function executarExclusaoModulos(ref, sel){
+  const {emp, nome} = resolverColaborador(ref);
+  if (!nome) return;
+  const labelsMap = {vt:'Vale Transporte', med:'Assistência Médica', prud:'Seguro de Vida', vr:'VR/VA/Cesta Básica (Cadastro Geral)'};
+  const labels = Object.keys(labelsMap).filter(k=>sel[k]).map(k=>labelsMap[k]);
+  if (!labels.length) { alert('Selecione ao menos um módulo para excluir.'); return; }
+  if (!confirm('Remover "'+nome+'" de: '+labels.join(', ')+'? Esta ação não pode ser desfeita.')) return;
+  const chave = normName(nome);
+  if (sel.vt) vtRegistros = (vtRegistros||[]).filter(r=>normName(r.nome)!==chave);
+  if (sel.med) medRegistros = (medRegistros||[]).filter(r=>normName(r.nome)!==chave);
+  if (sel.prud) prudRegistros = (prudRegistros||[]).filter(r=>normName(r.nome)!==chave);
+  if (emp) {
+    if (sel.vr && sel.vt && sel.med && sel.prud) {
+      employees = employees.filter(e=>e.id!==emp.id);
+    } else if (sel.vr) {
+      emp.modulos = {...(emp.modulos||{}), vr:false};
+    }
+  }
   save(); saveVTRegistros(); saveMed(); savePrud();
   renderAll(); renderCalculo(); renderRateio(); renderAvulsos();
   if (typeof renderVT==='function'){ renderVT(); renderVTCalculo(); renderVTRateio(); }
@@ -5347,21 +5419,25 @@ function excluirColaboradorTodosModulos(ref){
   if (typeof closeVTModal==='function') closeVTModal();
   if (typeof closeMedModal==='function') closeMedModal();
   if (typeof closePrudModal==='function') closePrudModal();
-  showToast('✅ Colaborador removido de todos os módulos.');
+  fecharExclusaoModal();
+  showToast('✅ Colaborador removido de: '+labels.join(', ')+'.');
 }
+// Mantido por compatibilidade com chamadas antigas: agora abre a mesma
+// tela de exclusão granular, em vez de excluir tudo direto sem perguntar.
+function excluirColaboradorTodosModulos(ref){ abrirExclusaoModal(ref); }
 function excluirVTRow(i){
   const r = filteredVTRows()[i] || vtRows()[i]; if(!r) return;
-  excluirColaboradorTodosModulos(r.employeeId != null ? r.employeeId : r.nome);
+  abrirExclusaoModal(r.employeeId != null ? r.employeeId : r.nome);
 }
 function excluirMedRow(id){
   const r = (medRegistros||[]).find(x=>String(x.id)===String(id)); if(!r) return;
   const emp = employees.find(e=>normName(e.nome)===normName(r.nome));
-  excluirColaboradorTodosModulos(emp ? emp.id : r.nome);
+  abrirExclusaoModal(emp ? emp.id : r.nome);
 }
 function excluirPrudRow(id){
   const r = (prudRegistros||[]).find(x=>String(x.id)===String(id)); if(!r) return;
   const emp = employees.find(e=>normName(e.nome)===normName(r.nome));
-  excluirColaboradorTodosModulos(emp ? emp.id : r.nome);
+  abrirExclusaoModal(emp ? emp.id : r.nome);
 }
 
 function deleteEmployee(id) {
@@ -5812,7 +5888,7 @@ function renderVT(){
       <td class="tr money">${fmt(c.base)}</td>
       <td class="tr money">${fmt(c.taxa)}</td>
       <td class="tr money">${fmt(c.total)}</td>
-      <td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirVTRow(${i})" title="Excluir definitivamente de todos os módulos">🗑️</button></div></td>
+      <td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirVTRow(${i})" title="Excluir (escolher módulos)">🗑️</button></div></td>
     </tr>`;
   });
   document.getElementById('vt-total-base').textContent = fmt(totalBase);
@@ -6328,7 +6404,7 @@ function renderVT(){
   const all=vtRows(); const rows=filteredVTRows(); const totalBaseParam=vtTotalBase(all.filter(r=>r.ativoVT)); let totalBase=0,totalTaxa=0,totalFinal=0,ativos=all.filter(r=>r.ativoVT).length;
   body.innerHTML='';
   if(!rows.length){ body.innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:24px">Nenhum colaborador encontrado no filtro selecionado.<br><small style="opacity:.6">Diagnóstico: cadastro geral='+((typeof employees!=="undefined"&&employees)?employees.length:"?")+', base VT sem filtro='+all.length+', registros VT salvos='+((typeof vtRegistros!=="undefined"&&vtRegistros)?vtRegistros.length:"?")+'</small></td></tr>'; }
-  rows.forEach((r,i)=>{ const c=vtCalc(r,totalBaseParam); totalBase+=c.base; totalTaxa+=c.taxa; totalFinal+=c.total; body.innerHTML += `<tr class="${r.ativoVT?'':'vt-status-off'}"><td><strong>${r.nome}</strong><div class="kpi-note">${r.tipo||''}</div></td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc||'–')}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${r.ativoVT ? '<span class="badge badge-active"><span class="status-dot"></span>Ativo VT</span>' : '<span class="badge badge-off"><span class="status-dot off"></span>Desligado VT</span>'}</td><td class="tr"><div class="vt-tariff-cell"><select class="vt-tariff-select no-print" onchange="setVTField(${i},'tarifaTipo',this.value)"><option value="sptransOnibus" ${r.tarifaTipo==='sptransOnibus'?'selected':''}>SPTrans Ônibus</option><option value="metro" ${r.tarifaTipo==='metro'?'selected':''}>Metrô/Trem</option><option value="integracao" ${r.tarifaTipo==='integracao'?'selected':''}>Integração</option><option value="cmtBom" ${r.tarifaTipo==='cmtBom'?'selected':''}>CMT/BOM</option><option value="custom" ${r.tarifaTipo==='custom'?'selected':''}>Personalizada</option></select><input class="vt-input" type="number" min="0" step="0.01" value="${Number(r.tarifa)||0}" onchange="setVTField(${i},'tarifa',this.value)"><div class="kpi-note">Ida+volta/dia: ${fmt(vtValorDia(r))}</div></div></td><td class="tc"><input class="vt-input small" type="number" min="0" step="1" value="${Number(r.dias)||0}" onchange="setVTField(${i},'dias',this.value)"></td><td class="tr money">${fmt(c.base)}</td><td class="tr money">${fmt(c.taxa)}</td><td class="tr money">${fmt(c.total)}</td><td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirVTRow(${i})" title="Excluir definitivamente de todos os módulos">🗑️</button></div></td></tr>`; });
+  rows.forEach((r,i)=>{ const c=vtCalc(r,totalBaseParam); totalBase+=c.base; totalTaxa+=c.taxa; totalFinal+=c.total; body.innerHTML += `<tr class="${r.ativoVT?'':'vt-status-off'}"><td><strong>${r.nome}</strong><div class="kpi-note">${r.tipo||''}</div></td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc||'–')}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${r.ativoVT ? '<span class="badge badge-active"><span class="status-dot"></span>Ativo VT</span>' : '<span class="badge badge-off"><span class="status-dot off"></span>Desligado VT</span>'}</td><td class="tr"><div class="vt-tariff-cell"><select class="vt-tariff-select no-print" onchange="setVTField(${i},'tarifaTipo',this.value)"><option value="sptransOnibus" ${r.tarifaTipo==='sptransOnibus'?'selected':''}>SPTrans Ônibus</option><option value="metro" ${r.tarifaTipo==='metro'?'selected':''}>Metrô/Trem</option><option value="integracao" ${r.tarifaTipo==='integracao'?'selected':''}>Integração</option><option value="cmtBom" ${r.tarifaTipo==='cmtBom'?'selected':''}>CMT/BOM</option><option value="custom" ${r.tarifaTipo==='custom'?'selected':''}>Personalizada</option></select><input class="vt-input" type="number" min="0" step="0.01" value="${Number(r.tarifa)||0}" onchange="setVTField(${i},'tarifa',this.value)"><div class="kpi-note">Ida+volta/dia: ${fmt(vtValorDia(r))}</div></div></td><td class="tc"><input class="vt-input small" type="number" min="0" step="1" value="${Number(r.dias)||0}" onchange="setVTField(${i},'dias',this.value)"></td><td class="tr money">${fmt(c.base)}</td><td class="tr money">${fmt(c.taxa)}</td><td class="tr money">${fmt(c.total)}</td><td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirVTRow(${i})" title="Excluir (escolher módulos)">🗑️</button></div></td></tr>`; });
   document.getElementById('vt-total-base').textContent=fmt(totalBase); document.getElementById('vt-total-taxa').textContent=fmt(totalTaxa); document.getElementById('vt-total-final').textContent=fmt(totalFinal);
   const stat=document.getElementById('stat-vt'); if(stat){ const allBase=vtTotalBase(all.filter(r=>r.ativoVT)); const av=vtTotalAvulsos(); stat.innerHTML=`<div class="stat-card navy"><div class="stat-label">Base VT</div><div class="stat-value" style="font-size:19px">${fmt(allBase)}</div><div class="stat-sub">Competência ${compLabel(vtCfg.competencia)}</div></div><div class="stat-card green"><div class="stat-label">Ativos VT</div><div class="stat-value">${ativos}</div><div class="stat-sub">com benefício habilitado</div></div><div class="stat-card gold"><div class="stat-label">Taxas</div><div class="stat-value" style="font-size:19px">${fmt(vtTotalTaxas())}</div><div class="stat-sub">SPTrans + CMT/BOM</div></div><div class="stat-card"><div class="stat-label">Total Boleto</div><div class="stat-value" style="font-size:19px">${fmt(allBase+vtTotalTaxas()+av)}</div><div class="stat-sub">base + taxas + avulsos</div></div>`; }
   renderVTAvulsoSelect(); renderVTAvulsos(); renderVTCalculo(); renderVTRateio(); renderVTHistorico(); renderVTConsolidado(); renderVTConfig();
@@ -6408,7 +6484,7 @@ function renderMedStats(targetId, rows) {
 }
 function renderMed() {
   const body=document.getElementById('med-body'); if(!body) return; const rows=medFiltered(); body.innerHTML=''; let tv=0,ti=0;
-  rows.forEach(r=>{ const total=Number(r.valor||0)+Number(r.iof||0); if(r.ativo){tv+=Number(r.valor||0);ti+=Number(r.iof||0);} body.innerHTML += `<tr class="${r.ativo?'':'med-row-off'}"><td><strong>${r.nome}</strong></td><td>${r.cpf||'–'}</td><td>${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${contaPill(medConta(r))}</td><td>${r.ativo?'<span class="badge badge-active">Ativo</span>':'<span class="badge badge-off">Desligado</span>'}</td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.valor||0).toFixed(2)}" onchange="updateMedField(${r.id},'valor',this.value)"></td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.iof||0).toFixed(2)}" onchange="updateMedField(${r.id},'iof',this.value)"></td><td class="tr money">${fmt(total)}</td><td class="tc no-print"><div class="med-actions"><button class="btn btn-ghost btn-xs" onclick="editMedRow(${r.id})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updateMedField(${r.id},'ativo',${r.ativo?'false':'true'})">${r.ativo?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirMedRow(${r.id})" title="Excluir definitivamente de todos os módulos">🗑️</button></div></td></tr>`; });
+  rows.forEach(r=>{ const total=Number(r.valor||0)+Number(r.iof||0); if(r.ativo){tv+=Number(r.valor||0);ti+=Number(r.iof||0);} body.innerHTML += `<tr class="${r.ativo?'':'med-row-off'}"><td><strong>${r.nome}</strong></td><td>${r.cpf||'–'}</td><td>${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${contaPill(medConta(r))}</td><td>${r.ativo?'<span class="badge badge-active">Ativo</span>':'<span class="badge badge-off">Desligado</span>'}</td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.valor||0).toFixed(2)}" onchange="updateMedField(${r.id},'valor',this.value)"></td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.iof||0).toFixed(2)}" onchange="updateMedField(${r.id},'iof',this.value)"></td><td class="tr money">${fmt(total)}</td><td class="tc no-print"><div class="med-actions"><button class="btn btn-ghost btn-xs" onclick="editMedRow(${r.id})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updateMedField(${r.id},'ativo',${r.ativo?'false':'true'})">${r.ativo?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirMedRow(${r.id})" title="Excluir (escolher módulos)">🗑️</button></div></td></tr>`; });
   if(!rows.length) body.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:32px">Nenhum colaborador encontrado.</td></tr>';
   document.getElementById('med-total-valor').textContent=fmt(tv); document.getElementById('med-total-iof').textContent=fmt(ti); document.getElementById('med-total-geral').textContent=fmt(tv+ti); renderMedStats('stat-med', medRegistros);
 }
@@ -6513,7 +6589,7 @@ function applyPrudBulkValue() {
 }
 
 function renderPrudStats(targetId, rows) { const ativos=(rows||[]).filter(r=>r.ativo); const total=ativos.reduce((s,r)=>s+Number(r.valor||0),0); const el=document.getElementById(targetId); if(!el) return; el.innerHTML = `<div class="stat-card navy"><div class="stat-label">Ativos Prudential</div><div class="stat-value">${ativos.length}</div><div class="stat-sub">colaboradores no seguro</div></div><div class="stat-card green"><div class="stat-label">Total Seguro</div><div class="stat-value" style="font-size:19px">${fmt(total)}</div><div class="stat-sub">sem IOF</div></div><div class="stat-card gold"><div class="stat-label">Contas</div><div class="stat-value" style="font-size:17px">053671 / 057061 / 053917</div><div class="stat-sub">por tipo e centro de custo</div></div><div class="stat-card"><div class="stat-label">Centros de Custo</div><div class="stat-value">${new Set(ativos.map(r=>r.cc)).size}</div><div class="stat-sub">com seguro ativo</div></div>`; }
-function renderPrud() { const rows=prudFiltered(); renderPrudStats('stat-prud', rows); const body=document.getElementById('prud-body'); if(!body) return; body.innerHTML=''; let total=0; if(!rows.length) body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum registro Prudential encontrado.</td></tr>'; rows.forEach(r=>{ r.conta=prudContaByCC(r.cc,r.tipo); const v=Number(r.valor)||0; if(r.ativo) total+=v; const arb=r.conta==='053917'||normName(r.nome)==='ARBITRAGEM'; body.innerHTML += `<tr class="${r.ativo?'':'prud-row-off'} ${arb?'prud-row-arb':''}"><td>${r.nome}</td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td><span class="conta-pill">${r.conta}</span><div class="kpi-note">${prudLabelConta(r.conta)}</div></td><td><span class="badge ${r.ativo?'badge-active':'badge-off'}">${r.ativo?'ATIVO':'DESLIGADO'}</span></td><td class="tr"><input class="prud-input" type="number" step="0.01" value="${v.toFixed(2)}" onchange="updatePrudField(${r.id},'valor',this.value)"></td><td class="tc no-print"><div class="prud-actions"><button class="btn btn-ghost btn-xs" onclick="editPrudRow(${r.id})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updatePrudField(${r.id},'ativo',${!r.ativo})">${r.ativo?'Desligar':'Ativar'}</button>${arb?'':`<button class="btn btn-danger btn-xs" onclick="excluirPrudRow(${r.id})" title="Excluir definitivamente de todos os módulos">🗑️</button>`}</div></td></tr>`; }); document.getElementById('prud-total-geral').textContent=fmt(total); }
+function renderPrud() { const rows=prudFiltered(); renderPrudStats('stat-prud', rows); const body=document.getElementById('prud-body'); if(!body) return; body.innerHTML=''; let total=0; if(!rows.length) body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum registro Prudential encontrado.</td></tr>'; rows.forEach(r=>{ r.conta=prudContaByCC(r.cc,r.tipo); const v=Number(r.valor)||0; if(r.ativo) total+=v; const arb=r.conta==='053917'||normName(r.nome)==='ARBITRAGEM'; body.innerHTML += `<tr class="${r.ativo?'':'prud-row-off'} ${arb?'prud-row-arb':''}"><td>${r.nome}</td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td><span class="conta-pill">${r.conta}</span><div class="kpi-note">${prudLabelConta(r.conta)}</div></td><td><span class="badge ${r.ativo?'badge-active':'badge-off'}">${r.ativo?'ATIVO':'DESLIGADO'}</span></td><td class="tr"><input class="prud-input" type="number" step="0.01" value="${v.toFixed(2)}" onchange="updatePrudField(${r.id},'valor',this.value)"></td><td class="tc no-print"><div class="prud-actions"><button class="btn btn-ghost btn-xs" onclick="editPrudRow(${r.id})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updatePrudField(${r.id},'ativo',${!r.ativo})">${r.ativo?'Desligar':'Ativar'}</button>${arb?'':`<button class="btn btn-danger btn-xs" onclick="excluirPrudRow(${r.id})" title="Excluir (escolher módulos)">🗑️</button>`}</div></td></tr>`; }); document.getElementById('prud-total-geral').textContent=fmt(total); }
 function prudSnapshot() { const detalhes=prudActiveRows().map(r=>{ const conta=prudContaByCC(r.cc,r.tipo); return {nome:r.nome,cpf:r.cpf,nascimento:r.nascimento,cc:r.cc,tipo:r.tipo,conta,valor:Number(r.valor)||0,total:Number(r.valor)||0}; }); const totais={pj:0,clt:0,arb:0,total:0}; detalhes.forEach(d=>{ if(d.conta==='053917') totais.arb+=d.total; else if(d.conta==='057061') totais.clt+=d.total; else totais.pj+=d.total; totais.total+=d.total; }); return {detalhes, totais}; }
 function renderPrudCalculo() { const comp=document.getElementById('prud-comp'); if(comp) comp.value=prudCfg.competencia; const sub=document.getElementById('prud-calc-print-subtitle'); if(sub) sub.textContent=`Competência: ${compLabel(prudCfg.competencia)}`; const snap=prudSnapshot(); renderPrudStats('stat-prud-calculo', prudActiveRows()); const body=document.getElementById('prud-calculo-body'); if(!body) return; body.innerHTML=''; snap.detalhes.forEach(d=>body.innerHTML+=`<tr class="${d.conta==='053917'?'prud-row-arb':''}"><td>${d.nome}</td><td class="doc-cell">${d.cpf||'–'}</td><td class="doc-cell">${d.nascimento||'–'}</td><td>${ccPill(d.cc)}</td><td><span class="conta-pill">${d.conta}</span></td><td class="tr money">${fmt(d.total)}</td></tr>`); document.getElementById('prud-calc-total').textContent=fmt(snap.totais.total); }
 function prudRateioGroups() { const groups={pj:{conta:'053671',ccs:PRUD_CC_PJ,items:{}}, clt:{conta:'057061',ccs:PRUD_CC_CLT,items:{}}, arb:{conta:'053917',ccs:PRUD_CC_ARB,items:{}}}; Object.values(groups).forEach(g=>g.ccs.forEach(cc=>g.items[cc]={cc,area:areaName(cc),valor:0})); prudActiveRows().forEach(r=>{ const conta=prudContaByCC(r.cc,r.tipo), key=conta==='053917'?'arb':conta==='057061'?'clt':'pj', cc=r.cc||'N/D'; if(!groups[key].items[cc]) groups[key].items[cc]={cc,area:areaName(cc),valor:0}; groups[key].items[cc].valor+=Number(r.valor)||0; }); return groups; }
