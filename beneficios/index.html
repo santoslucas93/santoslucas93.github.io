@@ -4529,7 +4529,11 @@ function lnbUnlockApp(){
           if (typeof renderAvulsos==='function') renderAvulsos();
           break;
         case 'liga_hist':
-          if (Array.isArray(valor)) historico = valor;
+          // Preserva no ar os registros "historicoFonte" (planilhas oficiais
+          // recarregadas do pacote embutido a cada boot) -- eles nunca vao
+          // para o servidor de proposito, entao uma sincronizacao normal do
+          // servidor NAO PODE apagá-los da tela.
+          if (Array.isArray(valor)) historico = valor.concat((historico||[]).filter(function(h){return h.historicoFonte;}));
           if (typeof renderHistorico==='function') renderHistorico();
           if (typeof renderConsolidado==='function') renderConsolidado();
           break;
@@ -4548,7 +4552,7 @@ function lnbUnlockApp(){
           if (typeof renderVTRateio==='function') renderVTRateio();
           break;
         case 'liga_vt_historico':
-          if (Array.isArray(valor)) vtHistorico = valor;
+          if (Array.isArray(valor)) vtHistorico = valor.concat((vtHistorico||[]).filter(function(h){return h.historicoFonte;}));
           if (typeof renderVTHistorico==='function') renderVTHistorico();
           if (typeof renderVTConsolidado==='function') renderVTConsolidado();
           break;
@@ -4564,7 +4568,7 @@ function lnbUnlockApp(){
           if (typeof renderMedConfig==='function') renderMedConfig();
           break;
         case 'liga_med_historico':
-          if (Array.isArray(valor)) medHistorico = valor;
+          if (Array.isArray(valor)) medHistorico = valor.concat((medHistorico||[]).filter(function(h){return h.historicoFonte;}));
           if (typeof renderMedHistorico==='function') renderMedHistorico();
           if (typeof renderMedConsolidado==='function') renderMedConsolidado();
           break;
@@ -4579,7 +4583,7 @@ function lnbUnlockApp(){
           if (typeof renderPrudConfig==='function') renderPrudConfig();
           break;
         case 'liga_prud_historico':
-          if (Array.isArray(valor)) prudHistorico = valor;
+          if (Array.isArray(valor)) prudHistorico = valor.concat((prudHistorico||[]).filter(function(h){return h.historicoFonte;}));
           if (typeof renderPrudHistorico==='function') renderPrudHistorico();
           if (typeof renderPrudConsolidado==='function') renderPrudConsolidado();
           break;
