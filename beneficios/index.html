@@ -5430,14 +5430,18 @@ function toggleEmployee(id) {
 // hora de confirmar.
 // ------------------------------------------------------------------
 let __exclRef = null;
+let __exclNomeFallback = null;
 // Comparação "tolerante" usada só na tela de exclusão: ignora conectores
 // (DE/DA/DO/DOS/DAS) para achar a mesma pessoa mesmo quando o nome foi
 // digitado de forma levemente diferente em outro módulo (ex.: "DOUGLAS
 // OLIVEIRA CARRARETTO" no Vale Transporte x "DOUGLAS DE OLIVEIRA
 // CARRARETTO" no Seguro de Vida — mesma pessoa, cadastro divergente).
 const normNameFlex = s => normName(s).replace(/\b(DE|DA|DO|DOS|DAS)\b/g,'').replace(/\s+/g,' ').trim();
-function resolverColaborador(ref){
-  if (typeof ref === 'number') { const emp = employees.find(e=>e.id===ref); return {emp, nome: emp ? emp.nome : null}; }
+// nomeFallback cobre o caso de um registro "órfão" (ex.: guardava um
+// employeeId de alguém que já não existe mais no Cadastro Geral — sobra de
+// teste). Sem isso, a tela de exclusão desistia sem abrir nada.
+function resolverColaborador(ref, nomeFallback){
+  if (typeof ref === 'number') { const emp = employees.find(e=>e.id===ref); return {emp, nome: emp ? emp.nome : (nomeFallback || null)}; }
   const emp = employees.find(e=>normNameFlex(e.nome)===normNameFlex(ref));
   return {emp, nome: ref};
 }
@@ -5454,10 +5458,11 @@ function pertenceAoColaborador(r, emp, chaveNome){
 // módulo esteja com o nome digitado de forma diferente. Os módulos em que
 // a pessoa foi encontrada já vêm marcados; os demais ficam disponíveis
 // para marcar manualmente se for o caso.
-function abrirExclusaoModal(ref){
-  const {emp, nome} = resolverColaborador(ref);
+function abrirExclusaoModal(ref, nomeFallback){
+  const {emp, nome} = resolverColaborador(ref, nomeFallback);
   if (!nome) { alert('Não foi possível localizar este colaborador para exclusão.'); return; }
   if (normName(nome) === 'ARBITRAGEM') { alert('A linha ARBITRAGEM é o total da conta 053917 e não pode ser excluída.'); return; }
+  __exclNomeFallback = nomeFallback || null;
   const chave = normNameFlex(nome);
   const inVT = (vtRegistros||[]).some(r=>pertenceAoColaborador(r,emp,chave));
   const inMED = (medRegistros||[]).some(r=>pertenceAoColaborador(r,emp,chave));
@@ -5477,6 +5482,7 @@ function abrirExclusaoModal(ref){
 function fecharExclusaoModal(){
   document.getElementById('excluir-modal-overlay').classList.remove('open');
   __exclRef = null;
+  __exclNomeFallback = null;
 }
 function confirmarExclusaoSelecionada(){
   if (__exclRef == null) return;
@@ -5486,10 +5492,10 @@ function confirmarExclusaoSelecionada(){
     prud: document.getElementById('excl-mod-prud').checked,
     vr: document.getElementById('excl-mod-vr').checked
   };
-  executarExclusaoModulos(__exclRef, sel);
+  executarExclusaoModulos(__exclRef, sel, __exclNomeFallback);
 }
-function executarExclusaoModulos(ref, sel){
-  const {emp, nome} = resolverColaborador(ref);
+function executarExclusaoModulos(ref, sel, nomeFallback){
+  const {emp, nome} = resolverColaborador(ref, nomeFallback);
   if (!nome) return;
   const labelsMap = {vt:'Vale Transporte', med:'Assistência Médica', prud:'Seguro de Vida', vr:'VR/VA/Cesta Básica (Cadastro Geral)'};
   const labels = Object.keys(labelsMap).filter(k=>sel[k]).map(k=>labelsMap[k]);
@@ -5532,17 +5538,17 @@ function executarExclusaoModulos(ref, sel){
 function excluirColaboradorTodosModulos(ref){ abrirExclusaoModal(ref); }
 function excluirVTRow(i){
   const r = filteredVTRows()[i] || vtRows()[i]; if(!r) return;
-  abrirExclusaoModal(r.employeeId != null ? r.employeeId : r.nome);
+  abrirExclusaoModal(r.employeeId != null ? r.employeeId : r.nome, r.nome);
 }
 function excluirMedRow(id){
   const r = (medRegistros||[]).find(x=>String(x.id)===String(id)); if(!r) return;
   const emp = resolverEmpDoRegistro(r);
-  abrirExclusaoModal(emp ? emp.id : r.nome);
+  abrirExclusaoModal(emp ? emp.id : r.nome, r.nome);
 }
 function excluirPrudRow(id){
   const r = (prudRegistros||[]).find(x=>String(x.id)===String(id)); if(!r) return;
   const emp = resolverEmpDoRegistro(r);
-  abrirExclusaoModal(emp ? emp.id : r.nome);
+  abrirExclusaoModal(emp ? emp.id : r.nome, r.nome);
 }
 
 // ------------------------------------------------------------------
@@ -6624,10 +6630,18 @@ function ensureVTRegistros(){
     !idsExistentesEmp.has(String(r.employeeId)) &&
     !baseRows.some(b=>String(b.employeeId)===String(r.employeeId))
   );
+  const novoVtRegistros = [...baseRows, ...manuais, ...orfaos];
+  // Só grava (e só dispara sincronização com o Supabase) quando o resultado
+  // realmente muda. Antes, essa função — chamada em quase toda tela e
+  // cálculo do Vale Transporte — regravava e ressincronizava a cada
+  // clique/render mesmo sem nada ter mudado, o que deixava o sistema mais
+  // lento do que precisava.
+  const mudou = JSON.stringify(novoVtRegistros) !== JSON.stringify(vtRegistros);
+  vtRegistros = novoVtRegistros;
+  if (!mudou) return;
   if (orfaos.length) {
     console.warn('[VT] Registros orfaos preservados (funcionario sumiu de liga_emp, revisar manualmente):', orfaos.map(o=>o.nome));
   }
-  vtRegistros = [...baseRows, ...manuais, ...orfaos];
   saveVTRegistros();
 }
 function setVTField(idx, field, value){
