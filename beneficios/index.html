@@ -3135,10 +3135,17 @@ const LIGA_KEYS = [
 // Puxa a base oficial do Supabase (síncrono) e grava no localStorage antes
 // do restante da página (que já lê localStorage de forma síncrona logo na
 // carga) ser executado. Roda só uma vez, no boot, com sessão válida.
+// Guarda, por chave, o updated_at que o Supabase tinha na última vez que
+// esta aba puxou o estado. Usado para detectar quando outra sessão gravou
+// dados mais novos entre a nossa última leitura e a nossa próxima gravação
+// (ver salvarAgora, mais abaixo) — é isso que evita a aba antiga sobrescrever
+// cadastros feitos por outra pessoa/aba enquanto esta ficou aberta.
+window.__lnbServerVersion = window.__lnbServerVersion || {};
+
 window.__lnbPullState = function(){
   const xhr = new XMLHttpRequest();
   const chaves = LIGA_KEYS.map(k=>'"'+k+'"').join(',');
-  xhr.open('GET', SUPABASE_URL+'/rest/v1/ben_state?select=chave,valor&chave=in.('+chaves+')', false);
+  xhr.open('GET', SUPABASE_URL+'/rest/v1/ben_state?select=chave,valor,updated_at&chave=in.('+chaves+')', false);
   xhr.setRequestHeader('apikey', SUPABASE_KEY);
   xhr.setRequestHeader('Authorization', 'Bearer '+AUTH_SESSION.access_token);
   xhr.send(null);
@@ -3151,6 +3158,7 @@ window.__lnbPullState = function(){
     if (r.valor !== null && r.valor !== undefined){
       localStorage.setItem(r.chave, JSON.stringify(r.valor));
     }
+    window.__lnbServerVersion[r.chave] = r.updated_at || new Date().toISOString();
   });
 };
 
@@ -4415,6 +4423,58 @@ function lnbUnlockApp(){
     else if (estado==='saving') el.textContent = '\u2601\ufe0f Salvando\u2026';
     else if (estado==='erro') el.textContent = '\u26a0\ufe0f Falha ao sincronizar: ' + (detalhe||'');
     else if (estado==='readonly') el.textContent = '\ud83d\udc41 Modo leitura';
+    else if (estado==='mesclado') el.textContent = '\ud83d\udd04 Outra sess\u00e3o alterou estes dados \u2014 mesclado automaticamente';
+  }
+
+  function avisarRecarregar(msg){
+    let el = document.getElementById('lnb-reload-banner');
+    if (!el){
+      el = document.createElement('div');
+      el.id = 'lnb-reload-banner';
+      el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;background:#b45309;color:#fff;padding:10px 16px;text-align:center;font-weight:700;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.25);';
+      document.body.appendChild(el);
+    }
+    el.innerHTML = msg + ' &nbsp; <button id="lnb-reload-btn" style="margin-left:10px;background:#fff;color:#b45309;border:0;border-radius:6px;padding:4px 12px;font-weight:700;cursor:pointer;">Atualizar agora</button>';
+    document.getElementById('lnb-reload-btn').onclick = function(){ location.reload(); };
+  }
+
+  // Chave "natural" de cada item dentro dos arrays do sistema, usada para
+  // mesclar em vez de sobrescrever quando outra sessão salvou primeiro.
+  function chaveNatural(item){
+    if (item && typeof item === 'object'){
+      if (item.employeeId != null) return 'eid:'+item.employeeId;
+      if (item.id != null) return 'id:'+item.id;
+      if (item.cpf) return 'cpf:'+item.cpf;
+      if (item.nome) return 'nome:'+item.nome;
+    }
+    return null;
+  }
+
+  // Mescla duas versões de uma mesma chave (a do servidor, mais nova que a
+  // que esta aba conhecia, e a local, que o usuário acabou de editar aqui).
+  // Nunca descarta um registro que só existe do lado do servidor — é
+  // exatamente essa perda (aba antiga sobrescrevendo cadastro feito em
+  // outra aba/máquina) que causava colaboradores "sumindo".
+  function mesclar(servidor, local){
+    if (!Array.isArray(servidor) || !Array.isArray(local)) return null; // não sabemos mesclar objetos soltos (cfg) com segurança
+    const porChave = new Map();
+    servidor.forEach(function(item){ const k = chaveNatural(item); if (k) porChave.set(k, item); });
+    let temSemChave = false;
+    local.forEach(function(item){
+      const k = chaveNatural(item);
+      if (k) porChave.set(k, item); // edição/adição local prevalece para o registro que ela tocou
+      else temSemChave = true;
+    });
+    if (temSemChave) return null; // item sem id detectável: não arriscar mesclagem automática
+    return Array.from(porChave.values());
+  }
+
+  async function buscarVersaoServidor(chaves){
+    const filtro = chaves.map(function(k){ return '"'+k+'"'; }).join(',');
+    const rows = await supaSelectFiltered('ben_state', 'select=chave,valor,updated_at&chave=in.('+filtro+')');
+    const map = {};
+    rows.forEach(function(r){ map[r.chave] = r; });
+    return map;
   }
 
   async function salvarAgora(){
@@ -4425,15 +4485,45 @@ function lnbUnlockApp(){
     saving = true;
     atualizarSyncBadge('saving');
     try{
+      // Antes de gravar, confere se alguém salvou algo mais novo nessas
+      // mesmas chaves desde a última vez que esta aba leu o servidor. Se
+      // sim, mescla em vez de sobrescrever — isso é o que impede uma aba/
+      // sessão mais antiga de apagar cadastros feitos em outro lugar.
+      const versaoServidor = await buscarVersaoServidor(chaves);
+      let houveMescla = false;
       const rows = chaves.map(function(k){
-        let valor = null;
-        try{ const raw = localStorage.getItem(k); valor = raw!=null ? JSON.parse(raw) : null; }catch(e){ valor = null; }
-        return {chave:k, valor:valor, updated_by:(AUTH_SESSION&&(AUTH_SESSION.nome||AUTH_SESSION.role))||'desconhecido', updated_at:new Date().toISOString()};
+        let valorLocal = null;
+        try{ const raw = localStorage.getItem(k); valorLocal = raw!=null ? JSON.parse(raw) : null; }catch(e){ valorLocal = null; }
+        const infoServidor = versaoServidor[k];
+        const versaoConhecida = window.__lnbServerVersion[k];
+        let valorFinal = valorLocal;
+        if (infoServidor && versaoConhecida && infoServidor.updated_at && infoServidor.updated_at !== versaoConhecida){
+          const mesclado = mesclar(infoServidor.valor, valorLocal);
+          if (mesclado){
+            valorFinal = mesclado;
+            houveMescla = true;
+            origSetItem(k, JSON.stringify(mesclado));
+          } else {
+            // Não deu para mesclar com segurança (ex.: configuração, não lista
+            // de cadastros): mantém o que está no servidor e avisa o usuário,
+            // em vez de arriscar sobrescrever a alteração de outra pessoa.
+            valorFinal = infoServidor.valor;
+            origSetItem(k, JSON.stringify(infoServidor.valor));
+            houveMescla = true;
+          }
+        }
+        return {chave:k, valor:valorFinal, updated_by:(AUTH_SESSION&&(AUTH_SESSION.nome||AUTH_SESSION.role))||'desconhecido', updated_at:new Date().toISOString()};
       });
       await supaUpsert('ben_state', rows, 'chave');
+      rows.forEach(function(r){ window.__lnbServerVersion[r.chave] = r.updated_at; });
       dirty = {};
-      atualizarSyncBadge('ok');
-      lnbLogActivity('beneficios_salvar', chaves.join(', '));
+      if (houveMescla){
+        atualizarSyncBadge('mesclado');
+        avisarRecarregar('\ud83d\udd04 Outra sess\u00e3o salvou dados aqui enquanto voc\u00ea editava. Tudo foi mesclado sem perder nada, mas atualize a tela para ver a vers\u00e3o completa.');
+      } else {
+        atualizarSyncBadge('ok');
+      }
+      lnbLogActivity('beneficios_salvar', chaves.join(', ') + (houveMescla? ' (mesclado)':''));
     }catch(e){
       console.error('Falha ao sincronizar Sistema de Benefícios com o Supabase:', e);
       atualizarSyncBadge('erro', e.message);
@@ -4460,6 +4550,35 @@ function lnbUnlockApp(){
       salvarAgora();
     }
   });
+
+  // Rede de segurança para abas antigas ociosas: a cada 90s, e sempre que a
+  // aba volta a ficar visível, confere se alguma chave sem edição pendente
+  // aqui mudou no servidor. Se mudou, atualiza esta aba silenciosamente —
+  // assim uma aba esquecida aberta há horas nunca fica desatualizada a
+  // ponto de, ao salvar qualquer coisa, apagar cadastros feitos por outra
+  // pessoa nesse meio tempo.
+  async function conferirAtualizacoes(){
+    if (isReadOnlyUser() && !AUTH_SESSION) return;
+    try{
+      const chaves = LIGA_KEYS.filter(function(k){ return !dirty[k]; });
+      if (!chaves.length) return;
+      const versaoServidor = await buscarVersaoServidor(chaves);
+      let atualizouAlgo = false;
+      Object.keys(versaoServidor).forEach(function(k){
+        const info = versaoServidor[k];
+        if (info.updated_at && info.updated_at !== window.__lnbServerVersion[k]){
+          origSetItem(k, JSON.stringify(info.valor));
+          window.__lnbServerVersion[k] = info.updated_at;
+          atualizouAlgo = true;
+        }
+      });
+      if (atualizouAlgo){
+        avisarRecarregar('\u2601\ufe0f Existem dados mais recentes salvos por outra pessoa. Atualize a tela para v\u00ea-los.');
+      }
+    }catch(e){ /* checagem em segundo plano: falha aqui não deve incomodar o usuário */ }
+  }
+  setInterval(conferirAtualizacoes, 90000);
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') conferirAtualizacoes(); });
 
   // Backup diário (mesmo mecanismo do painel Orçado x Realizado): 1
   // snapshot por dia, sobrescrito se já existir um de hoje.
