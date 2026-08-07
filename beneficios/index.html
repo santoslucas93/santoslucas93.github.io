@@ -879,20 +879,26 @@ tfoot td {
    deixavam "Total Boleto" e os botões de Ações se sobrepondo. Agora a
    tabela tem largura mínima própria e rola horizontalmente (.table-wrap
    já tem overflow-x:auto) em vez de espremer as colunas. */
-.vt-table.vt-table-main { min-width: 1520px; }
-.vt-table.vt-table-main th:nth-child(1), .vt-table.vt-table-main td:nth-child(1){ width:18%; }
-.vt-table.vt-table-main th:nth-child(2), .vt-table.vt-table-main td:nth-child(2){ width:120px; }
-.vt-table.vt-table-main th:nth-child(3), .vt-table.vt-table-main td:nth-child(3){ width:95px; }
-.vt-table.vt-table-main th:nth-child(4), .vt-table.vt-table-main td:nth-child(4){ width:90px; }
-.vt-table.vt-table-main th:nth-child(5), .vt-table.vt-table-main td:nth-child(5){ width:90px; }
-.vt-table.vt-table-main th:nth-child(6), .vt-table.vt-table-main td:nth-child(6){ width:110px; }
-.vt-table.vt-table-main th:nth-child(7), .vt-table.vt-table-main td:nth-child(7){ width:180px; }
-.vt-table.vt-table-main th:nth-child(8), .vt-table.vt-table-main td:nth-child(8){ width:70px; }
-.vt-table.vt-table-main th:nth-child(9), .vt-table.vt-table-main td:nth-child(9){ width:100px; }
-.vt-table.vt-table-main th:nth-child(10), .vt-table.vt-table-main td:nth-child(10){ width:100px; }
-.vt-table.vt-table-main th:nth-child(11), .vt-table.vt-table-main td:nth-child(11){ width:120px; }
-.vt-table.vt-table-main th:nth-child(12), .vt-table.vt-table-main td:nth-child(12){ width:180px; }
-.vt-table.vt-table-main .vt-actions { flex-wrap:wrap; }
+/* Mesma filosofia da tabela de Colaboradores (#tab-colaboradores table):
+   table-layout fixed, width 100%, fonte um pouco menor e colunas em %
+   somando exatamente 100 — tudo cabe numa linha só, sem rolagem
+   horizontal, com o botão de editar em ícone (✏️) em vez de texto. */
+#tab-vt .vt-table.vt-table-main { table-layout:fixed; width:100%; font-size:12px; }
+.vt-table.vt-table-main th:nth-child(1), .vt-table.vt-table-main td:nth-child(1){ width:15%; }
+.vt-table.vt-table-main th:nth-child(2), .vt-table.vt-table-main td:nth-child(2){ width:9%; }
+.vt-table.vt-table-main th:nth-child(3), .vt-table.vt-table-main td:nth-child(3){ width:8%; }
+.vt-table.vt-table-main th:nth-child(4), .vt-table.vt-table-main td:nth-child(4){ width:6%; }
+.vt-table.vt-table-main th:nth-child(5), .vt-table.vt-table-main td:nth-child(5){ width:6%; }
+.vt-table.vt-table-main th:nth-child(6), .vt-table.vt-table-main td:nth-child(6){ width:8%; }
+.vt-table.vt-table-main th:nth-child(7), .vt-table.vt-table-main td:nth-child(7){ width:13%; }
+.vt-table.vt-table-main th:nth-child(8), .vt-table.vt-table-main td:nth-child(8){ width:5%; }
+.vt-table.vt-table-main th:nth-child(9), .vt-table.vt-table-main td:nth-child(9){ width:8%; }
+.vt-table.vt-table-main th:nth-child(10), .vt-table.vt-table-main td:nth-child(10){ width:8%; }
+.vt-table.vt-table-main th:nth-child(11), .vt-table.vt-table-main td:nth-child(11){ width:8%; }
+.vt-table.vt-table-main th:nth-child(12), .vt-table.vt-table-main td:nth-child(12){ width:6%; }
+.vt-table.vt-table-main .vt-tariff-select { max-width:100%; }
+.vt-table.vt-table-main .vt-actions { flex-wrap:nowrap; gap:3px; }
+.vt-table.vt-table-main .vt-actions .btn-xs { padding:4px 7px; }
 @media (max-width: 980px){ .benefit-choice-grid { grid-template-columns:1fr; } }
 @media print {
   body.printing.print-vt-calculo, body.printing.print-vt, body.printing.print-vt-rateio { font-size: 9px !important; }
@@ -4985,7 +4991,7 @@ function renderTable() {
             <div class="action-buttons">
               <button class="btn btn-ghost btn-xs" onclick="openModal(${e.id})">✏️</button>
               <button class="btn btn-ghost btn-xs" onclick="toggleEmployee(${e.id})">${toggleLabel}</button>
-              <button class="btn btn-danger btn-xs" onclick="deleteEmployee(${e.id})">🗑️</button>
+              <button class="btn btn-danger btn-xs" onclick="excluirColaboradorTodosModulos(${e.id})">🗑️</button>
             </div>
           </td>
         </tr>`;
@@ -5141,6 +5147,40 @@ function toggleEmployee(id) {
     showToast('✅ Colaborador reativado.');
   }
   save(); renderAll(); renderCalculo(); renderRateio(); renderAvulsos();
+}
+
+function excluirColaboradorTodosModulos(ref){
+  let emp = null, nome = null;
+  if (typeof ref === 'number') { emp = employees.find(e=>e.id===ref); nome = emp ? emp.nome : null; }
+  else { nome = ref; emp = employees.find(e=>normName(e.nome)===normName(ref)); }
+  if (!nome) return;
+  if (normName(nome) === 'ARBITRAGEM') { alert('A linha ARBITRAGEM é o total da conta 053917 e não pode ser excluída.'); return; }
+  if (!confirm('Remover "'+nome+'" de TODOS os módulos de benefícios (Cadastro Geral, Vale Transporte, Assistência Médica e Seguro de Vida)? Esta ação não pode ser desfeita.')) return;
+  const chave = normName(nome);
+  if (emp) employees = employees.filter(e=>e.id!==emp.id);
+  vtRegistros = (vtRegistros||[]).filter(r=>normName(r.nome)!==chave);
+  medRegistros = (medRegistros||[]).filter(r=>normName(r.nome)!==chave);
+  prudRegistros = (prudRegistros||[]).filter(r=>normName(r.nome)!==chave);
+  save(); saveVTRegistros(); saveMed(); savePrud();
+  renderAll(); renderCalculo(); renderRateio(); renderAvulsos();
+  if (typeof renderVT==='function'){ renderVT(); renderVTCalculo(); renderVTRateio(); }
+  if (typeof renderMed==='function'){ renderMed(); renderMedCalculo(); renderMedRateio(); renderMedConfig(); }
+  if (typeof renderPrud==='function'){ renderPrud(); renderPrudCalculo(); renderPrudRateio(); renderPrudConfig(); }
+  showToast('✅ Colaborador removido de todos os módulos.');
+}
+function excluirVTRow(i){
+  const r = filteredVTRows()[i] || vtRows()[i]; if(!r) return;
+  excluirColaboradorTodosModulos(r.employeeId != null ? r.employeeId : r.nome);
+}
+function excluirMedRow(id){
+  const r = (medRegistros||[]).find(x=>String(x.id)===String(id)); if(!r) return;
+  const emp = employees.find(e=>normName(e.nome)===normName(r.nome));
+  excluirColaboradorTodosModulos(emp ? emp.id : r.nome);
+}
+function excluirPrudRow(id){
+  const r = (prudRegistros||[]).find(x=>String(x.id)===String(id)); if(!r) return;
+  const emp = employees.find(e=>normName(e.nome)===normName(r.nome));
+  excluirColaboradorTodosModulos(emp ? emp.id : r.nome);
 }
 
 function deleteEmployee(id) {
@@ -5591,7 +5631,7 @@ function renderVT(){
       <td class="tr money">${fmt(c.base)}</td>
       <td class="tr money">${fmt(c.taxa)}</td>
       <td class="tr money">${fmt(c.total)}</td>
-      <td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})">Editar</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="deleteVTEmployee(${i})">🗑️</button></div></td>
+      <td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar cadastro">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirVTRow(${i})">🗑️</button></div></td>
     </tr>`;
   });
   document.getElementById('vt-total-base').textContent = fmt(totalBase);
@@ -6020,7 +6060,8 @@ function ensureVTRegistros(){
   const idsBase = new Set(base.map(e=>String(e.id)));
   const nomesBase = new Set(base.map(e=>vtKey(e)));
   const baseRows = base.map(e=>{
-    const old = existingById[String(e.id)] || existingByName[vtKey(e)] || {};
+    const foundOld = existingById[String(e.id)] || existingByName[vtKey(e)];
+    const old = foundOld || {};
     return {
       ...old,
       employeeId: e.id,
@@ -6030,7 +6071,11 @@ function ensureVTRegistros(){
       cc: e.cc,
       tipo: e.tipo,
       competencia: old.competencia || vtCfg.competencia || '2026-06',
-      ativoVT: old.ativoVT === true,
+      // Se a pessoa nunca teve registro de VT antes (acabou de ser marcada
+      // no cadastro unificado), já entra ATIVA — igual ao que já acontece
+      // com Assistência Médica/Seguro de Vida. Se já existia um registro
+      // (mesmo desligado manualmente), respeita o estado atual.
+      ativoVT: foundOld ? (old.ativoVT === true) : true,
       tarifaTipo: old.tarifaTipo || 'sptransOnibus',
       tarifa: Number(old.tarifa) || tarifaValueVT(old.tarifaTipo || 'sptransOnibus'),
       dias: Number(old.dias) || Number(vtCfg.diasPadrao) || 22,
@@ -6099,7 +6144,7 @@ function renderVT(){
   const all=vtRows(); const rows=filteredVTRows(); const totalBaseParam=vtTotalBase(all.filter(r=>r.ativoVT)); let totalBase=0,totalTaxa=0,totalFinal=0,ativos=all.filter(r=>r.ativoVT).length;
   body.innerHTML='';
   if(!rows.length){ body.innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:24px">Nenhum colaborador encontrado no filtro selecionado.<br><small style="opacity:.6">Diagnóstico: cadastro geral='+((typeof employees!=="undefined"&&employees)?employees.length:"?")+', base VT sem filtro='+all.length+', registros VT salvos='+((typeof vtRegistros!=="undefined"&&vtRegistros)?vtRegistros.length:"?")+'</small></td></tr>'; }
-  rows.forEach((r,i)=>{ const c=vtCalc(r,totalBaseParam); totalBase+=c.base; totalTaxa+=c.taxa; totalFinal+=c.total; body.innerHTML += `<tr class="${r.ativoVT?'':'vt-status-off'}"><td><strong>${r.nome}</strong><div class="kpi-note">${r.tipo||''}</div></td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc||'–')}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${r.ativoVT ? '<span class="badge badge-active"><span class="status-dot"></span>Ativo VT</span>' : '<span class="badge badge-off"><span class="status-dot off"></span>Desligado VT</span>'}</td><td class="tr"><div class="vt-tariff-cell"><select class="vt-tariff-select no-print" onchange="setVTField(${i},'tarifaTipo',this.value)"><option value="sptransOnibus" ${r.tarifaTipo==='sptransOnibus'?'selected':''}>SPTrans Ônibus</option><option value="metro" ${r.tarifaTipo==='metro'?'selected':''}>Metrô/Trem</option><option value="integracao" ${r.tarifaTipo==='integracao'?'selected':''}>Integração</option><option value="cmtBom" ${r.tarifaTipo==='cmtBom'?'selected':''}>CMT/BOM</option><option value="custom" ${r.tarifaTipo==='custom'?'selected':''}>Personalizada</option></select><input class="vt-input" type="number" min="0" step="0.01" value="${Number(r.tarifa)||0}" onchange="setVTField(${i},'tarifa',this.value)"><div class="kpi-note">Ida+volta/dia: ${fmt(vtValorDia(r))}</div></div></td><td class="tc"><input class="vt-input small" type="number" min="0" step="1" value="${Number(r.dias)||0}" onchange="setVTField(${i},'dias',this.value)"></td><td class="tr money">${fmt(c.base)}</td><td class="tr money">${fmt(c.taxa)}</td><td class="tr money">${fmt(c.total)}</td><td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})">Editar</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="deleteVTEmployee(${i})">🗑️</button></div></td></tr>`; });
+  rows.forEach((r,i)=>{ const c=vtCalc(r,totalBaseParam); totalBase+=c.base; totalTaxa+=c.taxa; totalFinal+=c.total; body.innerHTML += `<tr class="${r.ativoVT?'':'vt-status-off'}"><td><strong>${r.nome}</strong><div class="kpi-note">${r.tipo||''}</div></td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc||'–')}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${r.ativoVT ? '<span class="badge badge-active"><span class="status-dot"></span>Ativo VT</span>' : '<span class="badge badge-off"><span class="status-dot off"></span>Desligado VT</span>'}</td><td class="tr"><div class="vt-tariff-cell"><select class="vt-tariff-select no-print" onchange="setVTField(${i},'tarifaTipo',this.value)"><option value="sptransOnibus" ${r.tarifaTipo==='sptransOnibus'?'selected':''}>SPTrans Ônibus</option><option value="metro" ${r.tarifaTipo==='metro'?'selected':''}>Metrô/Trem</option><option value="integracao" ${r.tarifaTipo==='integracao'?'selected':''}>Integração</option><option value="cmtBom" ${r.tarifaTipo==='cmtBom'?'selected':''}>CMT/BOM</option><option value="custom" ${r.tarifaTipo==='custom'?'selected':''}>Personalizada</option></select><input class="vt-input" type="number" min="0" step="0.01" value="${Number(r.tarifa)||0}" onchange="setVTField(${i},'tarifa',this.value)"><div class="kpi-note">Ida+volta/dia: ${fmt(vtValorDia(r))}</div></div></td><td class="tc"><input class="vt-input small" type="number" min="0" step="1" value="${Number(r.dias)||0}" onchange="setVTField(${i},'dias',this.value)"></td><td class="tr money">${fmt(c.base)}</td><td class="tr money">${fmt(c.taxa)}</td><td class="tr money">${fmt(c.total)}</td><td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar cadastro">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirVTRow(${i})">🗑️</button></div></td></tr>`; });
   document.getElementById('vt-total-base').textContent=fmt(totalBase); document.getElementById('vt-total-taxa').textContent=fmt(totalTaxa); document.getElementById('vt-total-final').textContent=fmt(totalFinal);
   const stat=document.getElementById('stat-vt'); if(stat){ const allBase=vtTotalBase(all.filter(r=>r.ativoVT)); const av=vtTotalAvulsos(); stat.innerHTML=`<div class="stat-card navy"><div class="stat-label">Base VT</div><div class="stat-value" style="font-size:19px">${fmt(allBase)}</div><div class="stat-sub">Competência ${compLabel(vtCfg.competencia)}</div></div><div class="stat-card green"><div class="stat-label">Ativos VT</div><div class="stat-value">${ativos}</div><div class="stat-sub">com benefício habilitado</div></div><div class="stat-card gold"><div class="stat-label">Taxas</div><div class="stat-value" style="font-size:19px">${fmt(vtTotalTaxas())}</div><div class="stat-sub">SPTrans + CMT/BOM</div></div><div class="stat-card"><div class="stat-label">Total Boleto</div><div class="stat-value" style="font-size:19px">${fmt(allBase+vtTotalTaxas()+av)}</div><div class="stat-sub">base + taxas + avulsos</div></div>`; }
   renderVTAvulsoSelect(); renderVTAvulsos(); renderVTCalculo(); renderVTRateio(); renderVTHistorico(); renderVTConsolidado(); renderVTConfig();
@@ -6179,7 +6224,7 @@ function renderMedStats(targetId, rows) {
 }
 function renderMed() {
   const body=document.getElementById('med-body'); if(!body) return; const rows=medFiltered(); body.innerHTML=''; let tv=0,ti=0;
-  rows.forEach(r=>{ const total=Number(r.valor||0)+Number(r.iof||0); if(r.ativo){tv+=Number(r.valor||0);ti+=Number(r.iof||0);} body.innerHTML += `<tr class="${r.ativo?'':'med-row-off'}"><td><strong>${r.nome}</strong></td><td>${r.cpf||'–'}</td><td>${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${contaPill(medConta(r))}</td><td>${r.ativo?'<span class="badge badge-active">Ativo</span>':'<span class="badge badge-off">Desligado</span>'}</td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.valor||0).toFixed(2)}" onchange="updateMedField(${r.id},'valor',this.value)"></td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.iof||0).toFixed(2)}" onchange="updateMedField(${r.id},'iof',this.value)"></td><td class="tr money">${fmt(total)}</td><td class="tc no-print"><div class="med-actions"><button class="btn btn-ghost btn-xs" onclick="editMedRow(${r.id})">Editar</button><button class="btn btn-ghost btn-xs" onclick="updateMedField(${r.id},'ativo',${r.ativo?'false':'true'})">${r.ativo?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="deleteMedEmployee(${r.id})">🗑️</button></div></td></tr>`; });
+  rows.forEach(r=>{ const total=Number(r.valor||0)+Number(r.iof||0); if(r.ativo){tv+=Number(r.valor||0);ti+=Number(r.iof||0);} body.innerHTML += `<tr class="${r.ativo?'':'med-row-off'}"><td><strong>${r.nome}</strong></td><td>${r.cpf||'–'}</td><td>${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${contaPill(medConta(r))}</td><td>${r.ativo?'<span class="badge badge-active">Ativo</span>':'<span class="badge badge-off">Desligado</span>'}</td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.valor||0).toFixed(2)}" onchange="updateMedField(${r.id},'valor',this.value)"></td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.iof||0).toFixed(2)}" onchange="updateMedField(${r.id},'iof',this.value)"></td><td class="tr money">${fmt(total)}</td><td class="tc no-print"><div class="med-actions"><button class="btn btn-ghost btn-xs" onclick="editMedRow(${r.id})" title="Editar cadastro">✏️</button><button class="btn btn-ghost btn-xs" onclick="updateMedField(${r.id},'ativo',${r.ativo?'false':'true'})">${r.ativo?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirMedRow(${r.id})">🗑️</button></div></td></tr>`; });
   if(!rows.length) body.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:32px">Nenhum colaborador encontrado.</td></tr>';
   document.getElementById('med-total-valor').textContent=fmt(tv); document.getElementById('med-total-iof').textContent=fmt(ti); document.getElementById('med-total-geral').textContent=fmt(tv+ti); renderMedStats('stat-med', medRegistros);
 }
@@ -6284,7 +6329,7 @@ function applyPrudBulkValue() {
 }
 
 function renderPrudStats(targetId, rows) { const ativos=(rows||[]).filter(r=>r.ativo); const total=ativos.reduce((s,r)=>s+Number(r.valor||0),0); const el=document.getElementById(targetId); if(!el) return; el.innerHTML = `<div class="stat-card navy"><div class="stat-label">Ativos Prudential</div><div class="stat-value">${ativos.length}</div><div class="stat-sub">colaboradores no seguro</div></div><div class="stat-card green"><div class="stat-label">Total Seguro</div><div class="stat-value" style="font-size:19px">${fmt(total)}</div><div class="stat-sub">sem IOF</div></div><div class="stat-card gold"><div class="stat-label">Contas</div><div class="stat-value" style="font-size:17px">053671 / 057061 / 053917</div><div class="stat-sub">por tipo e centro de custo</div></div><div class="stat-card"><div class="stat-label">Centros de Custo</div><div class="stat-value">${new Set(ativos.map(r=>r.cc)).size}</div><div class="stat-sub">com seguro ativo</div></div>`; }
-function renderPrud() { const rows=prudFiltered(); renderPrudStats('stat-prud', rows); const body=document.getElementById('prud-body'); if(!body) return; body.innerHTML=''; let total=0; if(!rows.length) body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum registro Prudential encontrado.</td></tr>'; rows.forEach(r=>{ r.conta=prudContaByCC(r.cc,r.tipo); const v=Number(r.valor)||0; if(r.ativo) total+=v; const arb=r.conta==='053917'||normName(r.nome)==='ARBITRAGEM'; body.innerHTML += `<tr class="${r.ativo?'':'prud-row-off'} ${arb?'prud-row-arb':''}"><td>${r.nome}</td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td><span class="conta-pill">${r.conta}</span><div class="kpi-note">${prudLabelConta(r.conta)}</div></td><td><span class="badge ${r.ativo?'badge-active':'badge-off'}">${r.ativo?'ATIVO':'DESLIGADO'}</span></td><td class="tr"><input class="prud-input" type="number" step="0.01" value="${v.toFixed(2)}" onchange="updatePrudField(${r.id},'valor',this.value)"></td><td class="tc no-print"><div class="prud-actions"><button class="btn btn-ghost btn-xs" onclick="editPrudRow(${r.id})">Editar</button><button class="btn btn-ghost btn-xs" onclick="updatePrudField(${r.id},'ativo',${!r.ativo})">${r.ativo?'Desligar':'Ativar'}</button>${arb?'':`<button class="btn btn-danger btn-xs" onclick="deletePrudEmployee(${r.id})">🗑️</button>`}</div></td></tr>`; }); document.getElementById('prud-total-geral').textContent=fmt(total); }
+function renderPrud() { const rows=prudFiltered(); renderPrudStats('stat-prud', rows); const body=document.getElementById('prud-body'); if(!body) return; body.innerHTML=''; let total=0; if(!rows.length) body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum registro Prudential encontrado.</td></tr>'; rows.forEach(r=>{ r.conta=prudContaByCC(r.cc,r.tipo); const v=Number(r.valor)||0; if(r.ativo) total+=v; const arb=r.conta==='053917'||normName(r.nome)==='ARBITRAGEM'; body.innerHTML += `<tr class="${r.ativo?'':'prud-row-off'} ${arb?'prud-row-arb':''}"><td>${r.nome}</td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td><span class="conta-pill">${r.conta}</span><div class="kpi-note">${prudLabelConta(r.conta)}</div></td><td><span class="badge ${r.ativo?'badge-active':'badge-off'}">${r.ativo?'ATIVO':'DESLIGADO'}</span></td><td class="tr"><input class="prud-input" type="number" step="0.01" value="${v.toFixed(2)}" onchange="updatePrudField(${r.id},'valor',this.value)"></td><td class="tc no-print"><div class="prud-actions"><button class="btn btn-ghost btn-xs" onclick="editPrudRow(${r.id})" title="Editar cadastro">✏️</button><button class="btn btn-ghost btn-xs" onclick="updatePrudField(${r.id},'ativo',${!r.ativo})">${r.ativo?'Desligar':'Ativar'}</button>${arb?'':`<button class="btn btn-danger btn-xs" onclick="excluirPrudRow(${r.id})">🗑️</button>`}</div></td></tr>`; }); document.getElementById('prud-total-geral').textContent=fmt(total); }
 function prudSnapshot() { const detalhes=prudActiveRows().map(r=>{ const conta=prudContaByCC(r.cc,r.tipo); return {nome:r.nome,cpf:r.cpf,nascimento:r.nascimento,cc:r.cc,tipo:r.tipo,conta,valor:Number(r.valor)||0,total:Number(r.valor)||0}; }); const totais={pj:0,clt:0,arb:0,total:0}; detalhes.forEach(d=>{ if(d.conta==='053917') totais.arb+=d.total; else if(d.conta==='057061') totais.clt+=d.total; else totais.pj+=d.total; totais.total+=d.total; }); return {detalhes, totais}; }
 function renderPrudCalculo() { const comp=document.getElementById('prud-comp'); if(comp) comp.value=prudCfg.competencia; const sub=document.getElementById('prud-calc-print-subtitle'); if(sub) sub.textContent=`Competência: ${compLabel(prudCfg.competencia)}`; const snap=prudSnapshot(); renderPrudStats('stat-prud-calculo', prudActiveRows()); const body=document.getElementById('prud-calculo-body'); if(!body) return; body.innerHTML=''; snap.detalhes.forEach(d=>body.innerHTML+=`<tr class="${d.conta==='053917'?'prud-row-arb':''}"><td>${d.nome}</td><td class="doc-cell">${d.cpf||'–'}</td><td class="doc-cell">${d.nascimento||'–'}</td><td>${ccPill(d.cc)}</td><td><span class="conta-pill">${d.conta}</span></td><td class="tr money">${fmt(d.total)}</td></tr>`); document.getElementById('prud-calc-total').textContent=fmt(snap.totais.total); }
 function prudRateioGroups() { const groups={pj:{conta:'053671',ccs:PRUD_CC_PJ,items:{}}, clt:{conta:'057061',ccs:PRUD_CC_CLT,items:{}}, arb:{conta:'053917',ccs:PRUD_CC_ARB,items:{}}}; Object.values(groups).forEach(g=>g.ccs.forEach(cc=>g.items[cc]={cc,area:areaName(cc),valor:0})); prudActiveRows().forEach(r=>{ const conta=prudContaByCC(r.cc,r.tipo), key=conta==='053917'?'arb':conta==='057061'?'clt':'pj', cc=r.cc||'N/D'; if(!groups[key].items[cc]) groups[key].items[cc]={cc,area:areaName(cc),valor:0}; groups[key].items[cc].valor+=Number(r.valor)||0; }); return groups; }
