@@ -15582,6 +15582,12 @@ async function mobIniciar(){
         '👤 Cadastro unificado</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="mobIniciar().then(mobPainelConsolidado)">' +
         '📊 Consolidado geral do mês</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="abrirBusca360()" title="Ver em quais módulos um colaborador está e o status em cada um">' +
+        '🔍 Buscar colaborador</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="abrirPainelLixeira()" title="Ver e restaurar exclusões recentes">' +
+        '🗑️ Lixeira</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="abrirPainelBackups()" title="Ver e restaurar os backups diários automáticos">' +
+        '🗄️ Backups do sistema</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="mobIniciar().then(()=>mobBackupTudo(true))">' +
         '💾 Backup de todos os módulos</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'mob-restore-home\').click()">' +
