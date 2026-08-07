@@ -3144,7 +3144,7 @@ function lnbShowAuthBadge(){
 // Chaves compartilhadas do Sistema de Benefícios (equivalente às antigas
 // chaves do arquivo JSON de rede). Uma linha por chave na tabela ben_state.
 const LIGA_KEYS = [
-  'liga_emp','liga_cfg','liga_avulsos','liga_hist',
+  'liga_emp','liga_cfg','liga_avulsos','liga_hist','liga_lixeira',
   'liga_vt_registros','liga_vt_historico','liga_vt_cfg','liga_vt_avulsos',
   'liga_med_registros','liga_med_historico','liga_med_cfg',
   'liga_prud_registros','liga_prud_historico','liga_prud_cfg',
@@ -3535,6 +3535,9 @@ function lnbUnlockApp(){
         </div>
         <div class="toolbar-right">
           <button class="btn btn-ghost btn-sm" onclick="clearFilters()">✕ Limpar filtros</button>
+          <button class="btn btn-ghost btn-sm" onclick="abrirBusca360()" title="Ver em quais módulos um colaborador está e o status em cada um">🔍 Buscar colaborador</button>
+          <button class="btn btn-ghost btn-sm" onclick="abrirPainelLixeira()" title="Ver e restaurar exclusões recentes">🗑️ Lixeira</button>
+          <button class="btn btn-ghost btn-sm" onclick="abrirPainelBackups()" title="Ver e restaurar backups diários">🗄️ Backups</button>
           <button class="btn btn-navy btn-sm" onclick="exportPDF('colaboradores','landscape')">🖨️ PDF Paisagem</button>
           <button class="btn btn-ghost btn-sm" onclick="exportPDF('colaboradores','portrait')">📄 PDF Retrato</button>
           <button class="btn btn-primary" onclick="openModal()">+ Adicionar</button>
@@ -4355,6 +4358,47 @@ function lnbUnlockApp(){
   </div>
 </div>
 
+<!-- MODAL LIXEIRA: exclusões recentes, com opção de restaurar ou apagar de
+     vez. Guardado por até 90 dias em liga_lixeira. -->
+<div class="modal-overlay" id="lixeira-modal-overlay" onclick="if(event.target===this) fecharPainelLixeira()">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title"><span class="bar"></span>Lixeira (exclusões recentes)</div>
+    <div class="info-box" style="margin-bottom:12px">Colaboradores excluídos ficam aqui por até 90 dias antes de sumir de vez. Dá para restaurar a qualquer momento nesse período.</div>
+    <div id="lixeira-lista" style="max-height:420px;overflow:auto"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharPainelLixeira()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BUSCA 360°: mostra em quais módulos um colaborador está e o
+     status em cada um, pesquisando por nome. -->
+<div class="modal-overlay" id="busca360-modal-overlay" onclick="if(event.target===this) fecharBusca360()">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title"><span class="bar"></span>Buscar colaborador (visão geral)</div>
+    <div class="form-group">
+      <input type="text" class="form-control" id="busca360-input" placeholder="Digite o nome do colaborador..." oninput="renderBusca360()" autocomplete="off">
+    </div>
+    <div id="busca360-lista" style="max-height:420px;overflow:auto"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharBusca360()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BACKUPS: lista os snapshots diários salvos no Supabase
+     (ben_daily_backups) e permite restaurar um deles. -->
+<div class="modal-overlay" id="backups-modal-overlay" onclick="if(event.target===this) fecharPainelBackups()">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title"><span class="bar"></span>Backups diários</div>
+    <div class="info-box" style="margin-bottom:12px;color:#b91c1c">Restaurar um backup substitui os dados atuais de todos os módulos de Benefícios pelos daquele dia, para todo mundo que usa o sistema. Use com cuidado.</div>
+    <div id="backups-lista" style="max-height:420px;overflow:auto"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharPainelBackups()">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL VT -->
 <div class="modal-overlay" id="vt-modal-overlay" onclick="closeVTModalBg(event)">
   <div class="modal">
@@ -4488,6 +4532,10 @@ function lnbUnlockApp(){
           if (Array.isArray(valor)) historico = valor;
           if (typeof renderHistorico==='function') renderHistorico();
           if (typeof renderConsolidado==='function') renderConsolidado();
+          break;
+        case 'liga_lixeira':
+          if (Array.isArray(valor) && typeof lixeira!=='undefined') lixeira = valor;
+          if (typeof renderLixeira==='function') renderLixeira();
           break;
         case 'liga_cfg':
           if (valor && typeof valor==='object' && typeof cfg!=='undefined') Object.assign(cfg, valor);
@@ -4922,6 +4970,7 @@ const CPF_NASCIMENTO = {
 let employees = [];
 let avulsos = [];
 let historico = [];
+let lixeira = [];
 let vtRegistros = [];
 let vtHistorico = [];
 let vtCfg = { competencia: '2026-06', taxa: 0, taxaSPTrans: 0, taxaCMT: 0, diasPadrao: 22, excluidos: [] };
@@ -5014,6 +5063,7 @@ function load() {
   else { employees = ORIGINAL.map((o,i)=>hydrateEmployeeData({...o,id:i+1,ativo:true,desligamento:''})); if (__empParsed && __empParsed.length === 0) console.error('load(): liga_emp veio vazio do localStorage — usando lista original de reserva e NÃO salvando por segurança.'); else save(); }
   if (a) avulsos = JSON.parse(a);
   if (h) historico = JSON.parse(h);
+  try { lixeira = JSON.parse(localStorage.getItem('liga_lixeira')||'[]'); } catch(e) { lixeira = []; }
   if (vt) vtRegistros = JSON.parse(vt);
   if (vth) vtHistorico = JSON.parse(vth);
   if (vtc) { const p = JSON.parse(vtc); vtCfg.competencia = p.competencia || '2026-06'; vtCfg.taxaSPTrans = Number(p.taxaSPTrans ?? p.taxaSptrans ?? 0)||0; vtCfg.taxaCMT = Number(p.taxaCMT ?? p.taxaBom ?? 0)||0; vtCfg.taxa = Number(p.taxa ?? (vtCfg.taxaSPTrans + vtCfg.taxaCMT))||0; vtCfg.diasPadrao = Number(p.diasPadrao)||22; vtCfg.excluidos = Array.isArray(p.excluidos) ? p.excluidos : []; vtCfg.tarifas = Object.assign(vtTarifasDefault ? vtTarifasDefault() : {sptransOnibus:5.82, metro:5.40, integracao:11.32, cmtBom:5.40}, p.tarifas || {}); }
@@ -5212,8 +5262,8 @@ function openModal(id, presetModulo) {
     document.getElementById('f-nascimento').value = empNascimento(e);
     document.getElementById('f-mod-vt').checked = !e.modulos || e.modulos.vt !== false;
     document.getElementById('f-mod-vr').checked = !e.modulos || e.modulos.vr !== false;
-    document.getElementById('f-mod-med').checked = (typeof medRegistros!=='undefined') && medRegistros.some(r=>r.ativo && normName(r.nome)===normName(e.nome));
-    document.getElementById('f-mod-prud').checked = (typeof prudRegistros!=='undefined') && prudRegistros.some(r=>r.ativo && normName(r.nome)===normName(e.nome));
+    document.getElementById('f-mod-med').checked = (typeof medRegistros!=='undefined') && medRegistros.some(r=>r.ativo && pertenceAoColaborador(r,e,normNameFlex(e.nome)));
+    document.getElementById('f-mod-prud').checked = (typeof prudRegistros!=='undefined') && prudRegistros.some(r=>r.ativo && pertenceAoColaborador(r,e,normNameFlex(e.nome)));
   } else {
     ['f-nome','f-cc','f-desligamento','f-cpf','f-nascimento'].forEach(id=>document.getElementById(id).value='');
     ['f-tipo','f-area'].forEach(id=>document.getElementById(id).value='');
@@ -5254,15 +5304,20 @@ function editVTRow(i){
   if (r && r.employeeId != null && employees.some(e=>e.id===r.employeeId)) { openModal(r.employeeId); return; }
   openVTModal(r ? normalizeName(r.nome) : null);
 }
+function resolverEmpDoRegistro(r){
+  if (!r) return null;
+  if (r.employeeId != null) { const e = employees.find(x=>x.id===r.employeeId); if (e) return e; }
+  return employees.find(e=>normNameFlex(e.nome)===normNameFlex(r.nome)) || null;
+}
 function editMedRow(id){
   const r = (medRegistros||[]).find(x=>String(x.id)===String(id));
-  const emp = r ? employees.find(e=>normName(e.nome)===normName(r.nome)) : null;
+  const emp = resolverEmpDoRegistro(r);
   if (emp) { openModal(emp.id); return; }
   openMedModal(id);
 }
 function editPrudRow(id){
   const r = (prudRegistros||[]).find(x=>String(x.id)===String(id));
-  const emp = r ? employees.find(e=>normName(e.nome)===normName(r.nome)) : null;
+  const emp = resolverEmpDoRegistro(r);
   if (emp) { openModal(emp.id); return; }
   openPrudModal(id);
 }
@@ -5279,6 +5334,20 @@ function suggestCC() {
   if (!cc.value) cc.value = ar+'00'+td+suf;
 }
 
+// Confere o dígito verificador do CPF (algoritmo oficial da Receita
+// Federal) — pega erro de digitação na hora do cadastro, antes de virar
+// problema no cálculo mensal.
+function normCPFDigits(cpf){ return String(cpf||'').replace(/\D/g,''); }
+function validarCPF(cpf){
+  const s = normCPFDigits(cpf);
+  if (s.length !== 11 || /^(\d)\1{10}$/.test(s)) return false;
+  let soma = 0; for (let i=0;i<9;i++) soma += parseInt(s[i],10)*(10-i);
+  let resto = (soma*10) % 11; if (resto === 10) resto = 0;
+  if (resto !== parseInt(s[9],10)) return false;
+  soma = 0; for (let i=0;i<10;i++) soma += parseInt(s[i],10)*(11-i);
+  resto = (soma*10) % 11; if (resto === 10) resto = 0;
+  return resto === parseInt(s[10],10);
+}
 function saveEmployee() {
   const nome = document.getElementById('f-nome').value.trim().toUpperCase();
   const tipo = document.getElementById('f-tipo').value;
@@ -5289,6 +5358,11 @@ function saveEmployee() {
   const nascimento = maskDateValue(document.getElementById('f-nascimento').value);
   if (!nome||!tipo||!cc) { alert('Preencha todos os campos obrigatórios.'); return; }
   if (cc.length!==6||!/^[0-9]+$/.test(cc)) { alert('Centro de custo deve ter 6 dígitos numéricos.'); return; }
+  if (cpf && !validarCPF(cpf)) { alert('CPF inválido. Confira os números digitados.'); return; }
+  if (cpf) {
+    const duplicado = employees.find(e => e.id !== editingId && normCPFDigits(empCpf(e)) === normCPFDigits(cpf));
+    if (duplicado) { alert('Este CPF já está cadastrado para "'+duplicado.nome+'". Verifique antes de salvar.'); return; }
+  }
   const modVT = document.getElementById('f-mod-vt').checked;
   const modVR = document.getElementById('f-mod-vr').checked;
   const modMED = document.getElementById('f-mod-med').checked;
@@ -5313,17 +5387,21 @@ function saveEmployee() {
 function sincronizarModuloRegistro(modulo, emp, ativoDesejado) {
   const registros = modulo==='med' ? medRegistros : prudRegistros;
   const salvar = modulo==='med' ? saveMed : savePrud;
-  const idx = registros.findIndex(r => normName(r.nome) === normName(emp.nome));
+  // Casa primeiro pelo employeeId (vínculo estável); só cai para o nome em
+  // registros antigos que ainda não tinham esse vínculo (migração).
+  let idx = registros.findIndex(r => r.employeeId === emp.id);
+  if (idx < 0) idx = registros.findIndex(r => normNameFlex(r.nome) === normNameFlex(emp.nome));
   const extra = (modulo==='prud' && typeof prudContaByCC==='function') ? { conta: prudContaByCC(emp.cc, emp.tipo) } : {};
   if (ativoDesejado) {
     if (idx >= 0) {
-      registros[idx] = {...registros[idx], nome: emp.nome, tipo: emp.tipo, cc: emp.cc, cpf: emp.cpf, nascimento: emp.nascimento, ativo: true, ...extra};
+      registros[idx] = {...registros[idx], employeeId: emp.id, nome: emp.nome, tipo: emp.tipo, cc: emp.cc, cpf: emp.cpf, nascimento: emp.nascimento, ativo: true, ...extra};
     } else {
-      const novo = { id: (registros.length ? Math.max(...registros.map(r=>r.id||0)) : 0) + 1, nome: emp.nome, tipo: emp.tipo, cc: emp.cc, cpf: emp.cpf, nascimento: emp.nascimento, valor: 0, iof: 0, ativo: true, origem: 'cadastro geral', ...extra };
+      const novo = { id: (registros.length ? Math.max(...registros.map(r=>r.id||0)) : 0) + 1, employeeId: emp.id, nome: emp.nome, tipo: emp.tipo, cc: emp.cc, cpf: emp.cpf, nascimento: emp.nascimento, valor: 0, iof: 0, ativo: true, origem: 'cadastro geral', ...extra };
       registros.push(novo);
     }
     salvar();
   } else if (idx >= 0 && registros[idx].ativo) {
+    registros[idx].employeeId = emp.id;
     registros[idx].ativo = false;
     salvar();
   }
@@ -5363,6 +5441,13 @@ function resolverColaborador(ref){
   const emp = employees.find(e=>normNameFlex(e.nome)===normNameFlex(ref));
   return {emp, nome: ref};
 }
+// Um registro "pertence" ao colaborador se tiver o mesmo employeeId (vínculo
+// estável, à prova de erro de digitação) ou, na falta dele (registros
+// antigos ainda não migrados), se o nome bater de forma tolerante.
+function pertenceAoColaborador(r, emp, chaveNome){
+  if (emp && r.employeeId != null) return r.employeeId === emp.id;
+  return normNameFlex(r.nome) === chaveNome;
+}
 // Sempre mostra os 4 módulos como opção de exclusão, não importa de qual
 // tela (VT, Assistência Médica, Seguro de Vida ou Cadastro Geral) o
 // colaborador foi aberto para excluir — mesmo que o cadastro dele em algum
@@ -5374,9 +5459,9 @@ function abrirExclusaoModal(ref){
   if (!nome) { alert('Não foi possível localizar este colaborador para exclusão.'); return; }
   if (normName(nome) === 'ARBITRAGEM') { alert('A linha ARBITRAGEM é o total da conta 053917 e não pode ser excluída.'); return; }
   const chave = normNameFlex(nome);
-  const inVT = (vtRegistros||[]).some(r=>normNameFlex(r.nome)===chave);
-  const inMED = (medRegistros||[]).some(r=>normNameFlex(r.nome)===chave);
-  const inPRUD = (prudRegistros||[]).some(r=>normNameFlex(r.nome)===chave);
+  const inVT = (vtRegistros||[]).some(r=>pertenceAoColaborador(r,emp,chave));
+  const inMED = (medRegistros||[]).some(r=>pertenceAoColaborador(r,emp,chave));
+  const inPRUD = (prudRegistros||[]).some(r=>pertenceAoColaborador(r,emp,chave));
   const inVR = !!emp && (!emp.modulos || emp.modulos.vr !== false);
   __exclRef = ref;
   document.getElementById('excl-nome').textContent = nome;
@@ -5409,19 +5494,28 @@ function executarExclusaoModulos(ref, sel){
   const labelsMap = {vt:'Vale Transporte', med:'Assistência Médica', prud:'Seguro de Vida', vr:'VR/VA/Cesta Básica (Cadastro Geral)'};
   const labels = Object.keys(labelsMap).filter(k=>sel[k]).map(k=>labelsMap[k]);
   if (!labels.length) { alert('Selecione ao menos um módulo para excluir.'); return; }
-  if (!confirm('Remover "'+nome+'" de: '+labels.join(', ')+'? Esta ação não pode ser desfeita.')) return;
+  if (!confirm('Remover "'+nome+'" de: '+labels.join(', ')+'? Você poderá restaurar pela Lixeira em até 90 dias.')) return;
   const chave = normNameFlex(nome);
-  if (sel.vt) vtRegistros = (vtRegistros||[]).filter(r=>normNameFlex(r.nome)!==chave);
-  if (sel.med) medRegistros = (medRegistros||[]).filter(r=>normNameFlex(r.nome)!==chave);
-  if (sel.prud) prudRegistros = (prudRegistros||[]).filter(r=>normNameFlex(r.nome)!==chave);
+  // Guarda uma cópia do que será removido ANTES de filtrar, para a lixeira.
+  const removidosVT = sel.vt ? (vtRegistros||[]).filter(r=>pertenceAoColaborador(r,emp,chave)) : [];
+  const removidosMED = sel.med ? (medRegistros||[]).filter(r=>pertenceAoColaborador(r,emp,chave)) : [];
+  const removidosPRUD = sel.prud ? (prudRegistros||[]).filter(r=>pertenceAoColaborador(r,emp,chave)) : [];
+  const exclusaoCompleta = !!emp && sel.vr && sel.vt && sel.med && sel.prud;
+  const empRemovido = exclusaoCompleta ? {...emp} : null;
+  const vrDesativado = !!emp && sel.vr && !exclusaoCompleta;
+
+  if (sel.vt) vtRegistros = (vtRegistros||[]).filter(r=>!pertenceAoColaborador(r,emp,chave));
+  if (sel.med) medRegistros = (medRegistros||[]).filter(r=>!pertenceAoColaborador(r,emp,chave));
+  if (sel.prud) prudRegistros = (prudRegistros||[]).filter(r=>!pertenceAoColaborador(r,emp,chave));
   if (emp) {
-    if (sel.vr && sel.vt && sel.med && sel.prud) {
+    if (exclusaoCompleta) {
       employees = employees.filter(e=>e.id!==emp.id);
     } else if (sel.vr) {
       emp.modulos = {...(emp.modulos||{}), vr:false};
     }
   }
-  save(); saveVTRegistros(); saveMed(); savePrud();
+  adicionarNaLixeira({ nome, labels, vt: removidosVT, med: removidosMED, prud: removidosPRUD, employee: empRemovido, vrDesativado });
+  save(); saveVTRegistros(); saveMed(); savePrud(); saveLixeira();
   renderAll(); renderCalculo(); renderRateio(); renderAvulsos();
   if (typeof renderVT==='function'){ renderVT(); renderVTCalculo(); renderVTRateio(); }
   if (typeof renderMed==='function'){ renderMed(); renderMedCalculo(); renderMedRateio(); renderMedConfig(); }
@@ -5431,7 +5525,7 @@ function executarExclusaoModulos(ref, sel){
   if (typeof closeMedModal==='function') closeMedModal();
   if (typeof closePrudModal==='function') closePrudModal();
   fecharExclusaoModal();
-  showToast('✅ Colaborador removido de: '+labels.join(', ')+'.');
+  showToast('✅ Colaborador removido de: '+labels.join(', ')+'. Pode ser restaurado na Lixeira.');
 }
 // Mantido por compatibilidade com chamadas antigas: agora abre a mesma
 // tela de exclusão granular, em vez de excluir tudo direto sem perguntar.
@@ -5442,13 +5536,174 @@ function excluirVTRow(i){
 }
 function excluirMedRow(id){
   const r = (medRegistros||[]).find(x=>String(x.id)===String(id)); if(!r) return;
-  const emp = employees.find(e=>normName(e.nome)===normName(r.nome));
+  const emp = resolverEmpDoRegistro(r);
   abrirExclusaoModal(emp ? emp.id : r.nome);
 }
 function excluirPrudRow(id){
   const r = (prudRegistros||[]).find(x=>String(x.id)===String(id)); if(!r) return;
-  const emp = employees.find(e=>normName(e.nome)===normName(r.nome));
+  const emp = resolverEmpDoRegistro(r);
   abrirExclusaoModal(emp ? emp.id : r.nome);
+}
+
+// ------------------------------------------------------------------
+// LIXEIRA: guarda por até 90 dias o que foi excluído pela tela de exclusão
+// granular, com quem excluiu e quando, para permitir restaurar.
+// ------------------------------------------------------------------
+function saveLixeira(){ localStorage.setItem('liga_lixeira', JSON.stringify(lixeira||[])); }
+function adicionarNaLixeira(info){
+  lixeira = lixeira || [];
+  lixeira.unshift({
+    id: 'lx'+Date.now()+Math.floor(Math.random()*1000),
+    nome: info.nome,
+    modulos: info.labels,
+    deletedAt: new Date().toISOString(),
+    deletedBy: (AUTH_SESSION&&(AUTH_SESSION.nome||AUTH_SESSION.role))||'desconhecido',
+    employee: info.employee || null,
+    vt: info.vt || [],
+    med: info.med || [],
+    prud: info.prud || [],
+    vrDesativado: !!info.vrDesativado
+  });
+  const limite = Date.now() - 90*24*60*60*1000;
+  lixeira = lixeira.filter(x=>new Date(x.deletedAt).getTime() >= limite).slice(0, 300);
+}
+function abrirPainelLixeira(){
+  renderLixeira();
+  document.getElementById('lixeira-modal-overlay').classList.add('open');
+}
+function fecharPainelLixeira(){ document.getElementById('lixeira-modal-overlay').classList.remove('open'); }
+function renderLixeira(){
+  const box = document.getElementById('lixeira-lista');
+  if (!box) return;
+  const itens = lixeira || [];
+  if (!itens.length) { box.innerHTML = '<div class="info-box">A lixeira está vazia.</div>'; return; }
+  box.innerHTML = itens.map(it=>{
+    const data = new Date(it.deletedAt);
+    const dataFmt = isNaN(data.getTime()) ? '' : data.toLocaleString('pt-BR');
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <strong>${it.nome}</strong>
+        <div class="kpi-note">Removido de: ${(it.modulos||[]).join(', ')}</div>
+        <div class="kpi-note">${dataFmt} por ${it.deletedBy}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-primary btn-xs" onclick="restaurarDaLixeira('${it.id}')">Restaurar</button>
+        <button class="btn btn-danger btn-xs" onclick="excluirPermanenteDaLixeira('${it.id}')">Apagar de vez</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function restaurarDaLixeira(id){
+  const item = (lixeira||[]).find(x=>x.id===id);
+  if (!item) return;
+  if (!confirm('Restaurar "'+item.nome+'" em: '+(item.modulos||[]).join(', ')+'?')) return;
+  if (item.employee && !employees.some(e=>e.id===item.employee.id)) employees.push(item.employee);
+  else if (item.vrDesativado) {
+    const emp = employees.find(e=>e.id === (item.vt[0] && item.vt[0].employeeId)) ||
+                employees.find(e=>normNameFlex(e.nome)===normNameFlex(item.nome));
+    if (emp) emp.modulos = {...(emp.modulos||{}), vr:true};
+  }
+  const mesmo = (a,b) => (a.employeeId!=null && b.employeeId!=null) ? a.employeeId===b.employeeId : normNameFlex(a.nome)===normNameFlex(b.nome);
+  (item.vt||[]).forEach(r=>{ if(!vtRegistros.some(x=>mesmo(x,r))) vtRegistros.push(r); });
+  (item.med||[]).forEach(r=>{ if(!medRegistros.some(x=>mesmo(x,r))) medRegistros.push(r); });
+  (item.prud||[]).forEach(r=>{ if(!prudRegistros.some(x=>mesmo(x,r))) prudRegistros.push(r); });
+  lixeira = (lixeira||[]).filter(x=>x.id!==id);
+  save(); saveVTRegistros(); saveMed(); savePrud(); saveLixeira();
+  renderAll(); renderCalculo(); renderRateio(); renderAvulsos();
+  if (typeof renderVT==='function'){ renderVT(); renderVTCalculo(); renderVTRateio(); }
+  if (typeof renderMed==='function'){ renderMed(); renderMedCalculo(); renderMedRateio(); renderMedConfig(); }
+  if (typeof renderPrud==='function'){ renderPrud(); renderPrudCalculo(); renderPrudRateio(); renderPrudConfig(); }
+  renderLixeira();
+  showToast('✅ "'+item.nome+'" restaurado.');
+}
+function excluirPermanenteDaLixeira(id){
+  if (!confirm('Apagar definitivamente da lixeira? Não será mais possível restaurar.')) return;
+  lixeira = (lixeira||[]).filter(x=>x.id!==id);
+  saveLixeira();
+  renderLixeira();
+}
+
+// ------------------------------------------------------------------
+// BUSCA 360°: mostra em quais módulos um colaborador está e o status em
+// cada um, digitando o nome.
+// ------------------------------------------------------------------
+function abrirBusca360(){
+  document.getElementById('busca360-input').value = '';
+  renderBusca360();
+  document.getElementById('busca360-modal-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('busca360-input').focus(), 50);
+}
+function fecharBusca360(){ document.getElementById('busca360-modal-overlay').classList.remove('open'); }
+function renderBusca360(){
+  const termo = normNameFlex(document.getElementById('busca360-input').value || '');
+  const box = document.getElementById('busca360-lista');
+  if (!termo) { box.innerHTML = '<div class="info-box">Digite ao menos parte do nome para buscar.</div>'; return; }
+  const encontrados = employees.filter(e=>normNameFlex(e.nome).includes(termo)).slice(0,20);
+  if (!encontrados.length) { box.innerHTML = '<div class="info-box">Nenhum colaborador encontrado com esse nome.</div>'; return; }
+  const statusPill = (ok, label) => ok
+    ? `<span class="badge badge-active">${label}</span>`
+    : `<span class="badge badge-off">${label}: não participa</span>`;
+  box.innerHTML = encontrados.map(e=>{
+    const inVT = (vtRegistros||[]).some(r=>pertenceAoColaborador(r,e,normNameFlex(e.nome)) && r.ativoVT);
+    const temVT = (vtRegistros||[]).some(r=>pertenceAoColaborador(r,e,normNameFlex(e.nome)));
+    const medR = (medRegistros||[]).find(r=>pertenceAoColaborador(r,e,normNameFlex(e.nome)));
+    const prudR = (prudRegistros||[]).find(r=>pertenceAoColaborador(r,e,normNameFlex(e.nome)));
+    const inVR = !e.modulos || e.modulos.vr !== false;
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>${e.nome}</strong>
+        <button class="btn btn-ghost btn-xs" onclick="fecharBusca360();openModal(${e.id})">✏️ Editar</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+        ${temVT ? statusPill(inVT,'Vale Transporte') : statusPill(false,'Vale Transporte')}
+        ${medR ? statusPill(!!medR.ativo,'Assistência Médica') : statusPill(false,'Assistência Médica')}
+        ${prudR ? statusPill(!!prudR.ativo,'Seguro de Vida') : statusPill(false,'Seguro de Vida')}
+        ${statusPill(inVR,'VR/VA/Cesta Básica')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ------------------------------------------------------------------
+// BACKUPS: lista e restaura os snapshots diários salvos no Supabase
+// (tabela ben_daily_backups, um registro por dia — ver lnbEnsureDailyBackup).
+// ------------------------------------------------------------------
+async function abrirPainelBackups(){
+  document.getElementById('backups-modal-overlay').classList.add('open');
+  const box = document.getElementById('backups-lista');
+  box.innerHTML = 'Carregando...';
+  try{
+    const rows = await supaSelectFiltered('ben_daily_backups', 'select=backup_date&order=backup_date.desc&limit=60');
+    if (!Array.isArray(rows) || !rows.length) { box.innerHTML = '<div class="info-box">Nenhum backup encontrado ainda.</div>'; return; }
+    box.innerHTML = rows.map(r=>{
+      const d = String(r.backup_date).split('-').reverse().join('/');
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span>${d}</span>
+        <button class="btn btn-ghost btn-xs" onclick="restaurarBackup('${r.backup_date}')">Restaurar este dia</button>
+      </div>`;
+    }).join('');
+  }catch(e){
+    box.innerHTML = '<div class="info-box" style="color:#b91c1c">Erro ao buscar backups: '+e.message+'</div>';
+  }
+}
+function fecharPainelBackups(){ document.getElementById('backups-modal-overlay').classList.remove('open'); }
+async function restaurarBackup(data){
+  if (typeof isReadOnlyUser === 'function' && isReadOnlyUser()) { alert('Seu perfil é somente leitura e não pode restaurar backups.'); return; }
+  const dataFmt = String(data).split('-').reverse().join('/');
+  if (!confirm('Restaurar o backup de '+dataFmt+'?\n\nIsso substitui os dados atuais de TODOS os módulos de Benefícios pelos daquele dia, para todo mundo que usa o sistema.')) return;
+  if (!confirm('Tem certeza mesmo? Essa ação é definitiva (só desfaz restaurando outro backup depois).')) return;
+  try{
+    const linhas = await supaSelectFiltered('ben_daily_backups', 'select=snapshot&backup_date=eq.'+data);
+    const snap = linhas && linhas[0] && linhas[0].snapshot;
+    if (!snap) { alert('Não foi possível carregar esse backup.'); return; }
+    Object.keys(snap).forEach(function(k){
+      if (LIGA_KEYS.includes(k) && snap[k] !== undefined) localStorage.setItem(k, JSON.stringify(snap[k]));
+    });
+    alert('Backup restaurado. A página vai recarregar agora.');
+    location.reload();
+  }catch(e){
+    alert('Erro ao restaurar backup: '+e.message);
+  }
 }
 
 function deleteEmployee(id) {
@@ -6882,10 +7137,34 @@ if(typeof __uniformShowTab === 'function'){
   window.showTab = function(...args){ const out = __uniformShowTab.apply(this,args); applyUniformUI(); return out; };
 }
 
+// Migração única: registros de Assistência Médica e Seguro de Vida criados
+// antes desta versão não tinham employeeId (só o nome como vínculo, o que
+// causava casos como o do colaborador cujo nome estava digitado de forma
+// diferente em cada módulo). Aqui a gente tenta achar o colaborador
+// correspondente pelo nome UMA VEZ e grava o employeeId, deixando as
+// buscas futuras à prova desse tipo de divergência.
+function backfillEmployeeIds(){
+  let mudouMed = false, mudouPrud = false;
+  (medRegistros||[]).forEach(r=>{
+    if (r.employeeId == null) {
+      const emp = employees.find(e=>normNameFlex(e.nome)===normNameFlex(r.nome));
+      if (emp) { r.employeeId = emp.id; mudouMed = true; }
+    }
+  });
+  (prudRegistros||[]).forEach(r=>{
+    if (r.employeeId == null) {
+      const emp = employees.find(e=>normNameFlex(e.nome)===normNameFlex(r.nome));
+      if (emp) { r.employeeId = emp.id; mudouPrud = true; }
+    }
+  });
+  if (mudouMed) saveMed();
+  if (mudouPrud) savePrud();
+}
 (function init() {
   load();
   loadMed();
   loadPrud();
+  backfillEmployeeIds();
   aplicarCorrecaoYgor();
   setupExtraMasks();
   const now = new Date();
