@@ -4565,7 +4565,20 @@ function lnbUnlockApp(){
     return Array.from(porChave.values());
   }
 
-  async function buscarVersaoServidor(chaves){
+  // Checagem "leve": só chave+updated_at, sem o valor (que pode ser um
+  // blob de vários KB). Usada para descobrir RÁPIDO se algo mudou antes de
+  // gastar banda buscando o conteúdo inteiro — é isso que evita a checagem
+  // de segurança deixar o sistema mais pesado no dia a dia.
+  async function buscarVersoesLeves(chaves){
+    if (!chaves.length) return {};
+    const filtro = chaves.map(function(k){ return '"'+k+'"'; }).join(',');
+    const rows = await supaSelectFiltered('ben_state', 'select=chave,updated_at&chave=in.('+filtro+')');
+    const map = {};
+    rows.forEach(function(r){ map[r.chave] = r; });
+    return map;
+  }
+  async function buscarValoresCompletos(chaves){
+    if (!chaves.length) return {};
     const filtro = chaves.map(function(k){ return '"'+k+'"'; }).join(',');
     const rows = await supaSelectFiltered('ben_state', 'select=chave,valor,updated_at&chave=in.('+filtro+')');
     const map = {};
@@ -4581,11 +4594,18 @@ function lnbUnlockApp(){
     saving = true;
     atualizarSyncBadge('saving');
     try{
-      // Antes de gravar, confere se alguém salvou algo mais novo nessas
-      // mesmas chaves desde a última vez que esta aba leu o servidor. Se
-      // sim, mescla em vez de sobrescrever — isso é o que impede uma aba/
-      // sessão mais antiga de apagar cadastros feitos em outro lugar.
-      const versaoServidor = await buscarVersaoServidor(chaves);
+      // Antes de gravar, confere (de forma leve) se alguém salvou algo mais
+      // novo nessas mesmas chaves desde a última vez que esta aba leu o
+      // servidor. Só busca o conteúdo completo das chaves que realmente
+      // mudaram — no caso normal (ninguém mais mexeu), isso é só duas ou
+      // três datas, não o cadastro inteiro de novo.
+      const versoesLeves = await buscarVersoesLeves(chaves);
+      const chavesEmConflito = chaves.filter(function(k){
+        const info = versoesLeves[k];
+        const conhecida = window.__lnbServerVersion[k];
+        return info && conhecida && info.updated_at && info.updated_at !== conhecida;
+      });
+      const versaoServidor = await buscarValoresCompletos(chavesEmConflito);
       let houveMescla = false;
       const chavesMescladas = [];
       const rows = chaves.map(function(k){
@@ -4616,11 +4636,11 @@ function lnbUnlockApp(){
       rows.forEach(function(r){ window.__lnbServerVersion[r.chave] = r.updated_at; });
       dirty = {};
       if (houveMescla){
-        atualizarSyncBadge('mesclado');
+        // Mescla automática e silenciosa: some sem interromper a tela,
+        // sem texto piscando no badge — só some e volta o normal.
         chavesMescladas.forEach(function(m){ aplicarChaveNaTela(m.chave, m.valor); });
-      } else {
-        atualizarSyncBadge('ok');
       }
+      atualizarSyncBadge('ok');
       lnbLogActivity('beneficios_salvar', chaves.join(', ') + (houveMescla? ' (mesclado)':''));
     }catch(e){
       console.error('Falha ao sincronizar Sistema de Benefícios com o Supabase:', e);
@@ -4660,14 +4680,20 @@ function lnbUnlockApp(){
     try{
       const chaves = LIGA_KEYS.filter(function(k){ return !dirty[k]; });
       if (!chaves.length) return;
-      const versaoServidor = await buscarVersaoServidor(chaves);
-      Object.keys(versaoServidor).forEach(function(k){
-        const info = versaoServidor[k];
-        if (info.updated_at && info.updated_at !== window.__lnbServerVersion[k]){
-          origSetItem(k, JSON.stringify(info.valor));
-          window.__lnbServerVersion[k] = info.updated_at;
-          aplicarChaveNaTela(k, info.valor);
-        }
+      // Checagem leve primeiro (só datas) — só baixa o conteúdo completo
+      // das chaves que de fato mudaram desde a última leitura desta aba.
+      const versoesLeves = await buscarVersoesLeves(chaves);
+      const chavesMudaram = Object.keys(versoesLeves).filter(function(k){
+        const info = versoesLeves[k];
+        return info.updated_at && info.updated_at !== window.__lnbServerVersion[k];
+      });
+      if (!chavesMudaram.length) return;
+      const completos = await buscarValoresCompletos(chavesMudaram);
+      Object.keys(completos).forEach(function(k){
+        const info = completos[k];
+        origSetItem(k, JSON.stringify(info.valor));
+        window.__lnbServerVersion[k] = info.updated_at;
+        aplicarChaveNaTela(k, info.valor);
       });
     }catch(e){ /* checagem em segundo plano: falha aqui não deve incomodar o usuário */ }
   }
@@ -5140,8 +5166,9 @@ function renderTable() {
           <td class="tc">${cb}</td>
           <td class="tc">
             <div class="action-buttons">
-              <button class="btn btn-ghost btn-xs" onclick="openModal(${e.id})" title="Editar ou excluir colaborador">✏️</button>
+              <button class="btn btn-ghost btn-xs" onclick="openModal(${e.id})" title="Editar colaborador (dá para desmarcar só alguns módulos e salvar)">✏️</button>
               <button class="btn btn-ghost btn-xs" onclick="toggleEmployee(${e.id})">${toggleLabel}</button>
+              <button class="btn btn-danger btn-xs" onclick="excluirColaboradorTodosModulos(${e.id})" title="Excluir definitivamente de todos os módulos">🗑️</button>
             </div>
           </td>
         </tr>`;
@@ -5797,7 +5824,7 @@ function renderVT(){
       <td class="tr money">${fmt(c.base)}</td>
       <td class="tr money">${fmt(c.taxa)}</td>
       <td class="tr money">${fmt(c.total)}</td>
-      <td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar ou excluir colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button></div></td>
+      <td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirVTRow(${i})" title="Excluir definitivamente de todos os módulos">🗑️</button></div></td>
     </tr>`;
   });
   document.getElementById('vt-total-base').textContent = fmt(totalBase);
@@ -6226,8 +6253,9 @@ function ensureVTRegistros(){
   const idsBase = new Set(base.map(e=>String(e.id)));
   const nomesBase = new Set(base.map(e=>vtKey(e)));
   const baseRows = base.map(e=>{
-    const foundOld = existingById[String(e.id)] || existingByName[vtKey(e)];
-    const old = foundOld || {};
+    const foundById = existingById[String(e.id)];
+    const foundByName = !foundById ? existingByName[vtKey(e)] : null;
+    const old = foundById || foundByName || {};
     return {
       ...old,
       employeeId: e.id,
@@ -6237,11 +6265,13 @@ function ensureVTRegistros(){
       cc: e.cc,
       tipo: e.tipo,
       competencia: old.competencia || vtCfg.competencia || '2026-06',
-      // Se a pessoa nunca teve registro de VT antes (acabou de ser marcada
-      // no cadastro unificado), já entra ATIVA — igual ao que já acontece
-      // com Assistência Médica/Seguro de Vida. Se já existia um registro
-      // (mesmo desligado manualmente), respeita o estado atual.
-      ativoVT: foundOld ? (old.ativoVT === true) : true,
+      // Só respeita um "desligado" salvo se ele pertence a ESTE MESMO
+      // employeeId (a pessoa foi desligada manualmente no VT antes). Se o
+      // único registro encontrado bateu apenas pelo nome (ex.: sobra de um
+      // cadastro de teste antigo com nome parecido/repetido), a pessoa
+      // entra ATIVA — herda tarifa/dias daquele registro antigo, mas não
+      // herda o "desligado" de outra pessoa/registro.
+      ativoVT: foundById ? (old.ativoVT === true) : true,
       tarifaTipo: old.tarifaTipo || 'sptransOnibus',
       tarifa: Number(old.tarifa) || tarifaValueVT(old.tarifaTipo || 'sptransOnibus'),
       dias: Number(old.dias) || Number(vtCfg.diasPadrao) || 22,
@@ -6310,7 +6340,7 @@ function renderVT(){
   const all=vtRows(); const rows=filteredVTRows(); const totalBaseParam=vtTotalBase(all.filter(r=>r.ativoVT)); let totalBase=0,totalTaxa=0,totalFinal=0,ativos=all.filter(r=>r.ativoVT).length;
   body.innerHTML='';
   if(!rows.length){ body.innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:24px">Nenhum colaborador encontrado no filtro selecionado.<br><small style="opacity:.6">Diagnóstico: cadastro geral='+((typeof employees!=="undefined"&&employees)?employees.length:"?")+', base VT sem filtro='+all.length+', registros VT salvos='+((typeof vtRegistros!=="undefined"&&vtRegistros)?vtRegistros.length:"?")+'</small></td></tr>'; }
-  rows.forEach((r,i)=>{ const c=vtCalc(r,totalBaseParam); totalBase+=c.base; totalTaxa+=c.taxa; totalFinal+=c.total; body.innerHTML += `<tr class="${r.ativoVT?'':'vt-status-off'}"><td><strong>${r.nome}</strong><div class="kpi-note">${r.tipo||''}</div></td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc||'–')}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${r.ativoVT ? '<span class="badge badge-active"><span class="status-dot"></span>Ativo VT</span>' : '<span class="badge badge-off"><span class="status-dot off"></span>Desligado VT</span>'}</td><td class="tr"><div class="vt-tariff-cell"><select class="vt-tariff-select no-print" onchange="setVTField(${i},'tarifaTipo',this.value)"><option value="sptransOnibus" ${r.tarifaTipo==='sptransOnibus'?'selected':''}>SPTrans Ônibus</option><option value="metro" ${r.tarifaTipo==='metro'?'selected':''}>Metrô/Trem</option><option value="integracao" ${r.tarifaTipo==='integracao'?'selected':''}>Integração</option><option value="cmtBom" ${r.tarifaTipo==='cmtBom'?'selected':''}>CMT/BOM</option><option value="custom" ${r.tarifaTipo==='custom'?'selected':''}>Personalizada</option></select><input class="vt-input" type="number" min="0" step="0.01" value="${Number(r.tarifa)||0}" onchange="setVTField(${i},'tarifa',this.value)"><div class="kpi-note">Ida+volta/dia: ${fmt(vtValorDia(r))}</div></div></td><td class="tc"><input class="vt-input small" type="number" min="0" step="1" value="${Number(r.dias)||0}" onchange="setVTField(${i},'dias',this.value)"></td><td class="tr money">${fmt(c.base)}</td><td class="tr money">${fmt(c.taxa)}</td><td class="tr money">${fmt(c.total)}</td><td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar ou excluir colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button></div></td></tr>`; });
+  rows.forEach((r,i)=>{ const c=vtCalc(r,totalBaseParam); totalBase+=c.base; totalTaxa+=c.taxa; totalFinal+=c.total; body.innerHTML += `<tr class="${r.ativoVT?'':'vt-status-off'}"><td><strong>${r.nome}</strong><div class="kpi-note">${r.tipo||''}</div></td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc||'–')}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${r.ativoVT ? '<span class="badge badge-active"><span class="status-dot"></span>Ativo VT</span>' : '<span class="badge badge-off"><span class="status-dot off"></span>Desligado VT</span>'}</td><td class="tr"><div class="vt-tariff-cell"><select class="vt-tariff-select no-print" onchange="setVTField(${i},'tarifaTipo',this.value)"><option value="sptransOnibus" ${r.tarifaTipo==='sptransOnibus'?'selected':''}>SPTrans Ônibus</option><option value="metro" ${r.tarifaTipo==='metro'?'selected':''}>Metrô/Trem</option><option value="integracao" ${r.tarifaTipo==='integracao'?'selected':''}>Integração</option><option value="cmtBom" ${r.tarifaTipo==='cmtBom'?'selected':''}>CMT/BOM</option><option value="custom" ${r.tarifaTipo==='custom'?'selected':''}>Personalizada</option></select><input class="vt-input" type="number" min="0" step="0.01" value="${Number(r.tarifa)||0}" onchange="setVTField(${i},'tarifa',this.value)"><div class="kpi-note">Ida+volta/dia: ${fmt(vtValorDia(r))}</div></div></td><td class="tc"><input class="vt-input small" type="number" min="0" step="1" value="${Number(r.dias)||0}" onchange="setVTField(${i},'dias',this.value)"></td><td class="tr money">${fmt(c.base)}</td><td class="tr money">${fmt(c.taxa)}</td><td class="tr money">${fmt(c.total)}</td><td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirVTRow(${i})" title="Excluir definitivamente de todos os módulos">🗑️</button></div></td></tr>`; });
   document.getElementById('vt-total-base').textContent=fmt(totalBase); document.getElementById('vt-total-taxa').textContent=fmt(totalTaxa); document.getElementById('vt-total-final').textContent=fmt(totalFinal);
   const stat=document.getElementById('stat-vt'); if(stat){ const allBase=vtTotalBase(all.filter(r=>r.ativoVT)); const av=vtTotalAvulsos(); stat.innerHTML=`<div class="stat-card navy"><div class="stat-label">Base VT</div><div class="stat-value" style="font-size:19px">${fmt(allBase)}</div><div class="stat-sub">Competência ${compLabel(vtCfg.competencia)}</div></div><div class="stat-card green"><div class="stat-label">Ativos VT</div><div class="stat-value">${ativos}</div><div class="stat-sub">com benefício habilitado</div></div><div class="stat-card gold"><div class="stat-label">Taxas</div><div class="stat-value" style="font-size:19px">${fmt(vtTotalTaxas())}</div><div class="stat-sub">SPTrans + CMT/BOM</div></div><div class="stat-card"><div class="stat-label">Total Boleto</div><div class="stat-value" style="font-size:19px">${fmt(allBase+vtTotalTaxas()+av)}</div><div class="stat-sub">base + taxas + avulsos</div></div>`; }
   renderVTAvulsoSelect(); renderVTAvulsos(); renderVTCalculo(); renderVTRateio(); renderVTHistorico(); renderVTConsolidado(); renderVTConfig();
@@ -6390,7 +6420,7 @@ function renderMedStats(targetId, rows) {
 }
 function renderMed() {
   const body=document.getElementById('med-body'); if(!body) return; const rows=medFiltered(); body.innerHTML=''; let tv=0,ti=0;
-  rows.forEach(r=>{ const total=Number(r.valor||0)+Number(r.iof||0); if(r.ativo){tv+=Number(r.valor||0);ti+=Number(r.iof||0);} body.innerHTML += `<tr class="${r.ativo?'':'med-row-off'}"><td><strong>${r.nome}</strong></td><td>${r.cpf||'–'}</td><td>${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${contaPill(medConta(r))}</td><td>${r.ativo?'<span class="badge badge-active">Ativo</span>':'<span class="badge badge-off">Desligado</span>'}</td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.valor||0).toFixed(2)}" onchange="updateMedField(${r.id},'valor',this.value)"></td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.iof||0).toFixed(2)}" onchange="updateMedField(${r.id},'iof',this.value)"></td><td class="tr money">${fmt(total)}</td><td class="tc no-print"><div class="med-actions"><button class="btn btn-ghost btn-xs" onclick="editMedRow(${r.id})" title="Editar ou excluir colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updateMedField(${r.id},'ativo',${r.ativo?'false':'true'})">${r.ativo?'Desligar':'Ativar'}</button></div></td></tr>`; });
+  rows.forEach(r=>{ const total=Number(r.valor||0)+Number(r.iof||0); if(r.ativo){tv+=Number(r.valor||0);ti+=Number(r.iof||0);} body.innerHTML += `<tr class="${r.ativo?'':'med-row-off'}"><td><strong>${r.nome}</strong></td><td>${r.cpf||'–'}</td><td>${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${contaPill(medConta(r))}</td><td>${r.ativo?'<span class="badge badge-active">Ativo</span>':'<span class="badge badge-off">Desligado</span>'}</td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.valor||0).toFixed(2)}" onchange="updateMedField(${r.id},'valor',this.value)"></td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.iof||0).toFixed(2)}" onchange="updateMedField(${r.id},'iof',this.value)"></td><td class="tr money">${fmt(total)}</td><td class="tc no-print"><div class="med-actions"><button class="btn btn-ghost btn-xs" onclick="editMedRow(${r.id})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updateMedField(${r.id},'ativo',${r.ativo?'false':'true'})">${r.ativo?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirMedRow(${r.id})" title="Excluir definitivamente de todos os módulos">🗑️</button></div></td></tr>`; });
   if(!rows.length) body.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:32px">Nenhum colaborador encontrado.</td></tr>';
   document.getElementById('med-total-valor').textContent=fmt(tv); document.getElementById('med-total-iof').textContent=fmt(ti); document.getElementById('med-total-geral').textContent=fmt(tv+ti); renderMedStats('stat-med', medRegistros);
 }
@@ -6495,7 +6525,7 @@ function applyPrudBulkValue() {
 }
 
 function renderPrudStats(targetId, rows) { const ativos=(rows||[]).filter(r=>r.ativo); const total=ativos.reduce((s,r)=>s+Number(r.valor||0),0); const el=document.getElementById(targetId); if(!el) return; el.innerHTML = `<div class="stat-card navy"><div class="stat-label">Ativos Prudential</div><div class="stat-value">${ativos.length}</div><div class="stat-sub">colaboradores no seguro</div></div><div class="stat-card green"><div class="stat-label">Total Seguro</div><div class="stat-value" style="font-size:19px">${fmt(total)}</div><div class="stat-sub">sem IOF</div></div><div class="stat-card gold"><div class="stat-label">Contas</div><div class="stat-value" style="font-size:17px">053671 / 057061 / 053917</div><div class="stat-sub">por tipo e centro de custo</div></div><div class="stat-card"><div class="stat-label">Centros de Custo</div><div class="stat-value">${new Set(ativos.map(r=>r.cc)).size}</div><div class="stat-sub">com seguro ativo</div></div>`; }
-function renderPrud() { const rows=prudFiltered(); renderPrudStats('stat-prud', rows); const body=document.getElementById('prud-body'); if(!body) return; body.innerHTML=''; let total=0; if(!rows.length) body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum registro Prudential encontrado.</td></tr>'; rows.forEach(r=>{ r.conta=prudContaByCC(r.cc,r.tipo); const v=Number(r.valor)||0; if(r.ativo) total+=v; const arb=r.conta==='053917'||normName(r.nome)==='ARBITRAGEM'; body.innerHTML += `<tr class="${r.ativo?'':'prud-row-off'} ${arb?'prud-row-arb':''}"><td>${r.nome}</td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td><span class="conta-pill">${r.conta}</span><div class="kpi-note">${prudLabelConta(r.conta)}</div></td><td><span class="badge ${r.ativo?'badge-active':'badge-off'}">${r.ativo?'ATIVO':'DESLIGADO'}</span></td><td class="tr"><input class="prud-input" type="number" step="0.01" value="${v.toFixed(2)}" onchange="updatePrudField(${r.id},'valor',this.value)"></td><td class="tc no-print"><div class="prud-actions"><button class="btn btn-ghost btn-xs" onclick="editPrudRow(${r.id})" title="Editar ou excluir colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updatePrudField(${r.id},'ativo',${!r.ativo})">${r.ativo?'Desligar':'Ativar'}</button></div></td></tr>`; }); document.getElementById('prud-total-geral').textContent=fmt(total); }
+function renderPrud() { const rows=prudFiltered(); renderPrudStats('stat-prud', rows); const body=document.getElementById('prud-body'); if(!body) return; body.innerHTML=''; let total=0; if(!rows.length) body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum registro Prudential encontrado.</td></tr>'; rows.forEach(r=>{ r.conta=prudContaByCC(r.cc,r.tipo); const v=Number(r.valor)||0; if(r.ativo) total+=v; const arb=r.conta==='053917'||normName(r.nome)==='ARBITRAGEM'; body.innerHTML += `<tr class="${r.ativo?'':'prud-row-off'} ${arb?'prud-row-arb':''}"><td>${r.nome}</td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td><span class="conta-pill">${r.conta}</span><div class="kpi-note">${prudLabelConta(r.conta)}</div></td><td><span class="badge ${r.ativo?'badge-active':'badge-off'}">${r.ativo?'ATIVO':'DESLIGADO'}</span></td><td class="tr"><input class="prud-input" type="number" step="0.01" value="${v.toFixed(2)}" onchange="updatePrudField(${r.id},'valor',this.value)"></td><td class="tc no-print"><div class="prud-actions"><button class="btn btn-ghost btn-xs" onclick="editPrudRow(${r.id})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updatePrudField(${r.id},'ativo',${!r.ativo})">${r.ativo?'Desligar':'Ativar'}</button>${arb?'':`<button class="btn btn-danger btn-xs" onclick="excluirPrudRow(${r.id})" title="Excluir definitivamente de todos os módulos">🗑️</button>`}</div></td></tr>`; }); document.getElementById('prud-total-geral').textContent=fmt(total); }
 function prudSnapshot() { const detalhes=prudActiveRows().map(r=>{ const conta=prudContaByCC(r.cc,r.tipo); return {nome:r.nome,cpf:r.cpf,nascimento:r.nascimento,cc:r.cc,tipo:r.tipo,conta,valor:Number(r.valor)||0,total:Number(r.valor)||0}; }); const totais={pj:0,clt:0,arb:0,total:0}; detalhes.forEach(d=>{ if(d.conta==='053917') totais.arb+=d.total; else if(d.conta==='057061') totais.clt+=d.total; else totais.pj+=d.total; totais.total+=d.total; }); return {detalhes, totais}; }
 function renderPrudCalculo() { const comp=document.getElementById('prud-comp'); if(comp) comp.value=prudCfg.competencia; const sub=document.getElementById('prud-calc-print-subtitle'); if(sub) sub.textContent=`Competência: ${compLabel(prudCfg.competencia)}`; const snap=prudSnapshot(); renderPrudStats('stat-prud-calculo', prudActiveRows()); const body=document.getElementById('prud-calculo-body'); if(!body) return; body.innerHTML=''; snap.detalhes.forEach(d=>body.innerHTML+=`<tr class="${d.conta==='053917'?'prud-row-arb':''}"><td>${d.nome}</td><td class="doc-cell">${d.cpf||'–'}</td><td class="doc-cell">${d.nascimento||'–'}</td><td>${ccPill(d.cc)}</td><td><span class="conta-pill">${d.conta}</span></td><td class="tr money">${fmt(d.total)}</td></tr>`); document.getElementById('prud-calc-total').textContent=fmt(snap.totais.total); }
 function prudRateioGroups() { const groups={pj:{conta:'053671',ccs:PRUD_CC_PJ,items:{}}, clt:{conta:'057061',ccs:PRUD_CC_CLT,items:{}}, arb:{conta:'053917',ccs:PRUD_CC_ARB,items:{}}}; Object.values(groups).forEach(g=>g.ccs.forEach(cc=>g.items[cc]={cc,area:areaName(cc),valor:0})); prudActiveRows().forEach(r=>{ const conta=prudContaByCC(r.cc,r.tipo), key=conta==='053917'?'arb':conta==='057061'?'clt':'pj', cc=r.cc||'N/D'; if(!groups[key].items[cc]) groups[key].items[cc]={cc,area:areaName(cc),valor:0}; groups[key].items[cc].valor+=Number(r.valor)||0; }); return groups; }
