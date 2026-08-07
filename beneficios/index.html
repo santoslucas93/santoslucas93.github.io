@@ -5352,21 +5352,32 @@ function toggleEmployee(id) {
 // hora de confirmar.
 // ------------------------------------------------------------------
 let __exclRef = null;
+// Comparação "tolerante" usada só na tela de exclusão: ignora conectores
+// (DE/DA/DO/DOS/DAS) para achar a mesma pessoa mesmo quando o nome foi
+// digitado de forma levemente diferente em outro módulo (ex.: "DOUGLAS
+// OLIVEIRA CARRARETTO" no Vale Transporte x "DOUGLAS DE OLIVEIRA
+// CARRARETTO" no Seguro de Vida — mesma pessoa, cadastro divergente).
+const normNameFlex = s => normName(s).replace(/\b(DE|DA|DO|DOS|DAS)\b/g,'').replace(/\s+/g,' ').trim();
 function resolverColaborador(ref){
   if (typeof ref === 'number') { const emp = employees.find(e=>e.id===ref); return {emp, nome: emp ? emp.nome : null}; }
-  const emp = employees.find(e=>normName(e.nome)===normName(ref));
+  const emp = employees.find(e=>normNameFlex(e.nome)===normNameFlex(ref));
   return {emp, nome: ref};
 }
+// Sempre mostra os 4 módulos como opção de exclusão, não importa de qual
+// tela (VT, Assistência Médica, Seguro de Vida ou Cadastro Geral) o
+// colaborador foi aberto para excluir — mesmo que o cadastro dele em algum
+// módulo esteja com o nome digitado de forma diferente. Os módulos em que
+// a pessoa foi encontrada já vêm marcados; os demais ficam disponíveis
+// para marcar manualmente se for o caso.
 function abrirExclusaoModal(ref){
   const {emp, nome} = resolverColaborador(ref);
   if (!nome) { alert('Não foi possível localizar este colaborador para exclusão.'); return; }
   if (normName(nome) === 'ARBITRAGEM') { alert('A linha ARBITRAGEM é o total da conta 053917 e não pode ser excluída.'); return; }
-  const chave = normName(nome);
-  const inVT = (vtRegistros||[]).some(r=>normName(r.nome)===chave);
-  const inMED = (medRegistros||[]).some(r=>normName(r.nome)===chave);
-  const inPRUD = (prudRegistros||[]).some(r=>normName(r.nome)===chave);
+  const chave = normNameFlex(nome);
+  const inVT = (vtRegistros||[]).some(r=>normNameFlex(r.nome)===chave);
+  const inMED = (medRegistros||[]).some(r=>normNameFlex(r.nome)===chave);
+  const inPRUD = (prudRegistros||[]).some(r=>normNameFlex(r.nome)===chave);
   const inVR = !!emp && (!emp.modulos || emp.modulos.vr !== false);
-  if (!inVT && !inMED && !inPRUD && !inVR) { alert('Este colaborador não foi encontrado em nenhum módulo.'); return; }
   __exclRef = ref;
   document.getElementById('excl-nome').textContent = nome;
   const cfgs = [['vt',inVT],['med',inMED],['prud',inPRUD],['vr',inVR]];
@@ -5374,7 +5385,7 @@ function abrirExclusaoModal(ref){
     const cb = document.getElementById('excl-mod-'+k);
     const lbl = document.getElementById('excl-label-'+k);
     cb.checked = pertence;
-    lbl.style.display = pertence ? '' : 'none';
+    lbl.style.display = ''; // sempre visível — o usuário decide, não a detecção automática
   });
   document.getElementById('excluir-modal-overlay').classList.add('open');
 }
@@ -5399,10 +5410,10 @@ function executarExclusaoModulos(ref, sel){
   const labels = Object.keys(labelsMap).filter(k=>sel[k]).map(k=>labelsMap[k]);
   if (!labels.length) { alert('Selecione ao menos um módulo para excluir.'); return; }
   if (!confirm('Remover "'+nome+'" de: '+labels.join(', ')+'? Esta ação não pode ser desfeita.')) return;
-  const chave = normName(nome);
-  if (sel.vt) vtRegistros = (vtRegistros||[]).filter(r=>normName(r.nome)!==chave);
-  if (sel.med) medRegistros = (medRegistros||[]).filter(r=>normName(r.nome)!==chave);
-  if (sel.prud) prudRegistros = (prudRegistros||[]).filter(r=>normName(r.nome)!==chave);
+  const chave = normNameFlex(nome);
+  if (sel.vt) vtRegistros = (vtRegistros||[]).filter(r=>normNameFlex(r.nome)!==chave);
+  if (sel.med) medRegistros = (medRegistros||[]).filter(r=>normNameFlex(r.nome)!==chave);
+  if (sel.prud) prudRegistros = (prudRegistros||[]).filter(r=>normNameFlex(r.nome)!==chave);
   if (emp) {
     if (sel.vr && sel.vt && sel.med && sel.prud) {
       employees = employees.filter(e=>e.id!==emp.id);
