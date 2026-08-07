@@ -15628,6 +15628,7 @@ async function mobIniciar(){
       <div class="note"><b>Modo híbrido.</b> Use <b>Gemini API</b> para respostas mais inteligentes. Sem chave, o sistema continua respondendo em <b>modo local gratuito</b>.</div>
       <div class="toolbar" style="margin-bottom:8px">
         <select id="ia-provider" title="Modo do assistente">
+          <option value="auto">Automático (recomendado)</option>
           <option value="local">Local gratuito</option>
           <option value="gemini">Gemini API</option>
         </select>
@@ -15656,14 +15657,55 @@ async function mobIniciar(){
 // /api/gemini do Cloudflare Worker — a chave GEMINI_API_KEY fica só
 // no servidor, nunca chega ao navegador).
 // ============================================================
-const IA_SUGS_BEN=[
-  'Resuma os módulos de benefícios',
-  'Quantos colaboradores ativos no VR/VA/CB?',
-  'Quantos colaboradores ativos no Vale Transporte?',
-  'Quantos processamentos já foram salvos no histórico?',
-  'Quais módulos têm mais colaboradores cadastrados?'
-];
+// Biblioteca de perguntas prontas, organizada por categoria. Mostra ~6 por
+// vez (ajustadas ao módulo aberto no momento) com um "Ver mais perguntas"
+// para revelar o restante.
+const IA_SUGESTOES_BASE = {
+  geral: ['Resuma todos os módulos de benefícios','Quanto gastamos com benefícios este mês?','Qual o custo total da última competência?','Quantos colaboradores possuem benefícios cadastrados?','Qual benefício possui mais colaboradores?','Qual benefício representa o maior custo atualmente?'],
+  colaboradores: ['Quantos colaboradores ativos temos?','Quantos colaboradores ativos temos no Vale Transporte?','Quantos colaboradores estão na SulAmérica?','Quantos colaboradores possuem Seguro de Vida?','Quantos são CLT?','Quantos são PJ?','Quais colaboradores estão desligados?'],
+  custos: ['Qual colaborador possui maior custo atualmente?','Top 5 colaboradores com maior custo','Quanto gastamos com CLT?','Quanto gastamos com PJ?','Quanto gastamos com Vale Transporte?','Quanto gastamos com Seguro de Vida?','Quanto gastamos com SulAmérica?','Quanto gastamos com VR/VA/Cesta Básica?','Quanto gastamos com Mobilidade Corporativa?'],
+  historico: ['Quanto gastamos em 2026?','Qual colaborador teve maior custo em 2026?','Top 10 colaboradores com maior custo em 2026','Quanto gastamos em julho de 2026?','Mostre os custos mês a mês','Quantos processamentos foram realizados em 2026?'],
+  comparativos: ['Compare junho com julho','Compare o mês atual com o mês anterior','Compare os últimos 3 meses','Compare os custos de CLT e PJ'],
+  departamentos: ['Qual departamento tem maior custo?','Top 5 departamentos por custo','Quantos colaboradores existem em cada departamento?'],
+  vt: ['Custo total do Vale Transporte','Quantos colaboradores ativos no Vale Transporte?','Top 10 maiores custos de Vale Transporte','Custo do Vale Transporte por departamento','Compare o Vale Transporte dos últimos 3 meses'],
+  med: ['Quantos colaboradores estão na SulAmérica?','Qual o custo total da SulAmérica?','Top 10 custos da SulAmérica','Qual departamento possui maior custo de saúde?'],
+  prud: ['Quantos colaboradores possuem Seguro de Vida?','Qual o custo total da Prudential?','Qual colaborador possui maior custo de Seguro de Vida?','Mostre o custo do Seguro de Vida por departamento'],
+  vr: ['Quantos colaboradores recebem VR/VA?','Qual o custo total da VR Caixa?','Qual departamento possui maior custo de VR/VA?'],
+  mob: ['Quanto gastamos com Uber e 99?','Qual departamento teve maior gasto com corridas?','Qual colaborador teve maior gasto com corridas?','Compare Uber e 99'],
+  inconsistencias: ['Existem colaboradores sem departamento?','Existem CPFs duplicados?','Existem desligados ainda ativos em algum benefício?','Existem valores zerados?']
+};
+function iaSugestoesContexto(){
+  const mod = iaModuloAtual();
+  if(mod && IA_SUGESTOES_BASE[mod]) return IA_SUGESTOES_BASE[mod].concat(IA_SUGESTOES_BASE.inconsistencias.slice(0,1));
+  return IA_SUGESTOES_BASE.geral;
+}
+function iaTodasSugestoes(){
+  const mod = iaModuloAtual();
+  const ordem = mod
+    ? [mod,'geral','colaboradores','custos','historico','comparativos','departamentos','inconsistencias']
+    : ['geral','colaboradores','custos','historico','comparativos','departamentos','vt','med','prud','vr','mob','inconsistencias'];
+  const vistos=new Set(); const out=[];
+  ordem.forEach(cat=>(IA_SUGESTOES_BASE[cat]||[]).forEach(p=>{ if(!vistos.has(p)){ vistos.add(p); out.push(p); } }));
+  return out;
+}
+function iaChipHtml(s){ return '<span class="chip" style="display:inline-block;margin:3px 4px 0 0;padding:5px 10px;border-radius:999px;background:#F1EEE8;border:1px solid #e2d9cd;font-size:12px;cursor:pointer" onclick="document.getElementById(\'ia-q\').value=this.textContent;iaSend()">'+s+'</span>'; }
+function iaRenderSugestoes(expandir){
+  const sug=document.getElementById('ia-sug');
+  if(!sug) return;
+  const visiveis = expandir ? iaTodasSugestoes() : iaSugestoesContexto().slice(0,6);
+  sug.innerHTML = visiveis.map(iaChipHtml).join(' ');
+  if(!expandir){
+    const maisBtn=document.createElement('span');
+    maisBtn.className='chip';
+    maisBtn.style.cssText='display:inline-block;margin:3px 4px 0 0;padding:5px 10px;border-radius:999px;background:#fff;border:1px dashed #bbb;font-size:12px;cursor:pointer;font-weight:600';
+    maisBtn.textContent='Ver mais perguntas ▾';
+    maisBtn.onclick=()=>iaRenderSugestoes(true);
+    sug.appendChild(document.createTextNode(' '));
+    sug.appendChild(maisBtn);
+  }
+}
 let iaMsgs=[];
+let __iaComposicoes=[];
 let __iaBenHistReady=false;
 async function iaGarantirHistoricoBen(){
   if(__iaBenHistReady) return;
@@ -15863,7 +15905,400 @@ async function iaFindColaboradorBen(q){
   out.observacao='Os campos "historicoMensal" e "totalPagoNoPeriodo" em cada beneficio contem TODOS os meses ja processados e armazenados no sistema para esta pessoa (nao apenas o mais recente). Use-os sempre que for perguntado sobre gastos totais, historico ou periodo. Se "historicoMensal" vier null, ainda nao foi processado nenhum mes para essa pessoa nesse beneficio. O campo "corridas" (quando presente) traz o total de corridas de Uber/99 dessa pessoa.';
   return out;
 }
-async function iaLocalAnswerBen(q){
+// ============================================================
+// MOTOR LOCAL AVANÇADO — camada gratuita de consulta ao Sistema de
+// Benefícios (sinônimos, períodos, contagem, soma, ranking, comparação e
+// detecção de inconsistências). Sempre tentado ANTES de qualquer chamada
+// ao Gemini — todo cálculo financeiro é feito aqui, nunca pela IA externa.
+// Retorna {texto, composicao?} quando reconhece a pergunta, ou null
+// quando não reconhece (aí sim cabe usar o Gemini, no modo Automático).
+// ============================================================
+const MESES_PT_BEN = {janeiro:1,fevereiro:2,marco:3,abril:4,maio:5,junho:6,julho:7,agosto:8,setembro:9,outubro:10,novembro:11,dezembro:12,
+  jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
+const IA_MOD_REGEX_BEN = [
+  [/\bvale\s*transporte\b|\bvr\s*mobilidade\b|\btransporte\b|\bvt\b/, 'vt'],
+  [/\bsulam[ée]rica\b|\bsul\s*am[ée]rica\b|\bassist[êe]ncia\s*m[ée]dica\b|\bplano\s*de\s*sa[úu]de\b|\bsa[úu]de\b/, 'med'],
+  [/\bprudential\b|\bseguro\s*de\s*vida\b|\barbitragem\b|\bseguro\b/, 'prud'],
+  [/\bvr\s*\/\s*va\b|\bvr\/va\b|\bcesta\s*b[áa]sica\b|\balimenta[çc][ãa]o\b|\brefei[çc][ãa]o\b|\bvr\s*caixa\b|\bvale\s*refei[çc][ãa]o\b|\bvale\s*alimenta[çc][ãa]o\b|\bva\b|\bvr\b/, 'vr'],
+  [/\buber\b|\b99\b|\bcorridas?\b|\bmobilidade\b/, 'mob']
+];
+function iaResolverModulo(nqNorm){
+  for (const [re, mod] of IA_MOD_REGEX_BEN) if (re.test(nqNorm)) return mod;
+  return null;
+}
+function iaLabelModulo(mod){
+  return {vt:'no Vale Transporte', med:'na Assistência Médica (SulAmérica)', prud:'no Seguro de Vida (Prudential)', vr:'no VR/VA/Cesta Básica', mob:'na Mobilidade Corporativa (Uber/99)'}[mod] || '';
+}
+function iaResolverTipo(nqNorm){
+  if (/\bclt\b|celetista/.test(nqNorm)) return 'CLT';
+  if (/\bpj\b|prestador|pessoa juridica/.test(nqNorm)) return 'PJ';
+  if (/estagiari/.test(nqNorm)) return 'ESTAGIÁRIO';
+  return null;
+}
+function iaModuloAtual(){
+  const modos=['vt','med','prud','vr','mob'];
+  for(const m of modos) if(document.body.classList.contains('benefit-mode-'+m)) return m;
+  return null;
+}
+function iaResolverPeriodo(nqNorm, competenciasDisponiveis){
+  const hoje = new Date();
+  const anoAtual = hoje.getFullYear();
+  const mesAtual = hoje.getMonth()+1;
+  const pad = m => String(m).padStart(2,'0');
+
+  let m = nqNorm.match(/\b(0?[1-9]|1[0-2])[\/\-](20\d{2})\b/);
+  if (m) return {tipo:'mes', valor: m[2]+'-'+pad(m[1])};
+
+  m = nqNorm.match(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*[\/\-](\d{2,4})\b/);
+  if (m) { const ano=m[2].length===2?'20'+m[2]:m[2]; return {tipo:'mes', valor: ano+'-'+pad(MESES_PT_BEN[m[1]])}; }
+
+  // Intervalo "de mes A a mes B" precisa ser checado ANTES do nome de mês
+  // isolado, senão "janeiro a julho" seria lido só como "janeiro".
+  m = nqNorm.match(/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*\s+a\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*\b/);
+  if (m) {
+    const anoMatch = nqNorm.match(/\b(20\d{2})\b/);
+    const ano = anoMatch ? anoMatch[1] : String(anoAtual);
+    return {tipo:'intervalo', de: ano+'-'+pad(MESES_PT_BEN[m[1]]), ate: ano+'-'+pad(MESES_PT_BEN[m[2]])};
+  }
+
+  for (const nomeMes of Object.keys(MESES_PT_BEN).filter(k=>k.length>3)) {
+    if (new RegExp('\\b'+nomeMes+'\\b').test(nqNorm)) {
+      const anoMatch = nqNorm.match(/\b(20\d{2})\b/);
+      const ano = anoMatch ? anoMatch[1] : String(anoAtual);
+      return {tipo:'mes', valor: ano+'-'+pad(MESES_PT_BEN[nomeMes])};
+    }
+  }
+
+  if (/\bmes atual\b|\beste mes\b|\bhoje\b/.test(nqNorm)) return {tipo:'mes', valor: anoAtual+'-'+pad(mesAtual)};
+  if (/\bmes passado\b|\bultimo mes\b|\bmes anterior\b/.test(nqNorm)) { let mm=mesAtual-1, aa=anoAtual; if(mm<1){mm=12;aa--;} return {tipo:'mes', valor: aa+'-'+pad(mm)}; }
+  if (/\bultima competencia\b|\bultimo processamento\b/.test(nqNorm)) {
+    if (competenciasDisponiveis && competenciasDisponiveis.length) return {tipo:'mes', valor: competenciasDisponiveis[competenciasDisponiveis.length-1]};
+    return null;
+  }
+
+  m = nqNorm.match(/\bultimos?\s+(\d+)\s+mes/);
+  if (m) return {tipo:'ultimosN', n: parseInt(m[1],10)};
+  if (/\bultimo trimestre\b/.test(nqNorm)) return {tipo:'ultimosN', n:3};
+  if (/\bultimo semestre\b/.test(nqNorm)) return {tipo:'ultimosN', n:6};
+
+  if (/\bano passado\b/.test(nqNorm)) return {tipo:'ano', valor: String(anoAtual-1)};
+  if (/\beste ano\b|\bano atual\b/.test(nqNorm)) return {tipo:'ano', valor: String(anoAtual)};
+  m = nqNorm.match(/\b(20\d{2})\b/);
+  if (m) return {tipo:'ano', valor: m[1]};
+
+  return null;
+}
+function iaPeriodoLabel(periodo){
+  if(!periodo) return 'situação atual';
+  if(periodo.tipo==='mes') return compLabel(periodo.valor);
+  if(periodo.tipo==='ano') return periodo.valor;
+  if(periodo.tipo==='intervalo') return compLabel(periodo.de)+' a '+compLabel(periodo.ate);
+  if(periodo.tipo==='ultimosN') return 'últimos '+periodo.n+' mês(es) processado(s)';
+  return String(periodo);
+}
+function iaCompetenciaBate(compYYYYMM, periodo, competenciasDisponiveis){
+  if(!periodo) return true;
+  if(!compYYYYMM) return false;
+  if(periodo.tipo==='mes') return compYYYYMM===periodo.valor;
+  if(periodo.tipo==='ano') return compYYYYMM.slice(0,4)===periodo.valor;
+  if(periodo.tipo==='intervalo') return compYYYYMM>=periodo.de && compYYYYMM<=periodo.ate;
+  if(periodo.tipo==='ultimosN'){
+    const disponiveis=(competenciasDisponiveis||[]).slice().sort();
+    return disponiveis.slice(-periodo.n).includes(compYYYYMM);
+  }
+  return true;
+}
+function iaTodasCompetencias(mod){
+  if(!mod || mod==='mob') return [];
+  return (benHistorico(mod)||[]).map(h=>h.competencia).filter(Boolean).sort();
+}
+function iaCompetenciasMob(){ return [...new Set((Mob.corridas||[]).map(c=>c.competencia).filter(Boolean))].sort(); }
+
+// "Situação atual" (ao vivo) de cada módulo — usada quando a pergunta não
+// especifica um período. Só existe para módulos com uma fonte ao vivo
+// segura (sem depender de campos de tela não carregados no chat).
+function iaDetalhesAtuais(mod){
+  if(mod==='vt') return detalhesVT().map(d=>({nome:d.nome,cc:d.cc,tipo:d.tipo,valor:Number(d.total)||0}));
+  if(mod==='med') return (medRegistros||[]).filter(r=>r.ativo).map(r=>({nome:r.nome,cc:r.cc,tipo:r.tipo,valor:(Number(r.valor)||0)+(Number(r.iof)||0)}));
+  if(mod==='prud') return (prudRegistros||[]).filter(r=>r.ativo).map(r=>({nome:r.nome,cc:r.cc,tipo:r.tipo,valor:Number(r.valor)||0}));
+  return [];
+}
+// Itens (com centro de custo) de um módulo, respeitando o período pedido.
+// Sem período: usa a situação atual; se não houver fonte ao vivo (ex.:
+// VR/VA/CB), usa o processamento mais recente já salvo no histórico real
+// — nunca inventa números (regra 16 do ajuste pedido).
+async function iaItensModulo(mod, periodo, tipo){
+  const competencias = iaTodasCompetencias(mod);
+  if(periodo){
+    const hist=(benHistorico(mod)||[]).filter(h=>iaCompetenciaBate(h.competencia,periodo,competencias));
+    const out=[];
+    hist.forEach(h=>(h.detalhes||[]).forEach(d=>{
+      if(tipo && String(d.tipo||'').toUpperCase()!==tipo) return;
+      out.push({nome:d.nome||'—', cc:d.cc||null, tipo:d.tipo||null, valor:Number(d.valor!=null?d.valor:d.total)||0, competencia:h.competencia});
+    }));
+    return out;
+  }
+  let det = iaDetalhesAtuais(mod);
+  if(tipo) det = det.filter(d=>String(d.tipo||'').toUpperCase()===tipo);
+  if(det.length) return det.map(d=>({...d, competencia:null}));
+  const hist = benHistorico(mod)||[];
+  if(!hist.length) return [];
+  const ultimo = hist.slice().sort((a,b)=>String(a.competencia).localeCompare(String(b.competencia))).pop();
+  return (ultimo.detalhes||[]).filter(d=>!tipo||String(d.tipo||'').toUpperCase()===tipo).map(d=>({nome:d.nome||'—',cc:d.cc||null,tipo:d.tipo||null,valor:Number(d.valor!=null?d.valor:d.total)||0,competencia:ultimo.competencia}));
+}
+async function iaSomaModulo(mod, periodo, tipo){
+  const itens = await iaItensModulo(mod, periodo, tipo);
+  if(!itens.length) return {total:null, registros:0, composicao:[]};
+  const total = +itens.reduce((s,d)=>s+d.valor,0).toFixed(2);
+  const competenciaUsada = (!periodo && itens[0]) ? itens[0].competencia : null;
+  return {total, registros:itens.length, composicao:itens.map(d=>({label:d.nome+(d.competencia&&!periodo?' ('+compLabel(d.competencia)+')':''),valor:d.valor})), competenciaUsada};
+}
+async function iaCustoPorDepartamento(mods, periodo){
+  const porDepto={};
+  for(const m of mods){
+    const itens = await iaItensModulo(m, periodo, null);
+    itens.forEach(d=>{
+      const dep = d.cc ? areaName(d.cc) : 'N/D';
+      porDepto[dep]=(porDepto[dep]||0)+d.valor;
+    });
+  }
+  return Object.entries(porDepto).map(([departamento,total])=>({departamento,total:+total.toFixed(2)}));
+}
+async function iaRankingColaboradores(periodo, n, mod){
+  const mods = mod ? [mod] : ['vt','med','prud','vr'];
+  const porNome={};
+  for(const m of mods){
+    const itens = await iaItensModulo(m, periodo, null);
+    itens.forEach(d=>{
+      const key = iaNormBen(d.nome);
+      if(!porNome[key]) porNome[key]={nome:d.nome, total:0};
+      porNome[key].total += d.valor;
+    });
+  }
+  return Object.values(porNome).map(x=>({nome:x.nome, total:+x.total.toFixed(2)})).sort((a,b)=>b.total-a.total).slice(0,n);
+}
+
+async function iaRespContagem(nq){
+  const mod = iaResolverModulo(nq);
+  const tipo = iaResolverTipo(nq);
+  const porDepto = /departamento|centro de custo|setor/.test(nq);
+  const desligados = /desligad/.test(nq);
+  if(mod==='mob'){
+    if(!mobIniciado) return {texto:'Para eu consultar dados de Mobilidade Corporativa (Uber/99), abra esse módulo pelo menos uma vez nesta sessão — depois disso eu já respondo direto por aqui.'};
+    const colabs = Mob.colaboradores||[];
+    return {texto:'Encontrei '+colabs.length+' colaborador(es) cadastrado(s) em Mobilidade Corporativa.'};
+  }
+  let lista;
+  if(mod==='vt') lista=(vtRegistros||[]).map(r=>({nome:r.nome,tipo:r.tipo,cc:r.cc,ativo:!!r.ativoVT}));
+  else if(mod==='med') lista=(medRegistros||[]).map(r=>({nome:r.nome,tipo:r.tipo,cc:r.cc,ativo:!!r.ativo}));
+  else if(mod==='prud') lista=(prudRegistros||[]).map(r=>({nome:r.nome,tipo:r.tipo,cc:r.cc,ativo:!!r.ativo}));
+  else lista=(employees||[]).map(e=>({nome:e.nome,tipo:e.tipo,cc:e.cc,ativo: isActive(e) && (!e.modulos||e.modulos.vr!==false)}));
+  if(tipo) lista = lista.filter(x=>String(x.tipo||'').toUpperCase()===tipo);
+  lista = lista.filter(x=> desligados ? !x.ativo : x.ativo);
+  const label = mod ? iaLabelModulo(mod) : 'no Cadastro Geral';
+  if(porDepto){
+    const porCc={};
+    lista.forEach(x=>{ const key=x.cc?areaName(x.cc):'N/D'; porCc[key]=(porCc[key]||0)+1; });
+    const linhas=Object.entries(porCc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>'• '+k+': '+v);
+    return {texto:'Colaboradores '+(desligados?'desligados':'ativos')+' '+label+' por departamento:\n'+linhas.join('\n')};
+  }
+  return {texto:'Encontrei '+lista.length+' colaborador(es) '+(desligados?'desligado(s)':'ativo(s)')+(tipo?' do tipo '+tipo:'')+' '+label+'.'};
+}
+
+async function iaRespSoma(nq){
+  const mod = iaResolverModulo(nq);
+  const tipo = iaResolverTipo(nq);
+  const media = /\bm[ée]dia\b|\bm[ée]dio\b/.test(nq);
+
+  if(mod==='mob'){
+    if(!mobIniciado) return {texto:'Para eu calcular gastos de Mobilidade Corporativa (Uber/99), abra esse módulo pelo menos uma vez nesta sessão — depois eu já respondo direto por aqui.'};
+    const periodo = iaResolverPeriodo(nq, iaCompetenciasMob());
+    let corridas = (Mob.corridas||[]).filter(c=>!c.excluida);
+    if(periodo) corridas = corridas.filter(c=>iaCompetenciaBate(c.competencia, periodo, iaCompetenciasMob()));
+    if(!corridas.length) return {texto:'Não encontrei corridas registradas para '+iaPeriodoLabel(periodo)+'.'};
+    const total = +corridas.reduce((s,c)=>s+(Number(c.total)||0),0).toFixed(2);
+    const porFornecedor={};
+    corridas.forEach(c=>{ const f=c.fornecedor||'Outro'; porFornecedor[f]=(porFornecedor[f]||0)+(Number(c.total)||0); });
+    const composicao = Object.entries(porFornecedor).map(([label,valor])=>({label,valor:+valor.toFixed(2)}));
+    let texto = 'Mobilidade Corporativa ('+iaPeriodoLabel(periodo)+'): '+corridas.length+' corrida(s), total '+iaMoneyBen(total)+'.';
+    if(media) texto += ' Média por corrida: '+iaMoneyBen(total/corridas.length)+'.';
+    return {texto, composicao};
+  }
+
+  if(!mod){
+    const periodo = iaResolverPeriodo(nq, []);
+    const partes=['vt','med','prud','vr'];
+    let total=0; const composicao=[];
+    for(const m of partes){
+      const r = await iaSomaModulo(m, periodo, tipo);
+      total += r.total||0;
+      composicao.push({label:iaLabelModulo(m).replace(/^n[ao]s? /,''), valor:r.total||0});
+    }
+    return {texto:'Custo total de benefícios ('+iaPeriodoLabel(periodo)+'): '+iaMoneyBen(total)+'.', composicao};
+  }
+
+  const periodo = iaResolverPeriodo(nq, iaTodasCompetencias(mod));
+  const r = await iaSomaModulo(mod, periodo, tipo);
+  if(r.total==null) return {texto:'Não encontrei processamento registrado '+iaLabelModulo(mod)+' em '+iaPeriodoLabel(periodo)+'.'};
+  const labelPeriodo = periodo ? iaPeriodoLabel(periodo) : (r.competenciaUsada ? 'situação atual — '+compLabel(r.competenciaUsada) : 'situação atual');
+  let texto = iaLabelModulo(mod).replace(/^n[ao]s? /,'').replace(/^./,c=>c.toUpperCase())+' ('+labelPeriodo+'): '+iaMoneyBen(r.total)+' — '+r.registros+' registro(s).';
+  if(media && r.registros) texto += ' Média por colaborador: '+iaMoneyBen(r.total/r.registros)+'.';
+  return {texto, composicao:r.composicao};
+}
+
+async function iaRespRanking(nq, n){
+  const mod = iaResolverModulo(nq);
+  const porDepto = /departamento|centro de custo|setor/.test(nq);
+
+  if(mod==='mob'){
+    if(!mobIniciado) return {texto:'Para eu montar um ranking de Mobilidade Corporativa (Uber/99), abra esse módulo pelo menos uma vez nesta sessão.'};
+    const periodo = iaResolverPeriodo(nq, iaCompetenciasMob());
+    let corridas=(Mob.corridas||[]).filter(c=>!c.excluida);
+    if(periodo) corridas = corridas.filter(c=>iaCompetenciaBate(c.competencia, periodo, iaCompetenciasMob()));
+    const porColab={};
+    corridas.forEach(c=>{ const col=(Mob.colaboradores||[]).find(x=>x.id===c.colabId); const nome=col?col.nome:'Sem colaborador identificado'; porColab[nome]=(porColab[nome]||0)+(Number(c.total)||0); });
+    const rank=Object.entries(porColab).map(([nome,total])=>({nome,total:+total.toFixed(2)})).sort((a,b)=>b.total-a.total).slice(0,n);
+    if(!rank.length) return {texto:'Não encontrei corridas suficientes para montar o ranking em '+iaPeriodoLabel(periodo)+'.'};
+    const texto='Top '+rank.length+' em corridas Uber/99 ('+iaPeriodoLabel(periodo)+'):\n'+rank.map((r,i)=>(i+1)+'. '+r.nome+' — '+iaMoneyBen(r.total)).join('\n');
+    return {texto, composicao:rank.map(r=>({label:r.nome,valor:r.total}))};
+  }
+
+  const periodo = iaResolverPeriodo(nq, iaTodasCompetencias(mod));
+
+  if(porDepto){
+    const mods = mod ? [mod] : ['vt','med','prud','vr'];
+    const rank = (await iaCustoPorDepartamento(mods, periodo)).sort((a,b)=>b.total-a.total).slice(0,n);
+    if(!rank.length) return {texto:'Não encontrei dados suficientes para montar o ranking de departamentos.'};
+    const texto='Top '+rank.length+' departamentos por custo'+(mod?' de '+iaLabelModulo(mod).replace(/^n[ao]s? /,''):'')+' ('+iaPeriodoLabel(periodo)+'):\n'+rank.map((r,i)=>(i+1)+'. '+r.departamento+' — '+iaMoneyBen(r.total)).join('\n');
+    return {texto, composicao:rank.map(r=>({label:r.departamento,valor:r.total}))};
+  }
+
+  const rank = await iaRankingColaboradores(periodo, n, mod);
+  if(!rank.length) return {texto:'Não encontrei registros suficientes para montar esse ranking em '+iaPeriodoLabel(periodo)+'.'};
+  const texto='Top '+rank.length+' colaboradores por custo'+(mod?' '+iaLabelModulo(mod):' (todos os benefícios)')+' — '+iaPeriodoLabel(periodo)+':\n'+
+    rank.map((r,i)=>(i+1)+'. '+r.nome+' — '+iaMoneyBen(r.total)).join('\n');
+  return {texto, composicao:rank.map(r=>({label:r.nome,valor:r.total}))};
+}
+
+async function iaRespSerieMeses(nq, mod){
+  const m = nq.match(/ultimos?\s+(\d+)\s+mes/);
+  const n = m?parseInt(m[1],10):3;
+  const mods = mod?[mod]:['vt','med','prud','vr'];
+  const todasComp=new Set();
+  mods.forEach(mm=>iaTodasCompetencias(mm).forEach(c=>todasComp.add(c)));
+  const comps=[...todasComp].sort().slice(-n);
+  if(!comps.length) return {texto:'Não encontrei competências processadas suficientes para montar essa série.'};
+  const linhas=[];
+  for(const c of comps){
+    let total=0;
+    for(const mm of mods) total += (await iaSomaModulo(mm, {tipo:'mes',valor:c}, null)).total || 0;
+    linhas.push({label:compLabel(c), valor:+total.toFixed(2)});
+  }
+  const texto='Custos '+(mod?'de '+iaLabelModulo(mod).replace(/^n[ao]s? /,''):'totais de benefícios')+' nos últimos '+comps.length+' mês(es) processado(s):\n'+
+    linhas.map(l=>'• '+l.label+': '+iaMoneyBen(l.valor)).join('\n');
+  return {texto, composicao:linhas};
+}
+
+async function iaRespComparacao(nq, mod){
+  if(/ultimos?\s+\d+\s+mes/.test(nq)) return await iaRespSerieMeses(nq, mod);
+  const mesesEncontrados=[];
+  const reMes=/\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*(?:[\/\-]\s?(\d{2,4}))?\b/g;
+  let mm;
+  while((mm=reMes.exec(nq))){
+    const ano = mm[2] ? (mm[2].length===2?'20'+mm[2]:mm[2]) : String(new Date().getFullYear());
+    mesesEncontrados.push(ano+'-'+String(MESES_PT_BEN[mm[1]]).padStart(2,'0'));
+  }
+  let periodoA, periodoB;
+  if(mesesEncontrados.length>=2){
+    periodoA={tipo:'mes',valor:mesesEncontrados[0]}; periodoB={tipo:'mes',valor:mesesEncontrados[1]};
+  } else if(/mes atual/.test(nq) && /(mes anterior|mes passado)/.test(nq)){
+    const hoje=new Date(); const mAtual=hoje.getMonth()+1, aAtual=hoje.getFullYear();
+    let mAnt=mAtual-1, aAnt=aAtual; if(mAnt<1){mAnt=12;aAnt--;}
+    periodoA={tipo:'mes',valor:aAtual+'-'+String(mAtual).padStart(2,'0')};
+    periodoB={tipo:'mes',valor:aAnt+'-'+String(mAnt).padStart(2,'0')};
+  } else if(/clt/.test(nq) && /\bpj\b/.test(nq)){
+    const mods = mod?[mod]:['vt','med','prud','vr'];
+    let totalCLT=0, totalPJ=0;
+    for(const m of mods){ totalCLT += (await iaSomaModulo(m,null,'CLT')).total||0; totalPJ += (await iaSomaModulo(m,null,'PJ')).total||0; }
+    const diff=+(totalCLT-totalPJ).toFixed(2);
+    return {texto:'Comparativo CLT x PJ'+(mod?' '+iaLabelModulo(mod):'')+' (situação atual):\n• CLT: '+iaMoneyBen(totalCLT)+'\n• PJ: '+iaMoneyBen(totalPJ)+'\n• Diferença: '+iaMoneyBen(diff)+'.'};
+  } else {
+    return {texto:'Para eu comparar, me diga dois períodos — por exemplo: "compare junho com julho" ou "compare o mês atual com o mês anterior".'};
+  }
+  const mods = mod ? [mod] : ['vt','med','prud','vr'];
+  let totalA=0, totalB=0;
+  for(const m of mods){ totalA += (await iaSomaModulo(m, periodoA, null)).total || 0; totalB += (await iaSomaModulo(m, periodoB, null)).total || 0; }
+  const diff = +(totalA-totalB).toFixed(2);
+  const pct = totalB ? +((diff/totalB)*100).toFixed(1) : null;
+  const sentido = diff>0?'aumento':diff<0?'redução':'sem variação';
+  const texto = (mod?iaLabelModulo(mod).replace(/^n[ao]s? /,'').replace(/^./,c=>c.toUpperCase()):'Custo total de benefícios')+':\n'+
+    '• '+iaPeriodoLabel(periodoA)+': '+iaMoneyBen(totalA)+'\n'+
+    '• '+iaPeriodoLabel(periodoB)+': '+iaMoneyBen(totalB)+'\n'+
+    '• Diferença: '+iaMoneyBen(diff)+(pct!=null?' ('+(pct>0?'+':'')+pct+'%)':'')+' — '+sentido+'.';
+  return {texto, composicao:[{label:iaPeriodoLabel(periodoA),valor:totalA},{label:iaPeriodoLabel(periodoB),valor:totalB}]};
+}
+
+function iaRespInconsistencias(){
+  const problemas=[];
+  const semCC = (employees||[]).filter(e=>!e.cc);
+  if(semCC.length) problemas.push('• '+semCC.length+' colaborador(es) sem centro de custo: '+semCC.slice(0,8).map(e=>e.nome).join(', ')+(semCC.length>8?'…':''));
+  const semTipo = (employees||[]).filter(e=>!e.tipo);
+  if(semTipo.length) problemas.push('• '+semTipo.length+' colaborador(es) sem tipo de contratação: '+semTipo.slice(0,8).map(e=>e.nome).join(', ')+(semTipo.length>8?'…':''));
+  const semCPF = (employees||[]).filter(e=>!empCpf(e));
+  if(semCPF.length) problemas.push('• '+semCPF.length+' colaborador(es) sem CPF cadastrado.');
+  const porCPF={};
+  (employees||[]).forEach(e=>{ const c=normCPFDigits(empCpf(e)); if(c){ (porCPF[c]=porCPF[c]||[]).push(e.nome); } });
+  const cpfDup = Object.entries(porCPF).filter(([c,l])=>l.length>1);
+  if(cpfDup.length) problemas.push('• '+cpfDup.length+' CPF(s) duplicado(s): '+cpfDup.slice(0,5).map(([c,l])=>l.join(' / ')).join('; '));
+  const porNome={};
+  (employees||[]).forEach(e=>{ const n=normNameFlex(e.nome); (porNome[n]=porNome[n]||[]).push(e); });
+  const nomeDup = Object.entries(porNome).filter(([n,l])=>l.length>1);
+  if(nomeDup.length) problemas.push('• '+nomeDup.length+' nome(s) duplicado(s) no Cadastro Geral: '+nomeDup.slice(0,5).map(([n,l])=>l[0].nome).join(', '));
+  const desligados = (employees||[]).filter(e=>!isActive(e));
+  const desligadosAtivos = desligados.filter(e=>{
+    const chave=normNameFlex(e.nome);
+    const emVT=(vtRegistros||[]).some(r=>pertenceAoColaborador(r,e,chave)&&r.ativoVT);
+    const emMED=(medRegistros||[]).some(r=>pertenceAoColaborador(r,e,chave)&&r.ativo);
+    const emPRUD=(prudRegistros||[]).some(r=>pertenceAoColaborador(r,e,chave)&&r.ativo);
+    return emVT||emMED||emPRUD;
+  });
+  if(desligadosAtivos.length) problemas.push('• '+desligadosAtivos.length+' colaborador(es) desligado(s) mas ainda ativo(s) em algum benefício: '+desligadosAtivos.slice(0,8).map(e=>e.nome).join(', '));
+  const medZerado=(medRegistros||[]).filter(r=>r.ativo && !(Number(r.valor)||0) && !(Number(r.iof)||0));
+  const prudZerado=(prudRegistros||[]).filter(r=>r.ativo && !(Number(r.valor)||0));
+  if(medZerado.length) problemas.push('• '+medZerado.length+' registro(s) ativo(s) na Assistência Médica com valor zerado.');
+  if(prudZerado.length) problemas.push('• '+prudZerado.length+' registro(s) ativo(s) no Seguro de Vida com valor zerado.');
+  const idsEmp = new Set((employees||[]).map(e=>e.id));
+  const orfaosVT=(vtRegistros||[]).filter(r=>r.employeeId==null || !idsEmp.has(r.employeeId));
+  const orfaosMED=(medRegistros||[]).filter(r=>r.employeeId==null || !idsEmp.has(r.employeeId));
+  const orfaosPRUD=(prudRegistros||[]).filter(r=>r.employeeId==null || !idsEmp.has(r.employeeId));
+  const totalOrfaos=orfaosVT.length+orfaosMED.length+orfaosPRUD.length;
+  if(totalOrfaos) problemas.push('• '+totalOrfaos+' registro(s) em benefícios sem vínculo direto com o Cadastro Geral (podem ser cadastros antigos/de teste) — Vale Transporte: '+orfaosVT.length+', Assistência Médica: '+orfaosMED.length+', Seguro de Vida: '+orfaosPRUD.length+'.');
+  if(!problemas.length) return {texto:'Não encontrei inconsistências cadastrais nos dados carregados. ✅'};
+  return {texto:'Encontrei possíveis inconsistências:\n\n'+problemas.join('\n')};
+}
+
+async function iaMotorLocal(q){
+  const nq = iaNormBen(q).replace(/[^\w\s\/\-]/g,' ').replace(/\s+/g,' ').trim();
+  if(/inconsistenc|sem centro de custo|sem departamento|sem tipo de contrat|cpf duplicad|duplicad|valores zerad|cadastro incompleto|nao aparece em nenhum beneficio|nao esta no cadastro geral/.test(nq)){
+    return iaRespInconsistencias();
+  }
+  if(/\bcompar/.test(nq)){
+    return await iaRespComparacao(nq, iaResolverModulo(nq));
+  }
+  const mTop = nq.match(/\btop\s*(\d+)\b/);
+  if(mTop || /\bmaiores\b|\branking\b/.test(nq)){
+    return await iaRespRanking(nq, mTop?parseInt(mTop[1],10):5);
+  }
+  if(/\bquant[oa]s\b|\bnumero de\b/.test(nq)){
+    return await iaRespContagem(nq);
+  }
+  if(/\bquanto (gastamos|gastou|custou|foi gasto|pagamos|paga)\b|\bcusto total\b|\bvalor total\b|\bgasto total\b|\bm[ée]dia\b|\bm[ée]dio\b/.test(nq)){
+    return await iaRespSoma(nq);
+  }
+  return null;
+}
+
+async function iaLocalAnswerBenClassico(q){
   const d=await iaBenData();
   const nq=q.toLowerCase();
   const colaborador=await iaFindColaboradorBen(q);
@@ -15911,6 +16346,20 @@ async function iaLocalAnswerBen(q){
   }
   return 'Posso responder sobre os módulos VR/VA/CB, Vale Transporte, Assistência Médica SulAmérica e Prudential Seguro de Vida — quantidade de colaboradores ativos, valores mensais e processamentos no histórico. Tente perguntar, por exemplo: "resuma os módulos" ou "quantos ativos no vale transporte?".';
 }
+// Camada "rica": tenta primeiro o motor local estruturado (contagem, soma,
+// ranking, comparação, inconsistências — sempre com cálculo feito aqui,
+// nunca pelo Gemini). Se não reconhecer a pergunta, cai no motor local
+// clássico (busca de colaborador + respostas por palavra-chave), que
+// continua exatamente como antes.
+async function iaLocalAnswerBenRico(q){
+  const motor = await iaMotorLocal(q);
+  if(motor) return {...motor, reconhecido:true};
+  const texto = await iaLocalAnswerBenClassico(q);
+  return {texto, reconhecido:false};
+}
+// Mantida por compatibilidade: qualquer código que já chamava
+// iaLocalAnswerBen(q) esperando uma string continua funcionando.
+async function iaLocalAnswerBen(q){ return (await iaLocalAnswerBenRico(q)).texto; }
 async function iaGeminiAnswerBen(q,onDelta){
   const model=(document.getElementById('ia-model')?.value)||'gemini-flash-latest';
   const colaborador=await iaFindColaboradorBen(q);
@@ -15938,36 +16387,95 @@ function iaBubble(who,txt){
   d.style.cssText='margin-bottom:10px;max-width:88%;padding:8px 12px;border-radius:10px;font-size:13.5px;white-space:pre-wrap;'+(who==='eu'?'margin-left:auto':'');
   d.textContent=txt;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;
 }
+function iaAbrirComposicao(idx){
+  const lista = __iaComposicoes[idx] || [];
+  const linhas = lista.map(item=>'<tr><td style="padding:5px 8px;border-bottom:1px solid #eee">'+(item.label||'')+'</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">'+iaMoneyBen(item.valor)+'</td></tr>').join('');
+  let ov = document.getElementById('ia-composicao-overlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id='ia-composicao-overlay';
+    ov.className='modal-overlay';
+    ov.style.zIndex='1000000';
+    ov.onclick = e => { if(e.target===ov) ov.classList.remove('open'); };
+    ov.innerHTML = '<div class="modal" style="max-width:480px"><div class="modal-title"><span class="bar"></span>Composição do resultado</div>'+
+      '<div id="ia-composicao-body" style="max-height:400px;overflow:auto"></div>'+
+      '<div class="modal-footer"><button class="btn btn-ghost" onclick="document.getElementById(\'ia-composicao-overlay\').classList.remove(\'open\')">Fechar</button></div></div>';
+    document.body.appendChild(ov);
+  }
+  document.getElementById('ia-composicao-body').innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th style="text-align:left;padding:5px 8px;border-bottom:2px solid #ccc">Item</th><th style="text-align:right;padding:5px 8px;border-bottom:2px solid #ccc">Valor</th></tr></thead><tbody>'+linhas+'</tbody></table>';
+  ov.classList.add('open');
+}
+// Escreve a resposta final na bolha, adiciona a marca de origem (⚡
+// sistema / ✨ Gemini) e, quando houver detalhamento, o botão "Ver
+// composição" logo abaixo — nunca inventa números, só expõe o que já foi
+// calculado pelo motor local ou recebido do Gemini.
+function iaFinalizarResposta(bubble, texto, composicao, fonte){
+  const marca = fonte==='gemini' ? '\n\n✨ Respondido com Gemini' : '\n\n⚡ Respondido pelo sistema';
+  bubble.textContent = texto + marca;
+  if(composicao && composicao.length){
+    const idx = __iaComposicoes.push(composicao)-1;
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className='btn btn-ghost btn-xs';
+    btn.style.cssText='margin:-6px 0 10px;display:block;font-size:11px';
+    btn.textContent='🔎 Ver composição ('+composicao.length+' registro'+(composicao.length===1?'':'s')+')';
+    btn.onclick=()=>iaAbrirComposicao(idx);
+    bubble.parentNode.insertBefore(btn, bubble.nextSibling);
+  }
+}
 function iaInit(){
-  const sug=document.getElementById('ia-sug');
-  if(sug&&!sug.dataset.ready){ sug.dataset.ready='1'; sug.innerHTML=IA_SUGS_BEN.map(s=>`<span class="chip" style="display:inline-block;margin:3px 4px 0 0;padding:5px 10px;border-radius:999px;background:#F1EEE8;border:1px solid #e2d9cd;font-size:12px;cursor:pointer" onclick="document.getElementById('ia-q').value=this.textContent;iaSend()">${s}</span>`).join(' '); }
+  iaRenderSugestoes(false);
   const prov=document.getElementById('ia-provider'), model=document.getElementById('ia-model');
   if(prov&&!prov.dataset.ready){
     prov.dataset.ready='1';
-    prov.value=localStorage.getItem('lnb_ben_ia_provider')||'local';
+    prov.value=localStorage.getItem('lnb_ben_ia_provider')||'auto';
     model.value=localStorage.getItem('lnb_ben_ia_model')||'gemini-flash-latest';
-    prov.onchange=()=>{localStorage.setItem('lnb_ben_ia_provider',prov.value);iaBubble('ai',prov.value==='gemini'?'Modo Gemini API ativado.':'Modo local gratuito ativado.');};
+    prov.onchange=()=>{
+      localStorage.setItem('lnb_ben_ia_provider',prov.value);
+      const msgs={auto:'Modo automático ativado — respondo pelo sistema sempre que possível e só uso o Gemini quando a pergunta foge do que o motor local reconhece.', local:'Modo local gratuito ativado.', gemini:'Modo Gemini API ativado.'};
+      iaBubble('ai',msgs[prov.value]);
+    };
     model.onchange=()=>localStorage.setItem('lnb_ben_ia_model',model.value);
   }
   const chat=document.getElementById('ia-chat');
-  if(chat&&!chat.children.length)iaBubble('ai','Olá! Posso responder em modo local gratuito ou usar Gemini API sobre os módulos de Benefícios. Envio apenas um resumo estruturado dos dados, não o HTML inteiro, e a chave da IA fica protegida no servidor.');
+  if(chat&&!chat.children.length)iaBubble('ai','Olá! No modo automático eu respondo pelo próprio sistema sempre que possível (de graça, sem IA externa) e só uso o Gemini quando a pergunta é mais aberta. Envio apenas um resumo estruturado dos dados, não o HTML inteiro, e a chave da IA fica protegida no servidor.');
 }
 async function iaSend(){
   const inp=document.getElementById('ia-q');const q=inp.value.trim();if(!q)return;
   iaBubble('eu',q);inp.value='';iaMsgs.push({role:'user',content:q});
-  const provider=document.getElementById('ia-provider')?.value||localStorage.getItem('lnb_ben_ia_provider')||'local';
+  const provider=document.getElementById('ia-provider')?.value||localStorage.getItem('lnb_ben_ia_provider')||'auto';
   const wait=iaBubble('ai',provider==='gemini'?'Consultando Gemini API com resumo dos dados relevantes…':'Analisando localmente os dados carregados…');
   try{
-    const txt=provider==='gemini'?await iaGeminiAnswerBen(q):await iaLocalAnswerBen(q);
-    iaMsgs.push({role:'assistant',content:txt});
-    wait.textContent=txt;
-  }catch(err){
-    if(provider==='gemini'){
-      const fallback=await iaLocalAnswerBen(q);
-      wait.textContent='Não consegui consultar o Gemini: '+err.message+'\n\nResposta local provisória:\n'+fallback;
-    }else{
-      wait.textContent='Não consegui montar a resposta local: '+err.message;
+    if(provider==='local'){
+      const r=await iaLocalAnswerBenRico(q);
+      iaMsgs.push({role:'assistant',content:r.texto});
+      iaFinalizarResposta(wait, r.texto, r.composicao, 'local');
+      return;
     }
+    if(provider==='gemini'){
+      const txt=await iaGeminiAnswerBen(q);
+      iaMsgs.push({role:'assistant',content:txt});
+      iaFinalizarResposta(wait, txt, null, 'gemini');
+      return;
+    }
+    // Automático: prioridade absoluta para o motor local estruturado —
+    // só recorre ao Gemini quando a pergunta não é reconhecida por ele.
+    const r=await iaLocalAnswerBenRico(q);
+    if(r.reconhecido){
+      iaMsgs.push({role:'assistant',content:r.texto});
+      iaFinalizarResposta(wait, r.texto, r.composicao, 'local');
+      return;
+    }
+    try{
+      const txt=await iaGeminiAnswerBen(q);
+      iaMsgs.push({role:'assistant',content:txt});
+      iaFinalizarResposta(wait, txt, null, 'gemini');
+    }catch(errGemini){
+      iaMsgs.push({role:'assistant',content:r.texto});
+      iaFinalizarResposta(wait, r.texto, r.composicao, 'local');
+    }
+  }catch(err){
+    wait.textContent='Não consegui montar a resposta: '+err.message;
   }
 }
 (function(){
