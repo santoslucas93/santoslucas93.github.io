@@ -883,22 +883,17 @@ tfoot td {
    table-layout fixed, width 100%, fonte um pouco menor e colunas em %
    somando exatamente 100 — tudo cabe numa linha só, sem rolagem
    horizontal, com o botão de editar em ícone (✏️) em vez de texto. */
+/* As larguras das colunas agora vêm do <colgroup> no HTML (valores
+   padrão) e podem ser ajustadas arrastando a borda de cada th — ver
+   criarColunasRedimensionaveis() mais abaixo no script. */
 #tab-vt .vt-table.vt-table-main { table-layout:fixed; width:100%; font-size:12px; }
-.vt-table.vt-table-main th:nth-child(1), .vt-table.vt-table-main td:nth-child(1){ width:15%; }
-.vt-table.vt-table-main th:nth-child(2), .vt-table.vt-table-main td:nth-child(2){ width:9%; }
-.vt-table.vt-table-main th:nth-child(3), .vt-table.vt-table-main td:nth-child(3){ width:8%; }
-.vt-table.vt-table-main th:nth-child(4), .vt-table.vt-table-main td:nth-child(4){ width:6%; }
-.vt-table.vt-table-main th:nth-child(5), .vt-table.vt-table-main td:nth-child(5){ width:6%; }
-.vt-table.vt-table-main th:nth-child(6), .vt-table.vt-table-main td:nth-child(6){ width:8%; }
-.vt-table.vt-table-main th:nth-child(7), .vt-table.vt-table-main td:nth-child(7){ width:13%; }
-.vt-table.vt-table-main th:nth-child(8), .vt-table.vt-table-main td:nth-child(8){ width:5%; }
-.vt-table.vt-table-main th:nth-child(9), .vt-table.vt-table-main td:nth-child(9){ width:8%; }
-.vt-table.vt-table-main th:nth-child(10), .vt-table.vt-table-main td:nth-child(10){ width:8%; }
-.vt-table.vt-table-main th:nth-child(11), .vt-table.vt-table-main td:nth-child(11){ width:8%; }
-.vt-table.vt-table-main th:nth-child(12), .vt-table.vt-table-main td:nth-child(12){ width:6%; }
 .vt-table.vt-table-main .vt-tariff-select { max-width:100%; }
 .vt-table.vt-table-main .vt-actions { flex-wrap:nowrap; gap:3px; }
 .vt-table.vt-table-main .vt-actions .btn-xs { padding:4px 7px; }
+.col-resizavel { position:relative; }
+.col-resize-handle { position:absolute; top:0; right:-3px; bottom:0; width:7px; cursor:col-resize; z-index:5; touch-action:none; }
+.col-resize-handle:hover, .col-resize-handle.arrastando { background:rgba(232,93,4,.45); }
+.vt-table.vt-table-main th { overflow:hidden; text-overflow:ellipsis; }
 @media (max-width: 980px){ .benefit-choice-grid { grid-template-columns:1fr; } }
 @media print {
   body.printing.print-vt-calculo, body.printing.print-vt, body.printing.print-vt-rateio { font-size: 9px !important; }
@@ -3914,12 +3909,17 @@ function lnbUnlockApp(){
           <select class="form-select" id="vt-filter-area" onchange="renderVT()"><option value="">Todas as áreas</option><option value="1">Superintendência</option><option value="2">Comunicação</option><option value="3">Marketing</option><option value="4">Técnico Operacional</option><option value="5">Financeiro</option><option value="6">Administrativo</option></select>
         </div>
         <div class="toolbar-right">
+          <button class="btn btn-ghost btn-sm no-print" onclick="restaurarLargurasColunas('tbl-vt')" title="Volta as colunas desta tabela para a largura original">↺ Restaurar colunas</button>
           <button class="btn btn-ghost btn-sm" onclick="clearVTFilters()">✕ Limpar filtros</button>
           <button class="btn btn-primary btn-sm" onclick="openModal(null,'vt')">+ Adicionar VT</button>
         </div>
       </div>
+      <div class="info-box no-print" style="margin-bottom:10px;font-size:12px">↔ Arraste a borda direita de qualquer coluna do cabeçalho abaixo para ajustar a largura do seu jeito. O sistema lembra o ajuste no seu navegador.</div>
       <div class="table-wrap">
         <table id="tbl-vt" class="vt-table vt-table-main">
+          <colgroup>
+            <col style="width:15%"><col style="width:9%"><col style="width:8%"><col style="width:6%"><col style="width:6%"><col style="width:8%"><col style="width:13%"><col style="width:5%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:6%">
+          </colgroup>
           <thead>
             <tr>
               <th>Colaborador</th><th>CPF</th><th>Nascimento</th><th>Centro de Custo</th><th>Tipo</th><th>Status VT</th><th class="tr">Tarifa Unit. (ida)</th><th class="tc">Dias</th><th class="tr">Valor Base</th><th class="tr">Taxa Rateada</th><th class="tr">Total Boleto</th><th class="tc no-print">Ações</th>
@@ -4331,6 +4331,7 @@ function lnbUnlockApp(){
       </div>
     </div>
     <div class="modal-footer">
+      <button class="btn btn-danger" id="f-btn-excluir-tudo" style="display:none;margin-right:auto" onclick="excluirColaboradorCompletoDoModal()">🗑️ Excluir de todos os módulos</button>
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveEmployee()">Salvar Colaborador</button>
     </div>
@@ -4455,16 +4456,82 @@ function lnbUnlockApp(){
     else if (estado==='mesclado') el.textContent = '\ud83d\udd04 Outra sess\u00e3o alterou estes dados \u2014 mesclado automaticamente';
   }
 
-  function avisarRecarregar(msg){
-    let el = document.getElementById('lnb-reload-banner');
-    if (!el){
-      el = document.createElement('div');
-      el.id = 'lnb-reload-banner';
-      el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;background:#b45309;color:#fff;padding:10px 16px;text-align:center;font-weight:700;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.25);';
-      document.body.appendChild(el);
-    }
-    el.innerHTML = msg + ' &nbsp; <button id="lnb-reload-btn" style="margin-left:10px;background:#fff;color:#b45309;border:0;border-radius:6px;padding:4px 12px;font-weight:700;cursor:pointer;">Atualizar agora</button>';
-    document.getElementById('lnb-reload-btn').onclick = function(){ location.reload(); };
+  // Em vez de interromper a tela pedindo para recarregar, atualiza direto
+  // a variável em memória do módulo afetado e manda a tela redesenhar
+  // aquele pedaço — o usuário nem percebe, e nunca fica olhando dado
+  // desatualizado.
+  function aplicarChaveNaTela(chave, valor){
+    try{
+      switch(chave){
+        case 'liga_emp':
+          if (Array.isArray(valor)) employees = valor;
+          if (typeof renderAll==='function') renderAll();
+          if (typeof renderCalculo==='function') renderCalculo();
+          if (typeof renderRateio==='function') renderRateio();
+          if (typeof renderAvulsos==='function') renderAvulsos();
+          break;
+        case 'liga_avulsos':
+          if (Array.isArray(valor)) avulsos = valor;
+          if (typeof renderAvulsos==='function') renderAvulsos();
+          break;
+        case 'liga_hist':
+          if (Array.isArray(valor)) historico = valor;
+          if (typeof renderHistorico==='function') renderHistorico();
+          if (typeof renderConsolidado==='function') renderConsolidado();
+          break;
+        case 'liga_cfg':
+          if (valor && typeof valor==='object' && typeof cfg!=='undefined') Object.assign(cfg, valor);
+          if (typeof renderAll==='function') renderAll();
+          break;
+        case 'liga_vt_registros':
+          if (Array.isArray(valor)) vtRegistros = valor;
+          if (typeof renderVT==='function') renderVT();
+          if (typeof renderVTCalculo==='function') renderVTCalculo();
+          if (typeof renderVTRateio==='function') renderVTRateio();
+          break;
+        case 'liga_vt_historico':
+          if (Array.isArray(valor)) vtHistorico = valor;
+          if (typeof renderVTHistorico==='function') renderVTHistorico();
+          if (typeof renderVTConsolidado==='function') renderVTConsolidado();
+          break;
+        case 'liga_vt_cfg':
+          if (valor && typeof valor==='object' && typeof vtCfg!=='undefined') Object.assign(vtCfg, valor);
+          if (typeof renderVTConfig==='function') renderVTConfig();
+          break;
+        case 'liga_med_registros':
+          if (Array.isArray(valor)) medRegistros = valor;
+          if (typeof renderMed==='function') renderMed();
+          if (typeof renderMedCalculo==='function') renderMedCalculo();
+          if (typeof renderMedRateio==='function') renderMedRateio();
+          if (typeof renderMedConfig==='function') renderMedConfig();
+          break;
+        case 'liga_med_historico':
+          if (Array.isArray(valor)) medHistorico = valor;
+          if (typeof renderMedHistorico==='function') renderMedHistorico();
+          if (typeof renderMedConsolidado==='function') renderMedConsolidado();
+          break;
+        case 'liga_med_cfg':
+          if (valor && typeof valor==='object' && typeof medCfg!=='undefined') Object.assign(medCfg, valor);
+          break;
+        case 'liga_prud_registros':
+          if (Array.isArray(valor)) prudRegistros = valor;
+          if (typeof renderPrud==='function') renderPrud();
+          if (typeof renderPrudCalculo==='function') renderPrudCalculo();
+          if (typeof renderPrudRateio==='function') renderPrudRateio();
+          if (typeof renderPrudConfig==='function') renderPrudConfig();
+          break;
+        case 'liga_prud_historico':
+          if (Array.isArray(valor)) prudHistorico = valor;
+          if (typeof renderPrudHistorico==='function') renderPrudHistorico();
+          if (typeof renderPrudConsolidado==='function') renderPrudConsolidado();
+          break;
+        case 'liga_prud_cfg':
+          if (valor && typeof valor==='object' && typeof prudCfg!=='undefined') Object.assign(prudCfg, valor);
+          break;
+        default:
+          break; // demais chaves (mob_*, vt_avulsos etc.) são tratadas pelo próprio módulo
+      }
+    }catch(e){ console.error('Falha ao atualizar a tela após sincronizar '+chave+':', e); }
   }
 
   // Chave "natural" de cada item dentro dos arrays do sistema, usada para
@@ -4520,6 +4587,7 @@ function lnbUnlockApp(){
       // sessão mais antiga de apagar cadastros feitos em outro lugar.
       const versaoServidor = await buscarVersaoServidor(chaves);
       let houveMescla = false;
+      const chavesMescladas = [];
       const rows = chaves.map(function(k){
         let valorLocal = null;
         try{ const raw = localStorage.getItem(k); valorLocal = raw!=null ? JSON.parse(raw) : null; }catch(e){ valorLocal = null; }
@@ -4534,12 +4602,13 @@ function lnbUnlockApp(){
             origSetItem(k, JSON.stringify(mesclado));
           } else {
             // Não deu para mesclar com segurança (ex.: configuração, não lista
-            // de cadastros): mantém o que está no servidor e avisa o usuário,
-            // em vez de arriscar sobrescrever a alteração de outra pessoa.
+            // de cadastros): mantém o que está no servidor, em vez de
+            // arriscar sobrescrever a alteração de outra pessoa.
             valorFinal = infoServidor.valor;
             origSetItem(k, JSON.stringify(infoServidor.valor));
             houveMescla = true;
           }
+          chavesMescladas.push({chave:k, valor:valorFinal});
         }
         return {chave:k, valor:valorFinal, updated_by:(AUTH_SESSION&&(AUTH_SESSION.nome||AUTH_SESSION.role))||'desconhecido', updated_at:new Date().toISOString()};
       });
@@ -4548,7 +4617,7 @@ function lnbUnlockApp(){
       dirty = {};
       if (houveMescla){
         atualizarSyncBadge('mesclado');
-        avisarRecarregar('\ud83d\udd04 Outra sess\u00e3o salvou dados aqui enquanto voc\u00ea editava. Tudo foi mesclado sem perder nada, mas atualize a tela para ver a vers\u00e3o completa.');
+        chavesMescladas.forEach(function(m){ aplicarChaveNaTela(m.chave, m.valor); });
       } else {
         atualizarSyncBadge('ok');
       }
@@ -4592,18 +4661,14 @@ function lnbUnlockApp(){
       const chaves = LIGA_KEYS.filter(function(k){ return !dirty[k]; });
       if (!chaves.length) return;
       const versaoServidor = await buscarVersaoServidor(chaves);
-      let atualizouAlgo = false;
       Object.keys(versaoServidor).forEach(function(k){
         const info = versaoServidor[k];
         if (info.updated_at && info.updated_at !== window.__lnbServerVersion[k]){
           origSetItem(k, JSON.stringify(info.valor));
           window.__lnbServerVersion[k] = info.updated_at;
-          atualizouAlgo = true;
+          aplicarChaveNaTela(k, info.valor);
         }
       });
-      if (atualizouAlgo){
-        avisarRecarregar('\u2601\ufe0f Existem dados mais recentes salvos por outra pessoa. Atualize a tela para v\u00ea-los.');
-      }
     }catch(e){ /* checagem em segundo plano: falha aqui não deve incomodar o usuário */ }
   }
   setInterval(conferirAtualizacoes, 90000);
@@ -4633,6 +4698,92 @@ function lnbUnlockApp(){
 })();
 
 
+
+// ============================================================
+// COLUNAS REDIMENSIONÁVEIS (arrastar para ajustar largura)
+// ------------------------------------------------------------
+// Dá ao usuário controle direto sobre a largura de cada coluna, em vez de
+// larguras fixas escolhidas por quem programou a tela. Arraste a borda
+// direita de qualquer cabeçalho para redimensionar; o ajuste fica salvo
+// neste navegador (é preferência de exibição, não dado do sistema — por
+// isso não precisa ir para o Supabase, do mesmo jeito que o tema da tela).
+// ============================================================
+function criarColunasRedimensionaveis(tableId){
+  const table = document.getElementById(tableId);
+  if (!table || table.dataset.resizeInit) return;
+  const colgroup = table.querySelector('colgroup');
+  const theadRow = table.querySelector('thead tr');
+  if (!colgroup || !theadRow) return;
+  const cols = Array.from(colgroup.children);
+  const ths = Array.from(theadRow.children);
+  if (!cols.length || cols.length !== ths.length) return;
+  table.dataset.resizeInit = '1';
+
+  const storageKey = 'lnb_col_widths_' + tableId;
+  cols.forEach(c => { c.dataset.default = c.style.width || ''; });
+  try{
+    const salvas = JSON.parse(localStorage.getItem(storageKey) || 'null');
+    if (Array.isArray(salvas) && salvas.length === cols.length){
+      salvas.forEach((w, i) => { if (w) cols[i].style.width = w; });
+    }
+  }catch(e){}
+
+  ths.forEach((th, i) => {
+    if (i === ths.length - 1) return; // última coluna não precisa de alça à direita
+    th.classList.add('col-resizavel');
+    const handle = document.createElement('span');
+    handle.className = 'col-resize-handle no-print';
+    handle.title = 'Arraste para ajustar a largura desta coluna';
+    th.appendChild(handle);
+
+    let startX = 0, widthA = 0, widthB = 0;
+    function pos(ev){ return ev.touches ? ev.touches[0].clientX : ev.clientX; }
+    function onMove(ev){
+      ev.preventDefault();
+      const delta = pos(ev) - startX;
+      const novaA = Math.max(40, widthA + delta);
+      const novaB = Math.max(40, widthB - delta);
+      cols[i].style.width = novaA + 'px';
+      cols[i+1].style.width = novaB + 'px';
+    }
+    function onUp(){
+      handle.classList.remove('arrastando');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+      try{
+        const larguras = ths.map((t, idx) => cols[idx].style.width || (t.offsetWidth + 'px'));
+        localStorage.setItem(storageKey, JSON.stringify(larguras));
+      }catch(e){}
+    }
+    function onDown(ev){
+      ev.preventDefault();
+      startX = pos(ev);
+      widthA = ths[i].offsetWidth;
+      widthB = ths[i+1].offsetWidth;
+      handle.classList.add('arrastando');
+      document.addEventListener('mousemove', onMove, {passive:false});
+      document.addEventListener('mouseup', onUp);
+      document.addEventListener('touchmove', onMove, {passive:false});
+      document.addEventListener('touchend', onUp);
+    }
+    handle.addEventListener('mousedown', onDown);
+    handle.addEventListener('touchstart', onDown, {passive:false});
+  });
+}
+function restaurarLargurasColunas(tableId){
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const colgroup = table.querySelector('colgroup');
+  if (!colgroup) return;
+  Array.from(colgroup.children).forEach(c => { c.style.width = c.dataset.default || ''; });
+  localStorage.removeItem('lnb_col_widths_' + tableId);
+  showToast('✅ Largura das colunas restaurada.');
+}
+window.addEventListener('DOMContentLoaded', function(){
+  criarColunasRedimensionaveis('tbl-vt');
+});
 
 // ============================================================
 // CONSTANTS
@@ -4989,9 +5140,8 @@ function renderTable() {
           <td class="tc">${cb}</td>
           <td class="tc">
             <div class="action-buttons">
-              <button class="btn btn-ghost btn-xs" onclick="openModal(${e.id})">✏️</button>
+              <button class="btn btn-ghost btn-xs" onclick="openModal(${e.id})" title="Editar ou excluir colaborador">✏️</button>
               <button class="btn btn-ghost btn-xs" onclick="toggleEmployee(${e.id})">${toggleLabel}</button>
-              <button class="btn btn-danger btn-xs" onclick="excluirColaboradorTodosModulos(${e.id})">🗑️</button>
             </div>
           </td>
         </tr>`;
@@ -5044,8 +5194,20 @@ function openModal(id, presetModulo) {
     if (presetModulo === 'med') document.getElementById('f-mod-med').checked = true;
     if (presetModulo === 'prud') document.getElementById('f-mod-prud').checked = true;
   }
+  const btnExcluir = document.getElementById('f-btn-excluir-tudo');
+  if (btnExcluir) btnExcluir.style.display = id ? '' : 'none';
   setupCadastroMasks();
   document.getElementById('modal-overlay').classList.add('open');
+}
+
+// Exclusão total a partir do próprio cadastro unificado: some com a pessoa
+// do Cadastro Geral e de todos os módulos de uma vez. Para excluir de só
+// alguns módulos, desmarque as caixinhas correspondentes em "Módulos
+// ativos" acima e clique em "Salvar Colaborador" — mesmo caminho de quem
+// inclui, só que ao contrário.
+function excluirColaboradorCompletoDoModal(){
+  if (!editingId) return;
+  excluirColaboradorTodosModulos(editingId);
 }
 
 // Abrem o cadastro unificado a partir de dentro de cada módulo (VT, Saúde,
@@ -5166,6 +5328,10 @@ function excluirColaboradorTodosModulos(ref){
   if (typeof renderVT==='function'){ renderVT(); renderVTCalculo(); renderVTRateio(); }
   if (typeof renderMed==='function'){ renderMed(); renderMedCalculo(); renderMedRateio(); renderMedConfig(); }
   if (typeof renderPrud==='function'){ renderPrud(); renderPrudCalculo(); renderPrudRateio(); renderPrudConfig(); }
+  if (typeof closeModal==='function') closeModal();
+  if (typeof closeVTModal==='function') closeVTModal();
+  if (typeof closeMedModal==='function') closeMedModal();
+  if (typeof closePrudModal==='function') closePrudModal();
   showToast('✅ Colaborador removido de todos os módulos.');
 }
 function excluirVTRow(i){
@@ -5631,7 +5797,7 @@ function renderVT(){
       <td class="tr money">${fmt(c.base)}</td>
       <td class="tr money">${fmt(c.taxa)}</td>
       <td class="tr money">${fmt(c.total)}</td>
-      <td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar cadastro">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirVTRow(${i})">🗑️</button></div></td>
+      <td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar ou excluir colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button></div></td>
     </tr>`;
   });
   document.getElementById('vt-total-base').textContent = fmt(totalBase);
@@ -6144,7 +6310,7 @@ function renderVT(){
   const all=vtRows(); const rows=filteredVTRows(); const totalBaseParam=vtTotalBase(all.filter(r=>r.ativoVT)); let totalBase=0,totalTaxa=0,totalFinal=0,ativos=all.filter(r=>r.ativoVT).length;
   body.innerHTML='';
   if(!rows.length){ body.innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:24px">Nenhum colaborador encontrado no filtro selecionado.<br><small style="opacity:.6">Diagnóstico: cadastro geral='+((typeof employees!=="undefined"&&employees)?employees.length:"?")+', base VT sem filtro='+all.length+', registros VT salvos='+((typeof vtRegistros!=="undefined"&&vtRegistros)?vtRegistros.length:"?")+'</small></td></tr>'; }
-  rows.forEach((r,i)=>{ const c=vtCalc(r,totalBaseParam); totalBase+=c.base; totalTaxa+=c.taxa; totalFinal+=c.total; body.innerHTML += `<tr class="${r.ativoVT?'':'vt-status-off'}"><td><strong>${r.nome}</strong><div class="kpi-note">${r.tipo||''}</div></td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc||'–')}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${r.ativoVT ? '<span class="badge badge-active"><span class="status-dot"></span>Ativo VT</span>' : '<span class="badge badge-off"><span class="status-dot off"></span>Desligado VT</span>'}</td><td class="tr"><div class="vt-tariff-cell"><select class="vt-tariff-select no-print" onchange="setVTField(${i},'tarifaTipo',this.value)"><option value="sptransOnibus" ${r.tarifaTipo==='sptransOnibus'?'selected':''}>SPTrans Ônibus</option><option value="metro" ${r.tarifaTipo==='metro'?'selected':''}>Metrô/Trem</option><option value="integracao" ${r.tarifaTipo==='integracao'?'selected':''}>Integração</option><option value="cmtBom" ${r.tarifaTipo==='cmtBom'?'selected':''}>CMT/BOM</option><option value="custom" ${r.tarifaTipo==='custom'?'selected':''}>Personalizada</option></select><input class="vt-input" type="number" min="0" step="0.01" value="${Number(r.tarifa)||0}" onchange="setVTField(${i},'tarifa',this.value)"><div class="kpi-note">Ida+volta/dia: ${fmt(vtValorDia(r))}</div></div></td><td class="tc"><input class="vt-input small" type="number" min="0" step="1" value="${Number(r.dias)||0}" onchange="setVTField(${i},'dias',this.value)"></td><td class="tr money">${fmt(c.base)}</td><td class="tr money">${fmt(c.taxa)}</td><td class="tr money">${fmt(c.total)}</td><td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar cadastro">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirVTRow(${i})">🗑️</button></div></td></tr>`; });
+  rows.forEach((r,i)=>{ const c=vtCalc(r,totalBaseParam); totalBase+=c.base; totalTaxa+=c.taxa; totalFinal+=c.total; body.innerHTML += `<tr class="${r.ativoVT?'':'vt-status-off'}"><td><strong>${r.nome}</strong><div class="kpi-note">${r.tipo||''}</div></td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc||'–')}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${r.ativoVT ? '<span class="badge badge-active"><span class="status-dot"></span>Ativo VT</span>' : '<span class="badge badge-off"><span class="status-dot off"></span>Desligado VT</span>'}</td><td class="tr"><div class="vt-tariff-cell"><select class="vt-tariff-select no-print" onchange="setVTField(${i},'tarifaTipo',this.value)"><option value="sptransOnibus" ${r.tarifaTipo==='sptransOnibus'?'selected':''}>SPTrans Ônibus</option><option value="metro" ${r.tarifaTipo==='metro'?'selected':''}>Metrô/Trem</option><option value="integracao" ${r.tarifaTipo==='integracao'?'selected':''}>Integração</option><option value="cmtBom" ${r.tarifaTipo==='cmtBom'?'selected':''}>CMT/BOM</option><option value="custom" ${r.tarifaTipo==='custom'?'selected':''}>Personalizada</option></select><input class="vt-input" type="number" min="0" step="0.01" value="${Number(r.tarifa)||0}" onchange="setVTField(${i},'tarifa',this.value)"><div class="kpi-note">Ida+volta/dia: ${fmt(vtValorDia(r))}</div></div></td><td class="tc"><input class="vt-input small" type="number" min="0" step="1" value="${Number(r.dias)||0}" onchange="setVTField(${i},'dias',this.value)"></td><td class="tr money">${fmt(c.base)}</td><td class="tr money">${fmt(c.taxa)}</td><td class="tr money">${fmt(c.total)}</td><td class="tc no-print"><div class="vt-actions"><button class="btn btn-ghost btn-xs" onclick="editVTRow(${i})" title="Editar ou excluir colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="toggleVT(${i})">${r.ativoVT?'Desligar':'Ativar'}</button></div></td></tr>`; });
   document.getElementById('vt-total-base').textContent=fmt(totalBase); document.getElementById('vt-total-taxa').textContent=fmt(totalTaxa); document.getElementById('vt-total-final').textContent=fmt(totalFinal);
   const stat=document.getElementById('stat-vt'); if(stat){ const allBase=vtTotalBase(all.filter(r=>r.ativoVT)); const av=vtTotalAvulsos(); stat.innerHTML=`<div class="stat-card navy"><div class="stat-label">Base VT</div><div class="stat-value" style="font-size:19px">${fmt(allBase)}</div><div class="stat-sub">Competência ${compLabel(vtCfg.competencia)}</div></div><div class="stat-card green"><div class="stat-label">Ativos VT</div><div class="stat-value">${ativos}</div><div class="stat-sub">com benefício habilitado</div></div><div class="stat-card gold"><div class="stat-label">Taxas</div><div class="stat-value" style="font-size:19px">${fmt(vtTotalTaxas())}</div><div class="stat-sub">SPTrans + CMT/BOM</div></div><div class="stat-card"><div class="stat-label">Total Boleto</div><div class="stat-value" style="font-size:19px">${fmt(allBase+vtTotalTaxas()+av)}</div><div class="stat-sub">base + taxas + avulsos</div></div>`; }
   renderVTAvulsoSelect(); renderVTAvulsos(); renderVTCalculo(); renderVTRateio(); renderVTHistorico(); renderVTConsolidado(); renderVTConfig();
@@ -6224,7 +6390,7 @@ function renderMedStats(targetId, rows) {
 }
 function renderMed() {
   const body=document.getElementById('med-body'); if(!body) return; const rows=medFiltered(); body.innerHTML=''; let tv=0,ti=0;
-  rows.forEach(r=>{ const total=Number(r.valor||0)+Number(r.iof||0); if(r.ativo){tv+=Number(r.valor||0);ti+=Number(r.iof||0);} body.innerHTML += `<tr class="${r.ativo?'':'med-row-off'}"><td><strong>${r.nome}</strong></td><td>${r.cpf||'–'}</td><td>${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${contaPill(medConta(r))}</td><td>${r.ativo?'<span class="badge badge-active">Ativo</span>':'<span class="badge badge-off">Desligado</span>'}</td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.valor||0).toFixed(2)}" onchange="updateMedField(${r.id},'valor',this.value)"></td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.iof||0).toFixed(2)}" onchange="updateMedField(${r.id},'iof',this.value)"></td><td class="tr money">${fmt(total)}</td><td class="tc no-print"><div class="med-actions"><button class="btn btn-ghost btn-xs" onclick="editMedRow(${r.id})" title="Editar cadastro">✏️</button><button class="btn btn-ghost btn-xs" onclick="updateMedField(${r.id},'ativo',${r.ativo?'false':'true'})">${r.ativo?'Desligar':'Ativar'}</button><button class="btn btn-danger btn-xs" onclick="excluirMedRow(${r.id})">🗑️</button></div></td></tr>`; });
+  rows.forEach(r=>{ const total=Number(r.valor||0)+Number(r.iof||0); if(r.ativo){tv+=Number(r.valor||0);ti+=Number(r.iof||0);} body.innerHTML += `<tr class="${r.ativo?'':'med-row-off'}"><td><strong>${r.nome}</strong></td><td>${r.cpf||'–'}</td><td>${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td>${contaPill(medConta(r))}</td><td>${r.ativo?'<span class="badge badge-active">Ativo</span>':'<span class="badge badge-off">Desligado</span>'}</td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.valor||0).toFixed(2)}" onchange="updateMedField(${r.id},'valor',this.value)"></td><td class="tr"><input class="med-input" type="number" step="0.01" value="${Number(r.iof||0).toFixed(2)}" onchange="updateMedField(${r.id},'iof',this.value)"></td><td class="tr money">${fmt(total)}</td><td class="tc no-print"><div class="med-actions"><button class="btn btn-ghost btn-xs" onclick="editMedRow(${r.id})" title="Editar ou excluir colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updateMedField(${r.id},'ativo',${r.ativo?'false':'true'})">${r.ativo?'Desligar':'Ativar'}</button></div></td></tr>`; });
   if(!rows.length) body.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:32px">Nenhum colaborador encontrado.</td></tr>';
   document.getElementById('med-total-valor').textContent=fmt(tv); document.getElementById('med-total-iof').textContent=fmt(ti); document.getElementById('med-total-geral').textContent=fmt(tv+ti); renderMedStats('stat-med', medRegistros);
 }
@@ -6329,7 +6495,7 @@ function applyPrudBulkValue() {
 }
 
 function renderPrudStats(targetId, rows) { const ativos=(rows||[]).filter(r=>r.ativo); const total=ativos.reduce((s,r)=>s+Number(r.valor||0),0); const el=document.getElementById(targetId); if(!el) return; el.innerHTML = `<div class="stat-card navy"><div class="stat-label">Ativos Prudential</div><div class="stat-value">${ativos.length}</div><div class="stat-sub">colaboradores no seguro</div></div><div class="stat-card green"><div class="stat-label">Total Seguro</div><div class="stat-value" style="font-size:19px">${fmt(total)}</div><div class="stat-sub">sem IOF</div></div><div class="stat-card gold"><div class="stat-label">Contas</div><div class="stat-value" style="font-size:17px">053671 / 057061 / 053917</div><div class="stat-sub">por tipo e centro de custo</div></div><div class="stat-card"><div class="stat-label">Centros de Custo</div><div class="stat-value">${new Set(ativos.map(r=>r.cc)).size}</div><div class="stat-sub">com seguro ativo</div></div>`; }
-function renderPrud() { const rows=prudFiltered(); renderPrudStats('stat-prud', rows); const body=document.getElementById('prud-body'); if(!body) return; body.innerHTML=''; let total=0; if(!rows.length) body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum registro Prudential encontrado.</td></tr>'; rows.forEach(r=>{ r.conta=prudContaByCC(r.cc,r.tipo); const v=Number(r.valor)||0; if(r.ativo) total+=v; const arb=r.conta==='053917'||normName(r.nome)==='ARBITRAGEM'; body.innerHTML += `<tr class="${r.ativo?'':'prud-row-off'} ${arb?'prud-row-arb':''}"><td>${r.nome}</td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td><span class="conta-pill">${r.conta}</span><div class="kpi-note">${prudLabelConta(r.conta)}</div></td><td><span class="badge ${r.ativo?'badge-active':'badge-off'}">${r.ativo?'ATIVO':'DESLIGADO'}</span></td><td class="tr"><input class="prud-input" type="number" step="0.01" value="${v.toFixed(2)}" onchange="updatePrudField(${r.id},'valor',this.value)"></td><td class="tc no-print"><div class="prud-actions"><button class="btn btn-ghost btn-xs" onclick="editPrudRow(${r.id})" title="Editar cadastro">✏️</button><button class="btn btn-ghost btn-xs" onclick="updatePrudField(${r.id},'ativo',${!r.ativo})">${r.ativo?'Desligar':'Ativar'}</button>${arb?'':`<button class="btn btn-danger btn-xs" onclick="excluirPrudRow(${r.id})">🗑️</button>`}</div></td></tr>`; }); document.getElementById('prud-total-geral').textContent=fmt(total); }
+function renderPrud() { const rows=prudFiltered(); renderPrudStats('stat-prud', rows); const body=document.getElementById('prud-body'); if(!body) return; body.innerHTML=''; let total=0; if(!rows.length) body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum registro Prudential encontrado.</td></tr>'; rows.forEach(r=>{ r.conta=prudContaByCC(r.cc,r.tipo); const v=Number(r.valor)||0; if(r.ativo) total+=v; const arb=r.conta==='053917'||normName(r.nome)==='ARBITRAGEM'; body.innerHTML += `<tr class="${r.ativo?'':'prud-row-off'} ${arb?'prud-row-arb':''}"><td>${r.nome}</td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td><span class="conta-pill">${r.conta}</span><div class="kpi-note">${prudLabelConta(r.conta)}</div></td><td><span class="badge ${r.ativo?'badge-active':'badge-off'}">${r.ativo?'ATIVO':'DESLIGADO'}</span></td><td class="tr"><input class="prud-input" type="number" step="0.01" value="${v.toFixed(2)}" onchange="updatePrudField(${r.id},'valor',this.value)"></td><td class="tc no-print"><div class="prud-actions"><button class="btn btn-ghost btn-xs" onclick="editPrudRow(${r.id})" title="Editar ou excluir colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updatePrudField(${r.id},'ativo',${!r.ativo})">${r.ativo?'Desligar':'Ativar'}</button></div></td></tr>`; }); document.getElementById('prud-total-geral').textContent=fmt(total); }
 function prudSnapshot() { const detalhes=prudActiveRows().map(r=>{ const conta=prudContaByCC(r.cc,r.tipo); return {nome:r.nome,cpf:r.cpf,nascimento:r.nascimento,cc:r.cc,tipo:r.tipo,conta,valor:Number(r.valor)||0,total:Number(r.valor)||0}; }); const totais={pj:0,clt:0,arb:0,total:0}; detalhes.forEach(d=>{ if(d.conta==='053917') totais.arb+=d.total; else if(d.conta==='057061') totais.clt+=d.total; else totais.pj+=d.total; totais.total+=d.total; }); return {detalhes, totais}; }
 function renderPrudCalculo() { const comp=document.getElementById('prud-comp'); if(comp) comp.value=prudCfg.competencia; const sub=document.getElementById('prud-calc-print-subtitle'); if(sub) sub.textContent=`Competência: ${compLabel(prudCfg.competencia)}`; const snap=prudSnapshot(); renderPrudStats('stat-prud-calculo', prudActiveRows()); const body=document.getElementById('prud-calculo-body'); if(!body) return; body.innerHTML=''; snap.detalhes.forEach(d=>body.innerHTML+=`<tr class="${d.conta==='053917'?'prud-row-arb':''}"><td>${d.nome}</td><td class="doc-cell">${d.cpf||'–'}</td><td class="doc-cell">${d.nascimento||'–'}</td><td>${ccPill(d.cc)}</td><td><span class="conta-pill">${d.conta}</span></td><td class="tr money">${fmt(d.total)}</td></tr>`); document.getElementById('prud-calc-total').textContent=fmt(snap.totais.total); }
 function prudRateioGroups() { const groups={pj:{conta:'053671',ccs:PRUD_CC_PJ,items:{}}, clt:{conta:'057061',ccs:PRUD_CC_CLT,items:{}}, arb:{conta:'053917',ccs:PRUD_CC_ARB,items:{}}}; Object.values(groups).forEach(g=>g.ccs.forEach(cc=>g.items[cc]={cc,area:areaName(cc),valor:0})); prudActiveRows().forEach(r=>{ const conta=prudContaByCC(r.cc,r.tipo), key=conta==='053917'?'arb':conta==='057061'?'clt':'pj', cc=r.cc||'N/D'; if(!groups[key].items[cc]) groups[key].items[cc]={cc,area:areaName(cc),valor:0}; groups[key].items[cc].valor+=Number(r.valor)||0; }); return groups; }
@@ -13698,8 +13864,26 @@ function mobInjetarBuscas(){
 /* ---------------------------------------------------------------------------
    PAINEL CONSOLIDADO GERAL — soma todos os benefícios da competência
    --------------------------------------------------------------------------- */
-function mobPainelConsolidado(){
-  const comp = Mob.cfg.competenciaAtual;
+function mobPainelConsolidado(compParam){
+  const comp = compParam || Mob.cfg.competenciaAtual;
+
+  // Junta as competências que existem em QUALQUER módulo (VR, VT, Saúde,
+  // Seguro, Mobilidade) para montar o seletor de mês/ano do consolidado —
+  // antes só dava pra ver a competência atual da Mobilidade.
+  const todasComps = new Set();
+  [typeof historico!=='undefined'?historico:null, typeof vtHistorico!=='undefined'?vtHistorico:null,
+   typeof medHistorico!=='undefined'?medHistorico:null, typeof prudHistorico!=='undefined'?prudHistorico:null
+  ].forEach(arr=>{ if (Array.isArray(arr)) arr.forEach(h=>{ if (h && h.competencia) todasComps.add(h.competencia); }); });
+  try { (Mob.corridas||[]).forEach(c=>{ if (c && c.competencia) todasComps.add(c.competencia); }); } catch(e){}
+  todasComps.add(Mob.cfg.competenciaAtual);
+  todasComps.add(comp);
+  const compsOrdenadas = Array.from(todasComps).filter(Boolean).sort().reverse();
+  const seletorHtml = '<div class="mob-field no-print" style="margin-bottom:18px;max-width:280px">' +
+    '<label style="display:block;font-size:11px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Ver consolidado de outro mês/ano</label>' +
+    '<select class="form-control" onchange="mobPainelConsolidado(this.value)">' +
+    compsOrdenadas.map(c => '<option value="' + c + '" ' + (c === comp ? 'selected' : '') + '>' + MobFmt.competLabel(c) + '</option>').join('') +
+    '</select></div>';
+
   const linhas = [];
   const somaHist = (arr, campo) => {
     if (!Array.isArray(arr)) return null;
@@ -13721,6 +13905,7 @@ function mobPainelConsolidado(){
 
   if (!linhas.length)
     return mobModal('Consolidado geral',
+      seletorHtml +
       '<div class="mob-alert info"><span class="ai">ℹ️</span><div>Ainda não há competências processadas em ' +
       MobFmt.competLabel(comp) + '. Processe os módulos de benefícios e importe as planilhas de ' +
       'mobilidade para ver o consolidado.</div></div>',
@@ -13729,6 +13914,7 @@ function mobPainelConsolidado(){
   const total = MobFmt.sum(linhas, l => l.valor);
   const max = Math.max(...linhas.map(l => l.valor));
   mobModal('Consolidado geral de benefícios · ' + MobFmt.competLabel(comp),
+    seletorHtml +
     '<div class="mob-kpi info" style="margin-bottom:18px"><div class="mob-kpi-label">Custo total no mês</div>' +
     '<div class="mob-kpi-value" style="font-size:28px">' + MobFmt.money(total) + '</div>' +
     '<div class="mob-kpi-sub">' + linhas.length + ' benefício(s) com movimento</div></div>' +
