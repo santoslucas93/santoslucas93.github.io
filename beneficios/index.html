@@ -2952,37 +2952,48 @@ body.lnb-mob-only .nav-tab.benefit-prud{ display:none!important; }
 <body>
 <div id="lnb-auth-overlay">
   <div id="lnb-auth-box">
-    <h2>Liga Nacional de Basquete</h2>
-    <p>Sistema de Benefícios — entre com a senha do painel.</p>
-    <div class="form-group">
-      <label>Perfil</label>
-      <select id="lnb-auth-perfil" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d7cdc4;font-size:14px;box-sizing:border-box">
-        <option value="admin">Administrador (leitura e edição)</option>
-        <option value="readonly">Somente leitura</option>
-        <option value="mob">Somente leitura — Uber e 99</option>
-      </select>
+    <div id="lnb-auth-form-wrap">
+      <h2>Liga Nacional de Basquete</h2>
+      <p>Sistema de Benefícios — entre com a senha do painel.</p>
+      <div class="form-group">
+        <label>Perfil</label>
+        <select id="lnb-auth-perfil" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d7cdc4;font-size:14px;box-sizing:border-box">
+          <option value="admin">Administrador (leitura e edição)</option>
+          <option value="readonly">Somente leitura</option>
+          <option value="mob">Somente leitura — Uber e 99</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Senha</label>
+        <input type="password" id="lnb-auth-senha" placeholder="Senha do painel" autocomplete="current-password">
+      </div>
+      <button type="button" id="lnb-auth-btn">Entrar</button>
+      <div id="lnb-auth-err"></div>
+      <div class="lnb-auth-hint">Mesma senha usada no painel Orçado x Realizado. O perfil de somente leitura só visualiza os módulos — nenhuma alteração é salva.</div>
     </div>
-    <div class="form-group">
-      <label>Senha</label>
-      <input type="password" id="lnb-auth-senha" placeholder="Senha do painel" autocomplete="current-password">
+    <div id="lnb-loading-msg" style="display:none;text-align:center;padding:12px 0 4px">
+      <h2>Liga Nacional de Basquete</h2>
+      <p>Carregando os dados do Sistema de Benefícios…</p>
     </div>
-    <button type="button" id="lnb-auth-btn">Entrar</button>
-    <div id="lnb-auth-err"></div>
-    <div class="lnb-auth-hint">Mesma senha usada no painel Orçado x Realizado. O perfil de somente leitura só visualiza os módulos — nenhuma alteração é salva.</div>
   </div>
 </div>
 
 <script>
 // ============================================================
 // LOGIN / SESSÃO (Supabase Auth) — mesma base do painel Orçado x
-// Realizado. Roda de forma síncrona (como o /api/config) para os
-// dados do Sistema de Benefícios já estarem no localStorage antes
-// do restante da página (que já lê localStorage de forma síncrona
-// logo na carga) ser executado.
+// Realizado.
+//
+// Antes, a carga inicial (login, refresh de sessão e a busca do estado
+// em ben_state) rodava com XMLHttpRequest síncrona, travando a aba
+// inteira — sem nenhum retorno visual — pelo tempo inteiro da
+// requisição; em picos de latência isso significava a página congelada
+// por dezenas de segundos, sem diferença visual entre "carregando" e
+// "travado". Agora tudo roda de forma assíncrona: enquanto os dados
+// carregam, a tela mostra "Carregando..." (ver lnb-loading-msg) em vez
+// de travar. O restante do sistema só fica interativo depois que
+// window.__lnbBootReady resolve — ver o IIFE init(), mais abaixo, que
+// aguarda essa mesma promise antes de ler o localStorage e renderizar.
 // ============================================================
-// Config fixa (era buscada via XHR síncrona em /api/config a cada carregamento,
-// bloqueando o parser da página; os valores nunca mudam em produção, então
-// ficam direto aqui — remove uma chamada de rede síncrona do boot).
 const SUPABASE_URL = 'https://iiheewndotcwqntppjrw.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz';
 const AUTH_ADMIN_EMAIL = 'admin-beneficios@painel-lnb.local';
@@ -3001,26 +3012,32 @@ function lnbClearSession(){
   try{ localStorage.removeItem('lnb_auth_session_beneficios_v1'); }catch(e){}
 }
 
-function lnbTryLoginSync(email, password){
-  const xhr = new XMLHttpRequest();
-  xhr.open('POST', SUPABASE_URL+'/auth/v1/token?grant_type=password', false);
-  xhr.setRequestHeader('apikey', SUPABASE_KEY);
-  xhr.setRequestHeader('Content-Type', 'application/json');
-  try{ xhr.send(JSON.stringify({email:email, password:password})); }catch(e){ return null; }
-  if (xhr.status < 200 || xhr.status >= 300) return null;
-  let j; try{ j = JSON.parse(xhr.responseText); }catch(e){ return null; }
+async function lnbTryLoginAsync(email, password){
+  let res;
+  try{
+    res = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({email:email, password:password})
+    });
+  }catch(e){ return null; }
+  if (!res.ok) return null;
+  let j; try{ j = await res.json(); }catch(e){ return null; }
   if (!j.access_token) return null;
   return {access_token:j.access_token, refresh_token:j.refresh_token, expires_at: Date.now()+((j.expires_in||3600)*1000)};
 }
-function lnbRefreshSessionSync(){
+async function lnbRefreshSessionAsync(){
   if (!AUTH_SESSION || !AUTH_SESSION.refresh_token) return false;
-  const xhr = new XMLHttpRequest();
-  xhr.open('POST', SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', false);
-  xhr.setRequestHeader('apikey', SUPABASE_KEY);
-  xhr.setRequestHeader('Content-Type', 'application/json');
-  try{ xhr.send(JSON.stringify({refresh_token: AUTH_SESSION.refresh_token})); }catch(e){ return false; }
-  if (xhr.status < 200 || xhr.status >= 300) return false;
-  let j; try{ j = JSON.parse(xhr.responseText); }catch(e){ return false; }
+  let res;
+  try{
+    res = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({refresh_token: AUTH_SESSION.refresh_token})
+    });
+  }catch(e){ return false; }
+  if (!res.ok) return false;
+  let j; try{ j = await res.json(); }catch(e){ return false; }
   if (!j.access_token) return false;
   AUTH_SESSION.access_token = j.access_token;
   AUTH_SESSION.refresh_token = j.refresh_token;
@@ -3028,45 +3045,47 @@ function lnbRefreshSessionSync(){
   lnbSaveSession();
   return true;
 }
-function lnbFetchProfileSync(token, uid){
-  const xhr = new XMLHttpRequest();
-  xhr.open('GET', SUPABASE_URL+'/rest/v1/profiles?id=eq.'+uid+'&select=nome,role', false);
-  xhr.setRequestHeader('apikey', SUPABASE_KEY);
-  xhr.setRequestHeader('Authorization', 'Bearer '+token);
-  try{ xhr.send(null); }catch(e){ return null; }
-  if (xhr.status < 200 || xhr.status >= 300) return null;
-  try{ const arr = JSON.parse(xhr.responseText); return arr[0]||null; }catch(e){ return null; }
+async function lnbFetchProfileAsync(token, uid){
+  let res;
+  try{
+    res = await fetch(SUPABASE_URL+'/rest/v1/profiles?id=eq.'+uid+'&select=nome,role', {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+token}
+    });
+  }catch(e){ return null; }
+  if (!res.ok) return null;
+  try{ const arr = await res.json(); return arr[0]||null; }catch(e){ return null; }
 }
-function lnbFetchAuthUserSync(token){
-  const xhr = new XMLHttpRequest();
-  xhr.open('GET', SUPABASE_URL+'/auth/v1/user', false);
-  xhr.setRequestHeader('apikey', SUPABASE_KEY);
-  xhr.setRequestHeader('Authorization', 'Bearer '+token);
-  try{ xhr.send(null); }catch(e){ return null; }
-  if (xhr.status < 200 || xhr.status >= 300) return null;
-  try{ return JSON.parse(xhr.responseText); }catch(e){ return null; }
+async function lnbFetchAuthUserAsync(token){
+  let res;
+  try{
+    res = await fetch(SUPABASE_URL+'/auth/v1/user', {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+token}
+    });
+  }catch(e){ return null; }
+  if (!res.ok) return null;
+  try{ return await res.json(); }catch(e){ return null; }
 }
 function lnbRoleToLegacy(dbRole){
   return (dbRole==='administrador'||dbRole==='gestor'||dbRole==='editor') ? 'admin' : 'readonly';
 }
-function lnbAttachProfileSync(sess){
-  const user = lnbFetchAuthUserSync(sess.access_token);
+async function lnbAttachProfileAsync(sess){
+  const user = await lnbFetchAuthUserAsync(sess.access_token);
   if (user && user.id){
     sess.uid = user.id;
     sess.email = user.email;
-    const prof = lnbFetchProfileSync(sess.access_token, user.id);
+    const prof = await lnbFetchProfileAsync(sess.access_token, user.id);
     if (prof){ sess.nome = prof.nome; sess.dbRole = prof.role; sess.role = lnbRoleToLegacy(prof.role); }
   }
   return sess;
 }
-function lnbLoginWithPasswordSync(perfil, password){
+async function lnbLoginWithPasswordAsync(perfil, password){
   const email = perfil==='admin' ? AUTH_ADMIN_EMAIL : (perfil==='mob' ? AUTH_MOB_READONLY_EMAIL : AUTH_READONLY_EMAIL);
-  const sess = lnbTryLoginSync(email, password);
+  const sess = await lnbTryLoginAsync(email, password);
   if (!sess) return false;
   sess.role = perfil==='admin' ? 'admin' : 'readonly';
   sess.mobOnly = (perfil==='mob');
-  lnbAttachProfileSync(sess);
-  sess.mobOnly = (perfil==='mob'); // lnbAttachProfileSync não deve sobrescrever esta flag
+  await lnbAttachProfileAsync(sess);
+  sess.mobOnly = (perfil==='mob'); // lnbAttachProfileAsync não deve sobrescrever esta flag
   AUTH_SESSION = sess;
   lnbSaveSession();
   return true;
@@ -3087,7 +3106,7 @@ function supaHeaders(){
 async function supaFetch(url, opts, jaTentou){
   opts = opts||{};
   if (AUTH_SESSION && AUTH_SESSION.refresh_token && AUTH_SESSION.expires_at && Date.now() >= (AUTH_SESSION.expires_at - 60000)){
-    await new Promise(r=>{ try{ lnbRefreshSessionSync(); }catch(e){} r(); });
+    try{ await lnbRefreshSessionAsync(); }catch(e){}
   }
   const headersExtra = opts.headersExtra||null;
   const montaHeaders = ()=> headersExtra ? Object.assign({}, supaHeaders(), headersExtra) : supaHeaders();
@@ -3095,7 +3114,7 @@ async function supaFetch(url, opts, jaTentou){
   delete req.headersExtra;
   const res = await fetch(url, req);
   if (res.status===401 && !jaTentou){
-    const ok = lnbRefreshSessionSync();
+    const ok = await lnbRefreshSessionAsync();
     if (ok) return await supaFetch(url, opts, true);
     throw new Error('Sua sessão expirou. Saia e entre de novo para continuar.');
   }
@@ -3152,28 +3171,27 @@ const LIGA_KEYS = [
      mob_corridas, sincronizada linha a linha (ver MobDB). */
   'liga_mob_colaboradores','liga_mob_departamentos','liga_mob_competencias','liga_mob_cfg'
 ];
-// Puxa a base oficial do Supabase (síncrono) e grava no localStorage antes
-// do restante da página (que já lê localStorage de forma síncrona logo na
-// carga) ser executado. Roda só uma vez, no boot, com sessão válida.
-// Guarda, por chave, o updated_at que o Supabase tinha na última vez que
-// esta aba puxou o estado. Usado para detectar quando outra sessão gravou
-// dados mais novos entre a nossa última leitura e a nossa próxima gravação
-// (ver salvarAgora, mais abaixo) — é isso que evita a aba antiga sobrescrever
-// cadastros feitos por outra pessoa/aba enquanto esta ficou aberta.
+// Puxa a base oficial do Supabase (assíncrono) e grava no localStorage.
+// Quem depende desses dados (o IIFE init(), mais abaixo) aguarda a
+// promise window.__lnbBootReady antes de ler o localStorage — ver
+// lnbBoot logo a seguir. Guarda, por chave, o updated_at que o Supabase
+// tinha na última vez que esta aba puxou o estado. Usado para detectar
+// quando outra sessão gravou dados mais novos entre a nossa última
+// leitura e a nossa próxima gravação (ver salvarAgora, mais abaixo) —
+// é isso que evita a aba antiga sobrescrever cadastros feitos por outra
+// pessoa/aba enquanto esta ficou aberta.
 window.__lnbServerVersion = window.__lnbServerVersion || {};
 
-window.__lnbPullState = function(){
-  const xhr = new XMLHttpRequest();
+window.__lnbPullStateAsync = async function(){
   const chaves = LIGA_KEYS.map(k=>'"'+k+'"').join(',');
-  xhr.open('GET', SUPABASE_URL+'/rest/v1/ben_state?select=chave,valor,updated_at&chave=in.('+chaves+')', false);
-  xhr.setRequestHeader('apikey', SUPABASE_KEY);
-  xhr.setRequestHeader('Authorization', 'Bearer '+AUTH_SESSION.access_token);
-  xhr.send(null);
-  if (xhr.status < 200 || xhr.status >= 300){
-    if (xhr.status === 401) lnbClearSession();
-    throw new Error('Falha ao ler ben_state: '+xhr.status);
+  const res = await fetch(SUPABASE_URL+'/rest/v1/ben_state?select=chave,valor,updated_at&chave=in.('+chaves+')', {
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token}
+  });
+  if (!res.ok){
+    if (res.status === 401) lnbClearSession();
+    throw new Error('Falha ao ler ben_state: '+res.status);
   }
-  const rows = JSON.parse(xhr.responseText);
+  const rows = await res.json();
   rows.forEach(function(r){
     if (r.valor !== null && r.valor !== undefined){
       localStorage.setItem(r.chave, JSON.stringify(r.valor));
@@ -3181,6 +3199,13 @@ window.__lnbPullState = function(){
     window.__lnbServerVersion[r.chave] = r.updated_at || new Date().toISOString();
   });
 };
+
+function lnbShowLoadingMsg(){
+  const form = document.getElementById('lnb-auth-form-wrap');
+  const loading = document.getElementById('lnb-loading-msg');
+  if (form) form.style.display = 'none';
+  if (loading) loading.style.display = 'block';
+}
 
 function lnbUnlockApp(){
   document.body.classList.remove('lnb-not-authed');
@@ -3190,45 +3215,54 @@ function lnbUnlockApp(){
   lnbShowAuthBadge();
 }
 
-(function lnbBoot(){
+// window.__lnbBootReady resolve com true (sessão válida — dados
+// carregados ou tentativa feita) ou false (sem sessão — mostra tela de
+// login). O IIFE init(), mais abaixo, aguarda essa mesma promise antes
+// de ler o localStorage e renderizar, e só desbloqueia a tela
+// (lnbUnlockApp) depois de terminar — não existe mais janela em que a
+// tela aparece "pronta" antes dos dados chegarem.
+window.__lnbBootReady = (async function lnbBoot(){
   document.body.classList.add('lnb-not-authed');
   lnbLoadSession();
   if (AUTH_SESSION && AUTH_SESSION.access_token){
     if (AUTH_SESSION.expires_at && Date.now() >= (AUTH_SESSION.expires_at - 60000)){
-      const ok = lnbRefreshSessionSync();
+      let ok = false;
+      try{ ok = await lnbRefreshSessionAsync(); }catch(e){}
       if (!ok){ lnbClearSession(); }
     }
   }
   if (AUTH_SESSION && AUTH_SESSION.access_token){
-    // Sessão válida: puxa a base de Benefícios do Supabase (síncrono) antes
-    // do restante do script (que lê localStorage de forma síncrona) rodar.
-    try{ window.__lnbPullState(); }catch(e){
+    lnbShowLoadingMsg();
+    try{ await window.__lnbPullStateAsync(); }catch(e){
       console.error('Falha ao carregar base de Benefícios do Supabase:', e);
       // Sem aviso visual no topo (removido a pedido do usuario) -- o erro
       // ja fica registrado no console (ver acima).
     }
-    window.addEventListener('DOMContentLoaded', lnbUnlockApp);
-  } else {
-    window.addEventListener('DOMContentLoaded', function(){
-      const btn = document.getElementById('lnb-auth-btn');
-      const err = document.getElementById('lnb-auth-err');
-      const senha = document.getElementById('lnb-auth-senha');
-      const perfil = document.getElementById('lnb-auth-perfil');
-      function tentar(){
-        btn.disabled = true; err.textContent='';
-        setTimeout(function(){
-          try{
-            const ok = lnbLoginWithPasswordSync(perfil.value, senha.value);
-            if (!ok){ err.textContent='Senha incorreta para este perfil.'; btn.disabled=false; return; }
-            location.reload();
-          }catch(e){ err.textContent='Falha ao entrar: '+e.message; btn.disabled=false; }
-        }, 10);
-      }
-      btn.onclick = tentar;
-      senha.addEventListener('keydown', function(ev){ if(ev.key==='Enter') tentar(); });
-    });
+    return true;
   }
+  return false;
 })();
+
+window.__lnbBootReady.then(function(authed){
+  if (authed) return; // desbloqueio acontece no fim de init(), mais abaixo
+  function mostrarLogin(){
+    const btn = document.getElementById('lnb-auth-btn');
+    const err = document.getElementById('lnb-auth-err');
+    const senha = document.getElementById('lnb-auth-senha');
+    const perfil = document.getElementById('lnb-auth-perfil');
+    function tentar(){
+      btn.disabled = true; err.textContent='';
+      lnbLoginWithPasswordAsync(perfil.value, senha.value).then(function(ok){
+        if (!ok){ err.textContent='Senha incorreta para este perfil.'; btn.disabled=false; return; }
+        location.reload();
+      }).catch(function(e){ err.textContent='Falha ao entrar: '+e.message; btn.disabled=false; });
+    }
+    btn.onclick = tentar;
+    senha.addEventListener('keydown', function(ev){ if(ev.key==='Enter') tentar(); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mostrarLogin);
+  else mostrarLogin();
+});
 </script>
 
 
@@ -4479,9 +4513,10 @@ function lnbUnlockApp(){
 // BASE COMPARTILHADA NA NUVEM (Supabase) — SUBSTITUI O ANTIGO
 // ARQUIVO JSON DE REDE
 // ------------------------------------------------------------
-// - A carga inicial (Supabase -> localStorage) já aconteceu antes
-//   deste ponto (ver __lnbPullState, executado de forma síncrona
-//   no boot da página).
+// - A carga inicial (Supabase -> localStorage) já foi disparada no boot
+//   da página (ver window.__lnbPullStateAsync / window.__lnbBootReady) —
+//   pode ainda estar em andamento neste ponto, mas a tela só fica
+//   interativa depois que ela termina (ver init()).
 // - A partir daqui, toda gravação feita pelas telas do sistema
 //   (que já chamam localStorage.setItem através das funções
 //   save()/saveAvulsos()/saveVTRegistros()/saveMed()/savePrud()
@@ -7176,7 +7211,10 @@ function backfillEmployeeIds(){
   if (mudouMed) saveMed();
   if (mudouPrud) savePrud();
 }
-(function init() {
+(async function init() {
+  // Espera o boot (login + carga do Supabase) terminar antes de ler o
+  // localStorage e renderizar — ver window.__lnbBootReady, lá em cima.
+  const __authed = await window.__lnbBootReady;
   load();
   loadMed();
   loadPrud();
@@ -7216,6 +7254,7 @@ function backfillEmployeeIds(){
   renderPrudConsolidado();
   applyUniformUI();
   installSortableTables();
+  if (__authed) lnbUnlockApp();
 })();
 
 // ============================================================
