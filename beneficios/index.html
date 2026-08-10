@@ -15174,11 +15174,17 @@ const BEN_MED_ATUALIZACOES=[
   benMedAtualizacao('2026-07','SulAmérica',BEN_MED_LANCAMENTO_2518715,{clt:6889.30,pj:18297.85},'SulAmérica Julho/2026',1)
 ];
 async function benPayload(){
+  window.__t_bp0 = performance.now();
   const raw=Uint8Array.from(atob(BEN_HIST_B64),c=>c.charCodeAt(0));
+  window.__t_bp1 = performance.now();
   if(typeof DecompressionStream==='undefined') throw new Error('Este navegador não oferece descompressão nativa. Use Chrome ou Edge atualizado.');
   const stream=new Blob([raw]).stream().pipeThrough(new DecompressionStream('gzip'));
-  const data=JSON.parse(await new Response(stream).text()),comps=new Set(BEN_MED_ATUALIZACOES.map(h=>h.competencia));
+  const __txt = await new Response(stream).text();
+  window.__t_bp2 = performance.now();
+  const data=JSON.parse(__txt),comps=new Set(BEN_MED_ATUALIZACOES.map(h=>h.competencia));
+  window.__t_bp3 = performance.now();
   data.med=(data.med||[]).filter(h=>!comps.has(h.competencia)).concat(BEN_MED_ATUALIZACOES).sort((a,b)=>String(a.competencia).localeCompare(String(b.competencia)));
+  window.__t_bp4 = performance.now();
   return data;
 }
 let __benMigrarHistoricosPromise = null;
