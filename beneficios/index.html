@@ -4532,6 +4532,15 @@ window.__lnbBootReady.then(function(authed){
   let dirty = {};
   let saveTimer = null;
   let saving = false;
+  let pendingRenders = new Set();
+  async function flushPendingRenders(){
+    const toRun = Array.from(pendingRenders);
+    pendingRenders.clear();
+    for (const fn of toRun) {
+      try { fn(); } catch(e){ console.error('Erro ao renderizar apos sincronizacao:', e); }
+      await new Promise(function(r){ requestAnimationFrame(r); });
+    }
+  }
 
   // A pedido do usuario, nenhuma informacao de sincronizacao/gravacao e
   // mais exibida na tela (ficava no topo do sistema e travava a
@@ -4552,14 +4561,14 @@ window.__lnbBootReady.then(function(authed){
       switch(chave){
         case 'liga_emp':
           if (Array.isArray(valor)) employees = valor;
-          if (typeof renderAll==='function') renderAll();
-          if (typeof renderCalculo==='function') renderCalculo();
-          if (typeof renderRateio==='function') renderRateio();
-          if (typeof renderAvulsos==='function') renderAvulsos();
+          if (typeof renderAll==='function') pendingRenders.add(renderAll);
+          if (typeof renderCalculo==='function') pendingRenders.add(renderCalculo);
+          if (typeof renderRateio==='function') pendingRenders.add(renderRateio);
+          if (typeof renderAvulsos==='function') pendingRenders.add(renderAvulsos);
           break;
         case 'liga_avulsos':
           if (Array.isArray(valor)) avulsos = valor;
-          if (typeof renderAvulsos==='function') renderAvulsos();
+          if (typeof renderAvulsos==='function') pendingRenders.add(renderAvulsos);
           break;
         case 'liga_hist':
           // Preserva no ar os registros "historicoFonte" (planilhas oficiais
@@ -4567,58 +4576,58 @@ window.__lnbBootReady.then(function(authed){
           // para o servidor de proposito, entao uma sincronizacao normal do
           // servidor NAO PODE apagá-los da tela.
           if (Array.isArray(valor)) historico = valor.concat((historico||[]).filter(function(h){return h.historicoFonte;}));
-          if (typeof renderHistorico==='function') renderHistorico();
-          if (typeof renderConsolidado==='function') renderConsolidado();
+          if (typeof renderHistorico==='function') pendingRenders.add(renderHistorico);
+          if (typeof renderConsolidado==='function') pendingRenders.add(renderConsolidado);
           break;
         case 'liga_lixeira':
           if (Array.isArray(valor) && typeof lixeira!=='undefined') lixeira = valor;
-          if (typeof renderLixeira==='function') renderLixeira();
+          if (typeof renderLixeira==='function') pendingRenders.add(renderLixeira);
           break;
         case 'liga_cfg':
           if (valor && typeof valor==='object' && typeof cfg!=='undefined') Object.assign(cfg, valor);
-          if (typeof renderAll==='function') renderAll();
+          if (typeof renderAll==='function') pendingRenders.add(renderAll);
           break;
         case 'liga_vt_registros':
           if (Array.isArray(valor)) vtRegistros = valor;
-          if (typeof renderVT==='function') renderVT();
-          if (typeof renderVTCalculo==='function') renderVTCalculo();
-          if (typeof renderVTRateio==='function') renderVTRateio();
+          if (typeof renderVT==='function') pendingRenders.add(renderVT);
+          if (typeof renderVTCalculo==='function') pendingRenders.add(renderVTCalculo);
+          if (typeof renderVTRateio==='function') pendingRenders.add(renderVTRateio);
           break;
         case 'liga_vt_historico':
           if (Array.isArray(valor)) vtHistorico = valor.concat((vtHistorico||[]).filter(function(h){return h.historicoFonte;}));
-          if (typeof renderVTHistorico==='function') renderVTHistorico();
-          if (typeof renderVTConsolidado==='function') renderVTConsolidado();
+          if (typeof renderVTHistorico==='function') pendingRenders.add(renderVTHistorico);
+          if (typeof renderVTConsolidado==='function') pendingRenders.add(renderVTConsolidado);
           break;
         case 'liga_vt_cfg':
           if (valor && typeof valor==='object' && typeof vtCfg!=='undefined') Object.assign(vtCfg, valor);
-          if (typeof renderVTConfig==='function') renderVTConfig();
+          if (typeof renderVTConfig==='function') pendingRenders.add(renderVTConfig);
           break;
         case 'liga_med_registros':
           if (Array.isArray(valor)) medRegistros = valor;
-          if (typeof renderMed==='function') renderMed();
-          if (typeof renderMedCalculo==='function') renderMedCalculo();
-          if (typeof renderMedRateio==='function') renderMedRateio();
-          if (typeof renderMedConfig==='function') renderMedConfig();
+          if (typeof renderMed==='function') pendingRenders.add(renderMed);
+          if (typeof renderMedCalculo==='function') pendingRenders.add(renderMedCalculo);
+          if (typeof renderMedRateio==='function') pendingRenders.add(renderMedRateio);
+          if (typeof renderMedConfig==='function') pendingRenders.add(renderMedConfig);
           break;
         case 'liga_med_historico':
           if (Array.isArray(valor)) medHistorico = valor.concat((medHistorico||[]).filter(function(h){return h.historicoFonte;}));
-          if (typeof renderMedHistorico==='function') renderMedHistorico();
-          if (typeof renderMedConsolidado==='function') renderMedConsolidado();
+          if (typeof renderMedHistorico==='function') pendingRenders.add(renderMedHistorico);
+          if (typeof renderMedConsolidado==='function') pendingRenders.add(renderMedConsolidado);
           break;
         case 'liga_med_cfg':
           if (valor && typeof valor==='object' && typeof medCfg!=='undefined') Object.assign(medCfg, valor);
           break;
         case 'liga_prud_registros':
           if (Array.isArray(valor)) prudRegistros = valor;
-          if (typeof renderPrud==='function') renderPrud();
-          if (typeof renderPrudCalculo==='function') renderPrudCalculo();
-          if (typeof renderPrudRateio==='function') renderPrudRateio();
-          if (typeof renderPrudConfig==='function') renderPrudConfig();
+          if (typeof renderPrud==='function') pendingRenders.add(renderPrud);
+          if (typeof renderPrudCalculo==='function') pendingRenders.add(renderPrudCalculo);
+          if (typeof renderPrudRateio==='function') pendingRenders.add(renderPrudRateio);
+          if (typeof renderPrudConfig==='function') pendingRenders.add(renderPrudConfig);
           break;
         case 'liga_prud_historico':
           if (Array.isArray(valor)) prudHistorico = valor.concat((prudHistorico||[]).filter(function(h){return h.historicoFonte;}));
-          if (typeof renderPrudHistorico==='function') renderPrudHistorico();
-          if (typeof renderPrudConsolidado==='function') renderPrudConsolidado();
+          if (typeof renderPrudHistorico==='function') pendingRenders.add(renderPrudHistorico);
+          if (typeof renderPrudConsolidado==='function') pendingRenders.add(renderPrudConsolidado);
           break;
         case 'liga_prud_cfg':
           if (valor && typeof valor==='object' && typeof prudCfg!=='undefined') Object.assign(prudCfg, valor);
@@ -4733,7 +4742,8 @@ window.__lnbBootReady.then(function(authed){
       if (houveMescla){
         // Mescla automática e silenciosa: some sem interromper a tela,
         // sem texto piscando no badge — só some e volta o normal.
-        chavesMescladas.forEach(function(m){ aplicarChaveNaTela(m.chave, m.valor); });
+        chavesMescladas.forEach(function(m){ aplicarChaveNaTela(m.chave, m.valor); })
+        await flushPendingRenders();;
       }
       atualizarSyncBadge('ok');
       lnbLogActivity('beneficios_salvar', chaves.join(', ') + (houveMescla? ' (mesclado)':''));
@@ -4790,6 +4800,7 @@ window.__lnbBootReady.then(function(authed){
         window.__lnbServerVersion[k] = info.updated_at;
         aplicarChaveNaTela(k, info.valor);
       });
+      await flushPendingRenders();
     }catch(e){ /* checagem em segundo plano: falha aqui não deve incomodar o usuário */ }
   }
   setInterval(conferirAtualizacoes, 90000);
