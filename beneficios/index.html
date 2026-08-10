@@ -4,48 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Liga Nacional de Basquete · Sistema de Benefícios</title>
-<!-- OTIMIZACAO: fonte carregada via <link> em vez de @import no CSS -- isso permite o navegador baixar a fonte em paralelo com o resto da pagina, sem alterar a fonte usada nem o visual. -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" defer></script>
 <!-- Mobilidade Corporativa: merge de PDF, graficos e ZIP -->
-<!-- OTIMIZACAO DE PERFORMANCE (aplicada em 2026-08-10):
-     As 8 bibliotecas abaixo (Excel/PDF/ZIP/graficos) sao carregadas em segundo plano
-     depois que a pagina termina de carregar, em vez de bloquear o carregamento inicial.
-     Nenhuma biblioteca, versao ou ordem de carregamento foi alterada -- apenas o MOMENTO
-     em que comecam a baixar. Todo o codigo do app so usa essas bibliotecas dentro de
-     funcoes acionadas por clique do usuario (exportar Excel/PDF, graficos, etc.), nunca
-     durante o carregamento da pagina, entao isso e seguro. -->
-<script>
-(function(){
-  var LIBS = [
-    "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
-  ];
-  function loadNext(i){
-    if(i>=LIBS.length) return;
-    var s=document.createElement('script');
-    s.src=LIBS[i];
-    s.onload=function(){ loadNext(i+1); };
-    s.onerror=function(){ loadNext(i+1); };
-    document.head.appendChild(s);
-  }
-  function start(){ loadNext(0); }
-  if(document.readyState==='complete'){ start(); }
-  else { window.addEventListener('load', start); }
-})();
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
 <style>
 /* ============================
    DESIGN SYSTEM – LIGA BASKET
    ============================ */
-/* fonte movida para <link> no <head> -- ver comentario de otimizacao acima */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
   --orange:       #E85D04;
