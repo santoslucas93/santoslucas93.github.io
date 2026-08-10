@@ -8300,13 +8300,29 @@ const MobDB = (function(){
   /* Regrava um store local a partir de dados vindos da nuvem, SEM reenviar
      para o Supabase (evita reupload em loop toda vez que a página abre). */
   function hydrateFromCloud(store, arr){
-    return open().then(db => new Promise((res, rej) => {
-      const t = db.transaction(store, 'readwrite'), os = t.objectStore(store);
-      os.clear();
-      (arr||[]).forEach(o => { if (!o.id) o.id = MobFmt.uid(); os.put(o); });
-      t.oncomplete = () => res(arr);
-      t.onerror = () => rej(t.error);
-    }));
+    const lista = arr || [];
+    const BATCH = 500;
+    return open().then(async db => {
+      await new Promise((res, rej) => {
+        const t = db.transaction(store, 'readwrite');
+        t.objectStore(store).clear();
+        t.oncomplete = res;
+        t.onerror = () => rej(t.error);
+      });
+      for (let i = 0; i < lista.length; i += BATCH){
+        const lote = lista.slice(i, i + BATCH);
+        await new Promise((res, rej) => {
+          const t = db.transaction(store, 'readwrite'), os = t.objectStore(store);
+          lote.forEach(o => { if (!o.id) o.id = MobFmt.uid(); os.put(o); });
+          t.oncomplete = res;
+          t.onerror = () => rej(t.error);
+        });
+        if (i + BATCH < lista.length){
+          await new Promise(r => requestAnimationFrame(r));
+        }
+      }
+      return lista;
+    });
   }
 
   // Trava de segurança centralizada: nenhum perfil de leitura grava dados,
