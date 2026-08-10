@@ -7222,18 +7222,16 @@ function backfillEmployeeIds(){
   if (mudouMed) saveMed();
   if (mudouPrud) savePrud();
 }
-window.__renderTimings = [];
-function __prof(label, fn){ const t0 = performance.now(); fn(); window.__renderTimings.push({label, ms: Math.round(performance.now() - t0)}); }
 (async function init() {
-  const __t0boot = performance.now();
+  // Espera o boot (login + carga do Supabase) terminar antes de ler o
+  // localStorage e renderizar — ver window.__lnbBootReady, lá em cima.
   const __authed = await window.__lnbBootReady;
-  window.__renderTimings.push({label:'awaitBootReady', ms: Math.round(performance.now() - __t0boot)});
-  __prof('load', load);
-  __prof('loadMed', loadMed);
-  __prof('loadPrud', loadPrud);
-  __prof('backfillEmployeeIds', backfillEmployeeIds);
-  __prof('aplicarCorrecaoYgor', aplicarCorrecaoYgor);
-  __prof('setupExtraMasks', setupExtraMasks);
+  load();
+  loadMed();
+  loadPrud();
+  backfillEmployeeIds();
+  aplicarCorrecaoYgor();
+  setupExtraMasks();
   const now = new Date();
   const month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
@@ -7250,25 +7248,24 @@ function __prof(label, fn){ const t0 = performance.now(); fn(); window.__renderT
   const vtRateioComp = document.getElementById('vt-rateio-comp'); if (vtRateioComp) vtRateioComp.value = vtCfg.competencia || '2026-06';
   ['med-comp','med-rateio-comp','med-cfg-comp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value = medCfg.competencia || '2026-05'; });
   ['prud-comp','prud-rateio-comp','prud-cfg-comp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value = prudCfg.competencia || '2026-03'; });
-  __prof('renderAll', renderAll);
-  __prof('renderAvulsos', renderAvulsos);
-  __prof('renderHistorico', renderHistorico);
-  __prof('renderConsolidado', renderConsolidado);
-  __prof('renderVT', renderVT);
-  __prof('renderMed', renderMed);
-  __prof('renderMedCalculo', renderMedCalculo);
-  __prof('renderMedRateio', renderMedRateio);
-  __prof('renderMedHistorico', renderMedHistorico);
-  __prof('renderMedConsolidado', renderMedConsolidado);
-  __prof('renderPrud', renderPrud);
-  __prof('renderPrudCalculo', renderPrudCalculo);
-  __prof('renderPrudRateio', renderPrudRateio);
-  __prof('renderPrudHistorico', renderPrudHistorico);
-  __prof('renderPrudConsolidado', renderPrudConsolidado);
-  __prof('applyUniformUI', applyUniformUI);
-  __prof('installSortableTables', installSortableTables);
-  if (__authed) __prof('lnbUnlockApp', lnbUnlockApp);
-  window.__initTotalMs = Math.round(performance.now() - __t0boot);
+  renderAll();
+  renderAvulsos();
+  renderHistorico();
+  renderConsolidado();
+  renderVT();
+  renderMed();
+  renderMedCalculo();
+  renderMedRateio();
+  renderMedHistorico();
+  renderMedConsolidado();
+  renderPrud();
+  renderPrudCalculo();
+  renderPrudRateio();
+  renderPrudHistorico();
+  renderPrudConsolidado();
+  applyUniformUI();
+  installSortableTables();
+  if (__authed) lnbUnlockApp();
 })();
 
 // ============================================================
@@ -15174,17 +15171,11 @@ const BEN_MED_ATUALIZACOES=[
   benMedAtualizacao('2026-07','SulAmérica',BEN_MED_LANCAMENTO_2518715,{clt:6889.30,pj:18297.85},'SulAmérica Julho/2026',1)
 ];
 async function benPayload(){
-  window.__t_bp0 = performance.now();
   const raw=Uint8Array.from(atob(BEN_HIST_B64),c=>c.charCodeAt(0));
-  window.__t_bp1 = performance.now();
   if(typeof DecompressionStream==='undefined') throw new Error('Este navegador não oferece descompressão nativa. Use Chrome ou Edge atualizado.');
   const stream=new Blob([raw]).stream().pipeThrough(new DecompressionStream('gzip'));
-  const __txt = await new Response(stream).text();
-  window.__t_bp2 = performance.now();
-  const data=JSON.parse(__txt),comps=new Set(BEN_MED_ATUALIZACOES.map(h=>h.competencia));
-  window.__t_bp3 = performance.now();
+  const data=JSON.parse(await new Response(stream).text()),comps=new Set(BEN_MED_ATUALIZACOES.map(h=>h.competencia));
   data.med=(data.med||[]).filter(h=>!comps.has(h.competencia)).concat(BEN_MED_ATUALIZACOES).sort((a,b)=>String(a.competencia).localeCompare(String(b.competencia)));
-  window.__t_bp4 = performance.now();
   return data;
 }
 let __benMigrarHistoricosPromise = null;
