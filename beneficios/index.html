@@ -11,13 +11,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" defer></script>
 <!-- Mobilidade Corporativa: merge de PDF, graficos e ZIP -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap">
 <style>
 /* ============================
    DESIGN SYSTEM – LIGA BASKET
    ============================ */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
   --orange:       #E85D04;
@@ -2978,15 +2980,11 @@ body.lnb-mob-only .nav-tab.benefit-prud{ display:none!important; }
 // do restante da página (que já lê localStorage de forma síncrona
 // logo na carga) ser executado.
 // ============================================================
-let __lnbCfg = null;
-try {
-  const __xhr = new XMLHttpRequest();
-  __xhr.open('GET', '/api/config', false);
-  __xhr.send(null);
-  if (__xhr.status === 200) __lnbCfg = JSON.parse(__xhr.responseText);
-} catch (e) { console.error('Falha ao carregar /api/config, usando valores padrao:', e); }
-const SUPABASE_URL = (__lnbCfg && __lnbCfg.SUPABASE_URL) || 'https://iiheewndotcwqntppjrw.supabase.co';
-const SUPABASE_KEY = (__lnbCfg && __lnbCfg.SUPABASE_KEY) || 'sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz';
+// Config fixa (era buscada via XHR síncrona em /api/config a cada carregamento,
+// bloqueando o parser da página; os valores nunca mudam em produção, então
+// ficam direto aqui — remove uma chamada de rede síncrona do boot).
+const SUPABASE_URL = 'https://iiheewndotcwqntppjrw.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz';
 const AUTH_ADMIN_EMAIL = 'admin-beneficios@painel-lnb.local';
 const AUTH_READONLY_EMAIL = 'leitura-beneficios@painel-lnb.local';
 const AUTH_MOB_READONLY_EMAIL = 'leitura-mobilidade@painel-lnb.local';
@@ -15130,15 +15128,24 @@ async function benPayload(){
   data.med=(data.med||[]).filter(h=>!comps.has(h.competencia)).concat(BEN_MED_ATUALIZACOES).sort((a,b)=>String(a.competencia).localeCompare(String(b.competencia)));
   return data;
 }
+let __benMigrarHistoricosPromise = null;
 async function benMigrarHistoricos(){
-  const payload=await benPayload();
-  Object.keys(BEN_META).forEach(mod=>{
-    const fonte=payload[mod]||[], comps=new Set(fonte.map(x=>x.competencia));
-    const preservados=benHistorico(mod).filter(x=>!x.historicoFonte&&(!comps.has(x.competencia)||x.importacaoPlanilha)).map(h=>({...h,detalhes:(h.detalhes||[]).map(d=>({...d,nome:benCanonName(d.nome)}))}));
-    const compsImportadas=new Set(preservados.filter(x=>x.importacaoPlanilha).map(x=>x.competencia));
-    benSetHistorico(mod,preservados.concat(fonte.filter(x=>!compsImportadas.has(x.competencia))).sort((a,b)=>String(a.competencia).localeCompare(String(b.competencia))));
-  });
-  benUnificarCadastros();
+  // Cache de promise: essa migração é idempotente (funde o histórico oficial
+  // embutido com o que já está salvo) e antes rodava 1x no boot e de novo na
+  // primeira pergunta à IA, descomprimindo e reprocessando tudo duas vezes.
+  // Agora roda uma única vez por sessão e as duas chamadas reaproveitam o resultado.
+  if (__benMigrarHistoricosPromise) return __benMigrarHistoricosPromise;
+  __benMigrarHistoricosPromise = (async () => {
+    const payload=await benPayload();
+    Object.keys(BEN_META).forEach(mod=>{
+      const fonte=payload[mod]||[], comps=new Set(fonte.map(x=>x.competencia));
+      const preservados=benHistorico(mod).filter(x=>!x.historicoFonte&&(!comps.has(x.competencia)||x.importacaoPlanilha)).map(h=>({...h,detalhes:(h.detalhes||[]).map(d=>({...d,nome:benCanonName(d.nome)}))}));
+      const compsImportadas=new Set(preservados.filter(x=>x.importacaoPlanilha).map(x=>x.competencia));
+      benSetHistorico(mod,preservados.concat(fonte.filter(x=>!compsImportadas.has(x.competencia))).sort((a,b)=>String(a.competencia).localeCompare(String(b.competencia))));
+    });
+    benUnificarCadastros();
+  })();
+  return __benMigrarHistoricosPromise;
 }
 function benRows(mod){return benHistorico(mod).filter(x=>x && x.competencia).sort((a,b)=>String(a.competencia).localeCompare(String(b.competencia)));}
 function benDetailTotal(mod,d){return mod==='vr'?benNum(d.total??d.valor):benNum(d.total);}
