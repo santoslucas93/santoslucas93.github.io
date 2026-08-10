@@ -7248,21 +7248,11 @@ function backfillEmployeeIds(){
   const vtRateioComp = document.getElementById('vt-rateio-comp'); if (vtRateioComp) vtRateioComp.value = vtCfg.competencia || '2026-06';
   ['med-comp','med-rateio-comp','med-cfg-comp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value = medCfg.competencia || '2026-05'; });
   ['prud-comp','prud-rateio-comp','prud-cfg-comp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value = prudCfg.competencia || '2026-03'; });
-  renderAll();
-  renderAvulsos();
-  renderHistorico();
-  renderConsolidado();
-  renderVT();
-  renderMed();
-  renderMedCalculo();
-  renderMedRateio();
-  renderMedHistorico();
-  renderMedConsolidado();
-  renderPrud();
-  renderPrudCalculo();
-  renderPrudRateio();
-  renderPrudHistorico();
-  renderPrudConsolidado();
+  const __bootRenders = [renderAll, renderAvulsos, renderHistorico, renderConsolidado, renderVT, renderMed, renderMedCalculo, renderMedRateio, renderMedHistorico, renderMedConsolidado, renderPrud, renderPrudCalculo, renderPrudRateio, renderPrudHistorico, renderPrudConsolidado];
+  for (const fn of __bootRenders) {
+    try { fn(); } catch(e) { console.error('Erro ao renderizar modulo no boot:', e); }
+    await new Promise(function(r){ requestAnimationFrame(r); });
+  }
   applyUniformUI();
   installSortableTables();
   if (__authed) lnbUnlockApp();
