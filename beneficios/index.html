@@ -7211,16 +7211,18 @@ function backfillEmployeeIds(){
   if (mudouMed) saveMed();
   if (mudouPrud) savePrud();
 }
+window.__renderTimings = [];
+function __prof(label, fn){ const t0 = performance.now(); fn(); window.__renderTimings.push({label, ms: Math.round(performance.now() - t0)}); }
 (async function init() {
-  // Espera o boot (login + carga do Supabase) terminar antes de ler o
-  // localStorage e renderizar — ver window.__lnbBootReady, lá em cima.
+  const __t0boot = performance.now();
   const __authed = await window.__lnbBootReady;
-  load();
-  loadMed();
-  loadPrud();
-  backfillEmployeeIds();
-  aplicarCorrecaoYgor();
-  setupExtraMasks();
+  window.__renderTimings.push({label:'awaitBootReady', ms: Math.round(performance.now() - __t0boot)});
+  __prof('load', load);
+  __prof('loadMed', loadMed);
+  __prof('loadPrud', loadPrud);
+  __prof('backfillEmployeeIds', backfillEmployeeIds);
+  __prof('aplicarCorrecaoYgor', aplicarCorrecaoYgor);
+  __prof('setupExtraMasks', setupExtraMasks);
   const now = new Date();
   const month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
@@ -7237,24 +7239,25 @@ function backfillEmployeeIds(){
   const vtRateioComp = document.getElementById('vt-rateio-comp'); if (vtRateioComp) vtRateioComp.value = vtCfg.competencia || '2026-06';
   ['med-comp','med-rateio-comp','med-cfg-comp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value = medCfg.competencia || '2026-05'; });
   ['prud-comp','prud-rateio-comp','prud-cfg-comp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value = prudCfg.competencia || '2026-03'; });
-  renderAll();
-  renderAvulsos();
-  renderHistorico();
-  renderConsolidado();
-  renderVT();
-  renderMed();
-  renderMedCalculo();
-  renderMedRateio();
-  renderMedHistorico();
-  renderMedConsolidado();
-  renderPrud();
-  renderPrudCalculo();
-  renderPrudRateio();
-  renderPrudHistorico();
-  renderPrudConsolidado();
-  applyUniformUI();
-  installSortableTables();
-  if (__authed) lnbUnlockApp();
+  __prof('renderAll', renderAll);
+  __prof('renderAvulsos', renderAvulsos);
+  __prof('renderHistorico', renderHistorico);
+  __prof('renderConsolidado', renderConsolidado);
+  __prof('renderVT', renderVT);
+  __prof('renderMed', renderMed);
+  __prof('renderMedCalculo', renderMedCalculo);
+  __prof('renderMedRateio', renderMedRateio);
+  __prof('renderMedHistorico', renderMedHistorico);
+  __prof('renderMedConsolidado', renderMedConsolidado);
+  __prof('renderPrud', renderPrud);
+  __prof('renderPrudCalculo', renderPrudCalculo);
+  __prof('renderPrudRateio', renderPrudRateio);
+  __prof('renderPrudHistorico', renderPrudHistorico);
+  __prof('renderPrudConsolidado', renderPrudConsolidado);
+  __prof('applyUniformUI', applyUniformUI);
+  __prof('installSortableTables', installSortableTables);
+  if (__authed) __prof('lnbUnlockApp', lnbUnlockApp);
+  window.__initTotalMs = Math.round(performance.now() - __t0boot);
 })();
 
 // ============================================================
