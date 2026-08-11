@@ -2567,6 +2567,28 @@ body.theme-dark .mob-badge.uber{color:#D5DCE6;}
 body.lnb-not-authed > *:not(#lnb-auth-overlay){display:none!important}
 body.lnb-readonly .btn:not(.nav-tab):not(#lnb-logout-link){display:none!important}
 body.lnb-readonly input,body.lnb-readonly select,body.lnb-readonly textarea{pointer-events:none!important;opacity:.65;background:#f1efe9!important}
+/* Perfil "Somente leitura": os filtros de consulta ficam liberados em TODOS os
+   modulos, nao so no de Uber e 99. Sao apenas controles de visualizacao — nao
+   gravam nada. A inclusao, alteracao e exclusao seguem bloqueadas no JavaScript
+   (supaUpsert, salvarAgora, o hook de localStorage.setItem e MobDB.put recusam
+   qualquer escrita neste perfil), e os botoes de acao continuam ocultos. */
+body.lnb-readonly :is(#search-input,#filter-tipo,#filter-area,#filter-status,#busca360-input,#mob-conf-busca,.mob-search input,[id^="med-f-"],[id^="prud-f-"],[id^="vt-f-"],[id^="mob-f-"],[id^="cons-filtro-"],#competencia-input,#av-comp,#rateio-comp,#med-comp,#med-rateio-comp,#prud-comp,#prud-rateio-comp,#vt-comp,#vt-rateio-comp,#mdoc-comp,#mob-relatorios select,#mob-relatorios input){
+  pointer-events:auto!important;
+  opacity:1!important;
+  background:#fff!important;
+  cursor:auto;
+}
+body.theme-dark.lnb-readonly :is(#search-input,#filter-tipo,#filter-area,#filter-status,#busca360-input,#mob-conf-busca,.mob-search input,[id^="med-f-"],[id^="prud-f-"],[id^="vt-f-"],[id^="mob-f-"],[id^="cons-filtro-"],#competencia-input,#av-comp,#rateio-comp,#med-comp,#med-rateio-comp,#prud-comp,#prud-rateio-comp,#vt-comp,#vt-rateio-comp,#mdoc-comp,#mob-relatorios select,#mob-relatorios input){
+  background:var(--surface-2)!important;
+  color:var(--text)!important;
+  border-color:var(--border)!important;
+}
+/* Os botoes de limpar filtro voltam a aparecer: nao alteram dado nenhum. */
+body.lnb-readonly .btn:is([onclick="clearFilters()"],[onclick="clearMedFilters()"],[onclick="clearPrudFilters()"],[onclick="clearVTFilters()"],[onclick="mobLimparFiltros()"]):not(#___nunca___):not(#___nunca2___){
+  display:inline-flex!important;
+  align-items:center;
+  gap:6px;
+}
 /* Perfil "Somente leitura — Uber e 99": os filtros (não são edição de dados)
    continuam liberados, só a edição/gravação permanece bloqueada. */
 body.lnb-readonly.lnb-mob-only [id^="mob-f-"],
