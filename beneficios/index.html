@@ -16789,5 +16789,20 @@ async function iaSend(){
   });
 })();
 </script>
+<style>
+/* Nove regras globais "thead th" (varias com !important) pintavam este cabecalho
+   de branco sobre fundo claro, deixando-o ilegivel. Esta regra vem por ultimo e
+   tem especificidade maior, entao fecha a questao nos dois temas. */
+body .mob-table thead th{
+  background:var(--surface-2)!important;
+  color:var(--text-mid)!important;
+  border-bottom:2px solid var(--border)!important;
+}
+body.theme-dark .mob-table thead th{
+  background:#1D2B3C!important;
+  color:#F8FAFC!important;
+  border-bottom-color:#45566C!important;
+}
+</style>
 </body>
 </html>
