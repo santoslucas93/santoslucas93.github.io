@@ -4538,7 +4538,9 @@ window.__lnbBootReady.then(function(authed){
     pendingRenders.clear();
     for (const fn of toRun) {
       try { fn(); } catch(e){ console.error('Erro ao renderizar apos sincronizacao:', e); }
-      await new Promise(function(r){ requestAnimationFrame(r); });
+      // setTimeout e nao requestAnimationFrame: rAF nao dispara em aba em
+      // segundo plano, o que deixaria estes redesenhos presos ate a aba voltar.
+      await new Promise(function(r){ setTimeout(r, 0); });
     }
   }
 
@@ -7248,17 +7250,39 @@ function backfillEmployeeIds(){
   const vtRateioComp = document.getElementById('vt-rateio-comp'); if (vtRateioComp) vtRateioComp.value = vtCfg.competencia || '2026-06';
   ['med-comp','med-rateio-comp','med-cfg-comp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value = medCfg.competencia || '2026-05'; });
   ['prud-comp','prud-rateio-comp','prud-cfg-comp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value = prudCfg.competencia || '2026-03'; });
-  const __bootRenders = [['renderAll',renderAll],['renderAvulsos',renderAvulsos],['renderHistorico',renderHistorico],['renderConsolidado',renderConsolidado],['renderVT',renderVT],['renderMed',renderMed],['renderMedCalculo',renderMedCalculo],['renderMedRateio',renderMedRateio],['renderMedHistorico',renderMedHistorico],['renderMedConsolidado',renderMedConsolidado],['renderPrud',renderPrud],['renderPrudCalculo',renderPrudCalculo],['renderPrudRateio',renderPrudRateio],['renderPrudHistorico',renderPrudHistorico],['renderPrudConsolidado',renderPrudConsolidado]];
-  window.__bootTimings = [];
-  for (const __bp of __bootRenders) {
-    const __t0 = performance.now();
-    try { __bp[1](); } catch(e) { console.error('Erro ao renderizar modulo no boot:', e); }
-    window.__bootTimings.push({name: __bp[0], dur: Math.round(performance.now()-__t0)});
-    await new Promise(function(r){ requestAnimationFrame(r); });
-  }
-  applyUniformUI();
+  // Desenha so a tela inicial e libera o sistema. Os demais modulos sao
+  // desenhados em segundo plano, sem travar a tela apos o login -- antes disso
+  // os 15 renders rodavam em sequencia e seguravam a aba por 15-30 segundos.
+  // Nada depende deste laco terminar: cada aba tambem se redesenha sozinha ao
+  // ser aberta (ver showTab).
+  renderAll();
   installSortableTables();
   if (__authed) lnbUnlockApp();
+  (async function desenharModulosEmSegundoPlano(){
+    var pendentes = [
+      ['avulsos', renderAvulsos], ['historico', renderHistorico],
+      ['consolidado', renderConsolidado], ['vt', renderVT],
+      ['med', renderMed], ['med-calculo', renderMedCalculo],
+      ['med-rateio', renderMedRateio], ['med-historico', renderMedHistorico],
+      ['med-consolidado', renderMedConsolidado],
+      ['prud', renderPrud], ['prud-calculo', renderPrudCalculo],
+      ['prud-rateio', renderPrudRateio], ['prud-historico', renderPrudHistorico],
+      ['prud-consolidado', renderPrudConsolidado]
+    ];
+    for (var k = 0; k < pendentes.length; k++){
+      // setTimeout (e nao requestAnimationFrame) porque rAF nao dispara em aba
+      // em segundo plano, o que deixaria o carregamento parado pela metade.
+      await new Promise(function(r){ setTimeout(r, 0); });
+      var aba = document.getElementById('tab-' + pendentes[k][0]);
+      // Nao redesenha a aba que o usuario esta usando agora: isso apagaria
+      // filtros/selecoes no meio do trabalho dele. showTab ja a desenhou.
+      if (aba && aba.classList.contains('active')) continue;
+      try { pendentes[k][1](); }
+      catch(e){ console.error('Erro ao desenhar modulo em segundo plano:', e); }
+    }
+    await new Promise(function(r){ setTimeout(r, 0); });
+    try { applyUniformUI(); }catch(e){ console.error('applyUniformUI falhou:', e); }
+  })();
 })();
 
 // ============================================================
@@ -8311,7 +8335,7 @@ const MobDB = (function(){
           t.onerror = () => rej(t.error);
         });
         if (i + BATCH < lista.length){
-          await new Promise(r => requestAnimationFrame(r));
+          await new Promise(r => setTimeout(r, 0));
         }
       }
       return lista;
