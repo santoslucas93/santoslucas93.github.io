@@ -15093,7 +15093,12 @@ function benDepto(cc, d){
 function benDeptoNome(sigla){return ({'SUP':'Superintendência','Com':'Comunicação','MKT':'Marketing','TOP':'Técnico Operacional','A&F':'Administrativo & Financeiro','ARB':'Arbitragem','N/D':'Não identificado'})[sigla]||sigla;}
 function benIsArbitragem(d){
   const tipo=benNorm(d?.tipo),nome=benNorm(d?.nome),conta=String(d?.conta||'').replace(/\D/g,''),cc=String(d?.cc||'').replace(/\D/g,'');
-  return tipo.includes('ARBITRAGEM')||nome.includes('ARBITRAGEM')||conta==='053917'||cc==='400213';
+  /* Tambem reconhece as linhas que entraram com as colunas invertidas do bloco
+     ARBITRAGEM da planilha (conta 053917 caiu no campo do centro de custo e o
+     CC 400213 caiu no campo do nome). Sem isto, esses lancamentos apareciam
+     como colaborador "400213" no departamento N/D. */
+  return tipo.includes('ARBITRAGEM')||nome.includes('ARBITRAGEM')||conta==='053917'||cc==='400213'
+      ||nome==='400213'||cc==='053917';
 }
 const BEN_PROVIDER_COLORS=Object.freeze({'Alelo':'#008F5A','VR Caixa':'#005CA9','VR Mobilidade':'#0AA72E','Porto Seguro':'#0066B3','Prudential':'#D71920','SulAmérica':'#E30613'});
 function benFornecedorPadrao(mod,competencia){
