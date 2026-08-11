@@ -2566,6 +2566,14 @@ body.theme-dark .mob-badge.uber{color:#D5DCE6;}
 #lnb-auth-err{color:#b3261e;font-size:12.5px;margin-top:8px;min-height:14px}
 body.lnb-not-authed > *:not(#lnb-auth-overlay){display:none!important}
 body.lnb-readonly .btn:not(.nav-tab):not(#lnb-logout-link){display:none!important}
+/* Importacao fica fora do ar no perfil somente leitura: ela altera o historico
+   das competencias. O rotulo de "Selecionar planilha" nao e um .btn, entao a
+   regra acima nao o alcancava e o seletor de arquivos ainda abria. */
+body.lnb-readonly :is(.ben-import-hero,.ben-import-grid,.ben-import-drop,[id^="ben-import-"],#tab-mob-import),
+body.lnb-readonly .nav-tab:is([data-tab*="import"],[onclick*="import"]),
+body.lnb-readonly input[type="file"]{
+  display:none!important;
+}
 body.lnb-readonly input,body.lnb-readonly select,body.lnb-readonly textarea{pointer-events:none!important;opacity:.65;background:#f1efe9!important}
 /* Perfil "Somente leitura": os filtros de consulta ficam liberados em TODOS os
    modulos, nao so no de Uber e 99. Sao apenas controles de visualizacao — nao
@@ -16621,5 +16629,27 @@ async function iaSend(){
 </script>
 
 
+<script>
+/* Trava de somente leitura para importacao e restauracao.
+   Envolve as funcoes depois de todas definidas, cobrindo tambem arrastar-e-soltar
+   e chamadas diretas — nao depende de esconder botao na tela. */
+(function(){
+  var alvos = ["benImportFile","benImportApply","mobImportarRapido","mobImportarRapidoUm",
+               "mobArquivoEscolhido","mobAnexarDocumentos","mobRestaurarBackup",
+               "mobImportarColaboradores","mobConfirmarImportacao","mobExecutarImportacaoRapida",
+               "restaurarBackup"];
+  alvos.forEach(function(nome){
+    var orig = window[nome];
+    if (typeof orig !== "function") return;
+    window[nome] = function(){
+      if (typeof isReadOnlyUser === "function" && isReadOnlyUser()){
+        alert("Seu perfil e somente leitura. A importacao altera o historico das competencias, entao esta bloqueada — peca a um administrador.");
+        return;
+      }
+      return orig.apply(this, arguments);
+    };
+  });
+})();
+</script>
 </body>
 </html>
