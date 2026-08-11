@@ -2088,7 +2088,7 @@ body.theme-dark .mob-badge.uber{color:#D5DCE6;}
 /* ---------- TABELA DO MÓDULO ---------- */
 .mob-table{width:100%;border-collapse:collapse;font-size:12.5px;}
 .mob-table th{background:var(--surface-2);padding:9px 10px;text-align:left;font-weight:800;font-size:10.5px;
-  text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);border-bottom:1px solid var(--border);
+  text-transform:uppercase;letter-spacing:.4px;color:var(--text-mid);border-bottom:2px solid var(--border);
   position:sticky;top:0;z-index:1;white-space:nowrap;}
 .mob-table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
 .mob-table tbody tr:hover td{background:var(--surface-2);}
@@ -2199,7 +2199,14 @@ body.theme-dark .mob-badge.uber{color:#D5DCE6;}
 
 /* ---------- EXPERIÊNCIA EXECUTIVA DE MOBILIDADE ---------- */
 .mob-flow,[id^="mob-flow-"]{display:none!important;}
-.mob-periodo-ano,.mob-periodo-mes,.mob-periodo-dia{display:none;}
+.mob-periodo-ano,.mob-periodo-mes,.mob-periodo-dia,.mob-periodo-intervalo{display:none;}
+.mob-table tbody tr.mob-linha-click{cursor:pointer}
+.mob-table tbody tr.mob-linha-click:hover{background:var(--orange-light)}
+body.theme-dark .mob-table tbody tr.mob-linha-click:hover{background:rgba(232,93,4,.18)}
+.mob-det-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.mob-det-item{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 11px}
+.mob-det-item b{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-mid);margin-bottom:3px}
+.mob-det-item span{font-size:13px;color:var(--text);word-break:break-word}
 .mob-period-summary{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
   padding:16px 18px;border:1px solid var(--border);border-radius:12px;background:linear-gradient(135deg,var(--surface),var(--surface-2));margin-bottom:14px;}
 .mob-period-summary .eyebrow{font-size:10px;font-weight:900;letter-spacing:.8px;text-transform:uppercase;color:var(--text-muted);}
@@ -3476,13 +3483,19 @@ window.__lnbBootReady.then(function(authed){
       <div class="mob-field"><label>Período</label>
         <select id="mob-f-periodo" onchange="mobPeriodoSet('tipo',this.value)">
           <option value="consolidado">Consolidado</option><option value="ano">Ano</option>
-          <option value="mes">Mês</option><option value="dia">Dia</option></select></div>
+          <option value="mes">Mês</option><option value="dia">Dia</option><option value="intervalo">Intervalo</option></select></div>
       <div class="mob-field mob-periodo-ano"><label>Ano</label>
         <select id="mob-f-ano" onchange="mobPeriodoSet('ano',this.value)"></select></div>
       <div class="mob-field mob-periodo-mes"><label>Mês</label>
         <select id="mob-f-mes" onchange="mobPeriodoSet('mes',this.value)"></select></div>
       <div class="mob-field mob-periodo-dia"><label>Dia</label>
         <input type="date" id="mob-f-dia" onchange="mobPeriodoSet('dia',this.value)"></div>
+      <div class="mob-field mob-periodo-intervalo"><label>De</label>
+        <input type="month" id="mob-f-de" onchange="mobPeriodoSet('de',this.value)"></div>
+      <div class="mob-field mob-periodo-intervalo"><label>Até</label>
+        <input type="month" id="mob-f-ate" onchange="mobPeriodoSet('ate',this.value)"></div>
+      <div class="mob-field mob-periodo-intervalo"><label>Temporada NBB</label>
+        <select id="mob-f-temporada" onchange="mobTemporadaNBB(this.value)"></select></div>
       <div class="mob-field"><label>Empresa</label>
         <select id="mob-f-forn" onchange="mobFiltro('fornecedor',this.value)">
           <option value="">Todas</option><option value="uber">Uber</option><option value="99">99</option></select></div>
@@ -9911,7 +9924,7 @@ function mobRenderPainel(){
 
   mobGrafico('mob-ch-forn', {type:'bar', data:{
     labels:['Uber','99'],
-    datasets:[{label:'Valor', data:[k.tUber, k.t99], backgroundColor:['#1F2126','#FFD100'], borderRadius:6}]
+    datasets:[{label:'Valor', data:[k.tUber, k.t99], backgroundColor:[mobCorUber(),'#FFD100'], borderRadius:6}]
   }, options:{plugins:{legend:{display:false}}}, mobClick:i => mobAbrirFornecedor(i === 0 ? 'uber' : '99')});
 
   /* evolução: últimos 12 meses a partir da competência */
@@ -9928,7 +9941,7 @@ function mobRenderPainel(){
   mobGrafico('mob-ch-evol', {type:'line', data:{
     labels: meses.map(m => MobFmt.competShort(m)),
     datasets:[
-      {label:'Uber', data:serieU, borderColor:'#1F2126', backgroundColor:'rgba(31,33,38,.12)', fill:true, tension:.32, borderWidth:2},
+      {label:'Uber', data:serieU, borderColor:mobCorUber(), backgroundColor:'rgba(31,33,38,.12)', fill:true, tension:.32, borderWidth:2},
       {label:'99',   data:serie9, borderColor:'#E5B800', backgroundColor:'rgba(255,209,0,.16)', fill:true, tension:.32, borderWidth:2}
     ]}, mobClick:i => meses[i] && mobAbrirCompetenciaGrafico(meses[i])});
 
@@ -14997,9 +15010,9 @@ mobRenderPainel=function(){
   alvo.innerHTML=html;
   const dep=k.porDepartamento;
   mobGrafico('mob-ch-depto',{type:'doughnut',data:{labels:dep.map(d=>(d.sigla||'–')+' · '+d.nome),datasets:[{data:dep.map(d=>d.total),backgroundColor:dep.map((d,i)=>d.cor||mobCor(i)),borderWidth:0}]},options:{cutout:'58%',plugins:{legend:{position:'right'}}},mobClick:i=>dep[i]&&mobAbrirDepartamento(dep[i].deptoId)});
-  mobGrafico('mob-ch-forn',{type:'bar',data:{labels:['Uber','99'],datasets:[{label:'Valor',data:[k.tUber,k.t99],backgroundColor:['#1F2126','#FFD100'],borderRadius:6}]},options:{plugins:{legend:{display:false}}},mobClick:i=>mobAbrirFornecedor(i===0?'uber':'99')});
+  mobGrafico('mob-ch-forn',{type:'bar',data:{labels:['Uber','99'],datasets:[{label:'Valor',data:[k.tUber,k.t99],backgroundColor:[mobCorUber(),'#FFD100'],borderRadius:6}]},options:{plugins:{legend:{display:false}}},mobClick:i=>mobAbrirFornecedor(i===0?'uber':'99')});
   const tempo=mobSerieTemporal(corridas),serie=(forn)=>tempo.chaves.map(ch=>MobFmt.sum(corridas.filter(c=>c.fornecedor===forn&&tempo.valor(c,ch)),c=>MobCore.valorAnalitico(c,Mob.ui.filtros)));
-  mobGrafico('mob-ch-evol',{type:'line',data:{labels:tempo.rotulos,datasets:[{label:'Uber',data:serie('uber'),borderColor:'#1F2126',backgroundColor:'rgba(31,33,38,.10)',fill:true,tension:.28,borderWidth:2},{label:'99',data:serie('99'),borderColor:'#E5B800',backgroundColor:'rgba(255,209,0,.13)',fill:true,tension:.28,borderWidth:2}]},mobClick:i=>tempo.chaves[i]&&tempo.abrir(tempo.chaves[i])});
+  mobGrafico('mob-ch-evol',{type:'line',data:{labels:tempo.rotulos,datasets:[{label:'Uber',data:serie('uber'),borderColor:mobCorUber(),backgroundColor:'rgba(31,33,38,.10)',fill:true,tension:.28,borderWidth:2},{label:'99',data:serie('99'),borderColor:'#E5B800',backgroundColor:'rgba(255,209,0,.13)',fill:true,tension:.28,borderWidth:2}]},mobClick:i=>tempo.chaves[i]&&tempo.abrir(tempo.chaves[i])});
   const dias=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'],porDia=dias.map(()=>0);corridas.forEach(c=>{const d=new Date(c.data+'T12:00:00');if(!isNaN(d))porDia[d.getDay()]=MobFmt.fromCents(MobFmt.cents(porDia[d.getDay()])+MobFmt.cents(MobCore.valorAnalitico(c,Mob.ui.filtros)));});
   mobGrafico('mob-ch-dia',{type:'bar',data:{labels:dias.map(d=>d.slice(0,3)),datasets:[{label:'Valor',data:porDia,backgroundColor:dias.map((d,i)=>i===0||i===6?'#C0392B':'#1D4ED8'),borderRadius:6}]},options:{plugins:{legend:{display:false}}},mobClick:i=>mobAbrirDiaSemana(i)});
   const top=k.porColaborador.slice(0,12);mobGrafico('mob-ch-colab',{type:'bar',data:{labels:top.map(c=>c.nome.length>24?c.nome.slice(0,23)+'…':c.nome),datasets:[{label:'Uber',data:top.map(c=>c.uber),backgroundColor:mobCorUberGrafico(),borderRadius:4,stack:'s'},{label:'99',data:top.map(c=>c.n99),backgroundColor:'#FFD100',borderRadius:4,stack:'s'}]},options:{indexAxis:'y',scales:{x:{stacked:true,ticks:{callback:v=>MobFmt.moneyShort(v),font:{size:10}}},y:{stacked:true,ticks:{font:{size:10}}}}},mobClick:i=>top[i]&&mobAbrirColaborador(top[i].colabId)});
@@ -15013,7 +15026,7 @@ mobRenderCadastros=function(){
   html+='<div class="mob-grid-2"><div class="mob-card"><div class="mob-card-title"><span class="ico">🏢</span>Departamentos</div><div class="mob-tablewrap"><table class="mob-table mob-exec-table"><thead><tr><th>Área</th><th class="tc">Corridas</th><th class="tr">Uber</th><th class="tr">99</th><th class="tr">Total</th><th class="tr">%</th></tr></thead><tbody>'+k.porDepartamento.map(d=>{const rides=corr.filter(c=>MobCore.valorNoDepto(c,d.deptoId)!==0),u=MobFmt.sum(rides.filter(c=>c.fornecedor==='uber'),c=>MobCore.valorNoDepto(c,d.deptoId)),n=MobFmt.sum(rides.filter(c=>c.fornecedor==='99'),c=>MobCore.valorNoDepto(c,d.deptoId));return '<tr class="clickable" onclick="mobAbrirDepartamento(\''+d.deptoId+'\')"><td><strong>'+MobFmt.esc(d.sigla||'–')+'</strong> · '+MobFmt.esc(d.nome)+'</td><td class="tc">'+d.qtd+'</td><td class="tr">'+MobFmt.money(u)+'</td><td class="tr">'+MobFmt.money(n)+'</td><td class="tr"><strong>'+MobFmt.money(d.total)+'</strong></td><td class="tr">'+MobFmt.pct(total?d.total/total*100:0)+'</td></tr>';}).join('')+'</tbody></table></div></div>';
   html+='<div class="mob-card"><div class="mob-card-title"><span class="ico">👥</span>Colaboradores</div><div class="mob-tablewrap"><table class="mob-table mob-exec-table"><thead><tr><th>#</th><th>Colaborador</th><th class="tc">Corridas</th><th class="tr">Uber</th><th class="tr">99</th><th class="tr">Total</th></tr></thead><tbody>'+k.porColaborador.slice(0,100).map((c,i)=>'<tr class="clickable" onclick="mobAbrirColaborador(\''+c.colabId+'\')"><td>'+(i+1)+'</td><td><strong>'+MobFmt.esc(c.nome)+'</strong><br><span class="mob-data-note">'+MobFmt.esc(c.depto)+'</span></td><td class="tc">'+c.qtd+'</td><td class="tr">'+MobFmt.money(c.uber)+'</td><td class="tr">'+MobFmt.money(c.n99)+'</td><td class="tr"><strong>'+MobFmt.money(c.total)+'</strong></td></tr>').join('')+'</tbody></table></div></div></div>';
   const lista=corr.slice().sort((a,b)=>String(b.data).localeCompare(String(a.data))).slice(0,250);
-  html+='<div class="mob-card"><div class="mob-card-title"><span class="ico">🚗</span>Histórico de corridas <span class="mob-badge neutral">'+MobFmt.num(corr.length)+'</span><span style="margin-left:auto"><button class="btn btn-green btn-sm" onclick="mobExportarBase()">📥 Exportar Excel</button></span></div><div class="mob-tablewrap"><table class="mob-table"><thead><tr><th>Data</th><th>Empresa</th><th>Colaborador</th><th>Departamento</th><th>Motivo</th><th class="tr">Valor</th></tr></thead><tbody>'+lista.map(c=>{const col=Mob.colaboradores.find(x=>x.id===c.colabId),d=Mob.departamentos.find(x=>x.id===c.deptoId);return '<tr><td>'+MobFmt.brDate(c.data)+'</td><td><span class="mob-badge '+(c.fornecedor==='uber'?'uber':'n99')+'">'+(c.fornecedor==='uber'?'Uber':'99')+'</span></td><td>'+MobFmt.esc(col?col.nome:c.passageiroRaw)+'</td><td><strong>'+(d?MobFmt.esc(d.sigla):'–')+'</strong></td><td><span class="ell" title="'+MobFmt.esc(c.motivo)+'">'+MobFmt.esc(c.motivo||'–')+'</span></td><td class="tr"><strong>'+MobFmt.money(c.total)+'</strong></td></tr>';}).join('')+'</tbody></table></div>'+(corr.length>250?'<div class="mob-data-note" style="margin-top:10px">Exibindo as 250 corridas mais recentes. O Excel contém todo o período selecionado.</div>':'')+'</div>';
+  html+='<div class="mob-card"><div class="mob-card-title"><span class="ico">🚗</span>Histórico de corridas <span class="mob-badge neutral">'+MobFmt.num(corr.length)+'</span><span style="margin-left:auto"><button class="btn btn-green btn-sm" onclick="mobExportarBase()">📥 Exportar Excel</button></span></div><div class="mob-tablewrap"><table class="mob-table"><thead><tr><th>Data</th><th>Empresa</th><th>Colaborador</th><th>Departamento</th><th>Motivo</th><th class="tr">Valor</th></tr></thead><tbody>'+lista.map(c=>{const col=Mob.colaboradores.find(x=>x.id===c.colabId),d=Mob.departamentos.find(x=>x.id===c.deptoId);return '<tr class="mob-linha-click" data-corrida="'+MobFmt.esc(String(c.id))+'"><td>'+MobFmt.brDate(c.data)+'</td><td><span class="mob-badge '+(c.fornecedor==='uber'?'uber':'n99')+'">'+(c.fornecedor==='uber'?'Uber':'99')+'</span></td><td>'+MobFmt.esc(col?col.nome:c.passageiroRaw)+'</td><td><strong>'+(d?MobFmt.esc(d.sigla):'–')+'</strong></td><td><span class="ell" title="'+MobFmt.esc(c.motivo)+'">'+MobFmt.esc(c.motivo||'–')+'</span></td><td class="tr"><strong>'+MobFmt.money(c.total)+'</strong></td></tr>';}).join('')+'</tbody></table></div>'+(corr.length>250?'<div class="mob-data-note" style="margin-top:10px">Exibindo as 250 corridas mais recentes. O Excel contém todo o período selecionado.</div>':'')+'</div>';
   alvo.innerHTML=html;
 };
 
@@ -16648,6 +16661,131 @@ async function iaSend(){
       }
       return orig.apply(this, arguments);
     };
+  });
+})();
+</script>
+<script>
+/* ===========================================================================
+   Mobilidade — filtro por intervalo, atalho de temporada NBB, pop-up de
+   detalhe da corrida e cor da Uber sensivel ao tema.
+   Estas funcoes sobrescrevem as originais depois que elas ja foram definidas.
+   =========================================================================== */
+(function(){
+  var MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+  /* A Uber e preta (#1F2126) e some no fundo escuro. No tema escuro usamos um
+     cinza claro; mobAlternarTema ja redesenha os graficos, entao a troca e viva. */
+  window.mobCorUber=function(){
+    return document.body.classList.contains("theme-dark") ? "#C9D4E2" : "#1F2126";
+  };
+
+  function compValida(c){ return /^\d{4}-\d{2}$/.test(String(c||"")); }
+
+  var garantirOrig = window.mobPeriodoGarantir;
+  window.mobPeriodoGarantir=function(){
+    var p = garantirOrig();
+    if(!p.de || !p.ate){
+      var comps = Mob.corridas.map(function(c){return c.competencia;}).filter(compValida).sort();
+      var ini = comps[0] || p.ano+"-01", fim = comps[comps.length-1] || p.ano+"-12";
+      p.de = p.de || ini; p.ate = p.ate || fim;
+    }
+    return p;
+  };
+
+  window.mobPeriodoBase=function(){
+    var p = mobPeriodoGarantir();
+    if(p.tipo!=="intervalo") return Mob.corridas.filter(function(c){
+      return !c.excluida && (
+        p.tipo==="consolidado" ||
+        (p.tipo==="ano" && String(c.competencia).slice(0,4)===p.ano) ||
+        (p.tipo==="mes" && String(c.competencia)===p.ano+"-"+p.mes) ||
+        (p.tipo==="dia" && c.data===p.dia));
+    });
+    var de=p.de, ate=p.ate;
+    if(de>ate){ var t=de; de=ate; ate=t; }
+    return Mob.corridas.filter(function(c){
+      var comp=String(c.competencia);
+      return !c.excluida && compValida(comp) && comp>=de && comp<=ate;
+    });
+  };
+
+  var labelOrig = window.mobPeriodoLabel;
+  window.mobPeriodoLabel=function(){
+    var p=mobPeriodoGarantir();
+    if(p.tipo!=="intervalo") return labelOrig();
+    function rot(c){ var a=String(c).slice(0,4), m=Number(String(c).slice(5,7)); return (MESES[m-1]||"?")+"/"+a; }
+    return "De "+rot(p.de)+" a "+rot(p.ate);
+  };
+
+  var refOrig = window.mobPeriodoReferencia;
+  window.mobPeriodoReferencia=function(){
+    var p=mobPeriodoGarantir();
+    if(p.tipo==="intervalo"){
+      var c=mobPeriodoBase().map(function(x){return x.competencia;}).filter(compValida).sort().pop();
+      return c || p.ate || Mob.cfg.competenciaAtual;
+    }
+    return refOrig();
+  };
+
+  /* Temporada do NBB: vai de Outubro de um ano a Setembro do ano seguinte. */
+  window.mobTemporadaNBB=function(inicio){
+    if(!inicio) return;
+    var a=Number(inicio);
+    var p=mobPeriodoGarantir();
+    p.tipo="intervalo"; p.de=a+"-10"; p.ate=(a+1)+"-09";
+    Mob.ui.pagina=1; mobAtualizarFiltroPeriodoUI(); mobRefrescar();
+  };
+
+  var uiOrig = window.mobAtualizarFiltroPeriodoUI;
+  window.mobAtualizarFiltroPeriodoUI=function(){
+    uiOrig();
+    var p=mobPeriodoGarantir(), ehInt = p.tipo==="intervalo";
+    document.querySelectorAll(".mob-periodo-intervalo").forEach(function(e){ e.style.display = ehInt?"flex":"none"; });
+    var de=document.getElementById("mob-f-de"), ate=document.getElementById("mob-f-ate");
+    if(de) de.value=p.de||""; if(ate) ate.value=p.ate||"";
+    var sel=document.getElementById("mob-f-temporada");
+    if(sel){
+      var anos=[...new Set(Mob.corridas.map(function(c){return String(c.competencia).slice(0,4);}).filter(function(a){return /^\d{4}$/.test(a);}))].sort();
+      if(anos.length){
+        var ini=Number(anos[0])-1, fim=Number(anos[anos.length-1]);
+        var opts=["<option value=\"\">Escolher…</option>"];
+        for(var a=fim;a>=ini;a--) opts.push("<option value=\""+a+"\">"+a+"/"+(a+1)+"</option>");
+        var atual = (p.de&&String(p.de).slice(5,7)==="10"&&p.ate&&String(p.ate).slice(5,7)==="09") ? String(p.de).slice(0,4) : "";
+        sel.innerHTML=opts.join("");
+        sel.value=atual;
+      }
+    }
+  };
+
+  /* Pop-up com o detalhe da corrida clicada na tabela de historico. */
+  window.mobDetalheCorrida=function(id){
+    var c=(Mob.corridas||[]).find(function(x){ return String(x.id)===String(id); });
+    if(!c){ return; }
+    var col=(Mob.colaboradores||[]).find(function(x){return x.id===c.colabId;});
+    var dep=(Mob.departamentos||[]).find(function(x){return x.id===c.deptoId;});
+    var E=MobFmt.esc, M=MobFmt.money;
+    function item(rot,val){ if(val===null||val===undefined||val==="") return ""; return '<div class="mob-det-item"><b>'+E(rot)+'</b><span>'+E(String(val))+'</span></div>'; }
+    var partes=[
+      item("Data", MobFmt.brDate(c.data)), item("Hora", c.hora),
+      item("Empresa", c.fornecedor==="uber"?"Uber":"99"),
+      item("Colaborador", col?col.nome:c.passageiroRaw),
+      item("Departamento", dep?(dep.sigla+" · "+dep.nome):(c.setorRaw||"")),
+      item("Centro de custo", c.cc), item("Competência", c.competencia),
+      item("Origem", c.origem), item("Destino", c.destino),
+      item("Motivo", c.motivo), item("Projeto", c.projeto),
+      item("Número da viagem", c.numeroViagem),
+      item("Valor", M(c.valor)), item("Taxas", M(c.taxas)),
+      item("Descontos", c.descontos?M(c.descontos):""), item("Total", M(c.total)),
+      item("Forma de pagamento", c.formaPgto), item("Status", c.status),
+      item("E-mail", c.email), item("Telefone", c.telefone)
+    ].filter(Boolean).join("");
+    mobModal("Detalhe da corrida", '<div class="mob-det-grid">'+partes+'</div>', [{r:"Fechar",c:"btn-ghost",f:"mobFecharModal()"}], "lg");
+  };
+
+  /* Um unico ouvinte para toda a tabela, em vez de onclick em cada linha. */
+  document.addEventListener("click", function(ev){
+    var alvo = ev.target && ev.target.closest ? ev.target.closest("tr.mob-linha-click") : null;
+    if(alvo && alvo.dataset && alvo.dataset.corrida) mobDetalheCorrida(alvo.dataset.corrida);
   });
 })();
 </script>
