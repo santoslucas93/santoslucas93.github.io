@@ -2580,13 +2580,13 @@ body.lnb-readonly input,body.lnb-readonly select,body.lnb-readonly textarea{poin
    gravam nada. A inclusao, alteracao e exclusao seguem bloqueadas no JavaScript
    (supaUpsert, salvarAgora, o hook de localStorage.setItem e MobDB.put recusam
    qualquer escrita neste perfil), e os botoes de acao continuam ocultos. */
-body.lnb-readonly :is(#search-input,#filter-tipo,#filter-area,#filter-status,#busca360-input,#mob-conf-busca,.mob-search input,[id^="med-f-"],[id^="prud-f-"],[id^="vt-f-"],[id^="mob-f-"],[id^="cons-filtro-"],#competencia-input,#av-comp,#rateio-comp,#med-comp,#med-rateio-comp,#prud-comp,#prud-rateio-comp,#vt-comp,#vt-rateio-comp,#mdoc-comp,#mob-relatorios select,#mob-relatorios input){
+body.lnb-readonly :is(#search-input,#filter-tipo,#filter-area,#filter-status,#busca360-input,#mob-conf-busca,.mob-search input,[id^="med-f-"],[id^="prud-f-"],[id^="vt-f-"],[id^="mob-f-"],[id^="cons-filtro-"],#competencia-input,#av-comp,#rateio-comp,#med-comp,#med-rateio-comp,#prud-comp,#prud-rateio-comp,#vt-comp,#vt-rateio-comp,#mdoc-comp,#mob-relatorios select,#mob-relatorios input,#ia-q,#ia-provider,#ia-model,.ia-pop input,.ia-pop select,.ia-pop textarea){
   pointer-events:auto!important;
   opacity:1!important;
   background:#fff!important;
   cursor:auto;
 }
-body.theme-dark.lnb-readonly :is(#search-input,#filter-tipo,#filter-area,#filter-status,#busca360-input,#mob-conf-busca,.mob-search input,[id^="med-f-"],[id^="prud-f-"],[id^="vt-f-"],[id^="mob-f-"],[id^="cons-filtro-"],#competencia-input,#av-comp,#rateio-comp,#med-comp,#med-rateio-comp,#prud-comp,#prud-rateio-comp,#vt-comp,#vt-rateio-comp,#mdoc-comp,#mob-relatorios select,#mob-relatorios input){
+body.theme-dark.lnb-readonly :is(#search-input,#filter-tipo,#filter-area,#filter-status,#busca360-input,#mob-conf-busca,.mob-search input,[id^="med-f-"],[id^="prud-f-"],[id^="vt-f-"],[id^="mob-f-"],[id^="cons-filtro-"],#competencia-input,#av-comp,#rateio-comp,#med-comp,#med-rateio-comp,#prud-comp,#prud-rateio-comp,#vt-comp,#vt-rateio-comp,#mdoc-comp,#mob-relatorios select,#mob-relatorios input,#ia-q,#ia-provider,#ia-model,.ia-pop input,.ia-pop select,.ia-pop textarea){
   background:var(--surface-2)!important;
   color:var(--text)!important;
   border-color:var(--border)!important;
