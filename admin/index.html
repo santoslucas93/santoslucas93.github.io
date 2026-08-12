@@ -104,7 +104,6 @@ tbody tr:hover{background:rgba(232,185,60,.05)}
     <h1>🛡️ Administração Mestre</h1>
     <p>Painel LNB · acesso restrito</p>
     <div id="capa-form">
-      <input id="in-email" type="email" placeholder="E-mail" autocomplete="username">
       <input id="in-senha" type="password" placeholder="Senha" autocomplete="current-password">
       <button class="btn-ouro" id="bt-entrar">Entrar</button>
     </div>
@@ -234,6 +233,20 @@ function lerSessaoGuardada(){
   return null;
 }
 
+/* Os modulos nao pedem e-mail: a pessoa digita so a senha e o codigo descobre
+   a qual conta ela pertence. Esta tela faz igual, para nao inventar um segundo
+   jeito de entrar. Tenta as contas em ordem; a primeira que aceitar e a certa. */
+var CONTAS = ['admin@painel-lnb.local','admin-beneficios@painel-lnb.local',
+              'leitura@painel-lnb.local','leitura-beneficios@painel-lnb.local',
+              'leitura-mobilidade@painel-lnb.local'];
+function entrarComSenha(senha){
+  var i = 0;
+  function tentar(){
+    if (i >= CONTAS.length) return Promise.reject(new Error('Senha nao reconhecida.'));
+    return entrar(CONTAS[i++], senha).catch(function(){ return tentar(); });
+  }
+  return tentar();
+}
 function entrar(email, senha){
   return fetch(CFG.SUPABASE_URL + '/auth/v1/token?grant_type=password', {
     method:'POST',
@@ -611,10 +624,10 @@ $('busca-user').addEventListener('input', desenharUsuarios);
 $('so-ativos').addEventListener('change', desenharUsuarios);
 
 $('bt-entrar').addEventListener('click', function(){
-  var e = $('in-email').value.trim(), s = $('in-senha').value;
-  if (!e || !s){ msg('Informe e-mail e senha.', true); return; }
+  var s = $('in-senha').value;
+  if (!s){ msg('Informe a senha.', true); return; }
   msg('Entrando…');
-  entrar(e, s).then(function(ses){
+  entrarComSenha(s).then(function(ses){
     SES = ses;
     try{ localStorage.setItem('lnb_auth_session_admin_v1', JSON.stringify(ses)); }catch(x){}
     iniciar();
@@ -660,7 +673,7 @@ fetch('/api/config').then(function(r){ return r.json(); }).then(function(c){
   SES = lerSessaoGuardada();
   if (SES) return iniciar();
   $('capa-form').style.display = '';
-  msg('Entre com sua conta do Painel LNB.');
+  msg('Use a mesma senha dos modulos.');
 }).catch(function(e){
   $('capa-form').style.display = 'none';
   msg('Não foi possível iniciar: ' + e.message, true);
