@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Administração Mestre · Painel LNB</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{
+  --deep:#0a1930; --deep2:#0d2140; --deep3:#12294c;
+  --gold:#E8B93C; --gold-dim:rgba(232,185,60,.35);
+  --emer:#0F5B44; --emer-lt:#17805f;
+  --txt:#EAF0FA; --txt-muted:#9FB0C7;
+  --line:rgba(232,185,60,.18);
+  --ok:#2ea36b; --warn:#d99a2b; --bad:#c9474b;
+}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+     background:linear-gradient(160deg,var(--deep),var(--deep2) 60%,#081426);color:var(--txt);min-height:100vh}
+a{color:var(--gold);text-decoration:none}
+button{font:inherit;cursor:pointer;border:none;border-radius:8px;padding:8px 14px;transition:filter .15s}
+button:hover:not(:disabled){filter:brightness(1.12)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.btn{background:var(--deep3);color:var(--txt);border:1px solid var(--line)}
+.btn-ouro{background:var(--gold);color:#20160a;font-weight:600}
+.btn-esm{background:var(--emer-lt);color:#fff;font-weight:600}
+.btn-peq{padding:5px 10px;font-size:12.5px}
+input,select{font:inherit;background:#0b1c36;color:var(--txt);border:1px solid var(--line);
+             border-radius:8px;padding:8px 10px;outline:none}
+input:focus,select:focus{border-color:var(--gold)}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--gold);padding:0}
+
+header{display:flex;align-items:center;gap:14px;padding:14px 22px;
+       border-bottom:1px solid var(--line);background:rgba(8,20,38,.75);
+       position:sticky;top:0;z-index:20;backdrop-filter:blur(8px);flex-wrap:wrap}
+header h1{margin:0;font-size:16px;letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+header .escudo{font-size:20px}
+header .quem{margin-left:auto;text-align:right;font-size:12.5px;color:var(--txt-muted);line-height:1.35}
+header .quem b{color:var(--gold);display:block;font-size:13px}
+
+nav{display:flex;gap:6px;padding:12px 22px 0;flex-wrap:wrap}
+nav button{background:transparent;color:var(--txt-muted);border-bottom:2px solid transparent;border-radius:6px 6px 0 0}
+nav button.on{color:var(--gold);border-bottom-color:var(--gold);background:rgba(232,185,60,.07)}
+
+main{padding:18px 22px 60px;max-width:1400px}
+section{display:none} section.on{display:block}
+h2{font-size:15px;margin:0 0 4px;letter-spacing:.04em;text-transform:uppercase;color:var(--gold)}
+.sub{color:var(--txt-muted);font-size:12.5px;margin:0 0 16px}
+
+.card{background:rgba(18,41,76,.55);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.linha{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.espaco{margin-left:auto}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:9px 10px;color:var(--gold);font-weight:600;font-size:11.5px;
+   text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
+tbody tr:hover{background:rgba(232,185,60,.05)}
+
+.tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600;
+     border:1px solid transparent;white-space:nowrap}
+.tag-ok{background:rgba(46,163,107,.16);color:#6fdca6;border-color:rgba(46,163,107,.4)}
+.tag-off{background:rgba(201,71,75,.16);color:#f08f92;border-color:rgba(201,71,75,.4)}
+.tag-av{background:rgba(217,154,43,.16);color:#f0c477;border-color:rgba(217,154,43,.4)}
+.tag-perfil{background:rgba(30,99,201,.18);color:#8fbcff;border-color:rgba(30,99,201,.45);margin:2px 3px 2px 0}
+.tag-mestre{background:rgba(232,185,60,.18);color:var(--gold);border-color:var(--gold-dim);margin:2px 3px 2px 0}
+
+.aviso{border-left:3px solid var(--warn);background:rgba(217,154,43,.1);padding:11px 14px;
+       border-radius:0 8px 8px 0;margin-bottom:16px;font-size:13px}
+.aviso b{color:#f0c477}
+.erro{border-left-color:var(--bad);background:rgba(201,71,75,.12)}
+.erro b{color:#f08f92}
+
+.gaveta{background:rgba(8,20,38,.6);border:1px solid var(--line);border-radius:10px;
+        padding:14px;margin:8px 0 14px}
+.gaveta h3{margin:0 0 10px;font-size:13px;color:var(--gold);text-transform:uppercase;letter-spacing:.04em}
+.campo{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.campo label{font-size:11.5px;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.04em}
+
+.matriz{overflow-x:auto}
+.matriz td{text-align:center;padding:6px 8px}
+.matriz td:first-child,.matriz th:first-child{text-align:left;position:sticky;left:0;
+  background:linear-gradient(90deg,#0e2242,#0e2242 92%,transparent)}
+.rec-filho td:first-child{padding-left:26px;color:var(--txt-muted)}
+
+#capa{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+      background:linear-gradient(160deg,var(--deep),#081426);z-index:100;padding:20px}
+#capa .box{width:100%;max-width:370px;background:rgba(18,41,76,.6);border:1px solid var(--line);
+           border-radius:14px;padding:26px}
+#capa h1{font-size:15px;margin:0 0 4px;color:var(--gold);letter-spacing:.06em;text-transform:uppercase}
+#capa p{color:var(--txt-muted);font-size:12.5px;margin:0 0 18px}
+#capa input{width:100%;margin-bottom:10px}
+#capa button{width:100%}
+.msg{margin-top:12px;font-size:12.5px;min-height:18px}
+.msg.ruim{color:#f08f92}
+.vazio{color:var(--txt-muted);padding:20px;text-align:center;font-style:italic}
+.carregando{color:var(--txt-muted);padding:20px;text-align:center}
+</style>
+</head>
+<body>
+
+<div id="capa">
+  <div class="box">
+    <h1>🛡️ Administração Mestre</h1>
+    <p>Painel LNB · acesso restrito</p>
+    <div id="capa-form">
+      <input id="in-email" type="email" placeholder="E-mail" autocomplete="username">
+      <input id="in-senha" type="password" placeholder="Senha" autocomplete="current-password">
+      <button class="btn-ouro" id="bt-entrar">Entrar</button>
+    </div>
+    <div class="msg" id="capa-msg">Verificando sessão…</div>
+  </div>
+</div>
+
+<header id="topo" style="display:none">
+  <span class="escudo">🛡️</span>
+  <h1>Administração Mestre</h1>
+  <div class="quem"><b id="hd-nome">—</b><span id="hd-papel">—</span></div>
+  <button class="btn btn-peq" id="bt-sair">Sair</button>
+</header>
+
+<nav id="abas" style="display:none">
+  <button data-aba="usuarios" class="on">👥 Usuários</button>
+  <button data-aba="perfis">🔐 Perfis &amp; Permissões</button>
+  <button data-aba="modulos">🧩 Módulos</button>
+</nav>
+
+<main id="corpo" style="display:none">
+  <div id="banner"></div>
+
+  <section id="sec-usuarios" class="on">
+    <h2>Usuários</h2>
+    <p class="sub">Quem tem acesso ao Painel LNB, com quais perfis e até quando.</p>
+    <div class="card">
+      <div class="linha" style="margin-bottom:12px">
+        <input id="busca-user" placeholder="Buscar por nome ou e-mail" style="min-width:260px">
+        <label class="linha" style="gap:6px;color:var(--txt-muted);font-size:12.5px">
+          <input type="checkbox" id="so-ativos"> mostrar só ativos
+        </label>
+      </div>
+      <div id="tab-usuarios" class="carregando">Carregando…</div>
+    </div>
+  </section>
+
+  <section id="sec-perfis">
+    <h2>Perfis &amp; Permissões</h2>
+    <p class="sub">O que cada perfil pode fazer. A regra mais específica prevalece; negação individual vence tudo.</p>
+    <div class="card">
+      <div class="linha" style="margin-bottom:12px">
+        <select id="sel-perfil" style="min-width:240px"></select>
+        <button class="btn btn-peq" id="bt-novo-perfil">+ Novo perfil</button>
+        <button class="btn btn-peq" id="bt-dup-perfil">Duplicar</button>
+        <span class="espaco"></span>
+        <button class="btn-esm btn-peq" id="bt-salvar-perm" disabled>Salvar permissões</button>
+      </div>
+      <div id="gaveta-perfil"></div>
+      <div id="tab-perm" class="carregando">Carregando…</div>
+    </div>
+  </section>
+
+  <section id="sec-modulos">
+    <h2>Módulos &amp; Ferramentas</h2>
+    <p class="sub">Cadastro central. Todo módulo novo se registra aqui e passa a ser administrável.</p>
+    <div class="card"><div id="tab-modulos" class="carregando">Carregando…</div></div>
+  </section>
+</main>
+
+<script>
+'use strict';
+/* ===========================================================================
+   Administração Mestre — Painel LNB
+   Camada global de usuários, perfis e permissões.
+
+   Princípios seguidos aqui:
+   - Nenhuma biblioteca externa. A página não deve custar performance ao sistema.
+   - A chave do Supabase vem de /api/config, igual aos demais módulos.
+   - A autorização real está no banco (RLS + tem_permissao). O que esta tela faz
+     é apenas não mostrar o que a pessoa não pode usar — esconder botão não é
+     segurança, é conveniência.
+   =========================================================================== */
+
+var CFG = null, SES = null, ACESSO = null;
+var DADOS = { usuarios:[], perfis:[], recursos:[], acoes:[], vinculos:[] };
+var PERM_EDIT = null, PERFIL_SEL = null;
+
+var CHAVES_SESSAO = ['lnb_auth_session_admin_v1','lnb_auth_session_v1','lnb_auth_session_beneficios_v1'];
+
+/* ---------- utilidades ---------- */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function hoje(){ return new Date().toISOString().slice(0,10); }
+
+function msg(texto, ruim){
+  var el = $('capa-msg');
+  el.textContent = texto || '';
+  el.className = 'msg' + (ruim ? ' ruim' : '');
+}
+
+function banner(html, tipo){
+  $('banner').innerHTML = html ? '<div class="aviso '+(tipo||'')+'">'+html+'</div>' : '';
+}
+
+/* ---------- acesso ao Supabase ---------- */
+function api(caminho, opcoes){
+  opcoes = opcoes || {};
+  var h = {
+    'apikey': CFG.SUPABASE_KEY,
+    'Authorization': 'Bearer ' + SES.access_token,
+    'Content-Type': 'application/json'
+  };
+  if (opcoes.prefer) h['Prefer'] = opcoes.prefer;
+  return fetch(CFG.SUPABASE_URL + '/rest/v1/' + caminho, {
+    method: opcoes.method || 'GET',
+    headers: h,
+    body: opcoes.body ? JSON.stringify(opcoes.body) : undefined
+  }).then(function(r){
+    if (!r.ok) return r.text().then(function(t){ throw new Error(r.status + ' — ' + t.slice(0,180)); });
+    return r.status === 204 ? null : r.json();
+  });
+}
+function rpc(nome, args){
+  return api('rpc/' + nome, { method:'POST', body: args || {} });
+}
+
+/* ---------- sessão ---------- */
+function lerSessaoGuardada(){
+  for (var i=0;i<CHAVES_SESSAO.length;i++){
+    try{
+      var s = JSON.parse(localStorage.getItem(CHAVES_SESSAO[i]) || 'null');
+      if (s && s.access_token && s.expires_at && (s.expires_at*1000) > Date.now()+60000) return s;
+    }catch(e){}
+  }
+  return null;
+}
+
+function entrar(email, senha){
+  return fetch(CFG.SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+    method:'POST',
+    headers:{ 'apikey': CFG.SUPABASE_KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify({ email: email, password: senha })
+  }).then(function(r){
+    return r.json().then(function(j){
+      if (!r.ok) throw new Error(j.error_description || j.msg || j.message || 'Não foi possível entrar.');
+      return {
+        access_token: j.access_token,
+        refresh_token: j.refresh_token,
+        expires_at: Math.floor(Date.now()/1000) + (j.expires_in || 3600),
+        uid: j.user && j.user.id,
+        email: j.user && j.user.email
+      };
+    });
+  });
+}
+
+function sair(){
+  try{ localStorage.removeItem('lnb_auth_session_admin_v1'); }catch(e){}
+  location.reload();
+}
+
+/* ---------- portão de entrada ---------- */
+function verificarAcesso(){
+  return Promise.all([ rpc('meu_acesso'), rpc('qtd_adm_mestres_ativos') ])
+    .then(function(res){
+      var a = res[0], mestres = res[1];
+      ACESSO = a;
+      if (!a || !a.autenticado) return { ok:false, motivo:'Sessão inválida.' };
+      if (!a.cadastrado)        return { ok:false, motivo:'Sua conta autenticou, mas não está cadastrada no Painel LNB.' };
+      if (a.usuario.bloqueado)  return { ok:false, motivo:'Sua conta está bloqueada.' };
+      if (!a.usuario.ativo)     return { ok:false, motivo:'Sua conta está inativa.' };
+
+      if (a.acesso_total) return { ok:true, modo:'mestre' };
+
+      var p = a.permissoes;
+      if (p && p !== '*' && p.admin && p.admin.indexOf('administrar') >= 0) return { ok:true, modo:'delegado' };
+
+      /* Implantação: enquanto NÃO existir nenhum Administrador Mestre, as contas
+         de administrador de hoje podem abrir esta tela — é o mesmo poder que já
+         têm. Assim que o primeiro Mestre nominal existir, esta porta fecha
+         sozinha, sem ninguém precisar lembrar de desativá-la. */
+      if (mestres === 0) {
+        return rpc('current_user_role').then(function(papel){
+          if (papel === 'administrador') return { ok:true, modo:'implantacao' };
+          return { ok:false, motivo:'Você não tem permissão para a Administração Mestre.' };
+        });
+      }
+      return { ok:false, motivo:'Você não tem permissão para a Administração Mestre.' };
+    });
+}
+
+/* ---------- carga de dados ---------- */
+function carregarTudo(){
+  return Promise.all([
+    api('profiles?select=id,nome,email,role,ativo,bloqueado,valido_ate,departamento_id&order=nome'),
+    api('perfis?select=id,nome,descricao,sistema,ativo,acesso_total&order=nome'),
+    api('recursos?select=id,nome,descricao,icone,categoria,pai_id,tipo,ordem,ativo&order=ordem'),
+    api('recurso_acoes?select=recurso_id,acao,ordem&order=ordem'),
+    api('usuario_perfis?select=usuario_id,perfil_id,valido_ate')
+  ]).then(function(r){
+    DADOS.usuarios = r[0]; DADOS.perfis = r[1]; DADOS.recursos = r[2];
+    DADOS.acoes = r[3];    DADOS.vinculos = r[4];
+  });
+}
+
+/* ---------- usuários ---------- */
+function perfisDe(uid){
+  return DADOS.vinculos.filter(function(v){ return v.usuario_id === uid; });
+}
+function nomePerfil(pid){
+  var p = DADOS.perfis.filter(function(x){ return x.id === pid; })[0];
+  return p ? p.nome : pid;
+}
+function ehMestre(pid){
+  var p = DADOS.perfis.filter(function(x){ return x.id === pid; })[0];
+  return !!(p && p.acesso_total);
+}
+
+function situacao(u){
+  if (u.bloqueado) return '<span class="tag tag-off">bloqueado</span>';
+  if (!u.ativo)    return '<span class="tag tag-off">inativo</span>';
+  if (u.valido_ate && u.valido_ate < hoje()) return '<span class="tag tag-off">vencido</span>';
+  if (u.valido_ate) return '<span class="tag tag-av">até '+esc(u.valido_ate)+'</span>';
+  return '<span class="tag tag-ok">ativo</span>';
+}
+
+function desenharUsuarios(){
+  var termo = ($('busca-user').value || '').toLowerCase();
+  var soAtivos = $('so-ativos').checked;
+  var lista = DADOS.usuarios.filter(function(u){
+    if (soAtivos && (!u.ativo || u.bloqueado)) return false;
+    if (!termo) return true;
+    return (u.nome||'').toLowerCase().indexOf(termo) >= 0 || (u.email||'').toLowerCase().indexOf(termo) >= 0;
+  });
+
+  if (!lista.length){ $('tab-usuarios').innerHTML = '<div class="vazio">Nenhum usuário encontrado.</div>'; return; }
+
+  var h = '<table><thead><tr><th>Pessoa</th><th>Perfis</th><th>Situação</th><th style="width:1%">Ações</th></tr></thead><tbody>';
+  lista.forEach(function(u){
+    var vs = perfisDe(u.id);
+    var tags = vs.length
+      ? vs.map(function(v){
+          var cls = ehMestre(v.perfil_id) ? 'tag-mestre' : 'tag-perfil';
+          var val = v.valido_ate ? ' · até '+esc(v.valido_ate) : '';
+          return '<span class="tag '+cls+'">'+esc(nomePerfil(v.perfil_id))+val+'</span>';
+        }).join('')
+      : '<span style="color:var(--txt-muted)">sem perfil</span>';
+
+    h += '<tr>'
+      +  '<td><b>'+esc(u.nome||'(sem nome)')+'</b><div style="color:var(--txt-muted);font-size:12px">'+esc(u.email)+'</div></td>'
+      +  '<td>'+tags+'</td>'
+      +  '<td>'+situacao(u)+'</td>'
+      +  '<td style="white-space:nowrap">'
+      +    '<button class="btn btn-peq" data-editar="'+esc(u.id)+'">Editar</button> '
+      +    '<button class="btn btn-peq" data-alternar="'+esc(u.id)+'">'+(u.bloqueado?'Desbloquear':'Bloquear')+'</button>'
+      +  '</td></tr>';
+    h += '<tr id="ed-'+esc(u.id)+'" style="display:none"><td colspan="4"></td></tr>';
+  });
+  $('tab-usuarios').innerHTML = h + '</tbody></table>';
+}
+
+function abrirEditor(uid){
+  var linha = $('ed-'+uid);
+  if (!linha) return;
+  if (linha.style.display !== 'none'){ linha.style.display='none'; return; }
+
+  var u = DADOS.usuarios.filter(function(x){ return x.id===uid; })[0];
+  var vs = perfisDe(uid);
+  var disponiveis = DADOS.perfis.filter(function(p){
+    return p.ativo && !vs.some(function(v){ return v.perfil_id===p.id; });
+  });
+
+  var h = '<div class="gaveta"><h3>'+esc(u.nome||u.email)+'</h3>';
+
+  h += '<div class="linha" style="align-items:flex-end;gap:14px;margin-bottom:12px">';
+  h += '<div class="campo" style="min-width:220px"><label>Conceder perfil</label><select id="np-'+uid+'">';
+  h += disponiveis.length
+      ? disponiveis.map(function(p){ return '<option value="'+esc(p.id)+'">'+esc(p.nome)+(p.acesso_total?' (acesso total)':'')+'</option>'; }).join('')
+      : '<option value="">— nenhum disponível —</option>';
+  h += '</select></div>';
+  h += '<div class="campo"><label>Válido até (opcional)</label><input type="date" id="nv-'+uid+'"></div>';
+  h += '<button class="btn-esm btn-peq" data-conceder="'+esc(uid)+'"'+(disponiveis.length?'':' disabled')+'>Conceder</button>';
+  h += '</div>';
+
+  if (vs.length){
+    h += '<div style="margin-bottom:6px;color:var(--txt-muted);font-size:12px">Perfis atuais</div>';
+    vs.forEach(function(v){
+      h += '<div class="linha" style="margin-bottom:6px">'
+        +  '<span class="tag '+(ehMestre(v.perfil_id)?'tag-mestre':'tag-perfil')+'">'+esc(nomePerfil(v.perfil_id))+'</span>'
+        +  (v.valido_ate ? '<span style="color:var(--txt-muted);font-size:12px">até '+esc(v.valido_ate)+'</span>' : '')
+        +  '<button class="btn btn-peq" data-revogar="'+esc(uid)+'|'+esc(v.perfil_id)+'">Revogar</button>'
+        +  '</div>';
+    });
+  }
+
+  h += '<div class="linha" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">'
+    +  '<label class="linha" style="gap:6px"><input type="checkbox" id="ua-'+uid+'"'+(u.ativo?' checked':'')+'> ativo</label>'
+    +  '<label class="linha" style="gap:6px"><input type="checkbox" id="ub-'+uid+'"'+(u.bloqueado?' checked':'')+'> bloqueado</label>'
+    +  '<div class="campo" style="margin:0"><label>Acesso válido até</label>'
+    +  '<input type="date" id="uv-'+uid+'" value="'+esc(u.valido_ate||'')+'"></div>'
+    +  '<button class="btn-esm btn-peq" data-salvar-user="'+esc(uid)+'">Salvar</button>'
+    +  '</div></div>';
+
+  linha.firstElementChild.innerHTML = h;
+  linha.style.display = '';
+}
+
+function recarregar(){
+  return carregarTudo().then(function(){
+    desenharUsuarios(); montarSeletorPerfis(); desenharModulos();
+    if (PERFIL_SEL) selecionarPerfil(PERFIL_SEL);
+  });
+}
+
+function comErro(p, oque){
+  return p.catch(function(e){
+    banner('<b>Não deu certo:</b> '+esc(oque)+'.<br>'+esc(e.message), 'erro');
+    throw e;
+  });
+}
+
+/* ---------- perfis e permissões ---------- */
+function montarSeletorPerfis(){
+  var s = $('sel-perfil');
+  s.innerHTML = DADOS.perfis.map(function(p){
+    return '<option value="'+esc(p.id)+'">'+esc(p.nome)+(p.acesso_total?' — acesso total':'')+(p.ativo?'':' (inativo)')+'</option>';
+  }).join('');
+  if (PERFIL_SEL) s.value = PERFIL_SEL;
+}
+
+function acoesDe(rid){
+  return DADOS.acoes.filter(function(a){ return a.recurso_id===rid; }).map(function(a){ return a.acao; });
+}
+function todasAcoes(){
+  var vistas = {}, saida = [];
+  DADOS.acoes.forEach(function(a){ if(!vistas[a.acao]){ vistas[a.acao]=1; saida.push(a.acao); } });
+  return saida;
+}
+
+function selecionarPerfil(pid){
+  PERFIL_SEL = pid;
+  var perfil = DADOS.perfis.filter(function(p){ return p.id===pid; })[0];
+  if (!perfil) return;
+
+  var g = '<div class="gaveta"><h3>'+esc(perfil.nome)+'</h3>'
+        + '<div style="color:var(--txt-muted);font-size:12.5px;margin-bottom:8px">'+esc(perfil.descricao||'')+'</div>';
+  if (perfil.sistema) g += '<div style="font-size:12.5px;color:#f0c477">Perfil de sistema — não pode ser excluído.</div>';
+  g += '</div>';
+  $('gaveta-perfil').innerHTML = g;
+
+  if (perfil.acesso_total){
+    $('tab-perm').innerHTML = '<div class="aviso"><b>Acesso total.</b> Este perfil alcança qualquer recurso da '
+      + 'plataforma, incluindo módulos que ainda não existem. Por isso não tem lista de permissões: '
+      + 'ela ficaria desatualizada a cada módulo novo.</div>';
+    $('bt-salvar-perm').disabled = true;
+    return;
+  }
+
+  $('bt-salvar-perm').disabled = false;
+  api('perfil_permissoes?select=recurso_id,acao,permitido&perfil_id=eq.'+encodeURIComponent(pid))
+    .then(function(rows){
+      PERM_EDIT = {};
+      rows.forEach(function(r){ if (r.permitido) PERM_EDIT[r.recurso_id+'|'+r.acao] = true; });
+      desenharMatriz();
+    })
+    .catch(function(e){ $('tab-perm').innerHTML = '<div class="aviso erro"><b>Erro ao carregar:</b> '+esc(e.message)+'</div>'; });
+}
+
+function desenharMatriz(){
+  var acoes = todasAcoes();
+  var pais = DADOS.recursos.filter(function(r){ return !r.pai_id; });
+
+  var h = '<div class="matriz"><table><thead><tr><th>Recurso</th>';
+  acoes.forEach(function(a){ h += '<th style="text-align:center">'+esc(a)+'</th>'; });
+  h += '</tr></thead><tbody>';
+
+  function linhaRecurso(r, filho){
+    var validas = acoesDe(r.id);
+    h += '<tr'+(filho?' class="rec-filho"':'')+'><td>'+(r.icone?esc(r.icone)+' ':'')+'<b>'+esc(r.nome)+'</b>'
+      +  '<div style="color:var(--txt-muted);font-size:11.5px">'+esc(r.id)+'</div></td>';
+    acoes.forEach(function(a){
+      if (validas.indexOf(a) < 0){ h += '<td style="color:rgba(255,255,255,.12)">·</td>'; return; }
+      var k = r.id+'|'+a;
+      h += '<td><input type="checkbox" data-perm="'+esc(k)+'"'+(PERM_EDIT[k]?' checked':'')+'></td>';
+    });
+    h += '</tr>';
+  }
+
+  pais.forEach(function(p){
+    linhaRecurso(p, false);
+    DADOS.recursos.filter(function(r){ return r.pai_id===p.id; }).forEach(function(f){ linhaRecurso(f, true); });
+  });
+
+  $('tab-perm').innerHTML = h + '</tbody></table></div>';
+}
+
+function salvarPermissoes(){
+  if (!PERFIL_SEL || !PERM_EDIT) return;
+  var marcadas = {};
+  document.querySelectorAll('#tab-perm input[data-perm]').forEach(function(cb){
+    if (cb.checked) marcadas[cb.getAttribute('data-perm')] = true;
+  });
+  var novas = Object.keys(marcadas).map(function(k){
+    var p = k.split('|');
+    return { perfil_id: PERFIL_SEL, recurso_id: p[0], acao: p[1], permitido: true };
+  });
+
+  $('bt-salvar-perm').disabled = true;
+  banner('Salvando…');
+  comErro(
+    api('perfil_permissoes?perfil_id=eq.'+encodeURIComponent(PERFIL_SEL), { method:'DELETE' })
+      .then(function(){ return novas.length ? api('perfil_permissoes', { method:'POST', body:novas, prefer:'return=minimal' }) : null; })
+      .then(function(){
+        banner('<b>Permissões salvas.</b> '+novas.length+' liberações ativas neste perfil.');
+        PERM_EDIT = {}; novas.forEach(function(n){ PERM_EDIT[n.recurso_id+'|'+n.acao]=true; });
+      }),
+    'salvar as permissões'
+  ).then(null,function(){}).then(function(){ $('bt-salvar-perm').disabled = false; });
+}
+
+/* ---------- módulos ---------- */
+function desenharModulos(){
+  var pais = DADOS.recursos.filter(function(r){ return !r.pai_id; });
+  var h = '<table><thead><tr><th>Recurso</th><th>Identificador</th><th>Tipo</th><th>Ações disponíveis</th><th>Situação</th></tr></thead><tbody>';
+  function linha(r, filho){
+    h += '<tr'+(filho?' class="rec-filho"':'')+'>'
+      +  '<td>'+(r.icone?esc(r.icone)+' ':'')+'<b>'+esc(r.nome)+'</b>'
+      +  (r.descricao?'<div style="color:var(--txt-muted);font-size:11.5px">'+esc(r.descricao)+'</div>':'')+'</td>'
+      +  '<td><code style="color:var(--gold);font-size:12px">'+esc(r.id)+'</code></td>'
+      +  '<td style="color:var(--txt-muted)">'+esc(r.tipo)+'</td>'
+      +  '<td style="font-size:12px;color:var(--txt-muted)">'+esc(acoesDe(r.id).join(', ')||'—')+'</td>'
+      +  '<td>'+(r.ativo?'<span class="tag tag-ok">ativo</span>':'<span class="tag tag-off">inativo</span>')+'</td></tr>';
+  }
+  pais.forEach(function(p){
+    linha(p,false);
+    DADOS.recursos.filter(function(r){ return r.pai_id===p.id; }).forEach(function(f){ linha(f,true); });
+  });
+  $('tab-modulos').innerHTML = h + '</tbody></table>';
+}
+
+/* ---------- eventos ---------- */
+document.addEventListener('click', function(ev){
+  var t = ev.target;
+  if (!t || t.tagName !== 'BUTTON') return;
+
+  if (t.dataset.aba){
+    document.querySelectorAll('#abas button').forEach(function(b){ b.classList.toggle('on', b===t); });
+    document.querySelectorAll('main section').forEach(function(s){ s.classList.toggle('on', s.id==='sec-'+t.dataset.aba); });
+    return;
+  }
+  if (t.dataset.editar)  { abrirEditor(t.dataset.editar); return; }
+
+  if (t.dataset.alternar){
+    var uid = t.dataset.alternar;
+    var u = DADOS.usuarios.filter(function(x){ return x.id===uid; })[0];
+    comErro(api('profiles?id=eq.'+uid, { method:'PATCH', body:{ bloqueado: !u.bloqueado }, prefer:'return=minimal' })
+      .then(recarregar), 'alterar o bloqueio').then(null,function(){});
+    return;
+  }
+  if (t.dataset.conceder){
+    var uid2 = t.dataset.conceder;
+    var pid = $('np-'+uid2).value; if (!pid) return;
+    var val = $('nv-'+uid2).value || null;
+    comErro(api('usuario_perfis', { method:'POST', body:[{ usuario_id:uid2, perfil_id:pid, valido_ate:val }], prefer:'return=minimal' })
+      .then(recarregar).then(function(){ banner('<b>Perfil concedido.</b>'); }), 'conceder o perfil').then(null,function(){});
+    return;
+  }
+  if (t.dataset.revogar){
+    var p2 = t.dataset.revogar.split('|');
+    comErro(api('usuario_perfis?usuario_id=eq.'+p2[0]+'&perfil_id=eq.'+encodeURIComponent(p2[1]), { method:'DELETE' })
+      .then(recarregar).then(function(){ banner('<b>Perfil revogado.</b>'); }), 'revogar o perfil').then(null,function(){});
+    return;
+  }
+  if (t.dataset.salvarUser){
+    var uid3 = t.dataset.salvarUser;
+    var corpo = {
+      ativo: $('ua-'+uid3).checked,
+      bloqueado: $('ub-'+uid3).checked,
+      valido_ate: $('uv-'+uid3).value || null
+    };
+    comErro(api('profiles?id=eq.'+uid3, { method:'PATCH', body:corpo, prefer:'return=minimal' })
+      .then(recarregar).then(function(){ banner('<b>Usuário atualizado.</b>'); }), 'salvar o usuário').then(null,function(){});
+    return;
+  }
+  if (t.id === 'bt-salvar-perm'){ salvarPermissoes(); return; }
+  if (t.id === 'bt-sair'){ sair(); return; }
+
+  if (t.id === 'bt-novo-perfil' || t.id === 'bt-dup-perfil'){
+    var base = t.id === 'bt-dup-perfil' ? DADOS.perfis.filter(function(p){ return p.id===PERFIL_SEL; })[0] : null;
+    var nome = prompt(base ? 'Nome do novo perfil (cópia de "'+base.nome+'")' : 'Nome do novo perfil');
+    if (!nome) return;
+    var id = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    if (!id) { alert('Nome inválido.'); return; }
+    comErro(api('perfis', { method:'POST', body:[{ id:id, nome:nome, descricao: base?('Cópia de '+base.nome):null }], prefer:'return=minimal' })
+      .then(function(){
+        if (!base) return null;
+        return api('perfil_permissoes?select=recurso_id,acao,permitido&perfil_id=eq.'+encodeURIComponent(base.id))
+          .then(function(rows){
+            if (!rows.length) return null;
+            return api('perfil_permissoes', { method:'POST', prefer:'return=minimal',
+              body: rows.map(function(r){ return { perfil_id:id, recurso_id:r.recurso_id, acao:r.acao, permitido:r.permitido }; }) });
+          });
+      })
+      .then(function(){ PERFIL_SEL = id; return recarregar(); })
+      .then(function(){ banner('<b>Perfil criado.</b> Ajuste as permissões e salve.'); }), 'criar o perfil').then(null,function(){});
+    return;
+  }
+});
+
+$('sel-perfil').addEventListener('change', function(){ selecionarPerfil(this.value); });
+$('busca-user').addEventListener('input', desenharUsuarios);
+$('so-ativos').addEventListener('change', desenharUsuarios);
+
+$('bt-entrar').addEventListener('click', function(){
+  var e = $('in-email').value.trim(), s = $('in-senha').value;
+  if (!e || !s){ msg('Informe e-mail e senha.', true); return; }
+  msg('Entrando…');
+  entrar(e, s).then(function(ses){
+    SES = ses;
+    try{ localStorage.setItem('lnb_auth_session_admin_v1', JSON.stringify(ses)); }catch(x){}
+    iniciar();
+  }).catch(function(err){ msg(err.message, true); });
+});
+$('in-senha').addEventListener('keydown', function(ev){ if (ev.key === 'Enter') $('bt-entrar').click(); });
+
+/* ---------- arranque ---------- */
+function abrirPainel(modo){
+  $('capa').style.display = 'none';
+  $('topo').style.display = ''; $('abas').style.display = ''; $('corpo').style.display = '';
+  $('hd-nome').textContent  = (ACESSO.usuario && ACESSO.usuario.nome) || SES.email || '—';
+  $('hd-papel').textContent = modo === 'mestre' ? 'Administrador Mestre'
+                            : modo === 'delegado' ? 'Administração delegada'
+                            : 'Modo de implantação';
+
+  if (modo === 'implantacao'){
+    banner('<b>Modo de implantação.</b> Ainda não existe nenhum Administrador Mestre nominal, '
+         + 'então esta tela está aberta às contas de administrador atuais. '
+         + 'Assim que o primeiro Mestre for designado, este acesso se fecha sozinho.');
+  }
+  return recarregar().then(function(){ selecionarPerfil($('sel-perfil').value); });
+}
+
+function iniciar(){
+  msg('Verificando permissões…');
+  return verificarAcesso().then(function(r){
+    if (!r.ok){
+      $('capa-form').style.display = 'none';
+      msg(r.motivo + ' Procure o Administrador Mestre.', true);
+      return;
+    }
+    return abrirPainel(r.modo);
+  }).catch(function(e){
+    $('capa-form').style.display = '';
+    msg('Falha ao verificar o acesso: ' + e.message, true);
+  });
+}
+
+fetch('/api/config').then(function(r){ return r.json(); }).then(function(c){
+  CFG = c;
+  if (!CFG || !CFG.SUPABASE_URL || !CFG.SUPABASE_KEY) throw new Error('Configuração do Supabase indisponível.');
+  SES = lerSessaoGuardada();
+  if (SES) return iniciar();
+  $('capa-form').style.display = '';
+  msg('Entre com sua conta do Painel LNB.');
+}).catch(function(e){
+  $('capa-form').style.display = 'none';
+  msg('Não foi possível iniciar: ' + e.message, true);
+});
+</script>
+</body>
+</html>
