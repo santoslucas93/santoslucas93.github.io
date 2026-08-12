@@ -5142,6 +5142,16 @@ function compLabel(input) {
 // ============================================================
 // STORAGE
 // ============================================================
+/* O historico oficial dos 4 modulos nao fica salvo: ele e remontado a cada boot
+   a partir do pacote embutido no proprio arquivo (itens marcados com
+   historicoFonte) e, de proposito, nunca sobe para o servidor. Por isso
+   recarregar do localStorage NAO PODE apaga-lo da memoria. A sincronizacao ja
+   fazia essa protecao (ver aplicarChaveNaTela, caso liga_hist); faltava aqui no
+   load, e era essa a corrida que sumia com o historico quando a rede demorava. */
+function benPreservarFonte(salvo, atual){
+  var fonte = (atual||[]).filter(function(h){ return h && h.historicoFonte; });
+  return (Array.isArray(salvo)?salvo:[]).concat(fonte);
+}
 function load() {
   const e = localStorage.getItem('liga_emp');
   const c = localStorage.getItem('liga_cfg');
@@ -5155,10 +5165,10 @@ function load() {
   if (Array.isArray(__empParsed) && __empParsed.length) employees = __empParsed.map((x,i)=>hydrateEmployeeData({ativo:true, desligamento:'', id:i+1, ...x, ativo:x.ativo !== false}));
   else { employees = ORIGINAL.map((o,i)=>hydrateEmployeeData({...o,id:i+1,ativo:true,desligamento:''})); if (__empParsed && __empParsed.length === 0) console.error('load(): liga_emp veio vazio do localStorage — usando lista original de reserva e NÃO salvando por segurança.'); else save(); }
   if (a) avulsos = JSON.parse(a);
-  if (h) historico = JSON.parse(h);
+  if (h) historico = benPreservarFonte(JSON.parse(h), historico);
   try { lixeira = JSON.parse(localStorage.getItem('liga_lixeira')||'[]'); } catch(e) { lixeira = []; }
   if (vt) vtRegistros = JSON.parse(vt);
-  if (vth) vtHistorico = JSON.parse(vth);
+  if (vth) vtHistorico = benPreservarFonte(JSON.parse(vth), vtHistorico);
   if (vtc) { const p = JSON.parse(vtc); vtCfg.competencia = p.competencia || '2026-06'; vtCfg.taxaSPTrans = Number(p.taxaSPTrans ?? p.taxaSptrans ?? 0)||0; vtCfg.taxaCMT = Number(p.taxaCMT ?? p.taxaBom ?? 0)||0; vtCfg.taxa = Number(p.taxa ?? (vtCfg.taxaSPTrans + vtCfg.taxaCMT))||0; vtCfg.diasPadrao = Number(p.diasPadrao)||22; vtCfg.excluidos = Array.isArray(p.excluidos) ? p.excluidos : []; vtCfg.tarifas = Object.assign(vtTarifasDefault ? vtTarifasDefault() : {sptransOnibus:5.82, metro:5.40, integracao:11.32, cmtBom:5.40}, p.tarifas || {}); }
   if (c) { const p = JSON.parse(c); cfg.vd = p.vd||44.69; cfg.cb = p.cb||333.69; }
   save(); ensureVTRegistros();
@@ -6826,7 +6836,7 @@ function medHydrate(r, i) {
 }
 function loadMed() {
   try { medRegistros = JSON.parse(localStorage.getItem('liga_med_registros')||'[]'); } catch(e) { medRegistros=[]; }
-  try { medHistorico = JSON.parse(localStorage.getItem('liga_med_historico')||'[]'); } catch(e) { medHistorico=[]; }
+  try { medHistorico = benPreservarFonte(JSON.parse(localStorage.getItem('liga_med_historico')||'[]'), medHistorico); } catch(e) { medHistorico=[]; }
   try { medCfg = {...medCfg, ...(JSON.parse(localStorage.getItem('liga_med_cfg')||'{}'))}; } catch(e) {}
   if(!medRegistros.length) medRegistros = MED_ORIGINAL.map((r,i)=>medHydrate(r,i));
   else medRegistros = medRegistros.map((r,i)=>medHydrate(r,i));
@@ -6923,7 +6933,7 @@ function prudRowsSorted(rows) {
 function loadPrud() {
   const versaoSalva=localStorage.getItem('liga_prud_base_version')||'';
   try { prudRegistros = JSON.parse(localStorage.getItem('liga_prud_registros')||'[]'); } catch(e) { prudRegistros=[]; }
-  try { prudHistorico = JSON.parse(localStorage.getItem('liga_prud_historico')||'[]'); } catch(e) { prudHistorico=[]; }
+  try { prudHistorico = benPreservarFonte(JSON.parse(localStorage.getItem('liga_prud_historico')||'[]'), prudHistorico); } catch(e) { prudHistorico=[]; }
   try { prudCfg = {...prudCfg, ...(JSON.parse(localStorage.getItem('liga_prud_cfg')||'{}'))}; } catch(e) {}
   const baseAnterior=versaoSalva!==PRUD_BASE_VERSION&&prudRegistros.some(r=>(String(r.cc)==='400213'||String(r.conta)==='053917')&&Math.abs((Number(r.valor)||0)-2002.2)<.01);
   if(baseAnterior){prudRegistros=PRUD_ORIGINAL.map((r,i)=>prudHydrate(r,i));prudCfg.competencia='2026-05';}
