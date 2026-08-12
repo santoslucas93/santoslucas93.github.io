@@ -103,10 +103,7 @@ tbody tr:hover{background:rgba(232,185,60,.05)}
   <div class="box">
     <h1>🛡️ Administração Mestre</h1>
     <p>Painel LNB · acesso restrito</p>
-    <div id="capa-form">
-      <input id="in-senha" type="password" placeholder="Senha" autocomplete="current-password">
-      <button class="btn-ouro" id="bt-entrar">Entrar</button>
-    </div>
+    <div id="capa-form"></div>
     <div class="msg" id="capa-msg">Verificando sessão…</div>
   </div>
 </div>
@@ -182,7 +179,8 @@ var CFG = null, SES = null, ACESSO = null;
 var DADOS = { usuarios:[], perfis:[], recursos:[], acoes:[], vinculos:[] };
 var PERM_EDIT = null, PERFIL_SEL = null;
 
-var CHAVES_SESSAO = ['lnb_auth_session_admin_v1','lnb_auth_session_v1','lnb_auth_session_beneficios_v1'];
+var CHAVES_SESSAO = ['lnb_auth_session_v1','lnb_auth_session_beneficios_v1'];
+try{ localStorage.removeItem('lnb_auth_session_admin_v1'); }catch(e){}
 
 /* ---------- utilidades ---------- */
 function $(id){ return document.getElementById(id); }
@@ -233,39 +231,21 @@ function lerSessaoGuardada(){
   return null;
 }
 
-/* Os modulos nao pedem e-mail: a pessoa digita so a senha e o codigo descobre
-   a qual conta ela pertence. Esta tela faz igual, para nao inventar um segundo
-   jeito de entrar. Tenta as contas em ordem; a primeira que aceitar e a certa. */
-var CONTAS = ['admin@painel-lnb.local','admin-beneficios@painel-lnb.local',
-              'leitura@painel-lnb.local','leitura-beneficios@painel-lnb.local',
-              'leitura-mobilidade@painel-lnb.local'];
-function entrarComSenha(senha){
-  var i = 0;
-  function tentar(){
-    if (i >= CONTAS.length) return Promise.reject(new Error('Senha nao reconhecida.'));
-    return entrar(CONTAS[i++], senha).catch(function(){ return tentar(); });
-  }
-  return tentar();
+/* Esta tela NAO tem login proprio, de proposito.
+   A versao anterior pedia a senha e tentava as contas conhecidas em sequencia.
+   Isso multiplicava por cinco as tentativas de login, engolia erros de rede como
+   se fossem senha errada e - o pior - podia deixar a pessoa numa conta mais fraca
+   do que ela pretendia, sem avisar. Foi exatamente o que aconteceu em teste.
+   Agora a pagina apenas reaproveita a sessao ja aberta no Orcado ou no Beneficios.
+   Nenhuma senha passa por aqui. */
+function precisaEntrarNoModulo(){
+  $('capa-form').innerHTML =
+    '<div style="font-size:12.5px;color:var(--txt-muted);margin-bottom:14px;line-height:1.55">'
+    + 'Esta area usa a sessao que voce ja abriu em um dos modulos. Entre em um deles e volte aqui.</div>'
+    + '<a href="/orcado/" style="display:block"><button class="btn-ouro" style="width:100%;margin-bottom:8px">Abrir Orcado x Realizado</button></a>'
+    + '<a href="/beneficios/" style="display:block"><button class="btn" style="width:100%">Abrir Gestao de Beneficios</button></a>';
+  msg('');
 }
-function entrar(email, senha){
-  return fetch(CFG.SUPABASE_URL + '/auth/v1/token?grant_type=password', {
-    method:'POST',
-    headers:{ 'apikey': CFG.SUPABASE_KEY, 'Content-Type':'application/json' },
-    body: JSON.stringify({ email: email, password: senha })
-  }).then(function(r){
-    return r.json().then(function(j){
-      if (!r.ok) throw new Error(j.error_description || j.msg || j.message || 'Não foi possível entrar.');
-      return {
-        access_token: j.access_token,
-        refresh_token: j.refresh_token,
-        expires_at: Math.floor(Date.now()/1000) + (j.expires_in || 3600),
-        uid: j.user && j.user.id,
-        email: j.user && j.user.email
-      };
-    });
-  });
-}
-
 function sair(){
   try{ localStorage.removeItem('lnb_auth_session_admin_v1'); }catch(e){}
   location.reload();
@@ -623,18 +603,6 @@ $('sel-perfil').addEventListener('change', function(){ selecionarPerfil(this.val
 $('busca-user').addEventListener('input', desenharUsuarios);
 $('so-ativos').addEventListener('change', desenharUsuarios);
 
-$('bt-entrar').addEventListener('click', function(){
-  var s = $('in-senha').value;
-  if (!s){ msg('Informe a senha.', true); return; }
-  msg('Entrando…');
-  entrarComSenha(s).then(function(ses){
-    SES = ses;
-    try{ localStorage.setItem('lnb_auth_session_admin_v1', JSON.stringify(ses)); }catch(x){}
-    iniciar();
-  }).catch(function(err){ msg(err.message, true); });
-});
-$('in-senha').addEventListener('keydown', function(ev){ if (ev.key === 'Enter') $('bt-entrar').click(); });
-
 /* ---------- arranque ---------- */
 function abrirPainel(modo){
   $('capa').style.display = 'none';
@@ -656,13 +624,18 @@ function iniciar(){
   msg('Verificando permissões…');
   return verificarAcesso().then(function(r){
     if (!r.ok){
-      $('capa-form').style.display = 'none';
-      msg(r.motivo + ' Procure o Administrador Mestre.', true);
+      var conta = (SES && SES.email) || (ACESSO && ACESSO.usuario && ACESSO.usuario.email) || 'desconhecida';
+      $('capa-form').innerHTML =
+        '<div style="font-size:12.5px;color:var(--txt-muted);margin-bottom:12px;line-height:1.55">'
+        + 'Voce esta conectado como <b style="color:var(--gold)">' + esc(conta) + '</b>.<br>'
+        + 'Se essa nao e a conta certa, saia do modulo e entre com a conta de administrador.</div>'
+        + '<a href="/orcado/" style="display:block"><button class="btn" style="width:100%;margin-bottom:8px">Ir para o Orcado x Realizado</button></a>'
+        + '<a href="/beneficios/" style="display:block"><button class="btn" style="width:100%">Ir para a Gestao de Beneficios</button></a>';
+      msg(r.motivo, true);
       return;
     }
     return abrirPainel(r.modo);
   }).catch(function(e){
-    $('capa-form').style.display = '';
     msg('Falha ao verificar o acesso: ' + e.message, true);
   });
 }
@@ -672,8 +645,7 @@ fetch('/api/config').then(function(r){ return r.json(); }).then(function(c){
   if (!CFG || !CFG.SUPABASE_URL || !CFG.SUPABASE_KEY) throw new Error('Configuração do Supabase indisponível.');
   SES = lerSessaoGuardada();
   if (SES) return iniciar();
-  $('capa-form').style.display = '';
-  msg('Use a mesma senha dos modulos.');
+  precisaEntrarNoModulo();
 }).catch(function(e){
   $('capa-form').style.display = 'none';
   msg('Não foi possível iniciar: ' + e.message, true);
