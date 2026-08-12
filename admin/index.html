@@ -118,6 +118,7 @@ tbody tr:hover{background:rgba(232,185,60,.05)}
 <nav id="abas" style="display:none">
   <button data-aba="usuarios" class="on">👥 Usuários</button>
   <button data-aba="perfis">🔐 Perfis &amp; Permissões</button>
+  <button data-aba="escopos">🔎 Acesso a Informações</button>
   <button data-aba="modulos">🧩 Módulos</button>
 </nav>
 
@@ -151,6 +152,19 @@ tbody tr:hover{background:rgba(232,185,60,.05)}
       </div>
       <div id="gaveta-perfil"></div>
       <div id="tab-perm" class="carregando">Carregando…</div>
+    </div>
+  </section>
+
+  <section id="sec-escopos">
+    <h2>Acesso a Informações</h2>
+    <p class="sub">Quais dados cada pessoa enxerga dentro dos módulos que ela pode abrir.</p>
+    <div class="card">
+      <div class="linha" style="margin-bottom:12px">
+        <select id="sel-escopo-user" style="min-width:300px"></select>
+        <span class="espaco"></span>
+        <button class="btn-esm btn-peq" id="bt-salvar-escopos">Salvar acesso a informações</button>
+      </div>
+      <div id="tab-escopos" class="carregando">Carregando…</div>
     </div>
   </section>
 
@@ -287,11 +301,17 @@ function carregarTudo(){
     api('profiles?select=id,nome,email,role,ativo,bloqueado,valido_ate,departamento_id&order=nome'),
     api('perfis?select=id,nome,descricao,sistema,ativo,acesso_total&order=nome'),
     api('recursos?select=id,nome,descricao,icone,categoria,pai_id,tipo,ordem,ativo&order=ordem'),
-    api('recurso_acoes?select=recurso_id,acao,ordem&order=ordem'),
-    api('usuario_perfis?select=usuario_id,perfil_id,valido_ate')
+    api('recurso_acoes?select=recurso_id,acao,rotulo,ordem&order=ordem'),
+    api('usuario_perfis?select=usuario_id,perfil_id,valido_ate'),
+    api('departamentos?select=id,nome,ativo&order=ordem'),
+    api('grupos?select=id,departamento_id,nome,ativo&order=nome'),
+    api('usuario_escopos?select=usuario_id,tipo,valor,permitido'),
+    api('usuario_permissoes?select=usuario_id,recurso_id,acao,permitido')
   ]).then(function(r){
     DADOS.usuarios = r[0]; DADOS.perfis = r[1]; DADOS.recursos = r[2];
     DADOS.acoes = r[3];    DADOS.vinculos = r[4];
+    DADOS.departamentos = r[5]; DADOS.grupos = r[6];
+    DADOS.escopos = r[7];       DADOS.excecoes = r[8];
   });
 }
 
@@ -399,7 +419,7 @@ function abrirEditor(uid){
 
 function recarregar(){
   return carregarTudo().then(function(){
-    desenharUsuarios(); montarSeletorPerfis(); desenharModulos();
+    desenharUsuarios(); montarSeletorPerfis(); desenharModulos(); montarSeletorEscopos();
     if (PERFIL_SEL) selecionarPerfil(PERFIL_SEL);
   });
 }
@@ -510,6 +530,115 @@ function salvarPermissoes(){
   ).then(null,function(){}).then(function(){ $('bt-salvar-perm').disabled = false; });
 }
 
+
+/* ---------- acesso a informacoes (escopos e dados sensiveis) ---------- */
+/* Modelo:
+   - Departamentos: lista do que a pessoa PODE ver. Vazia = ve todos.
+   - Grupos: lista do que ela NAO pode ver, pelo nome, valendo em todos os
+     departamentos. E assim que "bloquear RH" cobre COM/RH, MKT/RH, TOP/RH etc.
+   - Informacoes sensiveis: negacao individual sobre acoes como ver_nomes.
+   Negacao sempre vence. Nada configurado = comportamento de hoje, sem restricao. */
+var ACOES_SENSIVEIS = ['ver_valores','ver_nomes','ver_valores_individuais','ver_remuneracao'];
+
+function montarSeletorEscopos(){
+  var s = $('sel-escopo-user'); if (!s) return;
+  var antes = s.value;
+  s.innerHTML = DADOS.usuarios.map(function(u){
+    return '<option value="'+esc(u.id)+'">'+esc(u.nome||u.email)+' — '+esc(u.email)+'</option>';
+  }).join('');
+  if (antes) s.value = antes;
+  desenharEscopos();
+}
+
+function gruposDistintos(){
+  var vistos = {}, saida = [];
+  (DADOS.grupos||[]).forEach(function(g){
+    if (!vistos[g.nome]){ vistos[g.nome] = []; saida.push(g.nome); }
+    vistos[g.nome].push(g.departamento_id);
+  });
+  saida.sort();
+  return saida.map(function(n){ return { nome:n, deptos:vistos[n] }; });
+}
+
+function desenharEscopos(){
+  var uid = $('sel-escopo-user') ? $('sel-escopo-user').value : null;
+  if (!uid){ $('tab-escopos').innerHTML = '<div class="vazio">Selecione uma pessoa.</div>'; return; }
+  var u = DADOS.usuarios.filter(function(x){ return x.id===uid; })[0];
+  var meus = (DADOS.escopos||[]).filter(function(e){ return e.usuario_id===uid; });
+  var deptoOK = {}; meus.forEach(function(e){ if (e.tipo==='departamento' && e.permitido) deptoOK[e.valor]=1; });
+  var grupoNao = {}; meus.forEach(function(e){ if (e.tipo==='grupo' && !e.permitido) grupoNao[e.valor]=1; });
+  var negadas = {};
+  (DADOS.excecoes||[]).forEach(function(x){ if (x.usuario_id===uid && !x.permitido) negadas[x.recurso_id+'|'+x.acao]=1; });
+
+  var h = '<div class="aviso"><b>Atenção: estas regras ainda não estão sendo aplicadas.</b><br>'
+    + 'A configuração é guardada, mas o Orçado e a Gestão de Benefícios ainda não a consultam. '
+    + 'Enquanto isso não for feito, marcar aqui não impede ninguém de ver nada. Não confie nesta tela como bloqueio.</div>';
+
+  h += '<div class="gaveta"><h3>Departamentos que '+esc(u.nome||u.email)+' pode ver</h3>';
+  h += '<div style="color:var(--txt-muted);font-size:12px;margin-bottom:10px">Nenhum marcado = vê todos os departamentos.</div>';
+  h += '<div class="linha" style="gap:16px">';
+  (DADOS.departamentos||[]).forEach(function(d){
+    h += '<label class="linha" style="gap:6px"><input type="checkbox" data-dep="'+esc(d.id)+'"'+(deptoOK[d.id]?' checked':'')+'> '
+      +  '<b>'+esc(d.id)+'</b> <span style="color:var(--txt-muted);font-size:12px">'+esc(d.nome)+'</span></label>';
+  });
+  h += '</div></div>';
+
+  h += '<div class="gaveta"><h3>Grupos bloqueados</h3>';
+  h += '<div style="color:var(--txt-muted);font-size:12px;margin-bottom:10px">O bloqueio vale em todos os departamentos onde o grupo existe.</div>';
+  h += '<div class="linha" style="gap:14px;align-items:flex-start">';
+  gruposDistintos().forEach(function(g){
+    var quantos = g.deptos.length;
+    h += '<label class="linha" style="gap:6px;min-width:210px"><input type="checkbox" data-grp="'+esc(g.nome)+'"'+(grupoNao[g.nome]?' checked':'')+'> '
+      +  esc(g.nome) + (quantos>1 ? ' <span class="tag tag-av">'+quantos+' deptos</span>' : '') + '</label>';
+  });
+  h += '</div></div>';
+
+  h += '<div class="gaveta"><h3>Informações sensíveis</h3>';
+  h += '<div style="color:var(--txt-muted);font-size:12px;margin-bottom:10px">Marcado = a pessoa NÃO vê essa informação, mesmo tendo acesso ao módulo.</div>';
+  DADOS.recursos.forEach(function(r){
+    var acoes = DADOS.acoes.filter(function(a){ return a.recurso_id===r.id && ACOES_SENSIVEIS.indexOf(a.acao)>=0; });
+    if (!acoes.length) return;
+    h += '<div style="margin-bottom:8px"><div style="font-size:12.5px;margin-bottom:4px">'+(r.icone?esc(r.icone)+' ':'')+'<b>'+esc(r.nome)+'</b></div><div class="linha" style="gap:14px;padding-left:14px">';
+    acoes.forEach(function(a){
+      var k = r.id+'|'+a.acao;
+      h += '<label class="linha" style="gap:6px"><input type="checkbox" data-sens="'+esc(k)+'"'+(negadas[k]?' checked':'')+'> '
+        +  esc(a.rotulo || a.acao) + '</label>';
+    });
+    h += '</div></div>';
+  });
+  h += '</div>';
+
+  $('tab-escopos').innerHTML = h;
+}
+
+function salvarEscopos(){
+  var uid = $('sel-escopo-user').value; if (!uid) return;
+  var deps = [], grps = [], sens = [];
+  document.querySelectorAll('#tab-escopos input[data-dep]').forEach(function(c){ if (c.checked) deps.push(c.getAttribute('data-dep')); });
+  document.querySelectorAll('#tab-escopos input[data-grp]').forEach(function(c){ if (c.checked) grps.push(c.getAttribute('data-grp')); });
+  document.querySelectorAll('#tab-escopos input[data-sens]').forEach(function(c){ if (c.checked) sens.push(c.getAttribute('data-sens')); });
+
+  var escopos = deps.map(function(d){ return { usuario_id:uid, tipo:'departamento', valor:d, permitido:true }; })
+    .concat(grps.map(function(g){ return { usuario_id:uid, tipo:'grupo', valor:g, permitido:false }; }));
+  var excecoes = sens.map(function(k){ var p=k.split('|');
+    return { usuario_id:uid, recurso_id:p[0], acao:p[1], permitido:false, justificativa:'Acesso a Informações' }; });
+
+  $('bt-salvar-escopos').disabled = true;
+  banner('Salvando…');
+  comErro(
+    api('usuario_escopos?usuario_id=eq.'+uid, { method:'DELETE' })
+      .then(function(){ return escopos.length ? api('usuario_escopos', { method:'POST', body:escopos, prefer:'return=minimal' }) : null; })
+      .then(function(){ return api('usuario_permissoes?usuario_id=eq.'+uid+'&acao=in.('+ACOES_SENSIVEIS.join(',')+')', { method:'DELETE' }); })
+      .then(function(){ return excecoes.length ? api('usuario_permissoes', { method:'POST', body:excecoes, prefer:'return=minimal' }) : null; })
+      .then(recarregar)
+      .then(function(){
+        banner('<b>Acesso a informações salvo.</b> '+deps.length+' departamento(s) liberados, '
+             + grps.length+' grupo(s) bloqueados, '+sens.length+' informação(ões) ocultada(s). '
+             + '<b>Lembre-se:</b> ainda não está sendo aplicado pelos módulos.');
+      }),
+    'salvar o acesso a informações'
+  ).then(null,function(){}).then(function(){ $('bt-salvar-escopos').disabled = false; });
+}
 /* ---------- módulos ---------- */
 function desenharModulos(){
   var pais = DADOS.recursos.filter(function(r){ return !r.pai_id; });
@@ -575,6 +704,7 @@ document.addEventListener('click', function(ev){
     return;
   }
   if (t.id === 'bt-salvar-perm'){ salvarPermissoes(); return; }
+  if (t.id === 'bt-salvar-escopos'){ salvarEscopos(); return; }
   if (t.id === 'bt-sair'){ sair(); return; }
 
   if (t.id === 'bt-novo-perfil' || t.id === 'bt-dup-perfil'){
@@ -600,6 +730,7 @@ document.addEventListener('click', function(ev){
 });
 
 $('sel-perfil').addEventListener('change', function(){ selecionarPerfil(this.value); });
+$('sel-escopo-user').addEventListener('change', desenharEscopos);
 $('busca-user').addEventListener('input', desenharUsuarios);
 $('so-ativos').addEventListener('change', desenharUsuarios);
 
