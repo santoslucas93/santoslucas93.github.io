@@ -110,6 +110,12 @@ body{
     <p>Controle integrado dos benefícios dos colaboradores</p>
     <a class="hub-btn" href="/beneficios/">ACESSAR MÓDULO</a>
   </div>
+      <div class="hub-card adm" id="hub-card-adm" style="display:none">
+        <div class="hub-icon" style="display:flex;align-items:center;justify-content:center;font-size:54px;line-height:1">🛡️</div>
+        <h3>ADMINISTRAÇÃO MESTRE</h3>
+        <p>Usuários, perfis, permissões e acesso a informações</p>
+        <a class="hub-btn" href="/admin/">ACESSAR MÓDULO</a>
+      </div>
 </div>
 
 <div class="hub-footer">Desenvolvido por Lucas Santos</div>
@@ -127,6 +133,20 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   applyTheme();
   themeToggle.onclick = function(){ light = !light; localStorage.setItem('lnb_hub_theme', light?'light':'dark'); applyTheme(); };
+
+  /* O card da Administração Mestre só aparece se já existe sessão aberta em
+     algum módulo. É leitura do armazenamento local: nenhuma chamada de rede
+     nova, para não tirar desta tela o boot sem requisições que ela tem hoje.
+     Quem pode de fato administrar é decidido em /admin/, contra o banco. */
+  try{
+    var chaves = ['lnb_auth_session_v1','lnb_auth_session_beneficios_v1'];
+    var temSessao = chaves.some(function(k){
+      try{ var s = JSON.parse(localStorage.getItem(k) || 'null');
+           return !!(s && s.access_token && s.expires_at && (s.expires_at*1000) > Date.now()); }
+      catch(e){ return false; }
+    });
+    if (temSessao){ var cAdm = document.getElementById('hub-card-adm'); if (cAdm) cAdm.style.display = ''; }
+  }catch(e){}
 });
 </script>
 
