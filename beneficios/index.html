@@ -16814,5 +16814,24 @@ body.theme-dark .mob-table thead th{
   border-bottom-color:#45566C!important;
 }
 </style>
+<style>
+/* Os filtros dos paineis executivos (Ano, Mes, Departamento, Colaborador) e os
+   do Consolidado sao <select> gerados em tempo de execucao, SEM id proprio. A
+   liberacao anterior era por id, entao nao alcancava nenhum deles: era por isso
+   que alguns filtros funcionavam no perfil de leitura e outros nao. Aqui miramos
+   o container, o que cobre os 4 modulos de uma vez e nao depende de nomes.
+   Continua valendo so para consulta: a gravacao segue bloqueada no JavaScript. */
+body.lnb-readonly :is([id^="ben-exec-"],[id^="cons-filtro-"]) :is(select,input:not([type="file"])){
+  pointer-events:auto!important;
+  opacity:1!important;
+  background:#fff!important;
+  cursor:auto;
+}
+body.theme-dark.lnb-readonly :is([id^="ben-exec-"],[id^="cons-filtro-"]) :is(select,input:not([type="file"])){
+  background:var(--surface-2)!important;
+  color:var(--text)!important;
+  border-color:var(--border)!important;
+}
+</style>
 </body>
 </html>
