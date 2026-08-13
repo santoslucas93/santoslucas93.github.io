@@ -1571,14 +1571,15 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 
 <div id="lnb-auth-overlay" style="position:fixed;inset:0;background:#0b1220;color:#fff;z-index:99999;display:flex;align-items:center;justify-content:center;font-family:inherit;">
   <div style="background:#111827;padding:32px 28px;border-radius:12px;max-width:360px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.5)">
-    <h2 style="margin:0 0 6px;font-size:20px;">Painel LNB — Acesso restrito</h2>
-    <div style="opacity:.7;font-size:13px;margin-bottom:18px;">Entre com seu e-mail e senha individual. Sem login pessoal ainda? Deixe o e-mail em branco e use a senha da equipe.</div>
-    <input id="lnb-auth-email" type="email" placeholder="E-mail (deixe em branco para usar a senha da equipe)" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #374151;background:#0b1220;color:#fff;font-size:15px;box-sizing:border-box;margin-bottom:10px;" autocomplete="username">
-    <input id="lnb-auth-pass" type="password" placeholder="Senha" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #374151;background:#0b1220;color:#fff;font-size:15px;box-sizing:border-box;" autocomplete="current-password">
-    <div id="lnb-auth-err" style="color:#f87171;font-size:13px;margin-top:8px;min-height:16px;"></div>
-    <button id="lnb-auth-btn" type="button" style="margin-top:14px;width:100%;padding:10px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:15px;cursor:pointer;">Entrar</button>
+    <div style="text-align:center;padding:8px 0">
+      <div style="width:34px;height:34px;margin:0 auto 16px;border:3px solid rgba(255,255,255,.2);border-top-color:#fbbf24;border-radius:50%;animation:lnbModuleSpin .8s linear infinite"></div>
+      <h2 style="margin:0 0 8px;font-size:20px;">Orçado x Realizado</h2>
+      <div style="opacity:.72;font-size:13px;">Validando seu acesso e carregando o módulo…</div>
+    </div>
+    <div id="lnb-auth-err" style="display:none"></div>
   </div>
 </div>
+<style>@keyframes lnbModuleSpin{to{transform:rotate(360deg)}}</style>
 <div class="hero">
   <div class="hero-top"><div>
     <h1>Orçado x Realizado — Temporada 2026/2027</h1>
@@ -2500,14 +2501,21 @@ const AUTH_READONLY_EMAIL='leitura@painel-lnb.local';
 let AUTH_SESSION=null;
 
 function lnbLoadSession(){
-  try{ const raw=localStorage.getItem('lnb_auth_session_v1'); if(raw) AUTH_SESSION=JSON.parse(raw); }catch(e){ AUTH_SESSION=null; }
+  try{ const raw=localStorage.getItem('lnb_auth_session_v1')||localStorage.getItem('lnb_auth_session_beneficios_v1'); if(raw) AUTH_SESSION=JSON.parse(raw); }catch(e){ AUTH_SESSION=null; }
 }
 function lnbSaveSession(){
-  try{ localStorage.setItem('lnb_auth_session_v1', JSON.stringify(AUTH_SESSION)); }catch(e){ console.error('lnbSaveSession falhou (sessão não persistida neste navegador):', e); }
+  try{
+    const raw=JSON.stringify(AUTH_SESSION);
+    localStorage.setItem('lnb_auth_session_v1', raw);
+    localStorage.setItem('lnb_auth_session_beneficios_v1', raw);
+  }catch(e){ console.error('lnbSaveSession falhou (sessão não persistida neste navegador):', e); }
 }
 function lnbClearSession(){
   AUTH_SESSION=null;
-  try{ localStorage.removeItem('lnb_auth_session_v1'); }catch(e){ console.error('lnbClearSession falhou:', e); }
+  try{
+    localStorage.removeItem('lnb_auth_session_v1');
+    localStorage.removeItem('lnb_auth_session_beneficios_v1');
+  }catch(e){ console.error('lnbClearSession falhou:', e); }
 }
 
 async function lnbTryLogin(email, password){
@@ -2594,6 +2602,57 @@ async function lnbRefreshSession(){
   }catch(e){ return false; }
 }
 
+
+async function lnbUpdateOwnPassword(session, supabaseUrl, supabaseKey, password){
+  if(!session || !session.access_token) throw new Error('Sua sessão não está disponível. Entre novamente.');
+  const r=await fetch(supabaseUrl+'/auth/v1/user',{
+    method:'PUT',
+    headers:{'apikey':supabaseKey,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
+    body:JSON.stringify({password:password})
+  });
+  let body={}; try{ body=await r.json(); }catch(e){}
+  if(!r.ok) throw new Error(body.msg||body.message||body.error_description||body.error||'O Supabase recusou a alteração.');
+  return body;
+}
+function lnbOpenOwnPasswordDialog(session,supabaseUrl,supabaseKey){
+  if(!session||!session.access_token){ alert('Entre com sua conta para alterar a senha.'); return; }
+  if(document.getElementById('lnb-password-overlay')) return;
+  const overlay=document.createElement('div');
+  overlay.id='lnb-password-overlay';
+  overlay.setAttribute('role','dialog'); overlay.setAttribute('aria-modal','true'); overlay.setAttribute('aria-labelledby','lnb-password-title');
+  overlay.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(4,15,32,.68);display:flex;align-items:center;justify-content:center;padding:18px;font-family:inherit;';
+  overlay.innerHTML='<div style="width:min(420px,100%);background:#fff;color:#172033;border-radius:16px;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.38);position:relative">'
+    +'<button type="button" id="lnb-password-close" aria-label="Fechar" style="position:absolute;right:14px;top:12px;border:0;background:transparent;color:#667085;font-size:24px;cursor:pointer">×</button>'
+    +'<h2 id="lnb-password-title" style="margin:0 36px 6px 0;font-size:20px">⚙️ Alterar minha senha</h2>'
+    +'<p style="margin:0 0 18px;color:#667085;font-size:13px;line-height:1.45">Use pelo menos 8 caracteres. A nova senha valerá no próximo acesso a todos os módulos.</p>'
+    +'<label style="display:block;font-size:12px;font-weight:700;margin-bottom:5px">Nova senha</label>'
+    +'<input id="lnb-password-new" type="password" autocomplete="new-password" style="width:100%;padding:10px 11px;border:1px solid #cfd6e2;border-radius:8px;font:inherit;box-sizing:border-box">'
+    +'<label style="display:block;font-size:12px;font-weight:700;margin:13px 0 5px">Confirmar nova senha</label>'
+    +'<input id="lnb-password-confirm" type="password" autocomplete="new-password" style="width:100%;padding:10px 11px;border:1px solid #cfd6e2;border-radius:8px;font:inherit;box-sizing:border-box">'
+    +'<div id="lnb-password-message" style="min-height:18px;margin-top:10px;color:#b42318;font-size:12.5px"></div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">'
+    +'<button type="button" id="lnb-password-cancel" style="padding:9px 14px;border:1px solid #cfd6e2;border-radius:8px;background:#fff;color:#344054;cursor:pointer;font-weight:700">Cancelar</button>'
+    +'<button type="button" id="lnb-password-save" style="padding:9px 14px;border:0;border-radius:8px;background:#0f6b4d;color:#fff;cursor:pointer;font-weight:800">Alterar senha</button>'
+    +'</div></div>';
+  document.body.appendChild(overlay);
+  const close=function(){overlay.remove();};
+  overlay.querySelector('#lnb-password-close').onclick=close; overlay.querySelector('#lnb-password-cancel').onclick=close;
+  overlay.onclick=function(e){if(e.target===overlay)close();};
+  const first=overlay.querySelector('#lnb-password-new'); first.focus();
+  overlay.querySelector('#lnb-password-save').onclick=async function(){
+    const save=this,p1=first.value,p2=overlay.querySelector('#lnb-password-confirm').value,msg=overlay.querySelector('#lnb-password-message');
+    msg.style.color='#b42318';
+    if(p1.length<8){msg.textContent='A senha precisa ter pelo menos 8 caracteres.';return;}
+    if(p1!==p2){msg.textContent='As duas senhas são diferentes.';return;}
+    save.disabled=true;save.textContent='Alterando…';msg.textContent='';
+    try{
+      await lnbUpdateOwnPassword(session,supabaseUrl,supabaseKey,p1);
+      msg.style.color='#087443';msg.textContent='Senha alterada com sucesso.';first.value='';overlay.querySelector('#lnb-password-confirm').value='';
+      setTimeout(close,900);
+    }catch(e){msg.textContent=e.message||'Não foi possível alterar a senha.';save.disabled=false;save.textContent='Alterar senha';}
+  };
+}
+
 function lnbShowAuthBadge(){
   try{
     if(document.getElementById('lnb-auth-badge')) return;
@@ -2604,9 +2663,10 @@ function lnbShowAuthBadge(){
     const label = AUTH_SESSION && AUTH_SESSION.nome
       ? (AUTH_SESSION.nome+' · '+(AUTH_SESSION.dbRole||(role==='admin'?'admin':'leitura')))
       : (role==='admin'?'\uD83D\uDD11 Admin':'\uD83D\uDC41 Leitura');
-    b.innerHTML = '<span>'+label+'</span><a href="#" id="lnb-logout-link" style="color:#93c5fd;text-decoration:none;">Sair</a>';
+    b.innerHTML = '<span>'+label+'</span><a href="#" id="lnb-password-link" style="color:#fcd34d;text-decoration:none;" title="Alterar minha senha">⚙ Senha</a><a href="#" id="lnb-logout-link" style="color:#93c5fd;text-decoration:none;">Sair</a>';
     document.body.appendChild(b);
-    document.getElementById('lnb-logout-link').onclick=function(ev){ ev.preventDefault(); lnbClearSession(); location.reload(); };
+    document.getElementById('lnb-password-link').onclick=function(ev){ ev.preventDefault(); lnbOpenOwnPasswordDialog(AUTH_SESSION,SUPABASE_URL,SUPABASE_KEY); };
+    document.getElementById('lnb-logout-link').onclick=function(ev){ ev.preventDefault(); lnbClearSession(); location.href='/'; };
   }catch(e){ console.error('lnbShowAuthBadge falhou:', e); }
 }
 
@@ -2629,9 +2689,38 @@ function lnbHideOverlay(){
   if(ov) ov.style.display='none';
 }
 
+async function lnbMeuAcessoCentral(){
+  if(!AUTH_SESSION||!AUTH_SESSION.access_token) return null;
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/rpc/meu_acesso',{
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token,'Content-Type':'application/json'},
+      body:'{}'
+    });
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
+}
+function lnbTemModulo(acesso,recurso){
+  if(!acesso) return false;
+  if(acesso.acesso_total||acesso.permissoes==='*') return true;
+  const acts=(acesso.permissoes||{})[recurso]||[];
+  if(Array.isArray(acts)&&acts.indexOf('visualizar')>=0) return true;
+  const email=(AUTH_SESSION&&AUTH_SESSION.email||'').toLowerCase();
+  if((email==='admin@painel-lnb.local'||email==='leitura@painel-lnb.local')&&recurso==='orcamento') return true;
+  if((email==='admin-beneficios@painel-lnb.local'||email==='leitura-beneficios@painel-lnb.local'||email==='leitura-mobilidade@painel-lnb.local')&&recurso==='beneficios') return true;
+  if(/@lnb\.com\.br$/i.test(email)&&Array.isArray(acesso.perfis)&&acesso.perfis.length===0) return recurso==='orcamento'||recurso==='beneficios';
+  return false;
+}
+function lnbNegarModulo(recurso){
+  location.replace('/?acesso_negado='+encodeURIComponent(recurso));
+}
+
 function lnbAuthGate(onReady){
   lnbLoadSession();
-  const proceed = function(){
+  const proceed = async function(){
+    const acesso=await lnbMeuAcessoCentral();
+    if(!lnbTemModulo(acesso,'orcamento')){ lnbNegarModulo('orcamento'); return; }
     lnbHideOverlay();
     onReady();
   };
@@ -2645,7 +2734,9 @@ function lnbAuthGate(onReady){
       if(ok){ proceed(); return; }
     }
     lnbClearSession();
-    lnbShowOverlay('');
+    lnbShowOverlay('Redirecionando para o login da Central…');
+    location.replace('/');
+    return;
     const btn = document.getElementById('lnb-auth-btn');
     const input = document.getElementById('lnb-auth-pass');
     const emailInput = document.getElementById('lnb-auth-email');

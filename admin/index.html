@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Administrador Mestre · Painel LNB</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{
+  --deep:#0a1930; --deep2:#0d2140; --deep3:#12294c;
+  --gold:#E8B93C; --gold-dim:rgba(232,185,60,.35);
+  --emer:#0F5B44; --emer-lt:#17805f;
+  --bg:#eef1f6; --card:#ffffff; --line:#e2e7f0; --line2:#eef1f6;
+  --tx:#16233a; --tx2:#5d6b82; --tx3:#8d99ad;
+  --ok:#13805D; --ok-bg:#e6f5ee; --ok-bd:#bfe4d5;
+  --warn:#a8710b; --warn-bg:#fdf4e3; --warn-bd:#f0dcae;
+  --bad:#b3363a; --bad-bg:#fdecec; --bad-bd:#f3c9ca;
+}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+     background:var(--bg);color:var(--tx);min-height:100vh}
+button{font:inherit;cursor:pointer;border:none;border-radius:8px;padding:8px 14px;transition:filter .15s,background .15s}
+button:hover:not(:disabled){filter:brightness(1.06)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.btn{background:#fff;color:var(--tx);border:1px solid var(--line)}
+.btn:hover:not(:disabled){background:#f7f9fc}
+.btn-esm{background:var(--ok);color:#fff;font-weight:600}
+.btn-ouro{background:var(--gold);color:#20160a;font-weight:600}
+.btn-peq{padding:6px 11px;font-size:12.5px}
+input,select{font:inherit;background:#fff;color:var(--tx);border:1px solid var(--line);
+             border-radius:8px;padding:8px 10px;outline:none;max-width:100%}
+input:focus,select:focus{border-color:var(--ok)}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--ok);padding:0}
+code{font-size:12px;color:var(--tx2)}
+
+/* ---------- topo ---------- */
+header{background:linear-gradient(120deg,var(--deep),var(--deep2) 55%,#0b2038);color:#EAF0FA;
+       padding:14px 26px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+header .marca{display:flex;align-items:center;gap:12px}
+header .escudo{width:42px;height:42px;border-radius:11px;background:rgba(232,185,60,.14);
+       border:1px solid var(--gold-dim);display:flex;align-items:center;justify-content:center;font-size:20px}
+header h1{margin:0;font-size:19px;font-weight:800;letter-spacing:.01em}
+header .sub{font-size:12px;color:#9FB0C7;margin-top:1px}
+header .meio{flex:1;text-align:center;min-width:180px}
+header .meio b{font-size:15px;display:block;color:#fff}
+header .meio span{font-size:12px;color:#9FB0C7}
+header .meio i{color:var(--gold);font-style:normal;font-weight:600}
+header .quem{border:1px solid var(--gold-dim);background:rgba(232,185,60,.08);border-radius:20px;
+       padding:6px 14px;font-size:12.5px;color:#EAF0FA;display:flex;align-items:center;gap:8px}
+header .quem b{color:var(--gold)}
+
+/* ---------- estrutura ---------- */
+#app{display:none;min-height:calc(100vh - 71px)}
+.painel{display:flex;align-items:stretch;min-height:calc(100vh - 71px)}
+aside{width:246px;flex:0 0 246px;background:var(--deep);color:#c8d4e6;padding:18px 0 24px;
+      display:flex;flex-direction:column;gap:6px}
+aside .rot{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#7f8fa8;padding:0 20px 10px}
+aside nav{display:flex;flex-direction:column;gap:2px;padding:0 12px}
+aside nav button{background:transparent;color:#c8d4e6;text-align:left;border-radius:9px;padding:10px 12px;
+      font-size:13.5px;display:flex;align-items:center;gap:10px;width:100%}
+aside nav button:hover{background:rgba(255,255,255,.05)}
+aside nav button.on{background:rgba(19,128,93,.28);color:#fff;font-weight:600;
+      box-shadow:inset 2px 0 0 var(--ok-bd)}
+aside .rapidas{margin-top:auto;padding:0 12px}
+aside .rapidas .rot{padding:16px 8px 8px}
+aside .rapidas button{width:100%;background:rgba(255,255,255,.06);color:#e6edf7;border:1px solid rgba(255,255,255,.09);
+      text-align:left;margin-bottom:7px;font-size:12.5px;padding:9px 12px}
+
+main{flex:1;padding:22px 26px 60px;min-width:0}
+.tit{display:flex;align-items:flex-start;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+.tit .ico{width:44px;height:44px;border-radius:12px;background:var(--ok-bg);border:1px solid var(--ok-bd);
+      display:flex;align-items:center;justify-content:center;font-size:19px}
+.tit h2{margin:0;font-size:20px;font-weight:800}
+.tit p{margin:2px 0 0;color:var(--tx2);font-size:13px}
+.tit .dir{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--tx2)}
+
+.abas{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
+.abas button{background:transparent;color:var(--tx2);border-radius:8px 8px 0 0;padding:10px 16px;
+      border-bottom:2px solid transparent;font-size:13.5px}
+.abas button.on{color:var(--ok);border-bottom-color:var(--ok);font-weight:600;background:#fff}
+
+.colunas{display:flex;gap:18px;align-items:flex-start}
+.colunas .principal{flex:1;min-width:0}
+.colunas .lado{width:290px;flex:0 0 290px;display:flex;flex-direction:column;gap:14px}
+@media (max-width:1180px){ .colunas{flex-direction:column} .colunas .lado{width:100%;flex:1 1 auto} }
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h3{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx2);
+      display:flex;align-items:center;gap:8px}
+.linha{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.espaco{margin-left:auto}
+.filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px}
+.campo{display:flex;flex-direction:column;gap:5px}
+.campo label{font-size:11.5px;color:var(--tx2);font-weight:600}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:11px 12px;color:var(--tx2);font-weight:600;font-size:11.5px;
+   text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--line);white-space:nowrap;background:#f8fafc}
+td{padding:9px 12px;border-bottom:1px solid var(--line2);vertical-align:middle}
+tbody tr:hover{background:#f8fafc}
+.matriz{border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:66vh}
+.matriz th{position:sticky;top:0;z-index:2}
+.matriz td.est{white-space:nowrap}
+.matriz th.acao{text-align:center}
+.matriz td.cel{text-align:center;width:118px}
+
+.pill{display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;
+      border:1px solid transparent;cursor:pointer;user-select:none;min-width:86px;text-align:center}
+.pill.p{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-bd)}
+.pill.l{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-bd)}
+.pill.b{background:var(--bad-bg);color:var(--bad);border-color:var(--bad-bd)}
+.pill.n{background:transparent;color:var(--tx3);border-color:transparent;cursor:default}
+.pill.mudou{box-shadow:0 0 0 2px rgba(19,128,93,.25)}
+
+.no0 td.est{font-weight:700}
+.no1 td.est{padding-left:30px}
+.no2 td.est{padding-left:56px;color:var(--tx2)}
+.setinha{display:inline-block;width:16px;color:var(--tx3);cursor:pointer;user-select:none}
+.tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600;border:1px solid transparent}
+.tag-ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-bd)}
+.tag-off{background:var(--bad-bg);color:var(--bad);border-color:var(--bad-bd)}
+.tag-av{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-bd)}
+.tag-perfil{background:#eaf0fb;color:#28518f;border-color:#cfdcf3;margin:2px 3px 2px 0}
+.tag-mestre{background:#fdf3d8;color:#8a6608;border-color:#f0dcae;margin:2px 3px 2px 0}
+
+.resumo{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line2);font-size:13px}
+.resumo:last-child{border-bottom:none}
+.resumo b{font-weight:700}
+.chave{background:#f4f7fb;border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:10px}
+.chave b{display:block;font-size:13px}
+.chave span{font-size:12px;color:var(--tx2)}
+
+.aviso{border-left:3px solid var(--warn);background:var(--warn-bg);padding:11px 14px;border-radius:0 8px 8px 0;
+       margin-bottom:16px;font-size:13px;color:#6b4a06}
+.aviso b{color:#7a5406}
+.erro{border-left-color:var(--bad);background:var(--bad-bg);color:#7d2427}
+.erro b{color:#8f2a2d}
+.bom{border-left-color:var(--ok);background:var(--ok-bg);color:#0d5a43}
+.bom b{color:#0d5a43}
+
+.chaveta{display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:7px 0;
+         border-bottom:1px solid var(--line2);width:100%;justify-content:space-between}
+.switch{width:38px;height:21px;border-radius:20px;background:#d7dee9;position:relative;cursor:pointer;flex:0 0 38px}
+.switch.on{background:var(--ok)}
+.switch i{position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#fff;transition:left .15s}
+.switch.on i{left:19px}
+
+.legenda{display:flex;gap:26px;flex-wrap:wrap;font-size:12.5px;color:var(--tx2)}
+.legenda b{display:block;color:var(--tx);font-size:12.5px}
+.rodape{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(238,241,246,0),var(--bg) 40%);
+        padding:14px 0 4px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.vazio{color:var(--tx2);padding:26px;text-align:center;font-style:italic}
+.carregando{color:var(--tx2);padding:26px;text-align:center}
+
+#capa{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+      background:linear-gradient(160deg,var(--deep),#081426);z-index:100;padding:20px}
+#capa .box{width:100%;max-width:390px;background:rgba(18,41,76,.72);border:1px solid var(--gold-dim);
+           border-radius:14px;padding:26px;color:#EAF0FA}
+#capa h1{font-size:15px;margin:0 0 4px;color:var(--gold);letter-spacing:.06em;text-transform:uppercase}
+#capa p{color:#9FB0C7;font-size:12.5px;margin:0 0 18px}
+#capa button{width:100%}
+#capa a{text-decoration:none}
+.msg{margin-top:12px;font-size:12.5px;min-height:18px;color:#9FB0C7}
+.msg.ruim{color:#f08f92}
+</style>
+</head>
+<body>
+
+<div id="capa">
+  <div class="box">
+    <h1>🛡️ Administrador Mestre</h1>
+    <p>Painel LNB · acesso restrito</p>
+    <div id="capa-form"></div>
+    <div class="msg" id="capa-msg">Verificando sessão…</div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="marca">
+      <span class="escudo">🛡️</span>
+      <div>
+        <h1>Administrador Mestre</h1>
+        <div class="sub">Controle central de usuários, perfis e permissões</div>
+      </div>
+    </div>
+    <div class="meio">
+      <b>Temporada 2026/2027</b>
+      <span>Nossa Terra tem Basquete 🏀 <i>AQUI É O NOSSO LUGAR</i></span>
+    </div>
+    <div class="quem">🔒 <span id="hd-nome">—</span> · <b id="hd-papel">—</b></div>
+    <button class="btn btn-peq" id="bt-minha-senha">⚙ Minha senha</button>
+    <button class="btn btn-peq" id="bt-voltar">↩ Voltar ao painel</button>
+    <button class="btn btn-peq" id="bt-sair">Sair de tudo</button>
+  </header>
+
+  <div class="painel">
+    <aside>
+      <div class="rot">Painel do admin</div>
+      <nav id="menu">
+        <button data-tela="visao" class="on">📈 Visão Geral</button>
+        <button data-tela="usuarios">👥 Usuários</button>
+        <button data-tela="perfis">🛡️ Perfis de Acesso</button>
+        <button data-tela="permissoes">🔒 Permissões</button>
+        <button data-tela="departamentos">🏛️ Departamentos</button>
+        <button data-tela="grupos">🗂️ Grupos</button>
+        <button data-tela="linhas">📋 Linhas</button>
+        <button data-tela="logs">🕘 Logs de Ações</button>
+        <button data-tela="config">⚙️ Configurações</button>
+      </nav>
+      <div class="rapidas">
+        <div class="rot">Ações rápidas</div>
+        <button id="bt-novo-perfil">＋ Novo perfil</button>
+        <button id="bt-exportar-perm">⤓ Exportar permissões</button>
+      </div>
+    </aside>
+
+    <main>
+      <div id="banner"></div>
+      <div id="tela"></div>
+    </main>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ===========================================================================
+   Administrador Mestre — Painel LNB
+   Camada global de usuarios, perfis, permissoes e escopo de dados.
+
+   Principios seguidos aqui:
+   - Nenhuma biblioteca externa.
+   - A chave do Supabase vem de /api/config, igual aos demais modulos.
+   - A autorizacao real esta no banco (RLS + tem_permissao). Esta tela apenas
+     configura e nao mostra o que a pessoa nao pode usar. Esconder botao nao e
+     seguranca, e conveniencia.
+   - Esta tela NAO tem login proprio: reaproveita a sessao ja aberta em um dos
+     modulos. Nenhuma senha passa por aqui.
+   =========================================================================== */
+
+var CFG=null, SES=null, ACESSO=null, MODO=null;
+var D = { usuarios:[], perfis:[], recursos:[], acoes:[], vinculos:[],
+          departamentos:[], grupos:[], linhas:[], escopos:[], excecoes:[], logs:[] };
+var TELA='visao', SUBABA='matriz', PERFIL=null;
+var MODO_PERM='pessoa', PESSOA=null;
+var PERM={}, ESC={}, SUJO=false;
+var FILTRO={ modulo:'', depto:'', grupo:'', linha:'' };
+var ABERTO={};
+
+var CHAVES_SESSAO=['lnb_auth_session_v1','lnb_auth_session_beneficios_v1'];
+try{ localStorage.removeItem('lnb_auth_session_admin_v1'); }catch(e){}
+
+var COLUNAS=[
+  {id:'visualizar', rot:'Visualizar', ico:'👁', tela:'visualizar'},
+  {id:'alterar',    rot:'Alterar',    ico:'✏️', tela:'editar'},
+  {id:'incluir',    rot:'Incluir',    ico:'＋', tela:'criar'},
+  {id:'excluir',    rot:'Excluir',    ico:'🗑', tela:'excluir'}
+];
+var ACOES_TELA_CRUD=['visualizar','criar','editar','excluir'];
+var GLOBAIS=[
+  {recurso:'orcamento', acao:'exportar',        rot:'Exportar relatórios',      desc:'Tirar dados do sistema'},
+  {recurso:'orcamento', acao:'importar',        rot:'Importar extrato',         desc:'Trazer planilha/extrato para dentro'},
+  {recurso:'orcamento', acao:'realocar',        rot:'Realocar valores',         desc:'Mover valor de uma linha para outra'},
+  {recurso:'orcamento', acao:'transferir',      rot:'Transferir entre áreas',   desc:'Passar valor entre departamentos'},
+  {recurso:'orcamento', acao:'aprovar',         rot:'Aprovar orçamento',        desc:'Aprovar o planejado da temporada'},
+  {recurso:'orcamento', acao:'configurar',      rot:'Editar estrutura',         desc:'Mexer em departamentos, grupos e linhas'},
+  {recurso:'orcamento', acao:'administrar',     rot:'Administrar o módulo',     desc:'Tudo do Orçado x Realizado'},
+  {recurso:'orcamento', acao:'ver_valores',     rot:'Ver valores em R$',        desc:'Sem isto, vê a estrutura sem os números'},
+  {recurso:'orcamento', acao:'ver_remuneracao', rot:'Ver remuneração (RH)',     desc:'O conteúdo dos grupos RH'},
+  {recurso:'admin',     acao:'visualizar',      rot:'Abrir a Administração',    desc:'Entrar nesta tela'},
+  {recurso:'admin',     acao:'administrar',     rot:'Gerenciar usuários e permissões', desc:'Conceder e revogar acesso'}
+];
+
+/* ---------- utilidades ---------- */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function hoje(){ return new Date().toISOString().slice(0,10); }
+function msg(t,ruim){ var el=$('capa-msg'); el.textContent=t||''; el.className='msg'+(ruim?' ruim':''); }
+function banner(html,tipo){ $('banner').innerHTML = html ? '<div class="aviso '+(tipo||'')+'">'+html+'</div>' : ''; }
+function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-'); }
+
+function api(caminho, o){
+  o = o || {};
+  var h = { 'apikey':CFG.SUPABASE_KEY, 'Authorization':'Bearer '+SES.access_token, 'Content-Type':'application/json' };
+  if (o.prefer) h['Prefer'] = o.prefer;
+  return fetch(CFG.SUPABASE_URL+'/rest/v1/'+caminho, {
+    method:o.method||'GET', headers:h, body:o.body?JSON.stringify(o.body):undefined
+  }).then(function(r){
+    if(!r.ok) return r.text().then(function(t){ throw new Error(r.status+' — '+t.slice(0,200)); });
+    return r.status===204 ? null : r.json();
+  });
+}
+function rpc(nome,args){ return api('rpc/'+nome,{method:'POST',body:args||{}}); }
+async function trocarSenhaDeUsuario(uid,senha){
+  if(!CFG||!SES||!SES.access_token) throw new Error('Sessão administrativa indisponível.');
+  const r=await fetch(CFG.SUPABASE_URL+'/functions/v1/trocar-senha',{method:'POST',headers:{'apikey':CFG.SUPABASE_KEY,'Authorization':'Bearer '+SES.access_token,'Content-Type':'application/json'},body:JSON.stringify({usuario_id:uid,senha:senha})});
+  let body={};try{body=await r.json();}catch(e){}
+  if(!r.ok||!body.ok) throw new Error(body.erro||body.message||'A troca foi recusada.');
+  return body;
+}
+function comErro(p,oque){ return p.catch(function(e){ banner('<b>Não deu certo:</b> '+esc(oque)+'.<br>'+esc(e.message),'erro'); throw e; }); }
+
+/* ---------- sessao e portao ---------- */
+function lerSessaoGuardada(){
+  for (var i=0;i<CHAVES_SESSAO.length;i++){
+    try{ var s=JSON.parse(localStorage.getItem(CHAVES_SESSAO[i])||'null');
+      if (s && s.access_token && s.expires_at && (s.expires_at*1000)>Date.now()+60000) return s;
+    }catch(e){}
+  }
+  return null;
+}
+function precisaEntrarNoModulo(){
+  $('capa-form').innerHTML =
+    '<div style="font-size:12.5px;color:#9FB0C7;margin-bottom:14px;line-height:1.55">'
+    + 'Esta área usa a sessão que você já abriu em um dos módulos. Entre em um deles e volte aqui.</div>'
+    + '<a href="/orcado/"><button class="btn-ouro" style="margin-bottom:8px">Abrir Orçado x Realizado</button></a>'
+    + '<a href="/beneficios/"><button class="btn">Abrir Gestão de Benefícios</button></a>';
+  msg('');
+}
+
+async function lnbUpdateOwnPassword(session, supabaseUrl, supabaseKey, password){
+  if(!session || !session.access_token) throw new Error('Sua sessão não está disponível. Entre novamente.');
+  const r=await fetch(supabaseUrl+'/auth/v1/user',{
+    method:'PUT',
+    headers:{'apikey':supabaseKey,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},
+    body:JSON.stringify({password:password})
+  });
+  let body={}; try{ body=await r.json(); }catch(e){}
+  if(!r.ok) throw new Error(body.msg||body.message||body.error_description||body.error||'O Supabase recusou a alteração.');
+  return body;
+}
+function lnbOpenOwnPasswordDialog(session,supabaseUrl,supabaseKey){
+  if(!session||!session.access_token){ alert('Entre com sua conta para alterar a senha.'); return; }
+  if(document.getElementById('lnb-password-overlay')) return;
+  const overlay=document.createElement('div');
+  overlay.id='lnb-password-overlay';
+  overlay.setAttribute('role','dialog'); overlay.setAttribute('aria-modal','true'); overlay.setAttribute('aria-labelledby','lnb-password-title');
+  overlay.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(4,15,32,.68);display:flex;align-items:center;justify-content:center;padding:18px;font-family:inherit;';
+  overlay.innerHTML='<div style="width:min(420px,100%);background:#fff;color:#172033;border-radius:16px;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.38);position:relative">'
+    +'<button type="button" id="lnb-password-close" aria-label="Fechar" style="position:absolute;right:14px;top:12px;border:0;background:transparent;color:#667085;font-size:24px;cursor:pointer">×</button>'
+    +'<h2 id="lnb-password-title" style="margin:0 36px 6px 0;font-size:20px">⚙️ Alterar minha senha</h2>'
+    +'<p style="margin:0 0 18px;color:#667085;font-size:13px;line-height:1.45">Use pelo menos 8 caracteres. A nova senha valerá no próximo acesso a todos os módulos.</p>'
+    +'<label style="display:block;font-size:12px;font-weight:700;margin-bottom:5px">Nova senha</label>'
+    +'<input id="lnb-password-new" type="password" autocomplete="new-password" style="width:100%;padding:10px 11px;border:1px solid #cfd6e2;border-radius:8px;font:inherit;box-sizing:border-box">'
+    +'<label style="display:block;font-size:12px;font-weight:700;margin:13px 0 5px">Confirmar nova senha</label>'
+    +'<input id="lnb-password-confirm" type="password" autocomplete="new-password" style="width:100%;padding:10px 11px;border:1px solid #cfd6e2;border-radius:8px;font:inherit;box-sizing:border-box">'
+    +'<div id="lnb-password-message" style="min-height:18px;margin-top:10px;color:#b42318;font-size:12.5px"></div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">'
+    +'<button type="button" id="lnb-password-cancel" style="padding:9px 14px;border:1px solid #cfd6e2;border-radius:8px;background:#fff;color:#344054;cursor:pointer;font-weight:700">Cancelar</button>'
+    +'<button type="button" id="lnb-password-save" style="padding:9px 14px;border:0;border-radius:8px;background:#0f6b4d;color:#fff;cursor:pointer;font-weight:800">Alterar senha</button>'
+    +'</div></div>';
+  document.body.appendChild(overlay);
+  const close=function(){overlay.remove();};
+  overlay.querySelector('#lnb-password-close').onclick=close; overlay.querySelector('#lnb-password-cancel').onclick=close;
+  overlay.onclick=function(e){if(e.target===overlay)close();};
+  const first=overlay.querySelector('#lnb-password-new'); first.focus();
+  overlay.querySelector('#lnb-password-save').onclick=async function(){
+    const save=this,p1=first.value,p2=overlay.querySelector('#lnb-password-confirm').value,msg=overlay.querySelector('#lnb-password-message');
+    msg.style.color='#b42318';
+    if(p1.length<8){msg.textContent='A senha precisa ter pelo menos 8 caracteres.';return;}
+    if(p1!==p2){msg.textContent='As duas senhas são diferentes.';return;}
+    save.disabled=true;save.textContent='Alterando…';msg.textContent='';
+    try{
+      await lnbUpdateOwnPassword(session,supabaseUrl,supabaseKey,p1);
+      msg.style.color='#087443';msg.textContent='Senha alterada com sucesso.';first.value='';overlay.querySelector('#lnb-password-confirm').value='';
+      setTimeout(close,900);
+    }catch(e){msg.textContent=e.message||'Não foi possível alterar a senha.';save.disabled=false;save.textContent='Alterar senha';}
+  };
+}
+
+/* Sair de tudo: a sessao e a MESMA dos modulos. Encerrar aqui encerra no Orcado e
+   no Beneficios tambem — por isso o aviso antes. Antes este botao limpava uma chave
+   que ninguem usava e recarregava a pagina: nao saia de lugar nenhum. */
+function sair(){
+  if(!confirm('Isto encerra a sessão em tudo: Orçado x Realizado, Gestão de Benefícios e esta tela. Sair mesmo?')) return;
+  CHAVES_SESSAO.forEach(function(k){ try{ localStorage.removeItem(k); }catch(e){} });
+  try{ localStorage.removeItem('lnb_auth_session_admin_v1'); }catch(e){}
+  location.href = '/';
+}
+
+function verificarAcesso(){
+  return Promise.all([ rpc('meu_acesso'), rpc('qtd_adm_mestres_ativos') ]).then(function(res){
+    var a=res[0], mestres=res[1];
+    ACESSO=a;
+    if(!a || !a.autenticado) return {ok:false,motivo:'Sessão inválida.'};
+    if(!a.cadastrado)        return {ok:false,motivo:'Sua conta autenticou, mas não está cadastrada no Painel LNB.'};
+    if(a.usuario.bloqueado)  return {ok:false,motivo:'Sua conta está bloqueada.'};
+    if(!a.usuario.ativo)     return {ok:false,motivo:'Sua conta está inativa.'};
+    if(a.acesso_total) return {ok:true,modo:'mestre'};
+    var p=a.permissoes;
+    if(p && p!=='*' && p.admin && p.admin.indexOf('administrar')>=0) return {ok:true,modo:'delegado'};
+    /* Implantacao: enquanto NAO existir nenhum Administrador Mestre, as contas de
+       administrador de hoje abrem esta tela — e o mesmo poder que ja tem. Assim que
+       o primeiro Mestre nominal existir, esta porta fecha sozinha. */
+    if(mestres===0){
+      return rpc('current_user_role').then(function(papel){
+        if(papel==='administrador') return {ok:true,modo:'implantacao'};
+        return {ok:false,motivo:'Você não tem permissão para a Administração Mestre.'};
+      });
+    }
+    return {ok:false,motivo:'Você não tem permissão para a Administração Mestre.'};
+  });
+}
+
+/* ---------- carga ---------- */
+function carregarTudo(){
+  return Promise.all([
+    api('profiles?select=id,nome,email,role,ativo,bloqueado,valido_ate,departamento_id&order=nome'),
+    api('perfis?select=id,nome,descricao,sistema,ativo,acesso_total&order=nome'),
+    api('recursos?select=id,nome,descricao,icone,categoria,pai_id,tipo,ordem,ativo,chave&order=ordem'),
+    api('recurso_acoes?select=recurso_id,acao,rotulo,ordem&order=ordem'),
+    api('usuario_perfis?select=usuario_id,perfil_id,valido_ate'),
+    api('departamentos?select=id,nome,ativo,ordem&order=ordem'),
+    api('grupos?select=id,departamento_id,nome,ativo&order=nome'),
+    api('linhas?select=id,departamento_id,grupo_nome,nome,cod,sensivel,ativo&order=id'),
+    api('usuario_escopos?select=usuario_id,tipo,valor,permitido'),
+    api('usuario_permissoes?select=usuario_id,recurso_id,acao,permitido')
+  ]).then(function(r){
+    D.usuarios=r[0]; D.perfis=r[1]; D.recursos=r[2]; D.acoes=r[3]; D.vinculos=r[4];
+    D.departamentos=r[5]; D.grupos=r[6]; D.linhas=r[7]; D.escopos=r[8]; D.excecoes=r[9];
+  });
+}
+
+/* ---------- helpers de dominio ---------- */
+function perfil(pid){ return D.perfis.filter(function(p){return p.id===pid;})[0]; }
+function nomePerfil(pid){ var p=perfil(pid); return p?p.nome:pid; }
+function ehMestre(pid){ var p=perfil(pid); return !!(p&&p.acesso_total); }
+function perfisDe(uid){ return D.vinculos.filter(function(v){return v.usuario_id===uid;}); }
+function acoesDe(rid){ return D.acoes.filter(function(a){return a.recurso_id===rid;}).map(function(a){return a.acao;}); }
+function telasDoModulo(mod){ return D.recursos.filter(function(r){ return r.pai_id===mod; }); }
+function modulos(){ return D.recursos.filter(function(r){ return !r.pai_id; }); }
+function gruposDe(dep){ return D.grupos.filter(function(g){ return g.departamento_id===dep; }); }
+function linhasDe(dep,grupo){ return D.linhas.filter(function(l){ return l.departamento_id===dep && l.grupo_nome===grupo; }); }
+function gruposDistintos(){
+  var v={}, s=[];
+  D.grupos.forEach(function(g){ if(!v[g.nome]){ v[g.nome]=[]; s.push(g.nome); } v[g.nome].push(g.departamento_id); });
+  s.sort();
+  return s.map(function(n){ return {nome:n, deptos:v[n]}; });
+}
+
+/* ===========================================================================
+   ESCOPO — o que um perfil alcanca na estrutura de dados
+   Modelo: so o que foi marcado explicitamente e guardado (permitido true/false).
+   Quem nao tem marca herda do pai. Sem nada em lugar nenhum = nao alcanca.
+   "Limitado" nunca e gravado: e o que a tela mostra quando os filhos divergem.
+   =========================================================================== */
+function chaveEsc(tipo,valor,acao){ return tipo+'|'+valor+'|'+acao; }
+
+function efetivo(no,acao){
+  var k=chaveEsc(no.tipo,no.valor,acao);
+  if (Object.prototype.hasOwnProperty.call(ESC,k)) return !!ESC[k];
+  if (no.pai) return efetivo(no.pai,acao);
+  return false;
+}
+function estadoNo(no,acao){
+  var filhos=filhosDe(no);
+  if(!filhos.length) return efetivo(no,acao) ? 'p' : 'b';
+  var algumP=false, algumB=false;
+  (function varrer(n){
+    var f=filhosDe(n);
+    if(!f.length){ if(efetivo(n,acao)) algumP=true; else algumB=true; return; }
+    f.forEach(varrer);
+  })(no);
+  if(algumP&&algumB) return 'l';
+  return algumP ? 'p' : 'b';
+}
+function filhosDe(no){
+  if(no.tipo==='departamento') return gruposDe(no.valor).map(function(g){
+    return {tipo:'grupo', valor:g.nome, rotulo:g.nome, pai:no, dep:no.valor}; });
+  if(no.tipo==='grupo') return linhasDe(no.dep,no.valor).map(function(l){
+    return {tipo:'linha', valor:l.id, rotulo:l.nome, pai:no, dep:no.dep, linha:l}; });
+  return [];
+}
+function limparSubarvore(no,acao){
+  filhosDe(no).forEach(function(f){
+    delete ESC[chaveEsc(f.tipo,f.valor,acao)];
+    limparSubarvore(f,acao);
+  });
+}
+function alternarNo(no,acao){
+  var atual=estadoNo(no,acao);
+  var novo = (atual==='p') ? false : true;   /* limitado e bloqueado viram permitido */
+  ESC[chaveEsc(no.tipo,no.valor,acao)] = novo;
+  limparSubarvore(no,acao);
+  SUJO=true;
+  desenhar();
+}
+
+/* ---------- telas do modulo (perfil_permissoes) ---------- */
+function chavePerm(rid,acao){ return rid+'|'+acao; }
+function alternarTela(rid,acaoTela){
+  var k=chavePerm(rid,acaoTela);
+  if(PERM[k]) delete PERM[k]; else PERM[k]=true;
+  SUJO=true; desenhar();
+}
+
+/* ===========================================================================
+   DESENHO
+   =========================================================================== */
+function desenhar(){
+  document.querySelectorAll('#menu button').forEach(function(b){ b.classList.toggle('on', b.dataset.tela===TELA); });
+  var f = { visao:telaVisao, usuarios:telaUsuarios, perfis:telaPerfis, permissoes:telaPermissoes,
+            departamentos:telaDepartamentos, grupos:telaGrupos, linhas:telaLinhas,
+            logs:telaLogs, config:telaConfig }[TELA] || telaVisao;
+  $('tela').innerHTML = f();
+}
+
+function titulo(ico,t,sub,dir){
+  return '<div class="tit"><div class="ico">'+ico+'</div><div><h2>'+esc(t)+'</h2><p>'+sub+'</p></div>'
+       + (dir?'<div class="dir">'+dir+'</div>':'')+'</div>';
+}
+
+/* ---------- Visao Geral ---------- */
+function telaVisao(){
+  var h = titulo('📈','Visão Geral','Como está a camada de acesso hoje.');
+  if(MODO==='implantacao'){
+    h += '<div class="aviso"><b>Modo de implantação.</b> Ainda não existe nenhum Administrador Mestre nominal, '
+      +  'então esta tela está aberta às contas de administrador atuais. Assim que o primeiro Mestre for '
+      +  'designado, este acesso se fecha sozinho.</div>';
+  }
+  if(!D.linhas.length){
+    h += '<div class="aviso"><b>A estrutura ainda não foi sincronizada.</b> Os grupos e as linhas do orçamento '
+      +  'vêm do próprio módulo Orçado x Realizado. Vá em <b>Configurações → Sincronizar estrutura</b> antes de '
+      +  'montar as permissões por linha.</div>';
+  }
+  h += '<div class="aviso"><b>As regras desta tela ainda não bloqueiam nada.</b> A configuração é guardada, mas o '
+    +  'Orçado e a Gestão de Benefícios ainda não a consultam. Marcar aqui não impede ninguém de ver nada — '
+    +  'o cumprimento é o passo seguinte, feito um módulo por vez.</div>';
+
+  var cont=[
+    ['Pessoas com acesso', D.usuarios.length, D.usuarios.filter(function(u){return u.ativo&&!u.bloqueado;}).length+' ativas'],
+    ['Perfis', D.perfis.length, D.perfis.filter(function(p){return p.acesso_total;}).length+' com acesso total'],
+    ['Módulos e telas', D.recursos.length, modulos().length+' módulos'],
+    ['Departamentos', D.departamentos.length, gruposDistintos().length+' nomes de grupo'],
+    ['Grupos', D.grupos.length, ''],
+    ['Linhas', D.linhas.length, D.linhas.filter(function(l){return l.sensivel;}).length+' marcadas como sensíveis']
+  ];
+  h += '<div class="card"><h3>Números</h3><div class="filtros">';
+  cont.forEach(function(c){
+    h += '<div class="chave"><b style="font-size:22px">'+c[1]+'</b><span>'+esc(c[0])+(c[2]?' · '+esc(c[2]):'')+'</span></div>';
+  });
+  h += '</div></div>';
+
+  h += '<div class="card"><h3>Perfis e quem os tem</h3><table><thead><tr><th>Perfil</th><th>Pessoas</th>'
+    +  '<th>Telas liberadas</th><th>Situação</th></tr></thead><tbody>';
+  D.perfis.forEach(function(p){
+    var quem=D.vinculos.filter(function(v){return v.perfil_id===p.id;});
+    h += '<tr><td><b>'+esc(p.nome)+'</b><div style="color:var(--tx2);font-size:11.5px">'+esc(p.descricao||'')+'</div></td>'
+      +  '<td>'+(quem.length?quem.map(function(v){var u=D.usuarios.filter(function(x){return x.id===v.usuario_id;})[0];
+             return '<span class="tag tag-perfil">'+esc(u?(u.nome||u.email):v.usuario_id)+'</span>';}).join(''):'<span style="color:var(--tx3)">sem titular</span>')+'</td>'
+      +  '<td>'+(p.acesso_total?'<span class="tag tag-mestre">todas, inclusive futuras</span>':'—')+'</td>'
+      +  '<td>'+(p.ativo?'<span class="tag tag-ok">ativo</span>':'<span class="tag tag-off">inativo</span>')+'</td></tr>';
+  });
+  return h + '</tbody></table></div>';
+}
+
+/* ---------- Usuarios ---------- */
+function telaUsuarios(){
+  var h = titulo('👥','Usuários','Quem tem acesso ao Painel LNB, com quais perfis e até quando.');
+  h += '<div class="card"><div class="linha" style="margin-bottom:12px">'
+    +  '<input id="busca-user" placeholder="Buscar por nome ou e-mail" style="min-width:260px" value="'+esc(window.__busca||'')+'">'
+    +  '<label class="linha" style="gap:6px;color:var(--tx2);font-size:12.5px">'
+    +  '<input type="checkbox" id="so-ativos"'+(window.__soAtivos?' checked':'')+'> mostrar só ativos</label></div>';
+  var termo=(window.__busca||'').toLowerCase();
+  var lista=D.usuarios.filter(function(u){
+    if(window.__soAtivos && (!u.ativo||u.bloqueado)) return false;
+    if(!termo) return true;
+    return (u.nome||'').toLowerCase().indexOf(termo)>=0 || (u.email||'').toLowerCase().indexOf(termo)>=0;
+  });
+  if(!lista.length) return h+'<div class="vazio">Nenhum usuário encontrado.</div></div>';
+  h += '<table><thead><tr><th>Pessoa</th><th>Perfis</th><th>Situação</th><th style="width:1%">Ações</th></tr></thead><tbody>';
+  lista.forEach(function(u){
+    var vs=perfisDe(u.id);
+    var tags = vs.length ? vs.map(function(v){
+        return '<span class="tag '+(ehMestre(v.perfil_id)?'tag-mestre':'tag-perfil')+'">'+esc(nomePerfil(v.perfil_id))
+             + (v.valido_ate?' · até '+esc(v.valido_ate):'')+'</span>'; }).join('')
+      : '<span style="color:var(--tx3)">sem perfil</span>';
+    var sit = u.bloqueado ? '<span class="tag tag-off">bloqueado</span>'
+            : !u.ativo ? '<span class="tag tag-off">inativo</span>'
+            : (u.valido_ate && u.valido_ate<hoje()) ? '<span class="tag tag-off">vencido</span>'
+            : u.valido_ate ? '<span class="tag tag-av">até '+esc(u.valido_ate)+'</span>'
+            : '<span class="tag tag-ok">ativo</span>';
+    h += '<tr><td><b>'+esc(u.nome||'(sem nome)')+'</b><div style="color:var(--tx2);font-size:12px">'+esc(u.email)+'</div></td>'
+      +  '<td>'+tags+'</td><td>'+sit+'</td><td style="white-space:nowrap">'
+      +  '<button class="btn btn-peq" data-editar="'+esc(u.id)+'">Editar</button> '
+      +  '<button class="btn btn-peq" data-alternar="'+esc(u.id)+'">'+(u.bloqueado?'Desbloquear':'Bloquear')+'</button></td></tr>'
+      +  '<tr id="ed-'+esc(u.id)+'" style="display:none"><td colspan="4"></td></tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+
+function abrirEditor(uid){
+  var linha=$('ed-'+uid); if(!linha) return;
+  if(linha.style.display!=='none'){ linha.style.display='none'; return; }
+  var u=D.usuarios.filter(function(x){return x.id===uid;})[0];
+  var vs=perfisDe(uid);
+  var disp=D.perfis.filter(function(p){ return p.ativo && !vs.some(function(v){return v.perfil_id===p.id;}); });
+  var h='<div class="card" style="margin:8px 0"><h3>'+esc(u.nome||u.email)+'</h3>';
+  h+='<div class="linha" style="align-items:flex-end;gap:14px;margin-bottom:12px">';
+  h+='<div class="campo" style="min-width:230px"><label>Conceder perfil</label><select id="np-'+uid+'">';
+  h+= disp.length ? disp.map(function(p){ return '<option value="'+esc(p.id)+'">'+esc(p.nome)+(p.acesso_total?' (acesso total)':'')+'</option>'; }).join('')
+                  : '<option value="">— nenhum disponível —</option>';
+  h+='</select></div><div class="campo"><label>Válido até (opcional)</label><input type="date" id="nv-'+uid+'"></div>';
+  h+='<button class="btn-esm btn-peq" data-conceder="'+esc(uid)+'"'+(disp.length?'':' disabled')+'>Conceder</button></div>';
+  if(vs.length){
+    h+='<div style="margin-bottom:6px;color:var(--tx2);font-size:12px">Perfis atuais</div>';
+    vs.forEach(function(v){
+      h+='<div class="linha" style="margin-bottom:6px"><span class="tag '+(ehMestre(v.perfil_id)?'tag-mestre':'tag-perfil')+'">'
+        + esc(nomePerfil(v.perfil_id))+'</span>'
+        + (v.valido_ate?'<span style="color:var(--tx2);font-size:12px">até '+esc(v.valido_ate)+'</span>':'')
+        + '<button class="btn btn-peq" data-revogar="'+esc(uid)+'|'+esc(v.perfil_id)+'">Revogar</button></div>';
+    });
+  }
+  h+='<div class="linha" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">'
+    +'<label class="linha" style="gap:6px"><input type="checkbox" id="ua-'+uid+'"'+(u.ativo?' checked':'')+'> ativo</label>'
+    +'<label class="linha" style="gap:6px"><input type="checkbox" id="ub-'+uid+'"'+(u.bloqueado?' checked':'')+'> bloqueado</label>'
+    +'<div class="campo" style="margin:0"><label>Acesso válido até</label><input type="date" id="uv-'+uid+'" value="'+esc(u.valido_ate||'')+'"></div>'
+    +'<button class="btn-esm btn-peq" data-salvar-user="'+esc(uid)+'">Salvar</button></div>';
+  if(MODO==='mestre'){
+    h+='<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line)">'
+      +'<div style="font-size:12.5px;color:var(--tx2);margin-bottom:8px"><b>Definir nova senha</b> — a senha não é exibida nem registrada no painel.</div>'
+      +'<div class="linha" style="align-items:flex-end;gap:10px"><div class="campo" style="min-width:260px;margin:0"><label>Nova senha (mínimo 8 caracteres)</label>'
+      +'<input type="password" autocomplete="new-password" id="us-'+uid+'" placeholder="Digite a nova senha"></div>'
+      +'<button class="btn-esm btn-peq" data-trocar-senha="'+esc(uid)+'">Atualizar senha</button></div></div>';
+  }
+  h+='<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line)">'
+    +'<div style="font-size:12.5px;color:var(--tx2);margin-bottom:8px">Exceções individuais desta pessoa — '
+    +'negação individual vence o perfil.</div>'+blocoSensiveisUsuario(uid)+'</div>';
+  h+='</div>';
+  linha.firstElementChild.innerHTML=h;
+  linha.style.display='';
+}
+
+var ACOES_SENSIVEIS=['ver_valores','ver_nomes','ver_valores_individuais','ver_remuneracao'];
+function blocoSensiveisUsuario(uid){
+  var negadas={};
+  (D.excecoes||[]).forEach(function(x){ if(x.usuario_id===uid && !x.permitido) negadas[x.recurso_id+'|'+x.acao]=1; });
+  var meus=(D.escopos||[]).filter(function(e){ return e.usuario_id===uid; });
+  var depOK={}, grpNao={};
+  meus.forEach(function(e){ if(e.tipo==='departamento'&&e.permitido) depOK[e.valor]=1;
+                            if(e.tipo==='grupo'&&!e.permitido) grpNao[e.valor]=1; });
+  var h='<div class="linha" style="gap:16px;margin-bottom:10px"><b style="font-size:12.5px">Departamentos que pode ver</b>'
+       +'<span style="color:var(--tx3);font-size:12px">nenhum marcado = vê todos</span></div><div class="linha" style="gap:14px">';
+  D.departamentos.forEach(function(d){
+    h+='<label class="linha" style="gap:6px"><input type="checkbox" data-dep="'+esc(d.id)+'"'+(depOK[d.id]?' checked':'')+'> <b>'+esc(d.id)+'</b></label>';
+  });
+  h+='</div><div class="linha" style="gap:16px;margin:12px 0 8px"><b style="font-size:12.5px">Grupos bloqueados</b>'
+    +'<span style="color:var(--tx3);font-size:12px">vale em todos os departamentos onde o grupo existe</span></div><div class="linha" style="gap:14px">';
+  gruposDistintos().forEach(function(g){
+    h+='<label class="linha" style="gap:6px;min-width:200px"><input type="checkbox" data-grp="'+esc(g.nome)+'"'+(grpNao[g.nome]?' checked':'')+'> '
+      + esc(g.nome)+(g.deptos.length>1?' <span class="tag tag-av">'+g.deptos.length+' deptos</span>':'')+'</label>';
+  });
+  h+='</div><div style="margin:12px 0 8px"><b style="font-size:12.5px">Informações sensíveis</b> '
+    +'<span style="color:var(--tx3);font-size:12px">marcado = NÃO vê</span></div>';
+  D.recursos.filter(function(r){return !r.pai_id;}).forEach(function(r){
+    var acoes=D.acoes.filter(function(a){ return a.recurso_id===r.id && ACOES_SENSIVEIS.indexOf(a.acao)>=0; });
+    if(!acoes.length) return;
+    h+='<div style="margin-bottom:6px"><div style="font-size:12.5px">'+(r.icone?esc(r.icone)+' ':'')+'<b>'+esc(r.nome)+'</b></div>'
+      +'<div class="linha" style="gap:14px;padding-left:14px">';
+    acoes.forEach(function(a){
+      var k=r.id+'|'+a.acao;
+      h+='<label class="linha" style="gap:6px"><input type="checkbox" data-sens="'+esc(k)+'"'+(negadas[k]?' checked':'')+'> '+esc(a.rotulo||a.acao)+'</label>';
+    });
+    h+='</div></div>';
+  });
+  return h+'<button class="btn-esm btn-peq" data-salvar-escopo="'+esc(uid)+'" style="margin-top:8px">Salvar exceções desta pessoa</button>';
+}
+
+/* ---------- Perfis ---------- */
+function telaPerfis(){
+  var h = titulo('🛡️','Perfis de Acesso','Um perfil é um crachá: define o que abre, e você entrega para quem precisar.',
+                 '<button class="btn btn-peq" id="bt-novo-perfil2">＋ Novo perfil</button>');
+  h += '<div class="card"><table><thead><tr><th>Perfil</th><th>Identificador</th><th>Quem tem</th>'
+    +  '<th>Alcance na estrutura</th><th>Situação</th><th style="width:1%"></th></tr></thead><tbody>';
+  D.perfis.forEach(function(p){
+    var quem=D.vinculos.filter(function(v){return v.perfil_id===p.id;}).length;
+    var alc = p.acesso_total ? '<span class="tag tag-mestre">tudo</span>' : resumoAlcance(p.id);
+    h += '<tr><td><b>'+esc(p.nome)+'</b><div style="color:var(--tx2);font-size:11.5px">'+esc(p.descricao||'')+'</div></td>'
+      +  '<td><code>'+esc(p.id)+'</code></td>'
+      +  '<td>'+(quem?quem+' pessoa(s)':'<span style="color:var(--tx3)">sem titular</span>')+'</td>'
+      +  '<td>'+alc+'</td>'
+      +  '<td>'+(p.ativo?'<span class="tag tag-ok">ativo</span>':'<span class="tag tag-off">inativo</span>')+'</td>'
+      +  '<td><button class="btn btn-peq" data-abrir-perm="'+esc(p.id)+'">Abrir permissões</button></td></tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+function resumoAlcance(pid){
+  var n=(D.__escPorPerfil&&D.__escPorPerfil[pid])||0;
+  return n ? n+' marcação(ões)' : '<span style="color:var(--tx3)">nada marcado</span>';
+}
+
+/* ---------- Permissoes (a tela principal) ---------- */
+function crachasDe(uid){ return D.vinculos.filter(function(v){ return v.usuario_id===uid; }); }
+function pessoasDoPerfil(pid){
+  return D.vinculos.filter(function(v){ return v.perfil_id===pid; })
+    .map(function(v){ return D.usuarios.filter(function(u){ return u.id===v.usuario_id; })[0]; })
+    .filter(Boolean);
+}
+
+/* Escolher a pessoa primeiro. Os crachas continuam existindo por tras — sem eles,
+   cada pessoa nova obrigaria a remarcar tudo — mas quem trabalha aqui pensa em gente,
+   nao em cracha. Por isso a tela abre perguntando "para quem?". */
+function blocoEscolhaPessoa(){
+  var h = '<div class="card"><h3>Para quem você quer ajustar o acesso?</h3>'
+    + '<div style="font-size:12.5px;color:var(--tx2);margin-bottom:14px">Escolha a pessoa. '
+    + 'Eu mostro o que ela alcança hoje e você ajusta ali mesmo.</div>'
+    + '<table><thead><tr><th>Pessoa</th><th>Crachá</th><th>O que alcança hoje</th><th style="width:1%"></th></tr></thead><tbody>';
+  D.usuarios.forEach(function(u){
+    var vs = crachasDe(u.id);
+    var resumo;
+    if(!vs.length) resumo = '<span style="color:var(--tx3)">nada — sem crachá</span>';
+    else if(vs.some(function(v){ return ehMestre(v.perfil_id); })) resumo = 'a plataforma inteira';
+    else {
+      var n = vs.reduce(function(a,v){ return a + ((D.__escPorPerfil&&D.__escPorPerfil[v.perfil_id])||0); }, 0);
+      resumo = n ? n + ' marcação(ões) na estrutura' : '<span style="color:var(--tx3)">o crachá ainda não libera nada</span>';
+    }
+    h += '<tr><td><b>'+esc(u.nome||'(sem nome)')+'</b><div style="color:var(--tx2);font-size:12px">'+esc(u.email)+'</div></td>'
+      +  '<td>'+(vs.length ? vs.map(function(v){ return '<span class="tag '+(ehMestre(v.perfil_id)?'tag-mestre':'tag-perfil')+'">'+esc(nomePerfil(v.perfil_id))+'</span>'; }).join('')
+                          : '<span style="color:var(--tx3)">—</span>')+'</td>'
+      +  '<td>'+resumo+'</td>'
+      +  '<td><button class="btn-esm btn-peq" data-pessoa="'+esc(u.id)+'">Ajustar acesso</button></td></tr>';
+  });
+  h += '</tbody></table>';
+  h += '<div style="margin-top:14px;font-size:12.5px;color:var(--tx2)">Não achou a pessoa? Ela precisa existir como '
+    +  'usuário primeiro — veja a aba <b>Usuários</b>.</div></div>';
+  return h;
+}
+
+function blocoSemCracha(u){
+  var disp = D.perfis.filter(function(p){ return p.ativo; });
+  return '<div class="card"><h3>'+esc(u.nome||u.email)+' ainda não tem crachá</h3>'
+    + '<div style="font-size:13px;color:var(--tx2);margin-bottom:12px">Sem crachá, esta pessoa não alcança nada. '
+    + 'Escolha um crachá existente — ou crie um novo só para ela, se o caso for diferente de todos os outros.</div>'
+    + '<div class="linha"><select id="sel-dar-cracha" style="min-width:280px">'
+    + disp.map(function(p){ return '<option value="'+esc(p.id)+'">'+esc(p.nome)+(p.acesso_total?' — alcança tudo':'')+'</option>'; }).join('')
+    + '</select><button class="btn-esm btn-peq" data-dar-cracha="'+esc(u.id)+'">Dar este crachá</button>'
+    + '<button class="btn btn-peq" id="bt-novo-perfil3">＋ Criar um crachá novo</button></div></div>';
+}
+
+function telaPermissoes(){
+  var alternador = '<button class="btn btn-peq" data-modo-perm="pessoa"'+(MODO_PERM==='pessoa'?' style="border-color:var(--ok);color:var(--ok);font-weight:600"':'')+'>Por pessoa</button>'
+                 + '<button class="btn btn-peq" data-modo-perm="cracha"'+(MODO_PERM==='cracha'?' style="border-color:var(--ok);color:var(--ok);font-weight:600"':'')+'>Por crachá</button>';
+
+  if(MODO_PERM==='pessoa' && !PESSOA){
+    return titulo('🔒','Gestão de Permissões','Comece pela pessoa: escolha quem você quer ajustar.', alternador)
+         + blocoEscolhaPessoa();
+  }
+
+  var u = PESSOA ? D.usuarios.filter(function(x){ return x.id===PESSOA; })[0] : null;
+  if(MODO_PERM==='pessoa' && u){
+    var vs = crachasDe(u.id);
+    if(!vs.length){
+      return titulo('🔒','Gestão de Permissões','', alternador
+             + ' <button class="btn btn-peq" id="bt-trocar-pessoa">Trocar de pessoa</button>')
+           + blocoSemCracha(u);
+    }
+    if(!PERFIL || !vs.some(function(v){ return v.perfil_id===PERFIL; })) PERFIL = vs[0].perfil_id;
+  }
+
+  if(!PERFIL) PERFIL = (D.perfis[0]||{}).id;
+  var p = perfil(PERFIL) || {};
+  var sel = MODO_PERM==='cracha'
+    ? '<label style="font-size:12.5px">Crachá:</label> <select id="sel-perfil">'
+      + D.perfis.map(function(x){ return '<option value="'+esc(x.id)+'"'+(x.id===PERFIL?' selected':'')+'>'+esc(x.nome)+'</option>'; }).join('')
+      + '</select>'
+    : '<button class="btn btn-peq" id="bt-trocar-pessoa">Trocar de pessoa</button>';
+  var h = titulo('🔒','Gestão de Permissões',
+        MODO_PERM==='pessoa'
+          ? 'Ajustando o acesso de <b>'+esc(u.nome||u.email)+'</b>.'
+          : 'Defina o nível de acesso de cada crachá para cada módulo, departamento, grupo e linha.',
+        alternador + ' ' + sel);
+
+  if(MODO_PERM==='pessoa' && u){
+    var vs2 = crachasDe(u.id);
+    var outros = pessoasDoPerfil(PERFIL).filter(function(x){ return x.id!==u.id; });
+    h += '<div class="aviso'+(outros.length?'':' bom')+'">'
+      +  '<b>'+esc(u.nome||u.email)+'</b> usa o crachá <b>'+esc(nomePerfil(PERFIL))+'</b>'
+      +  (vs2.length>1 ? ' (e mais '+(vs2.length-1)+')' : '') + '. '
+      +  (outros.length
+           ? 'Atenção: este mesmo crachá vale para ' + outros.map(function(x){ return '<b>'+esc(x.nome||x.email)+'</b>'; }).join(', ')
+             + '. O que você mudar aqui muda para essas pessoas também. Se a mudança é só para '+esc((u.nome||u.email).split(' ')[0])
+             + ', crie um crachá próprio.'
+           : 'Hoje ninguém mais usa este crachá, então o que você mudar vale só para ela.')
+      +  '</div>';
+    if(vs2.length>1){
+      h += '<div class="linha" style="margin-bottom:12px"><span style="font-size:12.5px;color:var(--tx2)">Crachá que estou editando:</span>'
+        +  vs2.map(function(v){ return '<button class="btn btn-peq" data-usar-cracha="'+esc(v.perfil_id)+'"'
+             + (v.perfil_id===PERFIL?' style="border-color:var(--ok);color:var(--ok);font-weight:600"':'')+'>'+esc(nomePerfil(v.perfil_id))+'</button>'; }).join('')
+        +  '</div>';
+    }
+  }
+
+  h += '<div class="abas">'
+    +  ['matriz|Matriz de Permissões','telas|Telas do Módulo','globais|Regras Globais','pessoas|Pessoas com este perfil']
+       .map(function(a){ var q=a.split('|');
+         return '<button data-subaba="'+q[0]+'"'+(SUBABA===q[0]?' class="on"':'')+'>'+q[1]+'</button>'; }).join('')
+    +  '</div>';
+
+  if(p.acesso_total){
+    return h + '<div class="aviso"><b>Acesso total.</b> Este perfil alcança qualquer recurso da plataforma, '
+      + 'inclusive módulos que ainda não existem. Por isso não tem matriz: ela ficaria desatualizada a cada módulo novo.</div>';
+  }
+
+  h += '<div class="colunas"><div class="principal">';
+  if(SUBABA==='matriz')       h += blocoMatriz();
+  else if(SUBABA==='telas')   h += blocoTelas();
+  else if(SUBABA==='globais') h += blocoGlobais();
+  else                        h += blocoPessoas();
+  h += '</div><div class="lado">'+blocoResumo()+blocoAcoesRapidas()+'</div></div>';
+
+  h += '<div class="rodape">'
+    +  '<button class="btn" id="bt-cancelar">Cancelar</button>'
+    +  '<button class="btn" id="bt-limpar">Limpar alterações</button>'
+    +  '<button class="btn-esm" id="bt-salvar"'+(SUJO?'':' disabled')+'>🔒 Salvar permissões</button></div>';
+  return h;
+}
+
+function blocoMatriz(){
+  if(!D.linhas.length && !D.grupos.length){
+    return '<div class="card"><div class="vazio">A estrutura ainda não foi sincronizada. '
+         + 'Vá em Configurações → Sincronizar estrutura do Orçado.</div></div>';
+  }
+  var h = '<div class="card"><div class="filtros">'
+    + campoSelect('f-modulo','Módulo', [['','Todos os Módulos']].concat(modulos().map(function(m){return [m.id,m.nome];})), FILTRO.modulo)
+    + campoSelect('f-depto','Departamento', [['','Todos os Departamentos']].concat(D.departamentos.map(function(d){return [d.id, d.nome+' ('+d.id+')'];})), FILTRO.depto)
+    + campoSelect('f-grupo','Grupo', [['','Todos os Grupos']].concat(gruposDistintos().map(function(g){return [g.nome,g.nome];})), FILTRO.grupo)
+    + campoSelect('f-linha','Linha', [['','Todas as Linhas']].concat(D.linhas.slice(0,600).map(function(l){return [l.id, l.id+' — '+l.nome];})), FILTRO.linha)
+    + '</div>';
+
+  if(FILTRO.modulo && FILTRO.modulo!=='orcamento'){
+    return h + '<div class="vazio">A estrutura de departamentos, grupos e linhas é do Orçado x Realizado. '
+      + 'O módulo escolhido ainda não tem estrutura mapeada — no Benefícios, o recorte é por colaborador '
+      + 'e centro de custo, e vamos tratá-lo depois.</div></div>';
+  }
+
+  h += '<div class="matriz"><table><thead><tr><th>Estrutura</th>'
+    +  COLUNAS.map(function(c){ return '<th class="acao">'+c.ico+' '+c.rot+'</th>'; }).join('')
+    +  '</tr></thead><tbody>';
+
+  var deps = D.departamentos.filter(function(d){ return !FILTRO.depto || d.id===FILTRO.depto; });
+  var achou=false;
+  deps.forEach(function(d){
+    var no={tipo:'departamento', valor:d.id, rotulo:d.nome+' ('+d.id+')', pai:null};
+    var gs=filhosDe(no).filter(function(g){ return !FILTRO.grupo || g.valor===FILTRO.grupo; });
+    if(FILTRO.grupo && !gs.length) return;
+    achou=true;
+    var aberto = ABERTO['d:'+d.id] !== false;
+    h += linhaMatriz(no, 0, gs.length, aberto, '📁');
+    if(!aberto) return;
+    gs.forEach(function(g){
+      var ls=filhosDe(g).filter(function(l){ return !FILTRO.linha || l.valor===FILTRO.linha; });
+      if(FILTRO.linha && !ls.length) return;
+      var abertoG = !!ABERTO['g:'+d.id+'|'+g.valor];
+      h += linhaMatriz(g, 1, ls.length, abertoG, '👥');
+      if(!abertoG) return;
+      ls.forEach(function(l){ h += linhaMatriz(l, 2, 0, false, '·'); });
+    });
+  });
+  if(!achou) h += '<tr><td colspan="5"><div class="vazio">Nada com esses filtros.</div></td></tr>';
+  h += '</tbody></table></div>';
+
+  h += '<div class="card" style="margin:14px 0 0"><h3>Legenda de permissões</h3><div class="legenda">'
+    +  '<div><b style="color:var(--ok)">＋ Permitido</b>acesso total à funcionalidade</div>'
+    +  '<div><b style="color:var(--warn)">— Limitado</b>parte liberada, parte não — há exceções abaixo</div>'
+    +  '<div><b style="color:var(--bad)">✕ Bloqueado</b>sem acesso</div>'
+    +  '<div><b style="color:var(--tx3)">— Não aplicável</b>a tela não tem essa ação</div>'
+    +  '</div><div style="margin-top:10px;font-size:12.5px;color:var(--tx2)">'
+    +  'Clicar em um departamento ou grupo vale para tudo que está dentro dele. Para abrir exceção, '
+    +  'expanda e clique só no item que deve ser diferente — o pai passa a mostrar <b>Limitado</b>.</div></div>';
+  return h+'</div>';
+}
+
+function linhaMatriz(no, nivel, qtdFilhos, aberto, ico){
+  var chaveAb = no.tipo==='departamento' ? 'd:'+no.valor : (no.tipo==='grupo' ? 'g:'+no.dep+'|'+no.valor : '');
+  var seta = qtdFilhos ? '<span class="setinha" data-abrir="'+esc(chaveAb)+'">'+(aberto?'⌄':'›')+'</span>' : '<span class="setinha">&nbsp;</span>';
+  var extra = no.tipo==='linha' ? '<span style="color:var(--tx3);font-size:11.5px"> · '+esc(no.valor)+'</span>' : '';
+  var h = '<tr class="no'+nivel+'"><td class="est">'+seta+' '+ico+' '+esc(no.rotulo)+extra
+        + (qtdFilhos?' <span style="color:var(--tx3);font-size:11.5px">('+qtdFilhos+')</span>':'')+'</td>';
+  COLUNAS.forEach(function(c){
+    var st=estadoNo(no,c.id);
+    var rot = st==='p'?'Permitido':(st==='l'?'Limitado':'Bloqueado');
+    h += '<td class="cel"><span class="pill '+st+'" data-no="'+esc(no.tipo)+'|'+esc(no.valor)+'|'+esc(no.dep||'')+'" '
+      +  'data-acao="'+c.id+'">'+rot+'</span></td>';
+  });
+  return h+'</tr>';
+}
+
+function blocoTelas(){
+  var h='<div class="card"><h3>Telas do módulo Orçado x Realizado</h3>'
+    +  '<div style="font-size:12.5px;color:var(--tx2);margin-bottom:12px">Onde a pessoa pode entrar. '
+    +  'Uma tela sem a ação marcada não aparece para o perfil. O traço significa que a tela não tem essa ação.</div>'
+    +  '<div class="matriz"><table><thead><tr><th>Tela</th>'
+    +  COLUNAS.map(function(c){ return '<th class="acao">'+c.ico+' '+c.rot+'</th>'; }).join('')+'</tr></thead><tbody>';
+  modulos().forEach(function(m){
+    var telas=telasDoModulo(m.id);
+    h += '<tr class="no0"><td class="est">'+(m.icone||'')+' '+esc(m.nome)+'</td>'
+      +  COLUNAS.map(function(c){
+           var k=chavePerm(m.id,c.tela);
+           var tem=acoesDe(m.id).indexOf(c.tela)>=0;
+           if(!tem) return '<td class="cel"><span class="pill n">—</span></td>';
+           var st=PERM[k]?'p':'b';
+           return '<td class="cel"><span class="pill '+st+'" data-tela="'+esc(m.id)+'|'+c.tela+'">'+(st==='p'?'Permitido':'Bloqueado')+'</span></td>';
+         }).join('')+'</tr>';
+    telas.forEach(function(t){
+      h += '<tr class="no1"><td class="est">'+(t.icone||'·')+' '+esc(t.nome)+'</td>'
+        +  COLUNAS.map(function(c){
+             var tem=acoesDe(t.id).indexOf(c.tela)>=0;
+             if(!tem) return '<td class="cel"><span class="pill n">—</span></td>';
+             var st=PERM[chavePerm(t.id,c.tela)]?'p':'b';
+             return '<td class="cel"><span class="pill '+st+'" data-tela="'+esc(t.id)+'|'+c.tela+'">'+(st==='p'?'Permitido':'Bloqueado')+'</span></td>';
+           }).join('')+'</tr>';
+    });
+  });
+  return h+'</tbody></table></div></div>';
+}
+
+function blocoGlobais(){
+  var h='<div class="card"><h3>Regras globais deste perfil</h3>'
+    +  '<div style="font-size:12.5px;color:var(--tx2);margin-bottom:10px">Ações que não pertencem a uma tela só. '
+    +  '<b>Ver remuneração</b> é a que decide se o perfil enxerga o conteúdo dos grupos RH.</div>';
+  GLOBAIS.forEach(function(g){
+    var existe = D.acoes.some(function(a){ return a.recurso_id===g.recurso && a.acao===g.acao; });
+    if(!existe) return;
+    var on = !!PERM[chavePerm(g.recurso,g.acao)];
+    h += '<div class="chaveta"><div><b>'+esc(g.rot)+'</b><div style="font-size:12px;color:var(--tx2)">'+esc(g.desc)
+      +  ' <code>'+esc(g.recurso)+'·'+esc(g.acao)+'</code></div></div>'
+      +  '<div class="switch'+(on?' on':'')+'" data-tela="'+esc(g.recurso)+'|'+esc(g.acao)+'"><i></i></div></div>';
+  });
+  return h+'</div>';
+}
+
+function blocoPessoas(){
+  var quem=D.vinculos.filter(function(v){return v.perfil_id===PERFIL;});
+  var h='<div class="card"><h3>Quem tem este crachá</h3>';
+  if(!quem.length) return h+'<div class="vazio">Ninguém ainda. Conceda em Usuários → Editar.</div></div>';
+  h+='<table><thead><tr><th>Pessoa</th><th>E-mail</th><th>Até</th></tr></thead><tbody>';
+  quem.forEach(function(v){
+    var u=D.usuarios.filter(function(x){return x.id===v.usuario_id;})[0]||{};
+    h+='<tr><td><b>'+esc(u.nome||'—')+'</b></td><td>'+esc(u.email||'')+'</td><td>'+esc(v.valido_ate||'sem prazo')+'</td></tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+
+function blocoResumo(){
+  var p=perfil(PERFIL)||{};
+  function conta(lista, tipoNo){
+    var n=0;
+    lista.forEach(function(x){ if(estadoNo(x,'visualizar')!=='b') n++; });
+    return n;
+  }
+  var deps=D.departamentos.map(function(d){ return {tipo:'departamento',valor:d.id,rotulo:d.nome,pai:null}; });
+  var gs=[], ls=[];
+  deps.forEach(function(d){ filhosDe(d).forEach(function(g){ gs.push(g); filhosDe(g).forEach(function(l){ ls.push(l); }); }); });
+  var telasOK=D.recursos.filter(function(r){ return PERM[chavePerm(r.id,'visualizar')]; }).length;
+
+  var u = PESSOA ? D.usuarios.filter(function(x){ return x.id===PESSOA; })[0] : null;
+  var h='<div class="card"><h3>👤 '+(u?'Resumo de '+esc((u.nome||u.email).split(' ')[0]):'Resumo do crachá')+'</h3>'
+   +(u?'<div class="chave"><b>'+esc(u.nome||u.email)+'</b><span>'+esc(u.email)+'</span></div>':'')
+   +'<div class="chave"><b>'+esc(p.nome||'—')+'</b><span>'+esc(p.descricao||'crachá em edição')+'</span></div>'
+   +'<div class="resumo"><span>Telas com acesso</span><b>'+telasOK+' / '+D.recursos.length+'</b></div>'
+   +'<div class="resumo"><span>Departamentos</span><b>'+conta(deps)+' / '+deps.length+'</b></div>'
+   +'<div class="resumo"><span>Grupos</span><b>'+conta(gs)+' / '+gs.length+'</b></div>'
+   +'<div class="resumo"><span>Linhas</span><b>'+conta(ls)+' / '+ls.length+'</b></div>'
+   +(SUJO?'<div class="aviso" style="margin:12px 0 0">Há alterações não salvas.</div>':'')
+   +'</div>';
+  return h;
+}
+
+function blocoAcoesRapidas(){
+  return '<div class="card"><h3>⚡ Ações rápidas</h3>'
+   +'<button class="btn btn-peq" id="bt-clonar" style="width:100%;text-align:left;margin-bottom:8px">'
+   +'<b>Clonar permissões</b><div style="font-size:11.5px;color:var(--tx2)">Copiar deste perfil para outro</div></button>'
+   +'<button class="btn btn-peq" id="bt-zerar" style="width:100%;text-align:left">'
+   +'<b>Redefinir permissões</b><div style="font-size:11.5px;color:var(--tx2)">Voltar tudo para bloqueado</div></button>'
+   +'</div>';
+}
+
+function campoSelect(id,rot,opcoes,valor){
+  return '<div class="campo"><label>'+esc(rot)+'</label><select id="'+id+'">'
+   + opcoes.map(function(o){ return '<option value="'+esc(o[0])+'"'+(String(o[0])===String(valor)?' selected':'')+'>'+esc(o[1])+'</option>'; }).join('')
+   + '</select></div>';
+}
+
+/* ---------- cadastros ---------- */
+function telaDepartamentos(){
+  var h=titulo('🏛️','Departamentos','Como o Orçado grava — e o que está vazio.');
+  h+='<div class="card"><table><thead><tr><th>Sigla</th><th>Nome</th><th>Grupos</th><th>Linhas</th><th>Situação</th></tr></thead><tbody>';
+  D.departamentos.forEach(function(d){
+    var g=gruposDe(d.id).length, l=D.linhas.filter(function(x){return x.departamento_id===d.id;}).length;
+    h+='<tr><td><b>'+esc(d.id)+'</b></td><td>'+esc(d.nome)+'</td><td>'+g+'</td><td>'+l+'</td>'
+      +'<td>'+(g?'<span class="tag tag-ok">em uso</span>':'<span class="tag tag-av">sem grupos</span>')+'</td></tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+function telaGrupos(){
+  var h=titulo('🗂️','Grupos','O bloqueio por grupo vale pelo nome, em todos os departamentos onde ele existe.');
+  h+='<div class="card"><table><thead><tr><th>Grupo</th><th>Aparece em</th><th>Linhas</th></tr></thead><tbody>';
+  gruposDistintos().forEach(function(g){
+    var linhas=D.linhas.filter(function(l){return l.grupo_nome===g.nome;}).length;
+    h+='<tr><td><b>'+esc(g.nome)+'</b></td><td>'+g.deptos.map(function(d){return '<span class="tag tag-perfil">'+esc(d)+'</span>';}).join('')
+      +(g.deptos.length>1?' <span class="tag tag-av">'+g.deptos.length+' deptos</span>':'')+'</td><td>'+linhas+'</td></tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+function telaLinhas(){
+  var h=titulo('📋','Linhas','O nível mais fino do orçamento. Marque como sensível o que não pode circular.');
+  if(!D.linhas.length) return h+'<div class="card"><div class="vazio">Nenhuma linha cadastrada. '
+    +'Configurações → Sincronizar estrutura do Orçado.</div></div>';
+  h+='<div class="card"><div class="linha" style="margin-bottom:10px">'
+    +'<input id="busca-linha" placeholder="Buscar por código, nome, grupo…" style="min-width:280px" value="'+esc(window.__buscaLinha||'')+'">'
+    +'<span class="espaco" style="color:var(--tx2);font-size:12.5px">'+D.linhas.length+' linhas</span></div>';
+  var t=(window.__buscaLinha||'').toLowerCase();
+  var lista=D.linhas.filter(function(l){ return !t || (l.id+' '+l.nome+' '+l.grupo_nome+' '+l.departamento_id).toLowerCase().indexOf(t)>=0; });
+  h+='<div class="matriz"><table><thead><tr><th>Código</th><th>Nome</th><th>Departamento</th><th>Grupo</th><th>Sensível</th></tr></thead><tbody>';
+  lista.slice(0,800).forEach(function(l){
+    h+='<tr><td><code>'+esc(l.id)+'</code></td><td>'+esc(l.nome)+'</td><td>'+esc(l.departamento_id)+'</td><td>'+esc(l.grupo_nome)+'</td>'
+      +'<td><input type="checkbox" data-sensivel="'+esc(l.id)+'"'+(l.sensivel?' checked':'')+'></td></tr>';
+  });
+  if(lista.length>800) h+='<tr><td colspan="5" style="color:var(--tx2)">…mostrando as primeiras 800 de '+lista.length+'. Use a busca.</td></tr>';
+  return h+'</tbody></table></div></div>';
+}
+
+function telaLogs(){
+  var h=titulo('🕘','Logs de Ações','O que foi feito no painel, do mais recente para o mais antigo.',
+               '<button class="btn btn-peq" id="bt-recarregar-logs">Recarregar</button>');
+  if(!D.logs.length) return h+'<div class="card"><div class="carregando">Carregando…</div></div>';
+  h+='<div class="card"><div class="matriz"><table><thead><tr><th>Quando</th><th>Quem</th><th>O quê</th><th>Detalhe</th></tr></thead><tbody>';
+  D.logs.forEach(function(l){
+    h+='<tr><td style="white-space:nowrap">'+esc((l.created_at||'').replace('T',' ').slice(0,16))+'</td>'
+      +'<td>'+esc(l.actor||'—')+'</td><td><b>'+esc(l.action||'')+'</b></td>'
+      +'<td style="color:var(--tx2)">'+esc((l.details||'').slice(0,160))+'</td></tr>';
+  });
+  return h+'</tbody></table></div></div>';
+}
+
+function telaConfig(){
+  var h=titulo('⚙️','Configurações','Sincronismo com o módulo e backups da camada de acesso.');
+  h+='<div class="card"><h3>Estrutura do orçamento</h3>'
+   +'<div style="font-size:13px;color:var(--tx2);margin-bottom:12px">Os departamentos, grupos e linhas são '
+   +'lidos do plano do próprio Orçado x Realizado — a mesma fonte que o módulo usa para desenhar as telas. '
+   +'Sincronizar não altera lançamento nenhum: só atualiza o cadastro que esta tela usa para montar a matriz.</div>'
+   +'<div class="linha"><button class="btn-esm btn-peq" id="bt-sync">Sincronizar estrutura do Orçado</button>'
+   +'<span style="color:var(--tx2);font-size:12.5px">hoje: '+D.departamentos.length+' departamentos · '
+   + D.grupos.length+' grupos · '+D.linhas.length+' linhas</span></div>'
+   +'<div id="sync-log" style="margin-top:10px;font-size:12.5px;color:var(--tx2)"></div></div>';
+  h+='<div class="card"><h3>Backups da camada de acesso</h3>'
+   +'<div style="font-size:13px;color:var(--tx2);margin-bottom:10px">Cada backup guarda perfis, permissões, '
+   +'vínculos e escopos em um só registro. Restauração é manual, pelo banco.</div>'
+   +'<button class="btn btn-peq" id="bt-backup">Gerar backup agora</button>'
+   +'<div id="backup-log" style="margin-top:10px;font-size:12.5px;color:var(--tx2)"></div></div>';
+  return h;
+}
+
+/* ===========================================================================
+   GRAVACAO
+   =========================================================================== */
+function carregarPerfil(pid){
+  PERFIL=pid; PERM={}; ESC={}; SUJO=false;
+  return Promise.all([
+    api('perfil_permissoes?select=recurso_id,acao,permitido&perfil_id=eq.'+encodeURIComponent(pid)),
+    api('perfil_escopos?select=tipo,valor,acao,permitido&perfil_id=eq.'+encodeURIComponent(pid))
+  ]).then(function(r){
+    r[0].forEach(function(x){ if(x.permitido) PERM[chavePerm(x.recurso_id,x.acao)]=true; });
+    r[1].forEach(function(x){ ESC[chaveEsc(x.tipo,x.valor,x.acao)] = !!x.permitido; });
+    desenhar();
+  });
+}
+
+function salvar(){
+  if(!PERFIL) return;
+  var telasIds = D.recursos.map(function(r){ return r.id; });
+  var permNovas=[];
+  Object.keys(PERM).forEach(function(k){
+    var p=k.split('|');
+    permNovas.push({ perfil_id:PERFIL, recurso_id:p[0], acao:p[1], permitido:true });
+  });
+  var escNovas=[];
+  Object.keys(ESC).forEach(function(k){
+    var p=k.split('|');
+    escNovas.push({ perfil_id:PERFIL, tipo:p[0], valor:p[1], acao:p[2], permitido:!!ESC[k] });
+  });
+
+  $('bt-salvar').disabled=true;
+  banner('Salvando…');
+  comErro(
+    api('perfil_permissoes?perfil_id=eq.'+encodeURIComponent(PERFIL),{method:'DELETE'})
+      .then(function(){ return permNovas.length ? api('perfil_permissoes',{method:'POST',body:permNovas,prefer:'return=minimal'}) : null; })
+      .then(function(){ return api('perfil_escopos?perfil_id=eq.'+encodeURIComponent(PERFIL),{method:'DELETE'}); })
+      .then(function(){ return escNovas.length ? api('perfil_escopos',{method:'POST',body:escNovas,prefer:'return=minimal'}) : null; })
+      .then(function(){
+        SUJO=false;
+        banner('<b>Permissões salvas.</b> '+permNovas.length+' liberação(ões) de tela e '+escNovas.length
+             + ' marcação(ões) na estrutura. <b>Lembre-se:</b> os módulos ainda não aplicam isto.','bom');
+        return recarregar();
+      }),
+    'salvar as permissões'
+  ).then(null,function(){}).then(function(){ var b=$('bt-salvar'); if(b) b.disabled=false; });
+}
+
+/* ---------- sincronismo com o plano do Orcado ---------- */
+function sincronizarEstrutura(){
+  var log=$('sync-log');
+  log.textContent='Lendo o plano do módulo Orçado x Realizado…';
+  return fetch('/orcado/', {cache:'no-store'}).then(function(r){ return r.text(); }).then(function(txt){
+    var i=txt.indexOf('<script id="db" type="application/json">');
+    if(i<0) throw new Error('Não encontrei o plano dentro do módulo.');
+    var ini=txt.indexOf('>',i)+1, fim=txt.indexOf('</'+'script>', ini);
+    var db=JSON.parse(txt.slice(ini,fim));
+    var linhas=db.lines||[];
+    if(!linhas.length) throw new Error('O plano veio vazio.');
+
+    var deps={}, grupos={}, regs=[];
+    linhas.forEach(function(l){
+      var dep=l.area, gr=l.g||'(sem grupo)';
+      deps[dep]=1;
+      grupos[dep+'|'+gr]=1;
+      regs.push({ id:String(l.id), departamento_id:dep, grupo_nome:gr, nome:String(l.n||''),
+                  cod:String(l.cod||''), origem:'plano' });
+    });
+    var depsBody=Object.keys(deps).map(function(d,i){
+      var ja=D.departamentos.filter(function(x){return x.id===d;})[0];
+      return { id:d, nome: ja?ja.nome:d, ativo:true, ordem: ja?ja.ordem:(50+i) };
+    });
+    var gruposBody=Object.keys(grupos).map(function(k){
+      var p=k.split('|');
+      return { id: slug(p[0]+' '+p[1]), departamento_id:p[0], nome:p[1], ativo:true };
+    });
+    log.textContent='Encontrei '+regs.length+' linhas em '+gruposBody.length+' grupos. Gravando…';
+    return api('departamentos?on_conflict=id',{method:'POST',body:depsBody,prefer:'resolution=merge-duplicates,return=minimal'})
+      .then(function(){ return api('grupos?on_conflict=id',{method:'POST',body:gruposBody,prefer:'resolution=merge-duplicates,return=minimal'}); })
+      .then(function(){
+        var lote=[], p=Promise.resolve();
+        for(var i2=0;i2<regs.length;i2+=200) lote.push(regs.slice(i2,i2+200));
+        lote.forEach(function(parte){
+          p = p.then(function(){ return api('linhas?on_conflict=id',{method:'POST',body:parte,prefer:'resolution=merge-duplicates,return=minimal'}); });
+        });
+        return p;
+      })
+      .then(recarregar)
+      .then(function(){
+        log.innerHTML='<b style="color:var(--ok)">Pronto.</b> '+depsBody.length+' departamentos, '
+          + gruposBody.length+' grupos e '+regs.length+' linhas sincronizados.';
+      });
+  }).catch(function(e){ log.innerHTML='<b style="color:var(--bad)">Não deu certo:</b> '+esc(e.message); });
+}
+
+function gerarBackup(){
+  var log=$('backup-log'); log.textContent='Gerando…';
+  return Promise.all([
+    api('perfis?select=*'), api('perfil_permissoes?select=*'), api('perfil_escopos?select=*'),
+    api('usuario_perfis?select=*'), api('usuario_escopos?select=*'), api('usuario_permissoes?select=*')
+  ]).then(function(r){
+    return api('acesso_backups',{method:'POST',prefer:'return=minimal',body:[{
+      motivo:'gerado pela Administração Mestre',
+      snapshot:{ perfis:r[0], perfil_permissoes:r[1], perfil_escopos:r[2],
+                 usuario_perfis:r[3], usuario_escopos:r[4], usuario_permissoes:r[5] }
+    }]});
+  }).then(function(){ log.innerHTML='<b style="color:var(--ok)">Backup gravado.</b>'; })
+   .catch(function(e){ log.innerHTML='<b style="color:var(--bad)">Falhou:</b> '+esc(e.message); });
+}
+
+function exportarPermissoes(){
+  var linhas=[['perfil','tipo','item','acao','permitido']];
+  return api('perfil_permissoes?select=perfil_id,recurso_id,acao,permitido').then(function(a){
+    a.forEach(function(x){ linhas.push([x.perfil_id,'tela',x.recurso_id,x.acao,x.permitido?'sim':'nao']); });
+    return api('perfil_escopos?select=perfil_id,tipo,valor,acao,permitido');
+  }).then(function(b){
+    b.forEach(function(x){ linhas.push([x.perfil_id,x.tipo,x.valor,x.acao,x.permitido?'sim':'nao']); });
+    var csv=linhas.map(function(l){ return l.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(';'); }).join('\n');
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:'text/csv;charset=utf-8'}));
+    a.download='permissoes-painel-lnb-'+hoje()+'.csv'; a.click();
+  }).catch(function(e){ banner('<b>Não deu certo exportar:</b> '+esc(e.message),'erro'); });
+}
+
+/* ---------- recarga ---------- */
+function recarregar(){
+  return carregarTudo().then(function(){
+    return api('perfil_escopos?select=perfil_id');
+  }).then(function(rows){
+    var c={}; rows.forEach(function(r){ c[r.perfil_id]=(c[r.perfil_id]||0)+1; });
+    D.__escPorPerfil=c;
+    desenhar();
+  });
+}
+
+/* ===========================================================================
+   EVENTOS
+   =========================================================================== */
+document.addEventListener('click', function(ev){
+  var t=ev.target;
+  var pill = t.closest ? t.closest('.pill,.switch,.setinha') : null;
+
+  if(pill && pill.classList.contains('setinha') && pill.dataset.abrir){
+    var k=pill.dataset.abrir;
+    ABERTO[k] = (ABERTO[k]===undefined) ? (k.charAt(0)==='d' ? false : true) : !ABERTO[k];
+    desenhar(); return;
+  }
+  if(pill && pill.dataset.no){
+    var p=pill.dataset.no.split('|');
+    var no;
+    if(p[0]==='departamento') no={tipo:'departamento',valor:p[1],pai:null};
+    else if(p[0]==='grupo')   no={tipo:'grupo',valor:p[1],dep:p[2],pai:{tipo:'departamento',valor:p[2],pai:null}};
+    else {
+      var l=D.linhas.filter(function(x){return x.id===p[1];})[0]||{};
+      var paiG={tipo:'grupo',valor:l.grupo_nome,dep:l.departamento_id,pai:{tipo:'departamento',valor:l.departamento_id,pai:null}};
+      no={tipo:'linha',valor:p[1],dep:l.departamento_id,pai:paiG};
+    }
+    alternarNo(no, pill.dataset.acao); return;
+  }
+  if(pill && pill.dataset.tela){
+    var q=pill.dataset.tela.split('|');
+    alternarTela(q[0],q[1]); return;
+  }
+
+  if(t.tagName!=='BUTTON') return;
+
+  if(t.dataset.tela){ /* menu lateral */
+    if(SUJO && !confirm('Há alterações não salvas. Sair mesmo assim?')) return;
+    TELA=t.dataset.tela; SUJO=false;
+    if(TELA==='logs' && !D.logs.length){
+      api('activity_log?select=created_at,actor,action,details&order=created_at.desc&limit=200')
+        .then(function(r){ D.logs=r; desenhar(); }).catch(function(){});
+    }
+    desenhar(); return;
+  }
+  if(t.dataset.subaba){ SUBABA=t.dataset.subaba; desenhar(); return; }
+  if(t.dataset.abrirPerm){ TELA='permissoes'; SUBABA='matriz'; MODO_PERM='cracha'; PESSOA=null; carregarPerfil(t.dataset.abrirPerm); return; }
+
+  if(t.dataset.modoPerm){
+    if(SUJO && !confirm('Há alterações não salvas. Trocar mesmo assim?')) return;
+    MODO_PERM=t.dataset.modoPerm; PESSOA=null; SUJO=false; desenhar(); return;
+  }
+  if(t.dataset.pessoa){
+    PESSOA=t.dataset.pessoa; SUBABA='matriz';
+    var vsp=crachasDe(PESSOA);
+    if(vsp.length) return void carregarPerfil(vsp[0].perfil_id);
+    desenhar(); return;
+  }
+  if(t.id==='bt-trocar-pessoa'){
+    if(SUJO && !confirm('Há alterações não salvas. Trocar mesmo assim?')) return;
+    PESSOA=null; SUJO=false; desenhar(); return;
+  }
+  if(t.dataset.usarCracha){ carregarPerfil(t.dataset.usarCracha); return; }
+  if(t.dataset.darCracha){
+    var uidD=t.dataset.darCracha, pidD=$('sel-dar-cracha').value;
+    comErro(api('usuario_perfis',{method:'POST',body:[{usuario_id:uidD,perfil_id:pidD,valido_ate:null}],prefer:'return=minimal'})
+      .then(recarregar).then(function(){ return carregarPerfil(pidD); })
+      .then(function(){ banner('<b>Crachá concedido.</b> Agora ajuste o que ele libera e salve.','bom'); }),
+      'conceder o crachá').then(null,function(){});
+    return;
+  }
+  if(t.id==='bt-voltar'){
+    if(SUJO && !confirm('Há alterações não salvas. Sair mesmo assim?')) return;
+    location.href='/'; return;
+  }
+  if(t.dataset.editar){ abrirEditor(t.dataset.editar); return; }
+  if(t.id==='bt-minha-senha'){lnbOpenOwnPasswordDialog(SES,CFG.SUPABASE_URL,CFG.SUPABASE_KEY);return;}
+  if(t.dataset.trocarSenha){
+    var uidS=t.dataset.trocarSenha,usuarioS=D.usuarios.filter(function(x){return x.id===uidS;})[0]||{},campoS=$('us-'+uidS),senhaS=campoS?campoS.value:'';
+    if(senhaS.length<8){banner('<b>A senha precisa ter pelo menos 8 caracteres.</b>','ruim');return;}
+    if(!confirm('Definir uma nova senha para '+(usuarioS.nome||usuarioS.email||'este usuário')+'?'))return;
+    t.disabled=true;
+    comErro(trocarSenhaDeUsuario(uidS,senhaS).then(function(){if(campoS)campoS.value='';banner('<b>Senha atualizada com sucesso.</b>','bom');}),'trocar a senha')
+      .then(function(){t.disabled=false;},function(){t.disabled=false;});
+    return;
+  }
+
+  if(t.dataset.alternar){
+    var uid=t.dataset.alternar, u=D.usuarios.filter(function(x){return x.id===uid;})[0];
+    comErro(api('profiles?id=eq.'+uid,{method:'PATCH',body:{bloqueado:!u.bloqueado},prefer:'return=minimal'})
+      .then(recarregar),'alterar o bloqueio').then(null,function(){});
+    return;
+  }
+  if(t.dataset.conceder){
+    var u2=t.dataset.conceder, pid=$('np-'+u2).value; if(!pid) return;
+    comErro(api('usuario_perfis',{method:'POST',body:[{usuario_id:u2,perfil_id:pid,valido_ate:$('nv-'+u2).value||null}],prefer:'return=minimal'})
+      .then(recarregar).then(function(){ banner('<b>Perfil concedido.</b>','bom'); }),'conceder o perfil').then(null,function(){});
+    return;
+  }
+  if(t.dataset.revogar){
+    var r2=t.dataset.revogar.split('|');
+    comErro(api('usuario_perfis?usuario_id=eq.'+r2[0]+'&perfil_id=eq.'+encodeURIComponent(r2[1]),{method:'DELETE'})
+      .then(recarregar).then(function(){ banner('<b>Perfil revogado.</b>','bom'); }),'revogar o perfil').then(null,function(){});
+    return;
+  }
+  if(t.dataset.salvarUser){
+    var u3=t.dataset.salvarUser;
+    comErro(api('profiles?id=eq.'+u3,{method:'PATCH',prefer:'return=minimal',
+      body:{ ativo:$('ua-'+u3).checked, bloqueado:$('ub-'+u3).checked, valido_ate:$('uv-'+u3).value||null }})
+      .then(recarregar).then(function(){ banner('<b>Usuário atualizado.</b>','bom'); }),'salvar o usuário').then(null,function(){});
+    return;
+  }
+  if(t.dataset.salvarEscopo){
+    var uid4=t.dataset.salvarEscopo, deps=[], grps=[], sens=[];
+    document.querySelectorAll('[data-dep]').forEach(function(c){ if(c.checked) deps.push(c.getAttribute('data-dep')); });
+    document.querySelectorAll('[data-grp]').forEach(function(c){ if(c.checked) grps.push(c.getAttribute('data-grp')); });
+    document.querySelectorAll('[data-sens]').forEach(function(c){ if(c.checked) sens.push(c.getAttribute('data-sens')); });
+    var escopos=deps.map(function(d){ return {usuario_id:uid4,tipo:'departamento',valor:d,permitido:true}; })
+      .concat(grps.map(function(g){ return {usuario_id:uid4,tipo:'grupo',valor:g,permitido:false}; }));
+    var exc=sens.map(function(k){ var q=k.split('|');
+      return {usuario_id:uid4,recurso_id:q[0],acao:q[1],permitido:false,justificativa:'Acesso a Informações'}; });
+    comErro(api('usuario_escopos?usuario_id=eq.'+uid4,{method:'DELETE'})
+      .then(function(){ return escopos.length?api('usuario_escopos',{method:'POST',body:escopos,prefer:'return=minimal'}):null; })
+      .then(function(){ return api('usuario_permissoes?usuario_id=eq.'+uid4+'&acao=in.('+ACOES_SENSIVEIS.join(',')+')',{method:'DELETE'}); })
+      .then(function(){ return exc.length?api('usuario_permissoes',{method:'POST',body:exc,prefer:'return=minimal'}):null; })
+      .then(recarregar).then(function(){ banner('<b>Exceções salvas.</b> Ainda não aplicadas pelos módulos.','bom'); }),
+      'salvar as exceções').then(null,function(){});
+    return;
+  }
+
+  if(t.id==='bt-salvar'){ salvar(); return; }
+  if(t.id==='bt-cancelar' || t.id==='bt-limpar'){ carregarPerfil(PERFIL); return; }
+  if(t.id==='bt-sair'){ sair(); return; }
+  if(t.id==='bt-sync'){ t.disabled=true; sincronizarEstrutura().then(function(){ t.disabled=false; }); return; }
+  if(t.id==='bt-backup'){ gerarBackup(); return; }
+  if(t.id==='bt-exportar-perm'){ exportarPermissoes(); return; }
+  if(t.id==='bt-recarregar-logs'){
+    api('activity_log?select=created_at,actor,action,details&order=created_at.desc&limit=200')
+      .then(function(r){ D.logs=r; desenhar(); }); return;
+  }
+  if(t.id==='bt-zerar'){
+    if(!confirm('Voltar tudo para bloqueado neste perfil? Só vale depois de Salvar.')) return;
+    PERM={}; ESC={}; SUJO=true; desenhar(); return;
+  }
+  if(t.id==='bt-clonar'){
+    var destino=prompt('Copiar as permissões de "'+nomePerfil(PERFIL)+'" para qual perfil? Digite o identificador.\n\n'
+      + D.perfis.filter(function(p){return p.id!==PERFIL;}).map(function(p){return p.id+' — '+p.nome;}).join('\n'));
+    if(!destino) return;
+    if(!perfil(destino)){ alert('Não existe perfil com esse identificador.'); return; }
+    var permB=Object.keys(PERM).map(function(k){ var q=k.split('|'); return {perfil_id:destino,recurso_id:q[0],acao:q[1],permitido:true}; });
+    var escB=Object.keys(ESC).map(function(k){ var q=k.split('|'); return {perfil_id:destino,tipo:q[0],valor:q[1],acao:q[2],permitido:!!ESC[k]}; });
+    comErro(api('perfil_permissoes?perfil_id=eq.'+encodeURIComponent(destino),{method:'DELETE'})
+      .then(function(){ return permB.length?api('perfil_permissoes',{method:'POST',body:permB,prefer:'return=minimal'}):null; })
+      .then(function(){ return api('perfil_escopos?perfil_id=eq.'+encodeURIComponent(destino),{method:'DELETE'}); })
+      .then(function(){ return escB.length?api('perfil_escopos',{method:'POST',body:escB,prefer:'return=minimal'}):null; })
+      .then(recarregar).then(function(){ banner('<b>Permissões copiadas para '+esc(nomePerfil(destino))+'.</b>','bom'); }),
+      'clonar as permissões').then(null,function(){});
+    return;
+  }
+  if(t.id==='bt-novo-perfil' || t.id==='bt-novo-perfil2' || t.id==='bt-novo-perfil3'){
+    var nome=prompt('Nome do novo perfil (o crachá)');
+    if(!nome) return;
+    var id=nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    if(!id){ alert('Nome inválido.'); return; }
+    var paraQuem = (MODO_PERM==='pessoa' && PESSOA) ? PESSOA : null;
+    comErro(api('perfis',{method:'POST',body:[{id:id,nome:nome}],prefer:'return=minimal'})
+      .then(function(){ return paraQuem
+        ? api('usuario_perfis',{method:'POST',body:[{usuario_id:paraQuem,perfil_id:id,valido_ate:null}],prefer:'return=minimal'})
+        : null; })
+      .then(recarregar).then(function(){ TELA='permissoes'; return carregarPerfil(id); })
+      .then(function(){ banner('<b>Crachá criado'+(paraQuem?' e entregue':'')+'.</b> Nada liberado ainda — marque e salve.','bom'); }),
+      'criar o perfil').then(null,function(){});
+    return;
+  }
+});
+
+document.addEventListener('change', function(ev){
+  var t=ev.target;
+  if(t.id==='sel-perfil'){ carregarPerfil(t.value); return; }
+  if(t.id==='f-modulo'){ FILTRO.modulo=t.value; desenhar(); return; }
+  if(t.id==='f-depto'){ FILTRO.depto=t.value; FILTRO.grupo=''; FILTRO.linha=''; desenhar(); return; }
+  if(t.id==='f-grupo'){ FILTRO.grupo=t.value; FILTRO.linha=''; desenhar(); return; }
+  if(t.id==='f-linha'){ FILTRO.linha=t.value; desenhar(); return; }
+  if(t.id==='so-ativos'){ window.__soAtivos=t.checked; desenhar(); return; }
+  if(t.dataset && t.dataset.sensivel){
+    var id=t.dataset.sensivel, v=t.checked;
+    comErro(api('linhas?id=eq.'+encodeURIComponent(id),{method:'PATCH',body:{sensivel:v},prefer:'return=minimal'})
+      .then(function(){ var l=D.linhas.filter(function(x){return x.id===id;})[0]; if(l) l.sensivel=v; }),
+      'marcar a linha').then(null,function(){});
+    return;
+  }
+});
+document.addEventListener('input', function(ev){
+  var t=ev.target;
+  if(t.id==='busca-user'){ window.__busca=t.value; var p=t.selectionStart; desenhar();
+    var n=$('busca-user'); if(n){ n.focus(); n.setSelectionRange(p,p); } return; }
+  if(t.id==='busca-linha'){ window.__buscaLinha=t.value; var p2=t.selectionStart; desenhar();
+    var n2=$('busca-linha'); if(n2){ n2.focus(); n2.setSelectionRange(p2,p2); } return; }
+});
+window.addEventListener('beforeunload', function(e){ if(SUJO){ e.preventDefault(); e.returnValue=''; } });
+
+/* ---------- arranque ---------- */
+function abrirPainel(modo){
+  MODO=modo;
+  $('capa').style.display='none';
+  $('app').style.display='block';   /* '' cairia no display:none do CSS */
+  $('hd-nome').textContent=(ACESSO.usuario&&ACESSO.usuario.nome)||SES.email||'—';
+  $('hd-papel').textContent= modo==='mestre'?'Administrador Mestre':(modo==='delegado'?'Administração delegada':'Modo de implantação');
+  return recarregar().then(function(){ return carregarPerfil((D.perfis[0]||{}).id); });
+}
+function iniciar(){
+  msg('Verificando permissões…');
+  return verificarAcesso().then(function(r){
+    if(!r.ok){
+      var conta=(SES&&SES.email)||(ACESSO&&ACESSO.usuario&&ACESSO.usuario.email)||'desconhecida';
+      $('capa-form').innerHTML='<div style="font-size:12.5px;color:#9FB0C7;margin-bottom:12px;line-height:1.55">'
+        +'Você está conectado como <b style="color:var(--gold)">'+esc(conta)+'</b>.<br>'
+        +'Se essa não é a conta certa, saia do módulo e entre com a conta de administrador.</div>'
+        +'<a href="/orcado/"><button class="btn" style="margin-bottom:8px">Ir para o Orçado x Realizado</button></a>'
+        +'<a href="/beneficios/"><button class="btn">Ir para a Gestão de Benefícios</button></a>';
+      msg(r.motivo,true); return;
+    }
+    return abrirPainel(r.modo);
+  }).catch(function(e){ msg('Falha ao verificar o acesso: '+e.message,true); });
+}
+
+fetch('/api/config').then(function(r){ return r.json(); }).then(function(c){
+  CFG=c;
+  if(!CFG||!CFG.SUPABASE_URL||!CFG.SUPABASE_KEY) throw new Error('Configuração do Supabase indisponível.');
+  SES=lerSessaoGuardada();
+  if(SES) return iniciar();
+  precisaEntrarNoModulo();
+}).catch(function(e){
+  $('capa-form').style.display='none';
+  msg('Não foi possível iniciar: '+e.message,true);
+});
+</script>
+</body>
+</html>
