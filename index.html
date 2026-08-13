@@ -5,28 +5,64 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Central de Gestão LNB</title>
 <style>
+/* Os dois temas vivem em variáveis. Trocar de tema troca as variáveis, não só o
+   fundo — era isso que deixava o texto claro sobre fundo claro. Os tons de texto
+   secundário foram escolhidos para passar de 7:1 de contraste sobre o fundo de
+   cada tema (AAA para texto normal), e nenhuma informação depende só da cor. */
 :root{
-  --deep:#0a1930; --deep2:#0d2140; --gold:#E8B93C; --gold-dim:rgba(232,185,60,.35);
-  --card-orc:#1E63C9; --card-ben:#0F5B44;
-  --txt:#EAF0FA; --txt-muted:#9FB0C7;
+  --deep:#0a1930; --deep2:#0d2140;
+  --gold:#E8B93C; --gold-forte:#F0C75C; --gold-linha:rgba(232,185,60,.38);
+  --txt:#EAF0FA; --txt-muted:#B9C6D9;
+  --fundo:linear-gradient(180deg,#081428 0%, #0a1930 55%, #081020 100%);
+  --brilho1:rgba(232,185,60,.08); --brilho2:rgba(30,99,201,.10);
+  --card-bg:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0));
+  --card-linha:rgba(232,185,60,.30);
+  --card-sombra:0 20px 50px rgba(0,0,0,.35);
+  --chip-bg:rgba(232,185,60,.10);
+}
+body.claro{
+  --gold:#7A5A0E; --gold-forte:#654809; --gold-linha:rgba(138,100,16,.34);
+  --txt:#14202F; --txt-muted:#3F4C60;
+  --fundo:linear-gradient(180deg,#F8F5F0 0%, #EFE9E0 100%);
+  --brilho1:rgba(138,100,16,.05); --brilho2:rgba(30,99,201,.05);
+  --card-bg:rgba(255,255,255,.86);
+  --card-linha:rgba(20,32,47,.14);
+  --card-sombra:0 14px 34px rgba(20,32,47,.10);
+  --chip-bg:rgba(138,100,16,.08);
 }
 *{box-sizing:border-box}
 body{
   margin:0; min-height:100vh; font-family:'Segoe UI',Arial,sans-serif; color:var(--txt);
   background:
-    radial-gradient(circle at 15% 20%, rgba(232,185,60,.08), transparent 30%),
-    radial-gradient(circle at 85% 75%, rgba(30,99,201,.10), transparent 32%),
-    linear-gradient(180deg,#081428 0%, #0a1930 55%, #081020 100%);
+    radial-gradient(circle at 15% 20%, var(--brilho1), transparent 30%),
+    radial-gradient(circle at 85% 75%, var(--brilho2), transparent 32%),
+    var(--fundo);
   background-attachment:fixed;
+  transition:color .15s ease;
 }
 .hub-header{
   display:flex; align-items:center; justify-content:space-between;
-  padding:18px 32px; border-bottom:1px solid var(--gold-dim);
+  padding:18px 32px; border-bottom:1px solid var(--gold-linha);
 }
 .hub-brand{display:flex; align-items:center; gap:14px}
 .hub-brand h1{font-size:20px; letter-spacing:.5px; margin:0; font-weight:800}
-.hub-actions{display:flex; align-items:center; gap:22px; font-size:14px}
-.hub-theme{display:flex; align-items:center; gap:6px; color:var(--txt-muted); cursor:pointer; border:1px solid var(--gold-dim); padding:7px 14px; border-radius:999px}
+.hub-actions{display:flex; align-items:center; gap:14px; font-size:14px}
+.hub-theme{display:flex; align-items:center; gap:6px; color:var(--txt); cursor:pointer;
+  border:1px solid var(--gold-linha); background:var(--chip-bg); padding:7px 14px; border-radius:999px;
+  font:inherit; font-size:13.5px}
+.hub-theme:hover{border-color:var(--gold)}
+
+/* A chave-mestra: discreta, ao lado da marca, e só aparece para quem administra. */
+.hub-chave{
+  display:none; align-items:center; justify-content:center; width:34px; height:34px;
+  border-radius:10px; border:1px solid var(--gold-linha); background:var(--chip-bg);
+  color:var(--gold-forte); cursor:pointer; text-decoration:none; font-size:16px; line-height:1;
+  transition:border-color .15s ease, transform .15s ease;
+}
+.hub-chave:hover{border-color:var(--gold); transform:translateY(-1px)}
+.hub-chave svg{width:18px; height:18px}
+.hub-chave.on{display:inline-flex}
+
 .hub-hero{text-align:center; padding:64px 20px 20px}
 .hub-hero h2{font-size:38px; margin:0 0 10px; font-weight:900}
 .hub-hero p{color:var(--txt-muted); font-size:16px; margin:0}
@@ -34,14 +70,14 @@ body{
 .hub-cards{display:flex; gap:28px; justify-content:center; flex-wrap:wrap; padding:44px 24px 60px; max-width:1000px; margin:0 auto}
 .hub-card{
   width:340px; border-radius:18px; padding:34px 26px 30px; text-align:center;
-  border:1px solid var(--gold-dim); background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+  border:1px solid var(--card-linha); background:var(--card-bg);
   transition:transform .15s ease, box-shadow .15s ease;
 }
-.hub-card:hover{transform:translateY(-4px); box-shadow:0 20px 50px rgba(0,0,0,.35)}
-.hub-card .hub-icon{width:124px; height:124px; margin:0 auto 22px; display:flex; align-items:center; justify-content:center; border-radius:26px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.hub-card:hover{transform:translateY(-4px); box-shadow:var(--card-sombra)}
+.hub-card .hub-icon{width:124px; height:124px; margin:0 auto 22px; display:flex; align-items:center; justify-content:center; border-radius:26px; box-shadow:inset 0 0 0 1px rgba(127,127,127,.12)}
 .hub-card .hub-icon svg{width:64px; height:64px}
 .hub-card.orc .hub-icon{background:radial-gradient(circle,rgba(30,99,201,.32),rgba(30,99,201,.05))}
-.hub-logos-grid{width:220px; margin:0 auto 22px; padding:10px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); gap:8px; border-radius:18px; background:radial-gradient(circle,rgba(15,91,68,.30),rgba(15,91,68,.06)); box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.hub-logos-grid{width:220px; margin:0 auto 22px; padding:10px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); gap:8px; border-radius:18px; background:radial-gradient(circle,rgba(15,91,68,.30),rgba(15,91,68,.06)); box-shadow:inset 0 0 0 1px rgba(127,127,127,.12)}
 .hub-logos-grid .logo-box{background:#fff; border-radius:10px; height:56px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,.18); overflow:hidden; padding:4px}
 .hub-logos-grid .logo-box b{font-weight:800; line-height:1.05; text-align:center}
 .hub-logos-grid .logo-box img{max-width:100%; max-height:100%; object-fit:contain}
@@ -51,16 +87,30 @@ body{
 .hub-btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:13px; border-radius:10px; border:none; font-weight:800; font-size:13.5px; letter-spacing:.4px; cursor:pointer; color:#fff; text-decoration:none}
 .hub-card.orc .hub-btn{background:linear-gradient(135deg,#2C74E8,#1447A0)}
 .hub-card.ben .hub-btn{background:linear-gradient(135deg,#15825F,#0B4A34)}
+body.claro .hub-card.orc .hub-btn{background:linear-gradient(135deg,#1D5FCB,#123C86)}
+body.claro .hub-card.ben .hub-btn{background:linear-gradient(135deg,#0F6B4D,#08402D)}
 .hub-btn:hover{filter:brightness(1.08)}
-.hub-footer{text-align:center; padding:18px; color:var(--txt-muted); font-size:12px; border-top:1px solid var(--gold-dim); display:flex; align-items:center; justify-content:center; gap:10px}
-.hub-footer::before,.hub-footer::after{content:'';display:inline-block;width:60px;height:1px;background:var(--gold-dim)}
+.hub-footer{text-align:center; padding:18px; color:var(--txt-muted); font-size:12px; border-top:1px solid var(--gold-linha); display:flex; align-items:center; justify-content:center; gap:10px}
+.hub-footer::before,.hub-footer::after{content:'';display:inline-block;width:60px;height:1px;background:var(--gold-linha)}
+:focus-visible{outline:2px solid var(--gold); outline-offset:2px}
+/* Login único */
+.hub-login{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(circle at 20% 20%,rgba(232,185,60,.10),transparent 30%),radial-gradient(circle at 80% 75%,rgba(30,99,201,.13),transparent 32%),linear-gradient(160deg,#071326,#0a1930 60%,#071020)}
+.hub-login-card{width:min(430px,100%);padding:32px;border:1px solid var(--gold-linha);border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018));box-shadow:0 28px 80px rgba(0,0,0,.42)}
+.hub-login-brand{display:flex;align-items:center;gap:13px;margin-bottom:24px}.hub-login-brand h2{margin:0;font-size:20px}.hub-login-brand p{margin:3px 0 0;color:#B9C6D9;font-size:12.5px}.hub-login label{display:block;font-size:12px;font-weight:700;margin:13px 0 5px;color:#D7E0EE}.hub-login input,.hub-login select{width:100%;padding:11px 12px;border:1px solid rgba(232,185,60,.30);border-radius:9px;background:#0d213f;color:#fff;font:inherit;box-sizing:border-box}.hub-login input::placeholder{color:#8190A8}.hub-login select option{background:#0d213f}
+.hub-login-btn{width:100%;margin-top:18px;padding:12px;border:0;border-radius:9px;background:linear-gradient(135deg,#E8B93C,#B98213);color:#071326;font:800 14px inherit;cursor:pointer}.hub-login-btn:disabled{opacity:.62;cursor:wait}.hub-login-err{min-height:18px;margin-top:10px;color:#FFB4AB;font-size:12.5px;text-align:center}.hub-login-note{margin-top:17px;padding-top:14px;border-top:1px solid rgba(232,185,60,.18);color:#9FB0C7;font-size:11.5px;line-height:1.5}.hub-who{color:var(--txt-muted);font-size:12.5px}.hub-logout{display:none}.hub-card[hidden]{display:none!important}.hub-empty{display:none;text-align:center;color:var(--txt-muted);padding:42px 22px}.hub-empty.on{display:block}
+@media(max-width:700px){.hub-header{padding:14px 16px;align-items:flex-start;gap:12px}.hub-actions{gap:7px;flex-wrap:wrap;justify-content:flex-end}.hub-who{width:100%;text-align:right}.hub-hero{padding-top:40px}}
 </style>
 </head>
 <body>
 
-<header class="hub-header">
+<div class="hub-login" id="hub-login"><form class="hub-login-card" id="hub-login-form">
+<div class="hub-login-brand"><svg width="42" height="42" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="#0d2140" stroke="#E8B93C" stroke-width="2"/><circle cx="24" cy="24" r="17" fill="none" stroke="#E8B93C" stroke-width="1.3"/><path d="M7,24 Q24,10 41,24M7,24 Q24,38 41,24M24,7V41" fill="none" stroke="#E8B93C" stroke-width="1.3"/></svg><div><h2>Central de Gestão LNB</h2><p>Entre uma vez para acessar seus módulos</p></div></div>
+<label for="hub-login-type">Tipo de acesso</label><select id="hub-login-type"><option value="nominal">Minha conta nominal</option><option value="admin-orcamento">Equipe · Administrador do Orçado</option><option value="leitura-orcamento">Equipe · Leitura do Orçado</option><option value="admin-beneficios">Equipe · Administrador de Benefícios</option><option value="leitura-beneficios">Equipe · Leitura de Benefícios</option><option value="leitura-mobilidade">Equipe · Leitura Uber e 99</option></select>
+<div id="hub-email-wrap"><label for="hub-login-email">E-mail</label><input id="hub-login-email" type="email" autocomplete="username" placeholder="nome@lnb.com.br"></div><label for="hub-login-password">Senha</label><input id="hub-login-password" type="password" autocomplete="current-password" placeholder="Digite sua senha">
+<button class="hub-login-btn" id="hub-login-btn" type="submit">Entrar</button><div class="hub-login-err" id="hub-login-err" aria-live="polite"></div><div class="hub-login-note">Contas nominais identificam quem realizou cada ação. Os acessos compartilhados continuam disponíveis durante a transição.</div>
+</form></div><div id="hub-shell" style="display:none"><header class="hub-header">
   <div class="hub-brand">
-    <svg width="40" height="40" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+    <svg width="40" height="40" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <circle cx="24" cy="24" r="22" fill="#0d2140" stroke="#E8B93C" stroke-width="2"/>
       <circle cx="24" cy="24" r="17" fill="none" stroke="#E8B93C" stroke-width="1.3"/>
       <path d="M7,24 Q24,10 41,24" fill="none" stroke="#E8B93C" stroke-width="1.3"/>
@@ -68,9 +118,20 @@ body{
       <line x1="24" y1="7" x2="24" y2="41" stroke="#E8B93C" stroke-width="1.3"/>
     </svg>
     <h1>CENTRAL DE GESTÃO LNB</h1>
+    <a class="hub-chave" id="hub-chave" href="/admin/" title="Administração Mestre" aria-label="Administração Mestre">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="8" cy="12" r="4"/>
+        <path d="M12 12h9"/>
+        <path d="M18 12v3.2"/>
+        <path d="M15.2 12v2.4"/>
+      </svg>
+    </a>
   </div>
   <div class="hub-actions">
-    <div class="hub-theme" id="hub-theme-toggle">☀️ Tema</div>
+    <span class="hub-who" id="hub-who"></span>
+    <button class="hub-theme" id="hub-password" type="button">⚙️ Senha</button>
+    <button class="hub-theme hub-logout" id="hub-logout" type="button">Sair</button>
+    <button class="hub-theme" id="hub-theme-toggle" type="button">☀️ Tema</button>
   </div>
 </header>
 
@@ -81,9 +142,9 @@ body{
 </div>
 
 <div class="hub-cards">
-  <div class="hub-card orc">
+  <div class="hub-card orc" id="hub-card-orcamento" hidden>
     <div class="hub-icon">
-      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <rect x="14" y="30" width="14" height="28" rx="2" fill="#2C74E8"/>
         <rect x="36" y="14" width="14" height="44" rx="2" fill="#E4483C"/>
         <polyline points="10,38 24,20 38,26 54,8" fill="none" stroke="#E8B93C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -97,7 +158,7 @@ body{
     <p>Planejamento, acompanhamento e análise financeira</p>
     <a class="hub-btn" href="/orcado/">ACESSAR MÓDULO</a>
   </div>
-  <div class="hub-card ben">
+  <div class="hub-card ben" id="hub-card-beneficios" hidden>
     <div class="hub-logos-grid">
       <div class="logo-box"><img src="/logos/logos-novos/prudential.png" alt="Prudential"></div>
       <div class="logo-box"><img src="/logos/logos-novos/sulamerica.png" alt="SulAmérica"></div>
@@ -110,23 +171,22 @@ body{
     <p>Controle integrado dos benefícios dos colaboradores</p>
     <a class="hub-btn" href="/beneficios/">ACESSAR MÓDULO</a>
   </div>
-</div>
-
-<div class="hub-footer">Desenvolvido por Lucas Santos</div>
-
+</div><div class="hub-empty" id="hub-empty">Seu usuário está ativo, mas ainda não recebeu acesso a nenhum módulo. Procure um Administrador Mestre.</div><div class="hub-footer">Desenvolvido por Lucas Santos</div></div>
 <script>
-document.addEventListener('DOMContentLoaded', function(){
-  const themeToggle = document.getElementById('hub-theme-toggle');
-  let light = localStorage.getItem('lnb_hub_theme') === 'light';
-  function applyTheme(){
-    document.body.style.background = light
-      ? 'linear-gradient(180deg,#F8F5F0 0%, #EFE9E0 100%)'
-      : '';
-    document.body.style.color = light ? '#0D1B2A' : '';
-    themeToggle.textContent = light ? '🌙 Tema' : '☀️ Tema';
-  }
-  applyTheme();
-  themeToggle.onclick = function(){ light = !light; localStorage.setItem('lnb_hub_theme', light?'light':'dark'); applyTheme(); };
+'use strict';
+document.addEventListener('DOMContentLoaded',function(){
+var K='lnb_auth_session_v1',KL='lnb_auth_session_beneficios_v1',CFG=null,SES=null,ACE=null,theme=document.getElementById('hub-theme-toggle'),light=localStorage.getItem('lnb_hub_theme')==='light';
+function paint(){document.body.classList.toggle('claro',light);theme.textContent=light?'🌙 Tema':'☀️ Tema';}paint();theme.onclick=function(){light=!light;localStorage.setItem('lnb_hub_theme',light?'light':'dark');paint();};
+function load(){for(var i=0;i<2;i++)try{var x=JSON.parse(localStorage.getItem(i?KL:K)||'null');if(x&&x.access_token){SES=x;return x;}}catch(e){}return null;}function save(x){SES=x;localStorage.setItem(K,JSON.stringify(x));localStorage.setItem(KL,JSON.stringify(x));}function clear(){SES=null;ACE=null;localStorage.removeItem(K);localStorage.removeItem(KL);}function hdr(t){return {'apikey':CFG.SUPABASE_KEY,'Authorization':'Bearer '+t,'Content-Type':'application/json'};}
+async function user(t){var r=await fetch(CFG.SUPABASE_URL+'/auth/v1/user',{headers:hdr(t)});return r.ok?await r.json():null;}async function prof(t,id){var r=await fetch(CFG.SUPABASE_URL+'/rest/v1/profiles?id=eq.'+id+'&select=nome,email,role,ativo,bloqueado,valido_ate',{headers:hdr(t)});if(!r.ok)return null;var a=await r.json();return a[0]||null;}async function access(t){var r=await fetch(CFG.SUPABASE_URL+'/rest/v1/rpc/meu_acesso',{method:'POST',headers:hdr(t),body:'{}'});return r.ok?await r.json():null;}
+async function login(email,password){var r=await fetch(CFG.SUPABASE_URL+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'apikey':CFG.SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({email:email,password:password})});if(!r.ok)return null;var j=await r.json();if(!j.access_token)return null;var x={access_token:j.access_token,refresh_token:j.refresh_token,expires_at:Date.now()+((j.expires_in||3600)*1000)},u=await user(x.access_token);if(!u)return null;var p=await prof(x.access_token,u.id);x.uid=u.id;x.email=u.email;x.nome=p&&p.nome;x.dbRole=p&&p.role;x.role=p&&['administrador','gestor','editor'].indexOf(p.role)>=0?'admin':'readonly';return x;}
+async function refresh(x){if(!x||!x.refresh_token)return null;var r=await fetch(CFG.SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':CFG.SUPABASE_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:x.refresh_token})});if(!r.ok)return null;var j=await r.json();if(!j.access_token)return null;x.access_token=j.access_token;x.refresh_token=j.refresh_token||x.refresh_token;x.expires_at=Date.now()+((j.expires_in||3600)*1000);if(!await user(x.access_token))return null;save(x);return x;}
+function allowed(a,id){if(!a)return false;if(a.acesso_total||a.permissoes==='*')return true;var v=(a.permissoes||{})[id]||[];return Array.isArray(v)&&v.indexOf('visualizar')>=0;}function legacy(x,a,id){if(allowed(a,id))return true;var e=(x&&x.email||'').toLowerCase();if((e==='admin@painel-lnb.local'||e==='leitura@painel-lnb.local')&&id==='orcamento')return true;if((e==='admin-beneficios@painel-lnb.local'||e==='leitura-beneficios@painel-lnb.local'||e==='leitura-mobilidade@painel-lnb.local')&&id==='beneficios')return true;if(/@lnb\.com\.br$/i.test(e)&&a&&Array.isArray(a.perfis)&&a.perfis.length===0)return id==='orcamento'||id==='beneficios';return false;}function admin(a){return !!(a&&(a.acesso_total||a.permissoes==='*'||(a.permissoes&&Array.isArray(a.permissoes.admin)&&a.permissoes.admin.indexOf('administrar')>=0)));}
+async function open(){ACE=await access(SES.access_token);if(!ACE||!ACE.autenticado||!ACE.cadastrado||!ACE.usuario||ACE.usuario.bloqueado||!ACE.usuario.ativo)throw new Error('Esta conta não está liberada para acessar o Painel LNB.');SES.nome=ACE.usuario.nome||SES.nome;save(SES);var o=legacy(SES,ACE,'orcamento'),b=legacy(SES,ACE,'beneficios');document.getElementById('hub-card-orcamento').hidden=!o;document.getElementById('hub-card-beneficios').hidden=!b;document.getElementById('hub-empty').classList.toggle('on',!o&&!b);document.getElementById('hub-chave').classList.toggle('on',admin(ACE));document.getElementById('hub-who').textContent=SES.nome||SES.email||'';document.getElementById('hub-password').style.display=SES.email&&/@lnb\.com\.br$/i.test(SES.email)?'inline-flex':'none';document.getElementById('hub-logout').style.display='inline-flex';document.getElementById('hub-login').style.display='none';document.getElementById('hub-shell').style.display='block';var d=new URLSearchParams(location.search).get('acesso_negado');if(d){alert('Seu usuário não possui acesso a '+(d==='orcamento'?'Orçado x Realizado':'Gestão de Benefícios')+'.');history.replaceState({},'',location.pathname);}}
+async function logout(){if(SES&&SES.access_token)try{await fetch(CFG.SUPABASE_URL+'/auth/v1/logout',{method:'POST',headers:hdr(SES.access_token)});}catch(e){}clear();location.href='/';}async function change(){var p=prompt('Digite a nova senha (mínimo 8 caracteres):');if(p===null)return;if(p.length<8){alert('A senha precisa ter pelo menos 8 caracteres.');return;}if(p!==prompt('Confirme a nova senha:')){alert('As senhas são diferentes.');return;}var r=await fetch(CFG.SUPABASE_URL+'/auth/v1/user',{method:'PUT',headers:hdr(SES.access_token),body:JSON.stringify({password:p})});if(!r.ok){var b={};try{b=await r.json();}catch(e){}throw new Error(b.msg||b.message||b.error||'O Supabase recusou a alteração.');}alert('Senha alterada com sucesso.');}
+var map={'admin-orcamento':'admin@painel-lnb.local','leitura-orcamento':'leitura@painel-lnb.local','admin-beneficios':'admin-beneficios@painel-lnb.local','leitura-beneficios':'leitura-beneficios@painel-lnb.local','leitura-mobilidade':'leitura-mobilidade@painel-lnb.local'},type=document.getElementById('hub-login-type');type.onchange=function(){document.getElementById('hub-email-wrap').style.display=type.value==='nominal'?'block':'none';};
+document.getElementById('hub-login-form').onsubmit=async function(ev){ev.preventDefault();var btn=document.getElementById('hub-login-btn'),err=document.getElementById('hub-login-err'),email=type.value==='nominal'?document.getElementById('hub-login-email').value.trim():map[type.value],pass=document.getElementById('hub-login-password').value;if(!email||!pass){err.textContent='Informe o e-mail e a senha.';return;}btn.disabled=true;btn.textContent='Entrando…';err.textContent='';try{var x=await login(email,pass);if(!x)throw new Error('E-mail ou senha incorretos.');if(type.value==='leitura-mobilidade')x.mobOnly=true;save(x);await open();}catch(e){clear();err.textContent=e.message||'Não foi possível entrar.';}btn.disabled=false;btn.textContent='Entrar';};document.getElementById('hub-logout').onclick=logout;document.getElementById('hub-password').onclick=function(){change().catch(function(e){alert(e.message);});};
+fetch('/api/config').then(function(r){return r.json();}).then(async function(c){CFG=c;if(!CFG||!CFG.SUPABASE_URL||!CFG.SUPABASE_KEY)throw new Error('Configuração indisponível.');var x=load();if(x){if(!x.expires_at||Date.now()>=x.expires_at-60000)x=await refresh(x);if(x){SES=x;try{await open();return;}catch(e){clear();}}}document.getElementById('hub-login').style.display='flex';}).catch(function(e){document.getElementById('hub-login-err').textContent='Não foi possível iniciar: '+e.message;});
 });
 </script>
 
