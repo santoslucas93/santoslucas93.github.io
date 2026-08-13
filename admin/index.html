@@ -288,7 +288,11 @@ function api(caminho, o){
     method:o.method||'GET', headers:h, body:o.body?JSON.stringify(o.body):undefined
   }).then(function(r){
     if(!r.ok) return r.text().then(function(t){ throw new Error(r.status+' — '+t.slice(0,200)); });
-    return r.status===204 ? null : r.json();
+    /* O PostgREST pode responder 200, 201 ou 204 sem corpo quando a chamada usa
+       Prefer: return=minimal. Tentar r.json() nesse caso transforma uma gravacao
+       bem-sucedida em "Unexpected end of JSON input" e interrompe o restante do
+       salvamento. Le o corpo uma vez e so interpreta JSON quando ha conteudo. */
+    return r.text().then(function(t){ return t.trim() ? JSON.parse(t) : null; });
   });
 }
 function rpc(nome,args){ return api('rpc/'+nome,{method:'POST',body:args||{}}); }
@@ -1091,7 +1095,7 @@ function salvar(){
       .then(function(){
         SUJO=false;
         banner('<b>Permissões salvas.</b> '+permNovas.length+' liberação(ões) de tela e '+escNovas.length
-             + ' marcação(ões) na estrutura. <b>Lembre-se:</b> os módulos ainda não aplicam isto.','bom');
+             + ' marcação(ões) na estrutura. O acesso passa a valer no próximo carregamento da Central e dos módulos.','bom');
         return recarregar();
       }),
     'salvar as permissões'
