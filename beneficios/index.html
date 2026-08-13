@@ -3039,14 +3039,21 @@ const AUTH_MOB_READONLY_EMAIL = 'leitura-mobilidade@painel-lnb.local';
 let AUTH_SESSION = null;
 
 function lnbLoadSession(){
-  try{ const raw=localStorage.getItem('lnb_auth_session_beneficios_v1'); if(raw) AUTH_SESSION=JSON.parse(raw); }catch(e){ AUTH_SESSION=null; }
+  try{ const raw=localStorage.getItem('lnb_auth_session_v1')||localStorage.getItem('lnb_auth_session_beneficios_v1'); if(raw) AUTH_SESSION=JSON.parse(raw); }catch(e){ AUTH_SESSION=null; }
 }
 function lnbSaveSession(){
-  try{ localStorage.setItem('lnb_auth_session_beneficios_v1', JSON.stringify(AUTH_SESSION)); }catch(e){ console.error('lnbSaveSession falhou:', e); }
+  try{
+    const raw=JSON.stringify(AUTH_SESSION);
+    localStorage.setItem('lnb_auth_session_v1', raw);
+    localStorage.setItem('lnb_auth_session_beneficios_v1', raw);
+  }catch(e){ console.error('lnbSaveSession falhou:', e); }
 }
 function lnbClearSession(){
   AUTH_SESSION=null;
-  try{ localStorage.removeItem('lnb_auth_session_beneficios_v1'); }catch(e){}
+  try{
+    localStorage.removeItem('lnb_auth_session_v1');
+    localStorage.removeItem('lnb_auth_session_beneficios_v1');
+  }catch(e){}
 }
 
 async function lnbTryLoginAsync(email, password){
@@ -3239,7 +3246,7 @@ function lnbShowAuthBadge(){
   b.innerHTML = '<span>'+label+'</span><a href="#" id="lnb-password-link" style="color:#fcd34d;text-decoration:none;" title="Alterar minha senha">⚙ Senha</a><a href="#" id="lnb-logout-link" style="color:#93c5fd;text-decoration:none;">Sair</a>';
   document.body.appendChild(b);
   document.getElementById('lnb-password-link').onclick = function(ev){ ev.preventDefault(); lnbOpenOwnPasswordDialog(AUTH_SESSION,SUPABASE_URL,SUPABASE_KEY); };
-  document.getElementById('lnb-logout-link').onclick = function(ev){ ev.preventDefault(); lnbClearSession(); location.reload(); };
+  document.getElementById('lnb-logout-link').onclick = function(ev){ ev.preventDefault(); lnbClearSession(); location.href='/'; };
   const back = document.createElement('a');
   back.id = 'lnb-back-link';
   back.href = '/';
@@ -3304,6 +3311,33 @@ function lnbUnlockApp(){
   lnbShowAuthBadge();
 }
 
+async function lnbMeuAcessoCentral(){
+  if(!AUTH_SESSION||!AUTH_SESSION.access_token) return null;
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/rpc/meu_acesso',{
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token,'Content-Type':'application/json'},
+      body:'{}'
+    });
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
+}
+function lnbTemModulo(acesso,recurso){
+  if(!acesso) return false;
+  if(acesso.acesso_total||acesso.permissoes==='*') return true;
+  const acts=(acesso.permissoes||{})[recurso]||[];
+  if(Array.isArray(acts)&&acts.indexOf('visualizar')>=0) return true;
+  const email=(AUTH_SESSION&&AUTH_SESSION.email||'').toLowerCase();
+  if((email==='admin@painel-lnb.local'||email==='leitura@painel-lnb.local')&&recurso==='orcamento') return true;
+  if((email==='admin-beneficios@painel-lnb.local'||email==='leitura-beneficios@painel-lnb.local'||email==='leitura-mobilidade@painel-lnb.local')&&recurso==='beneficios') return true;
+  if(/@lnb\.com\.br$/i.test(email)&&Array.isArray(acesso.perfis)&&acesso.perfis.length===0) return recurso==='orcamento'||recurso==='beneficios';
+  return false;
+}
+function lnbNegarModulo(recurso){
+  location.replace('/?acesso_negado='+encodeURIComponent(recurso));
+}
+
 // window.__lnbBootReady resolve com true (sessão válida — dados
 // carregados ou tentativa feita) ou false (sem sessão — mostra tela de
 // login). O IIFE init(), mais abaixo, aguarda essa mesma promise antes
@@ -3321,6 +3355,8 @@ window.__lnbBootReady = (async function lnbBoot(){
     }
   }
   if (AUTH_SESSION && AUTH_SESSION.access_token){
+    const acesso=await lnbMeuAcessoCentral();
+    if(!lnbTemModulo(acesso,'beneficios')){ lnbNegarModulo('beneficios'); return false; }
     lnbShowLoadingMsg();
     try{ await window.__lnbPullStateAsync(); }catch(e){
       console.error('Falha ao carregar base de Benefícios do Supabase:', e);
@@ -3329,11 +3365,14 @@ window.__lnbBootReady = (async function lnbBoot(){
     }
     return true;
   }
+  location.replace('/');
   return false;
 })();
 
 window.__lnbBootReady.then(function(authed){
   if (authed) return; // desbloqueio acontece no fim de init(), mais abaixo
+  location.replace('/');
+  return;
   function mostrarLogin(){
     const btn = document.getElementById('lnb-auth-btn');
     const err = document.getElementById('lnb-auth-err');
