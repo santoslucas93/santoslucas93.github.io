@@ -256,7 +256,8 @@ var COLUNAS=[
   {id:'incluir',    rot:'Incluir',    ico:'＋', tela:'criar'},
   {id:'excluir',    rot:'Excluir',    ico:'🗑', tela:'excluir'}
 ];
-var ACOES_TELA_CRUD=['visualizar','criar','editar','excluir'];
+var COLUNAS_TELAS=COLUNAS.concat([{id:'importar',rot:'Importar',ico:'📥',tela:'importar'}]);
+var ACOES_TELA_CRUD=['visualizar','criar','editar','excluir','importar'];
 var GLOBAIS=[
   {recurso:'orcamento', acao:'exportar',        rot:'Exportar relatórios',      desc:'Tirar dados do sistema'},
   {recurso:'orcamento', acao:'importar',        rot:'Importar extrato',         desc:'Trazer planilha/extrato para dentro'},
@@ -895,11 +896,11 @@ function blocoTelas(){
     +  '<div style="font-size:12.5px;color:var(--tx2);margin-bottom:12px">Onde a pessoa pode entrar. '
     +  'Uma tela sem a ação marcada não aparece para o perfil. O traço significa que a tela não tem essa ação.</div>'
     +  '<div class="matriz"><table><thead><tr><th>Tela</th>'
-    +  COLUNAS.map(function(c){ return '<th class="acao">'+c.ico+' '+c.rot+'</th>'; }).join('')+'</tr></thead><tbody>';
+    +  COLUNAS_TELAS.map(function(c){ return '<th class="acao">'+c.ico+' '+c.rot+'</th>'; }).join('')+'</tr></thead><tbody>';
   modulos().forEach(function(m){
     var telas=telasDoModulo(m.id);
     h += '<tr class="no0"><td class="est">'+(m.icone||'')+' '+esc(m.nome)+'</td>'
-      +  COLUNAS.map(function(c){
+      +  COLUNAS_TELAS.map(function(c){
            var k=chavePerm(m.id,c.tela);
            var tem=acoesDe(m.id).indexOf(c.tela)>=0;
            if(!tem) return '<td class="cel"><span class="pill n">—</span></td>';
@@ -908,7 +909,7 @@ function blocoTelas(){
          }).join('')+'</tr>';
     telas.forEach(function(t){
       h += '<tr class="no1"><td class="est">'+(t.icone||'·')+' '+esc(t.nome)+'</td>'
-        +  COLUNAS.map(function(c){
+        +  COLUNAS_TELAS.map(function(c){
              var tem=acoesDe(t.id).indexOf(c.tela)>=0;
              if(!tem) return '<td class="cel"><span class="pill n">—</span></td>';
              var st=PERM[chavePerm(t.id,c.tela)]?'p':'b';

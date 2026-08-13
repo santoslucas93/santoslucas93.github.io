@@ -45,7 +45,7 @@ index 9b29f37..d9bb72b 100644
    if(acesso.acesso_total||acesso.permissoes==='*') return true;
    const acts=(acesso.permissoes||{})[recurso]||[];
    if(Array.isArray(acts)&&acts.indexOf('visualizar')>=0) return true;
-@@ -2712,6 +2731,166 @@ function lnbTemModulo(acesso,recurso){
+@@ -2712,6 +2731,230 @@ function lnbTemModulo(acesso,recurso){
    if(/@lnb\.com\.br$/i.test(email)&&Array.isArray(acesso.perfis)&&acesso.perfis.length===0) return recurso==='orcamento'||recurso==='beneficios';
    return false;
  }
@@ -166,6 +166,70 @@ index 9b29f37..d9bb72b 100644
 +      lnbAreaEscopo(l.area)===lnbAreaEscopo(area)&&lnbEscopoPermiteRegistro(l.area,l.g,l.id)
 +    ));
 +  }catch(e){return false;}
++}
++function lnbPodeRealizado(acao){
++  return lnbTemAcao('orcamento.realizado',acao);
++}
++function lnbExigirRealizado(acao,rotulo){
++  if(lnbPodeRealizado(acao))return true;
++  alert('Seu perfil não tem permissão para '+rotulo+'. Ajuste em Administração Mestre → Permissões → Realizado.');
++  return false;
++}
++function lnbInstalarGuardasRealizado(){
++  if(window.__lnbGuardasRealizadoInstaladas)return;
++  window.__lnbGuardasRealizadoInstaladas=true;
++  function envolver(nome,acao,rotulo){
++    const original=window[nome];
++    if(typeof original!=='function')return;
++    window[nome]=function(){
++      if(!lnbExigirRealizado(acao,rotulo))return Promise.resolve(false);
++      return original.apply(this,arguments);
++    };
++  }
++  envolver('lnbApagarRealizadoTemporadaSelecionada','excluir','excluir o Realizado');
++  envolver('lnbApagarSemanaRealizado','excluir','excluir o Realizado');
++  envolver('lnbSaveManualRealizado','criar','criar lançamentos no Realizado');
++  envolver('syncRealizadoFileToSupabase','importar','importar lançamentos no Realizado');
++  const importarOriginal=window.importNewSeasonRealizado;
++  if(typeof importarOriginal==='function'){
++    window.importNewSeasonRealizado=function(file,raw){
++      if(!raw&&!lnbExigirRealizado('importar','importar lançamentos no Realizado')){
++        return Promise.resolve({added:0,decided:0,duplicated:0,skipped:0,abatidos:0,monthsTouched:[],semPermissao:true});
++      }
++      return importarOriginal.apply(this,arguments);
++    };
++  }
++  const imp=document.getElementById('imp');
++  if(imp){
++    imp.addEventListener('change',function(ev){
++      if(!ev.target.files||!ev.target.files[0])return;
++      const substituir=!!document.getElementById('imp-substituir')?.checked;
++      if(!lnbPodeRealizado('importar')||(substituir&&!lnbPodeRealizado('excluir'))){
++        ev.stopImmediatePropagation();
++        ev.target.value='';
++        lnbExigirRealizado(!lnbPodeRealizado('importar')?'importar':'excluir',substituir?'substituir o Realizado existente':'importar lançamentos no Realizado');
++      }
++    },true);
++  }
++}
++function lnbAplicarAcoesRealizado(){
++  const podeCriar=lnbPodeRealizado('criar');
++  const podeImportar=lnbPodeRealizado('importar');
++  const podeExcluir=lnbPodeRealizado('excluir');
++  function mostrar(el,sim){if(el)el.style.display=sim?'':'none';}
++  mostrar(document.getElementById('real-season-manage-panel'),podeExcluir);
++  mostrar(document.getElementById('real-week-delete-panel'),podeExcluir);
++  const salvar=document.getElementById('btn-ml-save');
++  mostrar(salvar&&salvar.closest('.toolbar'),podeCriar);
++  mostrar(document.getElementById('btn-newseason-import'),podeImportar);
++  const arqTemporada=document.getElementById('newseason-import-file');
++  if(arqTemporada)arqTemporada.disabled=!podeImportar;
++  const painelTemporada=document.getElementById('new-season-panel');
++  mostrar(painelTemporada,podeCriar||podeImportar);
++  const imp=document.getElementById('imp');
++  mostrar(imp&&imp.closest('.panel'),podeImportar);
++  const substituir=document.getElementById('imp-substituir');
++  mostrar(substituir&&substituir.closest('label'),podeImportar&&podeExcluir);
 +}
 +function lnbRecursoDaTela(v,area,sup){
 +  if(v==='dept')return LNB_ORCAMENTO_DEPT_RECURSOS[lnbAreaEscopo(area)]||null;
@@ -376,11 +440,13 @@ index 9b29f37..d9bb72b 100644
  const type=(typeSel&&typeSel.value!=='auto')?typeSel.value:defaultType;box.dataset.kind=sel.value;const opt={title,kind:sel.value};
  // Achado real: gráficos de coluna/linha cresciam sem limite conforme o
  // período tinha mais movimentação (ex.: fluxo semanal de uma temporada
-@@ -9763,6 +9900,7 @@ function isNavButtonActive(b){
+@@ -9763,6 +9900,9 @@ function isNavButtonActive(b){
  }
  const renderBaseV39=render;
  render=function(){
++ lnbInstalarGuardasRealizado();
 + lnbAplicarMenuPermitido();
++ setTimeout(lnbAplicarAcoesRealizado,0);
   if(curV==='comp'){curSup=['CS8','INTERLIGAS','LDB','NBB','LOU','NBBTRIO'].includes(curSup)?curSup:'CS8';}
   const logicalV=curV; if(curV==='comp')curV='sup';
   renderBaseV39();
