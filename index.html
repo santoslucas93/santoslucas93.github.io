@@ -5,28 +5,64 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Central de Gestão LNB</title>
 <style>
+/* Os dois temas vivem em variáveis. Trocar de tema troca as variáveis, não só o
+   fundo — era isso que deixava o texto claro sobre fundo claro. Os tons de texto
+   secundário foram escolhidos para passar de 7:1 de contraste sobre o fundo de
+   cada tema (AAA para texto normal), e nenhuma informação depende só da cor. */
 :root{
-  --deep:#0a1930; --deep2:#0d2140; --gold:#E8B93C; --gold-dim:rgba(232,185,60,.35);
-  --card-orc:#1E63C9; --card-ben:#0F5B44;
-  --txt:#EAF0FA; --txt-muted:#9FB0C7;
+  --deep:#0a1930; --deep2:#0d2140;
+  --gold:#E8B93C; --gold-forte:#F0C75C; --gold-linha:rgba(232,185,60,.38);
+  --txt:#EAF0FA; --txt-muted:#B9C6D9;
+  --fundo:linear-gradient(180deg,#081428 0%, #0a1930 55%, #081020 100%);
+  --brilho1:rgba(232,185,60,.08); --brilho2:rgba(30,99,201,.10);
+  --card-bg:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0));
+  --card-linha:rgba(232,185,60,.30);
+  --card-sombra:0 20px 50px rgba(0,0,0,.35);
+  --chip-bg:rgba(232,185,60,.10);
+}
+body.claro{
+  --gold:#7A5A0E; --gold-forte:#654809; --gold-linha:rgba(138,100,16,.34);
+  --txt:#14202F; --txt-muted:#3F4C60;
+  --fundo:linear-gradient(180deg,#F8F5F0 0%, #EFE9E0 100%);
+  --brilho1:rgba(138,100,16,.05); --brilho2:rgba(30,99,201,.05);
+  --card-bg:rgba(255,255,255,.86);
+  --card-linha:rgba(20,32,47,.14);
+  --card-sombra:0 14px 34px rgba(20,32,47,.10);
+  --chip-bg:rgba(138,100,16,.08);
 }
 *{box-sizing:border-box}
 body{
   margin:0; min-height:100vh; font-family:'Segoe UI',Arial,sans-serif; color:var(--txt);
   background:
-    radial-gradient(circle at 15% 20%, rgba(232,185,60,.08), transparent 30%),
-    radial-gradient(circle at 85% 75%, rgba(30,99,201,.10), transparent 32%),
-    linear-gradient(180deg,#081428 0%, #0a1930 55%, #081020 100%);
+    radial-gradient(circle at 15% 20%, var(--brilho1), transparent 30%),
+    radial-gradient(circle at 85% 75%, var(--brilho2), transparent 32%),
+    var(--fundo);
   background-attachment:fixed;
+  transition:color .15s ease;
 }
 .hub-header{
   display:flex; align-items:center; justify-content:space-between;
-  padding:18px 32px; border-bottom:1px solid var(--gold-dim);
+  padding:18px 32px; border-bottom:1px solid var(--gold-linha);
 }
 .hub-brand{display:flex; align-items:center; gap:14px}
 .hub-brand h1{font-size:20px; letter-spacing:.5px; margin:0; font-weight:800}
-.hub-actions{display:flex; align-items:center; gap:22px; font-size:14px}
-.hub-theme{display:flex; align-items:center; gap:6px; color:var(--txt-muted); cursor:pointer; border:1px solid var(--gold-dim); padding:7px 14px; border-radius:999px}
+.hub-actions{display:flex; align-items:center; gap:14px; font-size:14px}
+.hub-theme{display:flex; align-items:center; gap:6px; color:var(--txt); cursor:pointer;
+  border:1px solid var(--gold-linha); background:var(--chip-bg); padding:7px 14px; border-radius:999px;
+  font:inherit; font-size:13.5px}
+.hub-theme:hover{border-color:var(--gold)}
+
+/* A chave-mestra: discreta, ao lado da marca, e só aparece para quem administra. */
+.hub-chave{
+  display:none; align-items:center; justify-content:center; width:34px; height:34px;
+  border-radius:10px; border:1px solid var(--gold-linha); background:var(--chip-bg);
+  color:var(--gold-forte); cursor:pointer; text-decoration:none; font-size:16px; line-height:1;
+  transition:border-color .15s ease, transform .15s ease;
+}
+.hub-chave:hover{border-color:var(--gold); transform:translateY(-1px)}
+.hub-chave svg{width:18px; height:18px}
+.hub-chave.on{display:inline-flex}
+
 .hub-hero{text-align:center; padding:64px 20px 20px}
 .hub-hero h2{font-size:38px; margin:0 0 10px; font-weight:900}
 .hub-hero p{color:var(--txt-muted); font-size:16px; margin:0}
@@ -34,14 +70,14 @@ body{
 .hub-cards{display:flex; gap:28px; justify-content:center; flex-wrap:wrap; padding:44px 24px 60px; max-width:1000px; margin:0 auto}
 .hub-card{
   width:340px; border-radius:18px; padding:34px 26px 30px; text-align:center;
-  border:1px solid var(--gold-dim); background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+  border:1px solid var(--card-linha); background:var(--card-bg);
   transition:transform .15s ease, box-shadow .15s ease;
 }
-.hub-card:hover{transform:translateY(-4px); box-shadow:0 20px 50px rgba(0,0,0,.35)}
-.hub-card .hub-icon{width:124px; height:124px; margin:0 auto 22px; display:flex; align-items:center; justify-content:center; border-radius:26px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.hub-card:hover{transform:translateY(-4px); box-shadow:var(--card-sombra)}
+.hub-card .hub-icon{width:124px; height:124px; margin:0 auto 22px; display:flex; align-items:center; justify-content:center; border-radius:26px; box-shadow:inset 0 0 0 1px rgba(127,127,127,.12)}
 .hub-card .hub-icon svg{width:64px; height:64px}
 .hub-card.orc .hub-icon{background:radial-gradient(circle,rgba(30,99,201,.32),rgba(30,99,201,.05))}
-.hub-logos-grid{width:220px; margin:0 auto 22px; padding:10px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); gap:8px; border-radius:18px; background:radial-gradient(circle,rgba(15,91,68,.30),rgba(15,91,68,.06)); box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.hub-logos-grid{width:220px; margin:0 auto 22px; padding:10px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); gap:8px; border-radius:18px; background:radial-gradient(circle,rgba(15,91,68,.30),rgba(15,91,68,.06)); box-shadow:inset 0 0 0 1px rgba(127,127,127,.12)}
 .hub-logos-grid .logo-box{background:#fff; border-radius:10px; height:56px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,.18); overflow:hidden; padding:4px}
 .hub-logos-grid .logo-box b{font-weight:800; line-height:1.05; text-align:center}
 .hub-logos-grid .logo-box img{max-width:100%; max-height:100%; object-fit:contain}
@@ -51,16 +87,19 @@ body{
 .hub-btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:13px; border-radius:10px; border:none; font-weight:800; font-size:13.5px; letter-spacing:.4px; cursor:pointer; color:#fff; text-decoration:none}
 .hub-card.orc .hub-btn{background:linear-gradient(135deg,#2C74E8,#1447A0)}
 .hub-card.ben .hub-btn{background:linear-gradient(135deg,#15825F,#0B4A34)}
+body.claro .hub-card.orc .hub-btn{background:linear-gradient(135deg,#1D5FCB,#123C86)}
+body.claro .hub-card.ben .hub-btn{background:linear-gradient(135deg,#0F6B4D,#08402D)}
 .hub-btn:hover{filter:brightness(1.08)}
-.hub-footer{text-align:center; padding:18px; color:var(--txt-muted); font-size:12px; border-top:1px solid var(--gold-dim); display:flex; align-items:center; justify-content:center; gap:10px}
-.hub-footer::before,.hub-footer::after{content:'';display:inline-block;width:60px;height:1px;background:var(--gold-dim)}
+.hub-footer{text-align:center; padding:18px; color:var(--txt-muted); font-size:12px; border-top:1px solid var(--gold-linha); display:flex; align-items:center; justify-content:center; gap:10px}
+.hub-footer::before,.hub-footer::after{content:'';display:inline-block;width:60px;height:1px;background:var(--gold-linha)}
+:focus-visible{outline:2px solid var(--gold); outline-offset:2px}
 </style>
 </head>
 <body>
 
 <header class="hub-header">
   <div class="hub-brand">
-    <svg width="40" height="40" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+    <svg width="40" height="40" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <circle cx="24" cy="24" r="22" fill="#0d2140" stroke="#E8B93C" stroke-width="2"/>
       <circle cx="24" cy="24" r="17" fill="none" stroke="#E8B93C" stroke-width="1.3"/>
       <path d="M7,24 Q24,10 41,24" fill="none" stroke="#E8B93C" stroke-width="1.3"/>
@@ -68,9 +107,17 @@ body{
       <line x1="24" y1="7" x2="24" y2="41" stroke="#E8B93C" stroke-width="1.3"/>
     </svg>
     <h1>CENTRAL DE GESTÃO LNB</h1>
+    <a class="hub-chave" id="hub-chave" href="/admin/" title="Administração Mestre" aria-label="Administração Mestre">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="8" cy="12" r="4"/>
+        <path d="M12 12h9"/>
+        <path d="M18 12v3.2"/>
+        <path d="M15.2 12v2.4"/>
+      </svg>
+    </a>
   </div>
   <div class="hub-actions">
-    <div class="hub-theme" id="hub-theme-toggle">☀️ Tema</div>
+    <button class="hub-theme" id="hub-theme-toggle" type="button">☀️ Tema</button>
   </div>
 </header>
 
@@ -83,7 +130,7 @@ body{
 <div class="hub-cards">
   <div class="hub-card orc">
     <div class="hub-icon">
-      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <rect x="14" y="30" width="14" height="28" rx="2" fill="#2C74E8"/>
         <rect x="36" y="14" width="14" height="44" rx="2" fill="#E4483C"/>
         <polyline points="10,38 24,20 38,26 54,8" fill="none" stroke="#E8B93C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -110,43 +157,70 @@ body{
     <p>Controle integrado dos benefícios dos colaboradores</p>
     <a class="hub-btn" href="/beneficios/">ACESSAR MÓDULO</a>
   </div>
-      <div class="hub-card adm" id="hub-card-adm" style="display:none">
-        <div class="hub-icon" style="display:flex;align-items:center;justify-content:center;font-size:54px;line-height:1">🛡️</div>
-        <h3>ADMINISTRAÇÃO MESTRE</h3>
-        <p>Usuários, perfis, permissões e acesso a informações</p>
-        <a class="hub-btn" href="/admin/">ACESSAR MÓDULO</a>
-      </div>
 </div>
 
 <div class="hub-footer">Desenvolvido por Lucas Santos</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function(){
-  const themeToggle = document.getElementById('hub-theme-toggle');
-  let light = localStorage.getItem('lnb_hub_theme') === 'light';
-  function applyTheme(){
-    document.body.style.background = light
-      ? 'linear-gradient(180deg,#F8F5F0 0%, #EFE9E0 100%)'
-      : '';
-    document.body.style.color = light ? '#0D1B2A' : '';
-    themeToggle.textContent = light ? '🌙 Tema' : '☀️ Tema';
+  var alternador = document.getElementById('hub-theme-toggle');
+  var claro = localStorage.getItem('lnb_hub_theme') === 'light';
+  function aplicarTema(){
+    document.body.classList.toggle('claro', claro);
+    alternador.textContent = claro ? '🌙 Tema' : '☀️ Tema';
+    alternador.setAttribute('aria-label', claro ? 'Mudar para tema escuro' : 'Mudar para tema claro');
   }
-  applyTheme();
-  themeToggle.onclick = function(){ light = !light; localStorage.setItem('lnb_hub_theme', light?'light':'dark'); applyTheme(); };
+  aplicarTema();
+  alternador.onclick = function(){
+    claro = !claro; localStorage.setItem('lnb_hub_theme', claro ? 'light' : 'dark'); aplicarTema();
+  };
 
-  /* O card da Administração Mestre só aparece se já existe sessão aberta em
-     algum módulo. É leitura do armazenamento local: nenhuma chamada de rede
-     nova, para não tirar desta tela o boot sem requisições que ela tem hoje.
-     Quem pode de fato administrar é decidido em /admin/, contra o banco. */
-  try{
-    var chaves = ['lnb_auth_session_v1','lnb_auth_session_beneficios_v1'];
-    var temSessao = chaves.some(function(k){
-      try{ var s = JSON.parse(localStorage.getItem(k) || 'null');
-           return !!(s && s.access_token && s.expires_at && (s.expires_at*1000) > Date.now()); }
-      catch(e){ return false; }
-    });
-    if (temSessao){ var cAdm = document.getElementById('hub-card-adm'); if (cAdm) cAdm.style.display = ''; }
-  }catch(e){}
+  /* A chave-mestra fica escondida por padrão. Ela só aparece depois que a página
+     já desenhou, e só para quem de fato administra — a mesma regra que o /admin/
+     aplica contra o banco. Se a checagem não puder ser feita, a chave continua
+     escondida: é melhor não mostrar do que mostrar para quem não pode.
+     Nada disso é segurança — quem tenta abrir /admin/ sem direito é barrado lá,
+     pelo banco. Aqui é só não oferecer uma porta que não abriria. */
+  var CHAVES = ['lnb_auth_session_v1','lnb_auth_session_beneficios_v1'];
+  function sessao(){
+    for (var i=0;i<CHAVES.length;i++){
+      try{
+        var s = JSON.parse(localStorage.getItem(CHAVES[i]) || 'null');
+        if (s && s.access_token && s.expires_at && (s.expires_at*1000) > Date.now()+60000) return s;
+      }catch(e){}
+    }
+    return null;
+  }
+  function mostrarChaveSePuder(){
+    var ses = sessao(); if (!ses) return;
+    fetch('/api/config').then(function(r){ return r.json(); }).then(function(cfg){
+      if (!cfg || !cfg.SUPABASE_URL || !cfg.SUPABASE_KEY) return;
+      function rpc(nome){
+        return fetch(cfg.SUPABASE_URL + '/rest/v1/rpc/' + nome, {
+          method:'POST',
+          headers:{ 'apikey':cfg.SUPABASE_KEY, 'Authorization':'Bearer '+ses.access_token, 'Content-Type':'application/json' },
+          body:'{}'
+        }).then(function(r){ return r.ok ? r.json() : null; });
+      }
+      return Promise.all([ rpc('meu_acesso'), rpc('qtd_adm_mestres_ativos') ]).then(function(res){
+        var a = res[0], mestres = res[1];
+        if (!a || !a.autenticado || !a.cadastrado) return;
+        if (a.usuario && (a.usuario.bloqueado || !a.usuario.ativo)) return;
+        var pode = !!a.acesso_total
+          || !!(a.permissoes && a.permissoes !== '*' && a.permissoes.admin && a.permissoes.admin.indexOf('administrar') >= 0);
+        if (pode) return document.getElementById('hub-chave').classList.add('on');
+        /* Modo de implantação: enquanto não existe nenhum Mestre nominal, quem já é
+           administrador no banco continua entrando — e por isso ainda vê a chave. */
+        if (mestres === 0) {
+          return rpc('current_user_role').then(function(papel){
+            if (papel === 'administrador') document.getElementById('hub-chave').classList.add('on');
+          });
+        }
+      });
+    }).catch(function(){});
+  }
+  if (window.requestIdleCallback) requestIdleCallback(mostrarChaveSePuder, { timeout: 1500 });
+  else setTimeout(mostrarChaveSePuder, 300);
 });
 </script>
 
