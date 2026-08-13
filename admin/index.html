@@ -189,7 +189,8 @@ tbody tr:hover{background:#f8fafc}
       <span>Nossa Terra tem Basquete 🏀 <i>AQUI É O NOSSO LUGAR</i></span>
     </div>
     <div class="quem">🔒 <span id="hd-nome">—</span> · <b id="hd-papel">—</b></div>
-    <button class="btn btn-peq" id="bt-sair">Sair</button>
+    <button class="btn btn-peq" id="bt-voltar">↩ Voltar ao painel</button>
+    <button class="btn btn-peq" id="bt-sair">Sair de tudo</button>
   </header>
 
   <div class="painel">
@@ -240,6 +241,7 @@ var CFG=null, SES=null, ACESSO=null, MODO=null;
 var D = { usuarios:[], perfis:[], recursos:[], acoes:[], vinculos:[],
           departamentos:[], grupos:[], linhas:[], escopos:[], excecoes:[], logs:[] };
 var TELA='visao', SUBABA='matriz', PERFIL=null;
+var MODO_PERM='pessoa', PESSOA=null;
 var PERM={}, ESC={}, SUJO=false;
 var FILTRO={ modulo:'', depto:'', grupo:'', linha:'' };
 var ABERTO={};
@@ -308,7 +310,15 @@ function precisaEntrarNoModulo(){
     + '<a href="/beneficios/"><button class="btn">Abrir Gestão de Benefícios</button></a>';
   msg('');
 }
-function sair(){ try{ localStorage.removeItem('lnb_auth_session_admin_v1'); }catch(e){} location.reload(); }
+/* Sair de tudo: a sessao e a MESMA dos modulos. Encerrar aqui encerra no Orcado e
+   no Beneficios tambem — por isso o aviso antes. Antes este botao limpava uma chave
+   que ninguem usava e recarregava a pagina: nao saia de lugar nenhum. */
+function sair(){
+  if(!confirm('Isto encerra a sessão em tudo: Orçado x Realizado, Gestão de Benefícios e esta tela. Sair mesmo?')) return;
+  CHAVES_SESSAO.forEach(function(k){ try{ localStorage.removeItem(k); }catch(e){} });
+  try{ localStorage.removeItem('lnb_auth_session_admin_v1'); }catch(e){}
+  location.href = '/';
+}
 
 function verificarAcesso(){
   return Promise.all([ rpc('meu_acesso'), rpc('qtd_adm_mestres_ativos') ]).then(function(res){
@@ -615,13 +625,105 @@ function resumoAlcance(pid){
 }
 
 /* ---------- Permissoes (a tela principal) ---------- */
+function crachasDe(uid){ return D.vinculos.filter(function(v){ return v.usuario_id===uid; }); }
+function pessoasDoPerfil(pid){
+  return D.vinculos.filter(function(v){ return v.perfil_id===pid; })
+    .map(function(v){ return D.usuarios.filter(function(u){ return u.id===v.usuario_id; })[0]; })
+    .filter(Boolean);
+}
+
+/* Escolher a pessoa primeiro. Os crachas continuam existindo por tras — sem eles,
+   cada pessoa nova obrigaria a remarcar tudo — mas quem trabalha aqui pensa em gente,
+   nao em cracha. Por isso a tela abre perguntando "para quem?". */
+function blocoEscolhaPessoa(){
+  var h = '<div class="card"><h3>Para quem você quer ajustar o acesso?</h3>'
+    + '<div style="font-size:12.5px;color:var(--tx2);margin-bottom:14px">Escolha a pessoa. '
+    + 'Eu mostro o que ela alcança hoje e você ajusta ali mesmo.</div>'
+    + '<table><thead><tr><th>Pessoa</th><th>Crachá</th><th>O que alcança hoje</th><th style="width:1%"></th></tr></thead><tbody>';
+  D.usuarios.forEach(function(u){
+    var vs = crachasDe(u.id);
+    var resumo;
+    if(!vs.length) resumo = '<span style="color:var(--tx3)">nada — sem crachá</span>';
+    else if(vs.some(function(v){ return ehMestre(v.perfil_id); })) resumo = 'a plataforma inteira';
+    else {
+      var n = vs.reduce(function(a,v){ return a + ((D.__escPorPerfil&&D.__escPorPerfil[v.perfil_id])||0); }, 0);
+      resumo = n ? n + ' marcação(ões) na estrutura' : '<span style="color:var(--tx3)">o crachá ainda não libera nada</span>';
+    }
+    h += '<tr><td><b>'+esc(u.nome||'(sem nome)')+'</b><div style="color:var(--tx2);font-size:12px">'+esc(u.email)+'</div></td>'
+      +  '<td>'+(vs.length ? vs.map(function(v){ return '<span class="tag '+(ehMestre(v.perfil_id)?'tag-mestre':'tag-perfil')+'">'+esc(nomePerfil(v.perfil_id))+'</span>'; }).join('')
+                          : '<span style="color:var(--tx3)">—</span>')+'</td>'
+      +  '<td>'+resumo+'</td>'
+      +  '<td><button class="btn-esm btn-peq" data-pessoa="'+esc(u.id)+'">Ajustar acesso</button></td></tr>';
+  });
+  h += '</tbody></table>';
+  h += '<div style="margin-top:14px;font-size:12.5px;color:var(--tx2)">Não achou a pessoa? Ela precisa existir como '
+    +  'usuário primeiro — veja a aba <b>Usuários</b>.</div></div>';
+  return h;
+}
+
+function blocoSemCracha(u){
+  var disp = D.perfis.filter(function(p){ return p.ativo; });
+  return '<div class="card"><h3>'+esc(u.nome||u.email)+' ainda não tem crachá</h3>'
+    + '<div style="font-size:13px;color:var(--tx2);margin-bottom:12px">Sem crachá, esta pessoa não alcança nada. '
+    + 'Escolha um crachá existente — ou crie um novo só para ela, se o caso for diferente de todos os outros.</div>'
+    + '<div class="linha"><select id="sel-dar-cracha" style="min-width:280px">'
+    + disp.map(function(p){ return '<option value="'+esc(p.id)+'">'+esc(p.nome)+(p.acesso_total?' — alcança tudo':'')+'</option>'; }).join('')
+    + '</select><button class="btn-esm btn-peq" data-dar-cracha="'+esc(u.id)+'">Dar este crachá</button>'
+    + '<button class="btn btn-peq" id="bt-novo-perfil3">＋ Criar um crachá novo</button></div></div>';
+}
+
 function telaPermissoes(){
+  var alternador = '<button class="btn btn-peq" data-modo-perm="pessoa"'+(MODO_PERM==='pessoa'?' style="border-color:var(--ok);color:var(--ok);font-weight:600"':'')+'>Por pessoa</button>'
+                 + '<button class="btn btn-peq" data-modo-perm="cracha"'+(MODO_PERM==='cracha'?' style="border-color:var(--ok);color:var(--ok);font-weight:600"':'')+'>Por crachá</button>';
+
+  if(MODO_PERM==='pessoa' && !PESSOA){
+    return titulo('🔒','Gestão de Permissões','Comece pela pessoa: escolha quem você quer ajustar.', alternador)
+         + blocoEscolhaPessoa();
+  }
+
+  var u = PESSOA ? D.usuarios.filter(function(x){ return x.id===PESSOA; })[0] : null;
+  if(MODO_PERM==='pessoa' && u){
+    var vs = crachasDe(u.id);
+    if(!vs.length){
+      return titulo('🔒','Gestão de Permissões','', alternador
+             + ' <button class="btn btn-peq" id="bt-trocar-pessoa">Trocar de pessoa</button>')
+           + blocoSemCracha(u);
+    }
+    if(!PERFIL || !vs.some(function(v){ return v.perfil_id===PERFIL; })) PERFIL = vs[0].perfil_id;
+  }
+
   if(!PERFIL) PERFIL = (D.perfis[0]||{}).id;
   var p = perfil(PERFIL) || {};
-  var sel = '<label style="font-size:12.5px">Perfil selecionado:</label> <select id="sel-perfil">'
-          + D.perfis.map(function(x){ return '<option value="'+esc(x.id)+'"'+(x.id===PERFIL?' selected':'')+'>'+esc(x.nome)+'</option>'; }).join('')
-          + '</select>';
-  var h = titulo('🔒','Gestão de Permissões','Defina o nível de acesso de cada perfil para cada módulo, departamento, grupo e linha.', sel);
+  var sel = MODO_PERM==='cracha'
+    ? '<label style="font-size:12.5px">Crachá:</label> <select id="sel-perfil">'
+      + D.perfis.map(function(x){ return '<option value="'+esc(x.id)+'"'+(x.id===PERFIL?' selected':'')+'>'+esc(x.nome)+'</option>'; }).join('')
+      + '</select>'
+    : '<button class="btn btn-peq" id="bt-trocar-pessoa">Trocar de pessoa</button>';
+  var h = titulo('🔒','Gestão de Permissões',
+        MODO_PERM==='pessoa'
+          ? 'Ajustando o acesso de <b>'+esc(u.nome||u.email)+'</b>.'
+          : 'Defina o nível de acesso de cada crachá para cada módulo, departamento, grupo e linha.',
+        alternador + ' ' + sel);
+
+  if(MODO_PERM==='pessoa' && u){
+    var vs2 = crachasDe(u.id);
+    var outros = pessoasDoPerfil(PERFIL).filter(function(x){ return x.id!==u.id; });
+    h += '<div class="aviso'+(outros.length?'':' bom')+'">'
+      +  '<b>'+esc(u.nome||u.email)+'</b> usa o crachá <b>'+esc(nomePerfil(PERFIL))+'</b>'
+      +  (vs2.length>1 ? ' (e mais '+(vs2.length-1)+')' : '') + '. '
+      +  (outros.length
+           ? 'Atenção: este mesmo crachá vale para ' + outros.map(function(x){ return '<b>'+esc(x.nome||x.email)+'</b>'; }).join(', ')
+             + '. O que você mudar aqui muda para essas pessoas também. Se a mudança é só para '+esc((u.nome||u.email).split(' ')[0])
+             + ', crie um crachá próprio.'
+           : 'Hoje ninguém mais usa este crachá, então o que você mudar vale só para ela.')
+      +  '</div>';
+    if(vs2.length>1){
+      h += '<div class="linha" style="margin-bottom:12px"><span style="font-size:12.5px;color:var(--tx2)">Crachá que estou editando:</span>'
+        +  vs2.map(function(v){ return '<button class="btn btn-peq" data-usar-cracha="'+esc(v.perfil_id)+'"'
+             + (v.perfil_id===PERFIL?' style="border-color:var(--ok);color:var(--ok);font-weight:600"':'')+'>'+esc(nomePerfil(v.perfil_id))+'</button>'; }).join('')
+        +  '</div>';
+    }
+  }
 
   h += '<div class="abas">'
     +  ['matriz|Matriz de Permissões','telas|Telas do Módulo','globais|Regras Globais','pessoas|Pessoas com este perfil']
@@ -786,8 +888,10 @@ function blocoResumo(){
   deps.forEach(function(d){ filhosDe(d).forEach(function(g){ gs.push(g); filhosDe(g).forEach(function(l){ ls.push(l); }); }); });
   var telasOK=D.recursos.filter(function(r){ return PERM[chavePerm(r.id,'visualizar')]; }).length;
 
-  var h='<div class="card"><h3>👤 Resumo do perfil</h3>'
-   +'<div class="chave"><b>'+esc(p.nome||'—')+'</b><span>'+esc(p.descricao||'')+'</span></div>'
+  var u = PESSOA ? D.usuarios.filter(function(x){ return x.id===PESSOA; })[0] : null;
+  var h='<div class="card"><h3>👤 '+(u?'Resumo de '+esc((u.nome||u.email).split(' ')[0]):'Resumo do crachá')+'</h3>'
+   +(u?'<div class="chave"><b>'+esc(u.nome||u.email)+'</b><span>'+esc(u.email)+'</span></div>':'')
+   +'<div class="chave"><b>'+esc(p.nome||'—')+'</b><span>'+esc(p.descricao||'crachá em edição')+'</span></div>'
    +'<div class="resumo"><span>Telas com acesso</span><b>'+telasOK+' / '+D.recursos.length+'</b></div>'
    +'<div class="resumo"><span>Departamentos</span><b>'+conta(deps)+' / '+deps.length+'</b></div>'
    +'<div class="resumo"><span>Grupos</span><b>'+conta(gs)+' / '+gs.length+'</b></div>'
@@ -1056,7 +1160,35 @@ document.addEventListener('click', function(ev){
     desenhar(); return;
   }
   if(t.dataset.subaba){ SUBABA=t.dataset.subaba; desenhar(); return; }
-  if(t.dataset.abrirPerm){ TELA='permissoes'; SUBABA='matriz'; carregarPerfil(t.dataset.abrirPerm); return; }
+  if(t.dataset.abrirPerm){ TELA='permissoes'; SUBABA='matriz'; MODO_PERM='cracha'; PESSOA=null; carregarPerfil(t.dataset.abrirPerm); return; }
+
+  if(t.dataset.modoPerm){
+    if(SUJO && !confirm('Há alterações não salvas. Trocar mesmo assim?')) return;
+    MODO_PERM=t.dataset.modoPerm; PESSOA=null; SUJO=false; desenhar(); return;
+  }
+  if(t.dataset.pessoa){
+    PESSOA=t.dataset.pessoa; SUBABA='matriz';
+    var vsp=crachasDe(PESSOA);
+    if(vsp.length) return void carregarPerfil(vsp[0].perfil_id);
+    desenhar(); return;
+  }
+  if(t.id==='bt-trocar-pessoa'){
+    if(SUJO && !confirm('Há alterações não salvas. Trocar mesmo assim?')) return;
+    PESSOA=null; SUJO=false; desenhar(); return;
+  }
+  if(t.dataset.usarCracha){ carregarPerfil(t.dataset.usarCracha); return; }
+  if(t.dataset.darCracha){
+    var uidD=t.dataset.darCracha, pidD=$('sel-dar-cracha').value;
+    comErro(api('usuario_perfis',{method:'POST',body:[{usuario_id:uidD,perfil_id:pidD,valido_ate:null}],prefer:'return=minimal'})
+      .then(recarregar).then(function(){ return carregarPerfil(pidD); })
+      .then(function(){ banner('<b>Crachá concedido.</b> Agora ajuste o que ele libera e salve.','bom'); }),
+      'conceder o crachá').then(null,function(){});
+    return;
+  }
+  if(t.id==='bt-voltar'){
+    if(SUJO && !confirm('Há alterações não salvas. Sair mesmo assim?')) return;
+    location.href='/'; return;
+  }
   if(t.dataset.editar){ abrirEditor(t.dataset.editar); return; }
 
   if(t.dataset.alternar){
@@ -1131,14 +1263,18 @@ document.addEventListener('click', function(ev){
       'clonar as permissões').then(null,function(){});
     return;
   }
-  if(t.id==='bt-novo-perfil' || t.id==='bt-novo-perfil2'){
+  if(t.id==='bt-novo-perfil' || t.id==='bt-novo-perfil2' || t.id==='bt-novo-perfil3'){
     var nome=prompt('Nome do novo perfil (o crachá)');
     if(!nome) return;
     var id=nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
     if(!id){ alert('Nome inválido.'); return; }
+    var paraQuem = (MODO_PERM==='pessoa' && PESSOA) ? PESSOA : null;
     comErro(api('perfis',{method:'POST',body:[{id:id,nome:nome}],prefer:'return=minimal'})
+      .then(function(){ return paraQuem
+        ? api('usuario_perfis',{method:'POST',body:[{usuario_id:paraQuem,perfil_id:id,valido_ate:null}],prefer:'return=minimal'})
+        : null; })
       .then(recarregar).then(function(){ TELA='permissoes'; return carregarPerfil(id); })
-      .then(function(){ banner('<b>Perfil criado.</b> Nada liberado ainda — marque e salve.','bom'); }),
+      .then(function(){ banner('<b>Crachá criado'+(paraQuem?' e entregue':'')+'.</b> Nada liberado ainda — marque e salve.','bom'); }),
       'criar o perfil').then(null,function(){});
     return;
   }
