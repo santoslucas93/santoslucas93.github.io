@@ -32,6 +32,10 @@ index 9b29f37..d9bb72b 100644
  async function lnbMeuAcessoCentral(){
    if(!AUTH_SESSION||!AUTH_SESSION.access_token) return null;
    try{
+@@ -2701,1 +2718,2 @@ async function lnbMeuAcessoCentral(){
+-    return await r.json();
++    const acesso=await r.json();
++    return await lnbCarregarEscoposDetalhados(acesso);
 @@ -2703,6 +2720,8 @@ async function lnbMeuAcessoCentral(){
  }
  function lnbTemModulo(acesso,recurso){
@@ -41,7 +45,7 @@ index 9b29f37..d9bb72b 100644
    if(acesso.acesso_total||acesso.permissoes==='*') return true;
    const acts=(acesso.permissoes||{})[recurso]||[];
    if(Array.isArray(acts)&&acts.indexOf('visualizar')>=0) return true;
-@@ -2712,6 +2731,105 @@ function lnbTemModulo(acesso,recurso){
+@@ -2712,6 +2731,166 @@ function lnbTemModulo(acesso,recurso){
    if(/@lnb\.com\.br$/i.test(email)&&Array.isArray(acesso.perfis)&&acesso.perfis.length===0) return recurso==='orcamento'||recurso==='beneficios';
    return false;
  }
@@ -66,6 +70,35 @@ index 9b29f37..d9bb72b 100644
 +  const acoes=permissoes[recurso]||[];
 +  return Array.isArray(acoes)&&acoes.includes(acao);
 +}
++async function lnbCarregarEscoposDetalhados(acesso){
++  if(!acesso||acesso.acesso_total||acesso.permissoes==='*')return acesso;
++  const perfis=(Array.isArray(acesso.perfis)?acesso.perfis:[]).map(p=>String(p&&p.id||'')).filter(Boolean);
++  const uid=acesso.usuario&&acesso.usuario.id?String(acesso.usuario.id):'';
++  const headers={'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token};
++  try{
++    const perfilUrl=perfis.length
++      ? SUPABASE_URL+'/rest/v1/perfil_escopos?select=perfil_id,tipo,valor,acao,permitido&acao=eq.visualizar&perfil_id=in.('+
++        perfis.map(v=>encodeURIComponent(v)).join(',')+')'
++      : null;
++    const usuarioUrl=uid
++      ? SUPABASE_URL+'/rest/v1/usuario_escopos?select=tipo,valor,permitido,valido_ate&usuario_id=eq.'+encodeURIComponent(uid)
++      : null;
++    const respostas=await Promise.all([
++      perfilUrl?fetch(perfilUrl,{headers}):Promise.resolve(null),
++      usuarioUrl?fetch(usuarioUrl,{headers}):Promise.resolve(null)
++    ]);
++    if(respostas.some(r=>r&&!r.ok))throw new Error('Falha ao carregar escopos detalhados');
++    const hoje=new Date().toISOString().slice(0,10);
++    acesso.escopos_detalhados={
++      perfil:respostas[0]?await respostas[0].json():[],
++      usuario:(respostas[1]?await respostas[1].json():[]).filter(r=>!r.valido_ate||r.valido_ate>=hoje)
++    };
++  }catch(e){
++    console.error('Escopos detalhados indisponiveis; acesso restrito por seguranca.',e);
++    acesso.escopos_detalhados={perfil:[],usuario:[],falhou:true};
++  }
++  return acesso;
++}
 +function lnbEscopos(tipo){
 +  if(lnbAcessoTotal()||lnbAcessoLegadoSemCracha())return ['*'];
 +  const esc=LNB_ACCESS&&LNB_ACCESS.escopos;
@@ -87,20 +120,52 @@ index 9b29f37..d9bb72b 100644
 +  if(a==='RECEITAS')return 'REC';
 +  return a;
 +}
++function lnbCadeiaEscopo(area,grupo,linha){
++  const cadeia=[];
++  if(linha!=null)cadeia.push(['linha',lnbNormEscopo(linha)]);
++  if(grupo!=null)cadeia.push(['grupo',lnbNormEscopo(grupo)]);
++  cadeia.push(['departamento',lnbAreaEscopo(area)]);
++  return cadeia;
++}
++function lnbRegraExata(rows,tipo,valor){
++  const achadas=rows.filter(r=>r&&r.tipo===tipo&&lnbNormEscopo(r.valor)===valor);
++  if(!achadas.length)return null;
++  return achadas.some(r=>r.permitido===false)?false:true;
++}
++function lnbRegraNaCadeia(rows,cadeia,semRegra){
++  for(const [tipo,valor] of cadeia){
++    const regra=lnbRegraExata(rows,tipo,valor);
++    if(regra!==null)return regra;
++  }
++  return semRegra===undefined?false:semRegra;
++}
 +function lnbEscopoPermiteRegistro(area,grupo,linha){
 +  if(lnbAcessoTotal()||lnbAcessoLegadoSemCracha())return true;
 +  const a=lnbAreaEscopo(area);
 +  if(!a||a==='TRF')return false;
-+  const deps=lnbEscopos('departamento').map(lnbAreaEscopo);
-+  if(deps.includes(a))return true;
++  const cadeia=lnbCadeiaEscopo(a,grupo,linha);
++  const detalhados=LNB_ACCESS&&LNB_ACCESS.escopos_detalhados;
++  if(detalhados){
++    if(detalhados.falhou)return false;
++    const regraUsuario=lnbRegraNaCadeia(detalhados.usuario||[],cadeia,null);
++    if(regraUsuario!==null)return regraUsuario;
++    const ids=(Array.isArray(LNB_ACCESS.perfis)?LNB_ACCESS.perfis:[]).map(p=>String(p&&p.id||'')).filter(Boolean);
++    return ids.some(id=>lnbRegraNaCadeia((detalhados.perfil||[]).filter(r=>String(r.perfil_id)===id),cadeia));
++  }
 +  const linhas=lnbEscopos('linha').map(lnbNormEscopo);
 +  if(linha!=null&&linhas.includes(lnbNormEscopo(linha)))return true;
 +  const grupos=lnbEscopos('grupo').map(lnbNormEscopo);
-+  if(grupo!=null){
-+    const g=lnbNormEscopo(grupo);
-+    if(grupos.includes(g)||grupos.includes(lnbNormEscopo(a+'-'+String(grupo).replace(/\s+/g,'-'))))return true;
-+  }
-+  return false;
++  if(grupo!=null&&grupos.includes(lnbNormEscopo(grupo)))return true;
++  return lnbEscopos('departamento').map(lnbAreaEscopo).includes(a);
++}
++function lnbDepartamentoPermitido(area){
++  if(lnbAcessoTotal()||lnbAcessoLegadoSemCracha())return true;
++  if(lnbEscopoPermiteRegistro(area,null,null))return true;
++  try{
++    return !!(DB&&Array.isArray(DB.lines)&&DB.lines.some(l=>
++      lnbAreaEscopo(l.area)===lnbAreaEscopo(area)&&lnbEscopoPermiteRegistro(l.area,l.g,l.id)
++    ));
++  }catch(e){return false;}
 +}
 +function lnbRecursoDaTela(v,area,sup){
 +  if(v==='dept')return LNB_ORCAMENTO_DEPT_RECURSOS[lnbAreaEscopo(area)]||null;
@@ -115,12 +180,12 @@ index 9b29f37..d9bb72b 100644
 +}
 +function lnbTelaPermitida(v,area,sup){
 +  const recurso=lnbRecursoDaTela(v,area,sup);
++  if(v==='dept')return lnbDepartamentoPermitido(area);
 +  if(!recurso||!lnbTemAcao(recurso,'visualizar'))return false;
-+  if(v==='dept')return lnbEscopoPermiteRegistro(area,null,null);
-+  if(v==='rec')return lnbEscopoPermiteRegistro('REC',null,null);
++  if(v==='rec')return lnbDepartamentoPermitido('REC');
 +  if(v==='sup'){
 +    const pai=typeof supportParent==='function'?supportParent(sup):'';
-+    if(pai&&pai!=='COMP')return lnbEscopoPermiteRegistro(pai,null,null);
++    if(pai&&pai!=='COMP')return lnbDepartamentoPermitido(pai);
 +  }
 +  return true;
 +}
@@ -166,14 +231,14 @@ index 9b29f37..d9bb72b 100644
  }
  function classifyCore(t){
    // Regra absoluta: transferências entre bancos/contas da LNB nunca entram no realizado,
-@@ -5386,6 +5505,7 @@ function budP(m,a){
+@@ -5386,6 +5505,6 @@ function budP(m,a){
    // do painel. Antes esta função só somava linhas _custom (Novo Orçado) e
    // ignorava todas as linhas de orçado já existentes (ex.: patrocinadores
    // já cadastrados), fazendo o card da área mostrar só uma fração do real.
-+  if(!lnbEscopoPermiteRegistro(a,null,null))return 0;
    const cacheKey=m+'|'+a;
    if(__budPCache.has(cacheKey))return __budPCache.get(cacheKey);
-   const base=mm=>DB.lines.filter(l=>l.area===a&&!isTotalizerLine(l)).reduce((s,l)=>s+((l.prev||{})[mm]||0),0);
+-  const base=mm=>DB.lines.filter(l=>l.area===a&&!isTotalizerLine(l)).reduce((s,l)=>s+((l.prev||{})[mm]||0),0);
++  const base=mm=>DB.lines.filter(l=>l.area===a&&!isTotalizerLine(l)&&lnbEscopoPermiteRegistro(l.area,l.g,l.id)).reduce((s,l)=>s+((l.prev||{})[mm]||0),0);
 @@ -5393,7 +5513,7 @@ function budP(m,a){
    __budPCache.set(cacheKey,result);
    return result;
@@ -210,7 +275,7 @@ index 9b29f37..d9bb72b 100644
    renderSaldoBancoQuickcard();
 -  const despP=DESP.reduce((s,a)=>s+budP(curM,a),0);
 -  const despR=DESP.reduce((s,a)=>s+(r.A[a]||0),0);
-+  const despAreas=DESP.filter(a=>lnbEscopoPermiteRegistro(a,null,null));
++  const despAreas=DESP.filter(lnbDepartamentoPermitido);
 +  const despP=despAreas.reduce((s,a)=>s+budP(curM,a),0);
 +  const despR=despAreas.reduce((s,a)=>s+(r.A[a]||0),0);
    const recP=budP(curM,'REC')+budP(curM,'OREC');
