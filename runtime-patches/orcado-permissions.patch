@@ -1,0 +1,464 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Thu, 13 Aug 2026 10:29:27 -0700
+Subject: [PATCH] fix: aplica telas e escopos no orcado
+
+
+diff --git a/orcado/index.html b/orcado/index.html
+index 9b29f37..d9bb72b 100644
+--- a/orcado/index.html
++++ b/orcado/index.html
+@@ -2689,6 +2689,23 @@ function lnbHideOverlay(){
+   if(ov) ov.style.display='none';
+ }
+ 
++let LNB_ACCESS=null;
++const LNB_ORCAMENTO_RECURSOS={
++  home:'orcamento.home',rec:'orcamento.receitas',comp:'orcamento.competicoes',
++  club:'orcamento.creditos-clubes',dash:'orcamento.graficos',real:'orcamento.realizado',
++  conc:'orcamento.conciliacao',bank:'orcamento.conciliacao-bancaria',
++  revid:'orcamento.revisao-ids',plan:'orcamento.novo-orcado',
++  structure:'orcamento.editar-estrutura',guia:'orcamento.guia',rules:'orcamento.regras',
++  audit:'orcamento.integridade',exp:'orcamento.exportar',trash:'orcamento.lixeira'
++};
++const LNB_ORCAMENTO_DEPT_RECURSOS={
++  LNB:'orcamento.dept-lnb',COM:'orcamento.dept-com',MKT:'orcamento.dept-mkt',
++  TOP:'orcamento.dept-top','A&F':'orcamento.dept-af',EQP:'orcamento.dept-eqp'
++};
++const LNB_ORCAMENTO_SUP_RECURSOS={
++  TRHO:'orcamento.transp-hosp',REFU:'orcamento.reemb-funcionarios'
++};
++
+ async function lnbMeuAcessoCentral(){
+   if(!AUTH_SESSION||!AUTH_SESSION.access_token) return null;
+   try{
+@@ -2701,1 +2718,2 @@ async function lnbMeuAcessoCentral(){
+-    return await r.json();
++    const acesso=await r.json();
++    return await lnbCarregarEscoposDetalhados(acesso);
+@@ -2703,6 +2720,8 @@ async function lnbMeuAcessoCentral(){
+ }
+ function lnbTemModulo(acesso,recurso){
+   if(!acesso) return false;
++  if(acesso.usuario && (acesso.usuario.ativo===false || acesso.usuario.bloqueado===true)) return false;
++  if(acesso.usuario && acesso.usuario.valido_ate && acesso.usuario.valido_ate < new Date().toISOString().slice(0,10)) return false;
+   if(acesso.acesso_total||acesso.permissoes==='*') return true;
+   const acts=(acesso.permissoes||{})[recurso]||[];
+   if(Array.isArray(acts)&&acts.indexOf('visualizar')>=0) return true;
+@@ -2712,6 +2731,230 @@ function lnbTemModulo(acesso,recurso){
+   if(/@lnb\.com\.br$/i.test(email)&&Array.isArray(acesso.perfis)&&acesso.perfis.length===0) return recurso==='orcamento'||recurso==='beneficios';
+   return false;
+ }
++function lnbAcessoTotal(){
++  return !!(LNB_ACCESS&&(LNB_ACCESS.acesso_total||LNB_ACCESS.permissoes==='*'));
++}
++function lnbAcessoLegadoSemCracha(){
++  if(!LNB_ACCESS)return false;
++  const perfis=Array.isArray(LNB_ACCESS.perfis)?LNB_ACCESS.perfis:[];
++  const email=(AUTH_SESSION&&AUTH_SESSION.email||'').toLowerCase();
++  return perfis.length===0&&(
++    email==='admin@painel-lnb.local'||email==='leitura@painel-lnb.local'||
++    /@lnb\.com\.br$/i.test(email)
++  );
++}
++function lnbAcessoRestrito(){return !!LNB_ACCESS&&!lnbAcessoTotal()&&!lnbAcessoLegadoSemCracha();}
++function lnbTemAcao(recurso,acao){
++  acao=acao||'visualizar';
++  if(lnbAcessoTotal()||lnbAcessoLegadoSemCracha())return true;
++  const permissoes=LNB_ACCESS&&LNB_ACCESS.permissoes;
++  if(!permissoes||permissoes==='*')return permissoes==='*';
++  const acoes=permissoes[recurso]||[];
++  return Array.isArray(acoes)&&acoes.includes(acao);
++}
++async function lnbCarregarEscoposDetalhados(acesso){
++  if(!acesso||acesso.acesso_total||acesso.permissoes==='*')return acesso;
++  const perfis=(Array.isArray(acesso.perfis)?acesso.perfis:[]).map(p=>String(p&&p.id||'')).filter(Boolean);
++  const uid=acesso.usuario&&acesso.usuario.id?String(acesso.usuario.id):'';
++  const headers={'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token};
++  try{
++    const perfilUrl=perfis.length
++      ? SUPABASE_URL+'/rest/v1/perfil_escopos?select=perfil_id,tipo,valor,acao,permitido&acao=eq.visualizar&perfil_id=in.('+
++        perfis.map(v=>encodeURIComponent(v)).join(',')+')'
++      : null;
++    const usuarioUrl=uid
++      ? SUPABASE_URL+'/rest/v1/usuario_escopos?select=tipo,valor,permitido,valido_ate&usuario_id=eq.'+encodeURIComponent(uid)
++      : null;
++    const respostas=await Promise.all([
++      perfilUrl?fetch(perfilUrl,{headers}):Promise.resolve(null),
++      usuarioUrl?fetch(usuarioUrl,{headers}):Promise.resolve(null)
++    ]);
++    if(respostas.some(r=>r&&!r.ok))throw new Error('Falha ao carregar escopos detalhados');
++    const hoje=new Date().toISOString().slice(0,10);
++    acesso.escopos_detalhados={
++      perfil:respostas[0]?await respostas[0].json():[],
++      usuario:(respostas[1]?await respostas[1].json():[]).filter(r=>!r.valido_ate||r.valido_ate>=hoje)
++    };
++  }catch(e){
++    console.error('Escopos detalhados indisponiveis; acesso restrito por seguranca.',e);
++    acesso.escopos_detalhados={perfil:[],usuario:[],falhou:true};
++  }
++  return acesso;
++}
++function lnbEscopos(tipo){
++  if(lnbAcessoTotal()||lnbAcessoLegadoSemCracha())return ['*'];
++  const esc=LNB_ACCESS&&LNB_ACCESS.escopos;
++  const vals=esc&&esc[tipo];
++  return Array.isArray(vals)?vals.map(v=>String(v)):[];
++}
++function lnbNormEscopo(v){
++  return String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
++}
++function lnbAreaEscopo(a){
++  a=lnbNormEscopo(a);
++  if(a==='OREC')return 'REC';
++  if(a==='SUPERINTENDENCIA'||a==='SUP')return 'LNB';
++  if(a==='COMUNICACAO')return 'COM';
++  if(a==='MARKETING')return 'MKT';
++  if(a==='TECNICO OPERACIONAL')return 'TOP';
++  if(a==='ADMINISTRATIVO & FINANCEIRO'||a==='ADMINISTRATIVO E FINANCEIRO')return 'A&F';
++  if(a==='EQUIPES')return 'EQP';
++  if(a==='RECEITAS')return 'REC';
++  return a;
++}
++function lnbCadeiaEscopo(area,grupo,linha){
++  const cadeia=[];
++  if(linha!=null)cadeia.push(['linha',lnbNormEscopo(linha)]);
++  if(grupo!=null)cadeia.push(['grupo',lnbNormEscopo(grupo)]);
++  cadeia.push(['departamento',lnbAreaEscopo(area)]);
++  return cadeia;
++}
++function lnbRegraExata(rows,tipo,valor){
++  const achadas=rows.filter(r=>r&&r.tipo===tipo&&lnbNormEscopo(r.valor)===valor);
++  if(!achadas.length)return null;
++  return achadas.some(r=>r.permitido===false)?false:true;
++}
++function lnbRegraNaCadeia(rows,cadeia,semRegra){
++  for(const [tipo,valor] of cadeia){
++    const regra=lnbRegraExata(rows,tipo,valor);
++    if(regra!==null)return regra;
++  }
++  return semRegra===undefined?false:semRegra;
++}
++function lnbEscopoPermiteRegistro(area,grupo,linha){
++  if(lnbAcessoTotal()||lnbAcessoLegadoSemCracha())return true;
++  const a=lnbAreaEscopo(area);
++  if(!a||a==='TRF')return false;
++  const cadeia=lnbCadeiaEscopo(a,grupo,linha);
++  const detalhados=LNB_ACCESS&&LNB_ACCESS.escopos_detalhados;
++  if(detalhados){
++    if(detalhados.falhou)return false;
++    const regraUsuario=lnbRegraNaCadeia(detalhados.usuario||[],cadeia,null);
++    if(regraUsuario!==null)return regraUsuario;
++    const ids=(Array.isArray(LNB_ACCESS.perfis)?LNB_ACCESS.perfis:[]).map(p=>String(p&&p.id||'')).filter(Boolean);
++    return ids.some(id=>lnbRegraNaCadeia((detalhados.perfil||[]).filter(r=>String(r.perfil_id)===id),cadeia));
++  }
++  const linhas=lnbEscopos('linha').map(lnbNormEscopo);
++  if(linha!=null&&linhas.includes(lnbNormEscopo(linha)))return true;
++  const grupos=lnbEscopos('grupo').map(lnbNormEscopo);
++  if(grupo!=null&&grupos.includes(lnbNormEscopo(grupo)))return true;
++  return lnbEscopos('departamento').map(lnbAreaEscopo).includes(a);
++}
++function lnbDepartamentoPermitido(area){
++  if(lnbAcessoTotal()||lnbAcessoLegadoSemCracha())return true;
++  if(lnbEscopoPermiteRegistro(area,null,null))return true;
++  try{
++    return !!(DB&&Array.isArray(DB.lines)&&DB.lines.some(l=>
++      lnbAreaEscopo(l.area)===lnbAreaEscopo(area)&&lnbEscopoPermiteRegistro(l.area,l.g,l.id)
++    ));
++  }catch(e){return false;}
++}
++function lnbPodeRealizado(acao){
++  return lnbTemAcao('orcamento.realizado',acao);
++}
++function lnbExigirRealizado(acao,rotulo){
++  if(lnbPodeRealizado(acao))return true;
++  alert('Seu perfil não tem permissão para '+rotulo+'. Ajuste em Administração Mestre → Permissões → Realizado.');
++  return false;
++}
++function lnbInstalarGuardasRealizado(){
++  if(window.__lnbGuardasRealizadoInstaladas)return;
++  window.__lnbGuardasRealizadoInstaladas=true;
++  function envolver(nome,acao,rotulo){
++    const original=window[nome];
++    if(typeof original!=='function')return;
++    window[nome]=function(){
++      if(!lnbExigirRealizado(acao,rotulo))return Promise.resolve(false);
++      return original.apply(this,arguments);
++    };
++  }
++  envolver('lnbApagarRealizadoTemporadaSelecionada','excluir','excluir o Realizado');
++  envolver('lnbApagarSemanaRealizado','excluir','excluir o Realizado');
++  envolver('lnbSaveManualRealizado','criar','criar lançamentos no Realizado');
++  envolver('syncRealizadoFileToSupabase','importar','importar lançamentos no Realizado');
++  const importarOriginal=window.importNewSeasonRealizado;
++  if(typeof importarOriginal==='function'){
++    window.importNewSeasonRealizado=function(file,raw){
++      if(!raw&&!lnbExigirRealizado('importar','importar lançamentos no Realizado')){
++        return Promise.resolve({added:0,decided:0,duplicated:0,skipped:0,abatidos:0,monthsTouched:[],semPermissao:true});
++      }
++      return importarOriginal.apply(this,arguments);
++    };
++  }
++  const imp=document.getElementById('imp');
++  if(imp){
++    imp.addEventListener('change',function(ev){
++      if(!ev.target.files||!ev.target.files[0])return;
++      const substituir=!!document.getElementById('imp-substituir')?.checked;
++      if(!lnbPodeRealizado('importar')||(substituir&&!lnbPodeRealizado('excluir'))){
++        ev.stopImmediatePropagation();
++        ev.target.value='';
++        lnbExigirRealizado(!lnbPodeRealizado('importar')?'importar':'excluir',substituir?'substituir o Realizado existente':'importar lançamentos no Realizado');
++      }
++    },true);
++  }
++}
++function lnbAplicarAcoesRealizado(){
++  const podeCriar=lnbPodeRealizado('criar');
++  const podeImportar=lnbPodeRealizado('importar');
++  const podeExcluir=lnbPodeRealizado('excluir');
++  function mostrar(el,sim){if(el)el.style.display=sim?'':'none';}
++  mostrar(document.getElementById('real-season-manage-panel'),podeExcluir);
++  mostrar(document.getElementById('real-week-delete-panel'),podeExcluir);
++  const salvar=document.getElementById('btn-ml-save');
++  mostrar(salvar&&salvar.closest('.toolbar'),podeCriar);
++  mostrar(document.getElementById('btn-newseason-import'),podeImportar);
++  const arqTemporada=document.getElementById('newseason-import-file');
++  if(arqTemporada)arqTemporada.disabled=!podeImportar;
++  const painelTemporada=document.getElementById('new-season-panel');
++  mostrar(painelTemporada,podeCriar||podeImportar);
++  const imp=document.getElementById('imp');
++  mostrar(imp&&imp.closest('.panel'),podeImportar);
++  const substituir=document.getElementById('imp-substituir');
++  mostrar(substituir&&substituir.closest('label'),podeImportar&&podeExcluir);
++}
++function lnbRecursoDaTela(v,area,sup){
++  if(v==='dept')return LNB_ORCAMENTO_DEPT_RECURSOS[lnbAreaEscopo(area)]||null;
++  if(v==='sup'){
++    const direto=LNB_ORCAMENTO_SUP_RECURSOS[sup];
++    if(direto)return direto;
++    const pai=typeof supportParent==='function'?supportParent(sup):'';
++    if(pai==='COMP')return LNB_ORCAMENTO_RECURSOS.comp;
++    return LNB_ORCAMENTO_DEPT_RECURSOS[pai]||null;
++  }
++  return LNB_ORCAMENTO_RECURSOS[v]||null;
++}
++function lnbTelaPermitida(v,area,sup){
++  const recurso=lnbRecursoDaTela(v,area,sup);
++  if(v==='dept')return lnbDepartamentoPermitido(area);
++  if(!recurso||!lnbTemAcao(recurso,'visualizar'))return false;
++  if(v==='rec')return lnbDepartamentoPermitido('REC');
++  if(v==='sup'){
++    const pai=typeof supportParent==='function'?supportParent(sup):'';
++    if(pai&&pai!=='COMP')return lnbDepartamentoPermitido(pai);
++  }
++  return true;
++}
++function lnbNavPermitida(b){
++  return lnbTelaPermitida(b.dataset.v,b.dataset.area,b.dataset.sup);
++}
++function lnbAplicarMenuPermitido(){
++  const botoes=[...document.querySelectorAll('#nav button')];
++  botoes.forEach(b=>{b.style.display=lnbNavPermitida(b)?'':'none';b.setAttribute('aria-hidden',lnbNavPermitida(b)?'false':'true');});
++  if(!lnbTelaPermitida(curV,curDept,curSup)){
++    const primeiro=botoes.find(lnbNavPermitida);
++    if(primeiro){
++      curV=primeiro.dataset.v;
++      if(primeiro.dataset.area)curDept=primeiro.dataset.area;
++      if(primeiro.dataset.sup)curSup=primeiro.dataset.sup;
++    }
++  }
++}
++function lnbFiltrarClassificacao(c){
++  if(!c||lnbAcessoTotal()||lnbAcessoLegadoSemCracha())return c;
++  if(!Array.isArray(c.splits))return Object.assign({},c,{splits:[]});
++  return Object.assign({},c,{splits:c.splits.filter(s=>lnbEscopoPermiteRegistro(s.a,s.g,s.l))});
++}
+ function lnbNegarModulo(recurso){
+   location.replace('/?acesso_negado='+encodeURIComponent(recurso));
+ }
+@@ -2721,6 +2839,7 @@ function lnbAuthGate(onReady){
+   const proceed = async function(){
+     const acesso=await lnbMeuAcessoCentral();
+     if(!lnbTemModulo(acesso,'orcamento')){ lnbNegarModulo('orcamento'); return; }
++    LNB_ACCESS=acesso;
+     lnbHideOverlay();
+     onReady();
+   };
+@@ -5280,8 +5399,8 @@ function registrarPagamentoParcelamento(codigo, linha, tx, valorPago, valorTotal
+ function classify(t){
+   const c=classifyCore(t);
+   if(c&&c.splits)c.splits.forEach(s=>{if(s&&s.l!=null){const l=lineById(s.l);if(l){s.l=l.id;s.a=l.area;s.g=l.g||'';}}});
+-  if(t&&t.abat&&c&&c.splits)return {...c,splits:c.splits.map(s=>({...s,v:-s.v}))};
+-  return c;
++  const out=(t&&t.abat&&c&&c.splits)?{...c,splits:c.splits.map(s=>({...s,v:-s.v}))}:c;
++  return lnbFiltrarClassificacao(out);
+ }
+ function classifyCore(t){
+   // Regra absoluta: transferências entre bancos/contas da LNB nunca entram no realizado,
+@@ -5386,6 +5505,6 @@ function budP(m,a){
+   // do painel. Antes esta função só somava linhas _custom (Novo Orçado) e
+   // ignorava todas as linhas de orçado já existentes (ex.: patrocinadores
+   // já cadastrados), fazendo o card da área mostrar só uma fração do real.
+   const cacheKey=m+'|'+a;
+   if(__budPCache.has(cacheKey))return __budPCache.get(cacheKey);
+-  const base=mm=>DB.lines.filter(l=>l.area===a&&!isTotalizerLine(l)).reduce((s,l)=>s+((l.prev||{})[mm]||0),0);
++  const base=mm=>DB.lines.filter(l=>l.area===a&&!isTotalizerLine(l)&&lnbEscopoPermiteRegistro(l.area,l.g,l.id)).reduce((s,l)=>s+((l.prev||{})[mm]||0),0);
+@@ -5393,7 +5513,7 @@ function budP(m,a){
+   __budPCache.set(cacheKey,result);
+   return result;
+ }
+-function linePrev(l,m){if(m!=='ALL')return l.prev[m]||0;return allBudgetMonths().reduce((s,mm)=>s+(l.prev[mm]||0),0);}
++function linePrev(l,m){if(!l||!lnbEscopoPermiteRegistro(l.area,l.g,l.id))return 0;if(m!=='ALL')return l.prev[m]||0;return allBudgetMonths().reduce((s,mm)=>s+(l.prev[mm]||0),0);}
+ const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+ const cssid=s=>s.replace(/[^a-z0-9]/gi,'_');
+ function supFilter(s){return t=> s.type==='ev' ? t.ev===s.v : (t.tg||[]).includes(s.v);}
+@@ -5723,6 +5843,9 @@ function goBankConsolidado(){curV='bank';render();window.scrollTo(0,0);scrollToI
+ function renderSaldoBancoQuickcard(){
+   const valEl=document.getElementById('qc-saldo-val'), descEl=document.getElementById('qc-saldo-desc');
+   if(!valEl||!descEl)return;
++  const card=document.getElementById('qc-saldo-banco');
++  if(card)card.style.display=lnbTemAcao('orcamento.conciliacao-bancaria','visualizar')?'':'none';
++  if(!lnbTemAcao('orcamento.conciliacao-bancaria','visualizar'))return;
+   const bt=bankConsolidadoTotais(curM==='ALL'?null:curM);
+   const temDados=bt.contasComDados>0;
+   // Bug real corrigido: o valor mostrado aqui era sempre bt.totFim (a soma
+@@ -5893,6 +6016,10 @@ function lnbInitHomeWeeklyFiltros(){
+ function renderHomeWeekly(){
+   const box=document.getElementById('home-weekly');
+   if(!box)return;
++  const details=document.getElementById('home-weekly-details');
++  const podeBanco=lnbTemAcao('orcamento.conciliacao-bancaria','visualizar');
++  if(details)details.style.display=podeBanco?'':'none';
++  if(!podeBanco){box.innerHTML='';return;}
+   lnbInitHomeWeeklyFiltros();
+   const hwMes=document.getElementById('hw-mes')?.value||'ALL';
+   const hwBanco=document.getElementById('hw-banco')?.value||'';
+@@ -5904,30 +6031,33 @@ function renderHome(){
+   const r=realized(curM);
+   renderHomeWeekly();
+   renderSaldoBancoQuickcard();
+-  const despP=DESP.reduce((s,a)=>s+budP(curM,a),0);
+-  const despR=DESP.reduce((s,a)=>s+(r.A[a]||0),0);
++  const despAreas=DESP.filter(lnbDepartamentoPermitido);
++  const despP=despAreas.reduce((s,a)=>s+budP(curM,a),0);
++  const despR=despAreas.reduce((s,a)=>s+(r.A[a]||0),0);
+   const recP=budP(curM,'REC')+budP(curM,'OREC');
+   const recR=(r.A['REC']||0)+(r.A['OREC']||0);
+-  let pend=0;txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;const c=classify(t);if(isAttention(t,c))pend++;});
++  let pend=0;txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;const c=classify(t);if((c.splits||[]).length&&isAttention(t,c))pend++;});
+   const pct=despP?Math.round(despR/despP*100):0;
+-  const deptOverCount=DESP.filter(a=>{const p=budP(curM,a),rr=r.A[a]||0;return p>0&&rr>p;}).length;
++  const deptOverCount=despAreas.filter(a=>{const p=budP(curM,a),rr=r.A[a]||0;return p>0&&rr>p;}).length;
+   const monthTag=curM!=='ALL'?` <span style="opacity:1;font-weight:800;font-size:13px;color:var(--tx)">(${MN[curM.slice(5)].toUpperCase()}/${curM.slice(0,4)})</span>`:'';
++  const podeBanco=lnbTemAcao('orcamento.conciliacao-bancaria','visualizar');
++  const podeConc=lnbTemAcao('orcamento.conciliacao','visualizar');
+   document.getElementById('kpis').innerHTML=`
+    <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas orçadas${curM==='ALL'?' (período do extrato)':''}</div><div class="v">${fmt(despP)}${monthTag}</div></div>
+    <div class="kpi click" onclick="goDash('areas')" title="Ver composição por departamento"><div class="l">Despesas realizadas</div><div class="v">${fmt(despR)}${monthTag}</div><div class="d">${pct}% do orçado</div></div>
+    <div class="kpi click" onclick="goRec('rec-lines')" title="Ver composição das receitas"><div class="l">Receitas realizadas</div><div class="v" style="color:var(--ok)">${fmt(recR)}${monthTag}</div><div class="d">orçado ${fmt(recP)}</div></div>
+-   <div class="kpi click" onclick="scrollToId('home-weekly')" title="Ver fluxo bancário semanal sem transferências internas"><div class="l">Fluxo bancário líquido</div><div class="v">${fmtSigned(weeklyRows(curM).reduce((s,x)=>s+x.e-x.s,0))}${monthTag}</div><div class="d">entradas − saídas, sem transferências internas</div></div>
+-   <div class="kpi click" onclick="goConcFilter('pend','')" title="Ver lançamentos pendentes na Conciliação"><div class="l">Lançamentos que pedem atenção</div><div class="v" style="color:${pend?'var(--wn)':'var(--ok)'}">${pend}</div><div class="d">${pend?'ver Conciliação':'tudo revisado ou sugerido'}</div></div>
++   ${podeBanco?`<div class="kpi click" onclick="scrollToId('home-weekly')" title="Ver fluxo bancário semanal sem transferências internas"><div class="l">Fluxo bancário líquido</div><div class="v">${fmtSigned(weeklyRows(curM).reduce((s,x)=>s+x.e-x.s,0))}${monthTag}</div><div class="d">entradas − saídas, sem transferências internas</div></div>`:''}
++   ${podeConc?`<div class="kpi click" onclick="goConcFilter('pend','')" title="Ver lançamentos pendentes na Conciliação"><div class="l">Lançamentos que pedem atenção</div><div class="v" style="color:${pend?'var(--wn)':'var(--ok)'}">${pend}</div><div class="d">${pend?'ver Conciliação':'tudo revisado ou sugerido'}</div></div>`:''}
+    <div class="kpi click" onclick="scrollToId('g-desvios')" title="Ver detalhamento por linha abaixo"><div class="l">Departamentos acima do orçado</div><div class="v" style="color:${deptOverCount?'var(--er)':'var(--ok)'}">${deptOverCount}</div><div class="d">${deptOverCount?'ver detalhe abaixo':'nenhum estourado'}${monthTag}</div></div>`;
+-  const maxA=Math.max(...DESP.map(a=>Math.max(budP(curM,a),r.A[a]||0)),1);
+-  document.getElementById('g-areas').innerHTML=DESP.map(a=>{
++  const maxA=Math.max(...despAreas.map(a=>Math.max(budP(curM,a),r.A[a]||0)),1);
++  document.getElementById('g-areas').innerHTML=despAreas.map(a=>{
+     const p=budP(curM,a),rr=r.A[a]||0,ov=p>0&&rr>p;
+     const click=DEPTS.includes(a)?`class="hbar click" onclick="goDept('${a}')"`:'class="hbar"';
+     return `<div ${click}><div>${AREAS[a]}</div>
+       <div class="tk"><div class="p" style="width:${p/maxA*100}%"></div><div class="rz ${ov?'ov':''}" style="width:${Math.min(rr,maxA)/maxA*100}%"></div></div>
+       <div class="nums">${p?fmt(p):'—'} / ${fmt(rr)}</div></div>`;}).join('');
+   document.getElementById('g-cols').innerHTML=colsHTML(months.map(m=>{const rm=realized(m);
+-    return {l:mlabel(m),p:DESP.reduce((s,a)=>s+budP(m,a),0),r:DESP.reduce((s,a)=>s+(rm.A[a]||0),0),m};}));
++    return {l:mlabel(m),p:despAreas.reduce((s,a)=>s+budP(m,a),0),r:despAreas.reduce((s,a)=>s+(rm.A[a]||0),0),m};}));
+   // "Nível 3" saiu da Home a pedido (não tinha uso analítico ali) — as
+   // mesmas visões continuam acessíveis pelo subnav de cada departamento
+   // (Equipes > Filiados, Comunicação > Transporte/Media Day, Técnico
+@@ -5952,7 +6082,7 @@ function renderRec(){
+   const recP=budP(curM,'REC'),recR=r.A['REC']||0,orecR=r.A['OREC']||0;
+   let n=0;txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;if(t.e>0&&areaOfTx(t).some(a=>a==='REC'||a==='OREC'))n++;});
+   let totBruto=0,totTrf=0;
+-  txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;if(t.e>0){totBruto+=t.e;if(areaOfTx(t).includes('TRF'))totTrf+=t.e;}});
++  txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;if(t.e>0){const valor=lnbAcessoRestrito()?lnbValorPermitidoTx(t):t.e;totBruto+=valor;if(areaOfTx(t).includes('TRF'))totTrf+=t.e;}});
+   document.getElementById('rec-breakdown').innerHTML=`<div class="note" style="display:flex;flex-wrap:wrap;gap:22px">
+     <span>${fmt(totBruto)} <span class="how">entradas totais no extrato</span></span>
+     <span style="color:var(--ok)">${fmt(recR+orecR)} <span class="how">receita real (conta no orçado)</span></span>
+@@ -7306,6 +7436,10 @@ function applyTheme(t){document.body.dataset.theme=t;store.setItem('lnb3_theme',
+ function initTheme(){const saved=store.getItem('lnb3_theme');applyTheme(saved==='dark'?'dark':'light');const bl=document.getElementById('theme-light'),bd=document.getElementById('theme-dark');if(bl)bl.onclick=()=>applyTheme('light');if(bd)bd.onclick=()=>applyTheme('dark');}
+ function chartMoney(v){return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});}
+ function dashFilterTx(t){const q=norm(document.getElementById('dash-q')?.value||'');if(!q)return true;return norm((t.f||'')+' '+(t.ds||'')+' '+(t.dc||'')+' '+(t.ev||'')+' '+((t.tg||[]).join(' '))).includes(q);}
++function lnbValorPermitidoTx(t){
++  const c=classify(t);
++  return (c&&Array.isArray(c.splits)?c.splits:[]).filter(s=>s.a!=='TRF').reduce((total,s)=>total+Math.abs(Number(s.v)||0),0);
++}
+ function svgBarChart(rows,opt={}){const W=960,ml=210,mr=135,mt=34,mb=36,bh=22,rowGap=10;const H=Math.max(330,mt+mb+rows.length*(bh+rowGap));const max=Math.max(...rows.map(r=>Math.max(r.v||0,r.v2||0,r.v3||0)),1);let y=mt;let grid='';[0,.25,.5,.75,1].forEach(p=>{const x=ml+(W-ml-mr)*p;grid+=`<line class="chart-grid" x1="${x}" y1="${mt}" x2="${x}" y2="${H-mb}"></line><text class="chart-label" x="${x}" y="${H-13}" text-anchor="middle">${chartMoney(max*p)}</text>`;});let body='';rows.forEach((r,i)=>{const yy=y+i*(bh+rowGap);const w=(r.v||0)/max*(W-ml-mr),w2=(r.v2||0)/max*(W-ml-mr);const dattrs=`data-clickable="1" data-kind="${esc(opt.kind||'')}" data-code="${esc(r.code||'')}" data-m="${esc(r.m||'')}" data-label="${esc(r.label||'')}"`;body+=`<g ${dattrs}><text class="chart-label" x="12" y="${yy+bh-3}">${esc(String(r.label).slice(0,31))}</text>`;if(r.v2!=null)body+=`<rect class="chart-bar2 chart-bar-anim" x="${ml}" y="${yy}" width="${w2}" height="${Math.max(5,bh/2-1)}" rx="5"><title>${esc(r.label)} · orçado ${chartMoney(r.v2)}</title></rect><rect class="${r.over?'chart-over':'chart-bar'} chart-bar-anim" x="${ml}" y="${yy+bh/2+1}" width="${w}" height="${Math.max(5,bh/2-1)}" rx="5"><title>${esc(r.label)} · realizado ${chartMoney(r.v)}</title></rect>`;else body+=`<rect class="${r.over?'chart-over':'chart-bar'} chart-bar-anim" x="${ml}" y="${yy}" width="${w}" height="${bh}" rx="6"><title>${esc(r.label)}${r.extra?' · '+esc(r.extra):''} · ${chartMoney(r.v)}</title></rect>`;body+=`<text class="chart-label" x="${ml+Math.max(w,w2)+8}" y="${yy+bh-3}">${r.v2!=null?chartMoney(r.v2)+' / '+chartMoney(r.v):chartMoney(r.v)}${r.extra?' · '+esc(r.extra):''}</text></g>`;});const heightStyle=H!==330?` style="height:${H}px"`:'';return `<svg class="chart-svg"${heightStyle} viewBox="0 0 ${W} ${H}" role="img"><text class="chart-title" x="12" y="22">${esc(opt.title||'Gráfico')}</text>${grid}${body}</svg>`;}
+ function svgLineChart(rows,opt={}){const n=rows.length||1;const rotate=n>8;const ml=60,mr=30,mt=34,mb=rotate?66:46;const minStep=rotate?90:46;const innerBase=960-ml-mr;const innerW=Math.max(innerBase,(n-1)*minStep);const W=ml+mr+innerW;const H=330;const step=innerW/Math.max(1,n-1);const max=Math.max(...rows.map(r=>Math.max(r.v||0,r.v2||0)),1);let grid='';[0,.25,.5,.75,1].forEach(p=>{const y=mt+(H-mt-mb)*(1-p);grid+=`<line class="chart-grid" x1="${ml}" y1="${y}" x2="${W-mr}" y2="${y}"></line><text class="chart-label" x="8" y="${y+4}">${chartMoney(max*p)}</text>`;});const pts=rows.map((r,i)=>[ml+i*step,mt+(H-mt-mb)*(1-(r.v||0)/max),r]);const d=pts.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' ');let labels='';pts.forEach((p,i)=>{const r=p[2];const dattrs=`data-clickable="1" data-kind="${esc(opt.kind||'')}" data-code="${esc(r.code||'')}" data-m="${esc(r.m||'')}" data-label="${esc(r.label||'')}"`;const lbl=esc(String(r.label).slice(0,rotate?16:18));const ly=H-mb+18;const txt=rotate?`<text class="chart-label" x="${p[0]}" y="${ly}" text-anchor="end" transform="rotate(-40 ${p[0]} ${ly})">${lbl}</text>`:`<text class="chart-label" x="${p[0]}" y="${ly}" text-anchor="middle">${lbl}</text>`;labels+=`<g ${dattrs}><circle class="chart-point chart-point-anim" cx="${p[0]}" cy="${p[1]}" r="6"><title>${esc(r.label)} · ${chartMoney(r.v)}</title></circle>${txt}</g>`;});const wrapStyle=innerW>innerBase?` style="width:${W}px;min-width:${W}px"`:'';return `<div class="chart-scroll"><svg class="chart-svg"${wrapStyle} viewBox="0 0 ${W} ${H}"><text class="chart-title" x="12" y="22">${esc(opt.title||'Evolução')}</text>${grid}<path class="chart-line chart-line-anim" d="${d}"></path>${labels}</svg></div>`;}
+ function svgColumnChart(rows,opt={}){const n=rows.length||1;const rotate=n>6;const ml=60,mr=30,mt=34,mb=rotate?70:56;const minStep=rotate?96:44;const innerBase=960-ml-mr;const innerW=Math.max(innerBase,n*minStep);const W=ml+mr+innerW;const H=330;const step=innerW/n;const bw=Math.max(14,Math.min(50,step-14));const max=Math.max(...rows.map(r=>Math.max(r.v||0,r.v2||0)),1);let grid='';[0,.25,.5,.75,1].forEach(p=>{const y=mt+(H-mt-mb)*(1-p);grid+=`<line class="chart-grid" x1="${ml}" y1="${y}" x2="${W-mr}" y2="${y}"></line><text class="chart-label" x="8" y="${y+4}">${chartMoney(max*p)}</text>`;});let body='';rows.forEach((r,i)=>{const cx0=ml+step*i+step/2;const h=(r.v||0)/max*(H-mt-mb);const dattrs=`data-clickable="1" data-kind="${esc(opt.kind||'')}" data-code="${esc(r.code||'')}" data-m="${esc(r.m||'')}" data-label="${esc(r.label||'')}"`;body+=`<g ${dattrs}>`;if(r.v2!=null){const h2=(r.v2||0)/max*(H-mt-mb);const bw2=bw/2-2;body+=`<rect class="chart-bar2 chart-bar-anim vert" x="${cx0-bw2-1}" y="${H-mb-h2}" width="${bw2}" height="${Math.max(1,h2)}" rx="4"><title>${esc(r.label)} · orçado ${chartMoney(r.v2)}</title></rect><rect class="${r.over?'chart-over':'chart-bar'} chart-bar-anim vert" x="${cx0+1}" y="${H-mb-h}" width="${bw2}" height="${Math.max(1,h)}" rx="4"><title>${esc(r.label)} · realizado ${chartMoney(r.v)}</title></rect>`;}else{body+=`<rect class="${r.over?'chart-over':'chart-bar'} chart-bar-anim vert" x="${cx0-bw/2}" y="${H-mb-h}" width="${bw}" height="${Math.max(1,h)}" rx="4"><title>${esc(r.label)}${r.extra?' · '+esc(r.extra):''} · ${chartMoney(r.v)}</title></rect>`;}const lbl=esc(String(r.label).slice(0,rotate?16:18));const ly=H-mb+14;if(rotate)body+=`<text class="chart-label" x="${cx0}" y="${ly}" text-anchor="end" transform="rotate(-40 ${cx0} ${ly})">${lbl}</text>`;else body+=`<text class="chart-label" x="${cx0}" y="${ly}" text-anchor="middle">${lbl}</text>`;body+=`</g>`;});const wrapStyle=innerW>innerBase?` style="width:${W}px;min-width:${W}px"`:'';return `<div class="chart-scroll"><svg class="chart-svg"${wrapStyle} viewBox="0 0 ${W} ${H}">${grid}<text class="chart-title" x="12" y="22">${esc(opt.title||'Gráfico')}</text>${body}</svg></div>`;}
+@@ -7374,7 +7508,8 @@ function dashArbitroRankRows(){
+     if(!(t.s>0))return;
+     const isArb=(t.tg||[]).includes('REEMB_ARB')||norm(t.ds||'').includes('arbitr');
+     if(!isArb)return;
+-    agg[t.f]=(agg[t.f]||0)+t.s;
++    const v=lnbValorPermitidoTx(t);if(!v)return;
++    agg[t.f]=(agg[t.f]||0)+v;
+   });
+   return Object.entries(agg).map(([label,v])=>({label,v})).sort((a,b)=>b.v-a.v).slice(0,15);
+ }
+@@ -7399,8 +7534,9 @@ function dashCompetitionRankRows(){
+     if(!dashFilterTx(t))return;
+     if(!(t.s>0))return;
+     if(isInternalBankTransferTx(t))return;
++    const v=lnbValorPermitidoTx(t);if(!v)return;
+     const label=t.ev||'Sem competição identificada';
+-    agg[label]=(agg[label]||0)+t.s;
++    agg[label]=(agg[label]||0)+v;
+   });
+   return Object.entries(agg).map(([label,v])=>({label,v})).sort((a,b)=>b.v-a.v).slice(0,15);
+ }
+@@ -7409,18 +7545,19 @@ function dashWeeklyFlowRows(){
+   txs.forEach(t=>{
+     if(curM!=='ALL'&&t.m!==curM)return;
+     if(isInternalBankTransferTx(t))return;
++    const v=lnbValorPermitidoTx(t);if(!v)return;
+     const wk=weekOfMonthKey(t.d);if(!wk)return;
+     if(!agg[wk])agg[wk]={e:0,s:0};
+-    if(t.e>0)agg[wk].e+=t.e;else agg[wk].s+=t.s;
++    if(t.e>0)agg[wk].e+=v;else agg[wk].s+=v;
+   });
+   return Object.keys(agg).sort().map(wk=>{const o=agg[wk];return {label:weekLabelShort(wk),v:Math.round((o.e-o.s)*100)/100,extra:'entradas '+fmt(o.e)+' · saídas '+fmt(o.s)};});
+ }
+ function dashAreaRows(){const r=realized(curM);return DESP.map(a=>{const p=budP(curM,a),rr=r.A[a]||0;return {label:AREAS[a]||a,v:rr,v2:p,over:p>0&&rr>p,extra:p?Math.round(rr/p*100)+'%':'sem orçamento',code:DEPTS.includes(a)?a:''}}).filter(x=>x.v||x.v2);}
+ function dashMonthlyRows(kind){return months.map(m=>{const r=realized(m);let v=0;if(kind==='receitas')v=(r.A.REC||0)+(r.A.OREC||0);else v=DESP.reduce((s,a)=>s+(r.A[a]||0),0);return {label:mlabel(m),v,m};});}
+ function dashDeviationRows(){const r=realized(curM);const arr=[];DB.lines.forEach(l=>{const p=linePrev(l,curM),rr=r.L[l.id]||0;if(l.area!=='REC'&&p>0&&rr>p)arr.push({label:(AREAS[l.area]||l.area)+' · '+lineName(l.id),v:rr-p,over:true,extra:'excesso',code:DEPTS.includes(l.area)?l.area:''});});Object.keys(r.G).forEach(k=>{const [a,g]=k.split('|');if(['REC','OREC','TRF'].includes(a))return;if(g==='__none'&&(r.G[k]||0)>0)arr.push({label:(AREAS[a]||a)+' · sem grupo/linha',v:r.G[k],over:true,extra:'não alocado',code:DEPTS.includes(a)?a:''});else{const lines=DB.lines.filter(l=>l.area===a&&l.g===g);const no=(r.G[k]||0)-lines.reduce((s,l)=>s+(r.L[l.id]||0),0);if(no>0.01)arr.push({label:(AREAS[a]||a)+' · '+g+' · sem linha',v:no,over:true,extra:'sem linha',code:DEPTS.includes(a)?a:''});}});return arr.sort((a,b)=>b.v-a.v).slice(0,12);}
+-function dashFavRows(){const agg={};txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;if(!dashFilterTx(t))return;const c=classify(t);if(c.splits&&c.splits.some(s=>s.a==='TRF'))return;const v=t.s>0?t.s:t.e;if(!v)return;agg[t.f]=(agg[t.f]||0)+v;});return Object.entries(agg).map(([label,v])=>({label,v})).sort((a,b)=>b.v-a.v).slice(0,12);}
++function dashFavRows(){const agg={};txs.forEach(t=>{if(curM!=='ALL'&&t.m!==curM)return;if(!dashFilterTx(t))return;const v=lnbValorPermitidoTx(t);if(!v)return;agg[t.f]=(agg[t.f]||0)+v;});return Object.entries(agg).map(([label,v])=>({label,v})).sort((a,b)=>b.v-a.v).slice(0,12);}
+ let dashChartPage=0;let dashChartLastKind=null;const DASH_CHART_PAGE_SIZE=8;
+-function renderDash(){const r=realized(curM),despR=DESP.reduce((s,a)=>s+(r.A[a]||0),0),despP=DESP.reduce((s,a)=>s+budP(curM,a),0),recR=(r.A.REC||0)+(r.A.OREC||0),pend=txs.filter(t=>(curM==='ALL'||t.m===curM)&&isAttention(t,classify(t))).length;document.getElementById('dash-kpis').innerHTML=`<div class="kpi click" onclick="document.getElementById('dash-chart').value='areas';renderDash();" title="Ver despesas por departamento"><div class="l">Orçado / realizado despesas</div><div class="v">${fmt(despP)} / ${fmt(despR)}</div><div class="d">acompanhamento orçamentário</div></div><div class="kpi click" onclick="document.getElementById('dash-chart').value='receitas';renderDash();" title="Ver receitas por mês"><div class="l">Receitas realizadas</div><div class="v" style="color:var(--ok)">${fmt(recR)}</div></div><div class="kpi click" onclick="goConcFilter('pend','')" title="Ver lançamentos pendentes na Conciliação"><div class="l">Atenção / pendentes</div><div class="v" style="color:${pend?'var(--wn)':'var(--ok)'}">${pend}</div></div><div class="kpi"><div class="l">Período</div><div class="v" style="font-size:17px">${curM==='ALL'?'Temporada':mlabel(curM)}</div></div>`;const sel=document.getElementById('dash-chart');const typeSel=document.getElementById('dash-type');const box=document.getElementById('dash-chart-box');const tip=document.getElementById('dash-tip');let rows=[],title='',defaultType='hbar',tipText='';if(sel.value==='areas'){rows=dashAreaRows();title='Departamentos — orçado / realizado';defaultType='hbar';tipText='Barras cinzas representam o orçado; barras coloridas representam o realizado. A leitura é sempre orçado / realizado. Clique num departamento para abrir a aba dele.';}else if(sel.value==='mensal'){rows=dashMonthlyRows('despesas');title='Evolução mensal das despesas realizadas';defaultType='line';tipText='Clique num ponto do mês para focar aquele período nas demais abas.';}else if(sel.value==='desvios'){rows=dashDeviationRows();title='Maiores estouros e valores sem alocação detalhada';defaultType='hbar';tipText='Itens "sem linha" indicam realizado alocado no grupo/área, mas sem amarração à linha final do orçamento. Clique para abrir o departamento.';}else if(sel.value==='fornecedores'){rows=dashFavRows();title='Top favorecidos / prestadores';defaultType='hbar';tipText='Clique num favorecido para filtrar por ele.';}else if(sel.value==='receitas'){rows=dashMonthlyRows('receitas');title='Receitas realizadas por mês';defaultType='line';tipText='Inclui receitas e outras receitas classificadas no sistema. Clique num ponto para focar o mês.';}else if(sel.value==='receitas-rank'){rows=dashRevenueRankRows();title='Ranking de receitas — por grupo/linha';defaultType='hbar';tipText='Soma de Receitas e Outras receitas por grupo/linha no período. Use o filtro de texto para restringir por patrocinador, clube ou evento.';}else if(sel.value==='despesas-rank'){rows=dashDespesaRankRows();title='Ranking de despesas — por linha orçamentária';defaultType='hbar';tipText='Todas as linhas de despesa de todos os departamentos, do maior para o menor gasto no período. Clique para abrir o departamento.';}else if(sel.value==='grupos-rank'){rows=dashGroupRankRows();title='Ranking de grupos orçamentários';defaultType='hbar';tipText='Soma por departamento · grupo no período. Clique para abrir o departamento.';}else if(sel.value==='arbitros-rank'){rows=dashArbitroRankRows();title='Ranking de árbitros';defaultType='hbar';tipText='Pagamentos e reembolsos de arbitragem por favorecido. Clique num árbitro para filtrar por ele.';}else if(sel.value==='colaboradores-rank'){rows=dashColaboradorRankRows();title='Ranking de colaboradores (RH)';defaultType='hbar';tipText='Soma de tudo lançado em Recursos Humanos por favorecido (salário, bolsas, reembolsos e rateios). Clique num colaborador para filtrar por ele.';}else if(sel.value==='competicao-rank'){rows=dashCompetitionRankRows();title='Gastos por competição';defaultType='hbar';tipText='Despesas por competição/evento identificado (NBB, LDB, Liga Ouro, Copa Super 8, Interligas, Jogo das Estrelas). Clique para filtrar por competição.';}else if(sel.value==='semanal'){rows=dashWeeklyFlowRows();title='Fluxo de caixa semanal (entradas − saídas)';defaultType='col';tipText='Saldo líquido por semana, excluindo transferências entre contas próprias. Passe o mouse na barra para ver entradas e saídas separadas.';}else{rows=dashMonthlyRows('receitas');title='Receitas realizadas por mês';defaultType='line';tipText='Inclui receitas e outras receitas classificadas no sistema. Clique num ponto para focar o mês.';}if(sel.value!==dashChartLastKind){dashChartPage=0;dashChartLastKind=sel.value;}
++function renderDash(){const r=realized(curM),despR=DESP.reduce((s,a)=>s+(r.A[a]||0),0),despP=DESP.reduce((s,a)=>s+budP(curM,a),0),recR=(r.A.REC||0)+(r.A.OREC||0),pend=txs.filter(t=>{if(curM!=='ALL'&&t.m!==curM)return false;const c=classify(t);return (c.splits||[]).length&&isAttention(t,c);}).length;document.getElementById('dash-kpis').innerHTML=`<div class="kpi click" onclick="document.getElementById('dash-chart').value='areas';renderDash();" title="Ver despesas por departamento"><div class="l">Orçado / realizado despesas</div><div class="v">${fmt(despP)} / ${fmt(despR)}</div><div class="d">acompanhamento orçamentário</div></div><div class="kpi click" onclick="document.getElementById('dash-chart').value='receitas';renderDash();" title="Ver receitas por mês"><div class="l">Receitas realizadas</div><div class="v" style="color:var(--ok)">${fmt(recR)}</div></div>${lnbTemAcao('orcamento.conciliacao','visualizar')?`<div class="kpi click" onclick="goConcFilter('pend','')" title="Ver lançamentos pendentes na Conciliação"><div class="l">Atenção / pendentes</div><div class="v" style="color:${pend?'var(--wn)':'var(--ok)'}">${pend}</div></div>`:''}<div class="kpi"><div class="l">Período</div><div class="v" style="font-size:17px">${curM==='ALL'?'Temporada':mlabel(curM)}</div></div>`;const sel=document.getElementById('dash-chart');const typeSel=document.getElementById('dash-type');const box=document.getElementById('dash-chart-box');const tip=document.getElementById('dash-tip');let rows=[],title='',defaultType='hbar',tipText='';if(sel.value==='areas'){rows=dashAreaRows();title='Departamentos — orçado / realizado';defaultType='hbar';tipText='Barras cinzas representam o orçado; barras coloridas representam o realizado. A leitura é sempre orçado / realizado. Clique num departamento para abrir a aba dele.';}else if(sel.value==='mensal'){rows=dashMonthlyRows('despesas');title='Evolução mensal das despesas realizadas';defaultType='line';tipText='Clique num ponto do mês para focar aquele período nas demais abas.';}else if(sel.value==='desvios'){rows=dashDeviationRows();title='Maiores estouros e valores sem alocação detalhada';defaultType='hbar';tipText='Itens "sem linha" indicam realizado alocado no grupo/área, mas sem amarração à linha final do orçamento. Clique para abrir o departamento.';}else if(sel.value==='fornecedores'){rows=dashFavRows();title='Top favorecidos / prestadores';defaultType='hbar';tipText='Clique num favorecido para filtrar por ele.';}else if(sel.value==='receitas'){rows=dashMonthlyRows('receitas');title='Receitas realizadas por mês';defaultType='line';tipText='Inclui receitas e outras receitas classificadas no sistema. Clique num ponto para focar o mês.';}else if(sel.value==='receitas-rank'){rows=dashRevenueRankRows();title='Ranking de receitas — por grupo/linha';defaultType='hbar';tipText='Soma de Receitas e Outras receitas por grupo/linha no período. Use o filtro de texto para restringir por patrocinador, clube ou evento.';}else if(sel.value==='despesas-rank'){rows=dashDespesaRankRows();title='Ranking de despesas — por linha orçamentária';defaultType='hbar';tipText='Todas as linhas de despesa de todos os departamentos, do maior para o menor gasto no período. Clique para abrir o departamento.';}else if(sel.value==='grupos-rank'){rows=dashGroupRankRows();title='Ranking de grupos orçamentários';defaultType='hbar';tipText='Soma por departamento · grupo no período. Clique para abrir o departamento.';}else if(sel.value==='arbitros-rank'){rows=dashArbitroRankRows();title='Ranking de árbitros';defaultType='hbar';tipText='Pagamentos e reembolsos de arbitragem por favorecido. Clique num árbitro para filtrar por ele.';}else if(sel.value==='colaboradores-rank'){rows=dashColaboradorRankRows();title='Ranking de colaboradores (RH)';defaultType='hbar';tipText='Soma de tudo lançado em Recursos Humanos por favorecido (salário, bolsas, reembolsos e rateios). Clique num colaborador para filtrar por ele.';}else if(sel.value==='competicao-rank'){rows=dashCompetitionRankRows();title='Gastos por competição';defaultType='hbar';tipText='Despesas por competição/evento identificado (NBB, LDB, Liga Ouro, Copa Super 8, Interligas, Jogo das Estrelas). Clique para filtrar por competição.';}else if(sel.value==='semanal'){rows=dashWeeklyFlowRows();title='Fluxo de caixa semanal (entradas − saídas)';defaultType='col';tipText='Saldo líquido por semana, excluindo transferências entre contas próprias. Passe o mouse na barra para ver entradas e saídas separadas.';}else{rows=dashMonthlyRows('receitas');title='Receitas realizadas por mês';defaultType='line';tipText='Inclui receitas e outras receitas classificadas no sistema. Clique num ponto para focar o mês.';}if(sel.value!==dashChartLastKind){dashChartPage=0;dashChartLastKind=sel.value;}
+ const type=(typeSel&&typeSel.value!=='auto')?typeSel.value:defaultType;box.dataset.kind=sel.value;const opt={title,kind:sel.value};
+ // Achado real: gráficos de coluna/linha cresciam sem limite conforme o
+ // período tinha mais movimentação (ex.: fluxo semanal de uma temporada
+@@ -9763,6 +9900,9 @@ function isNavButtonActive(b){
+ }
+ const renderBaseV39=render;
+ render=function(){
++ lnbInstalarGuardasRealizado();
++ lnbAplicarMenuPermitido();
++ setTimeout(lnbAplicarAcoesRealizado,0);
+  if(curV==='comp'){curSup=['CS8','INTERLIGAS','LDB','NBB','LOU','NBBTRIO'].includes(curSup)?curSup:'CS8';}
+  const logicalV=curV; if(curV==='comp')curV='sup';
+  renderBaseV39();
+@@ -10110,7 +10248,7 @@ try{applyStructureLabels();}catch(e){console.error('applyStructureLabels falhou
+ 
+ document.body.dataset.visual='nossa-terra';
+ function clearBulkDestination(){['bulk-area','bulk-group','bulk-line'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const msg=document.getElementById('bulk-msg');if(msg)msg.innerHTML='Selecione uma área, grupo e linha somente quando desejar fazer uma realocação.';}
+-document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{curV=b.dataset.v;if(curV==='conc')clearBulkDestination();if(b.dataset.area)curDept=b.dataset.area;if(b.dataset.sup)curSup=b.dataset.sup;if(curV==='comp')curSup=['CS8','INTERLIGAS','LDB','NBB','LOU','NBBTRIO'].includes(curSup)?curSup:'CS8';openLineId=null;openGroupKey=null;render();window.scrollTo(0,0);});
++document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{if(!lnbNavPermitida(b))return;curV=b.dataset.v;if(curV==='conc')clearBulkDestination();if(b.dataset.area)curDept=b.dataset.area;if(b.dataset.sup)curSup=b.dataset.sup;if(curV==='comp')curSup=['CS8','INTERLIGAS','LDB','NBB','LOU','NBBTRIO'].includes(curSup)?curSup:'CS8';openLineId=null;openGroupKey=null;render();window.scrollTo(0,0);});
+ const dashChart=document.getElementById('dash-chart'),dashQ=document.getElementById('dash-q'),dashRefresh=document.getElementById('dash-refresh'),dashType=document.getElementById('dash-type');
+ const dashResetPage=()=>{dashChartPage=0;renderDash();};
+ if(dashChart)dashChart.onchange=dashResetPage;if(dashQ)dashQ.oninput=dashResetPage;if(dashRefresh)dashRefresh.onclick=dashResetPage;if(dashType)dashType.onchange=dashResetPage;
+-- 
+2.51.1
+
