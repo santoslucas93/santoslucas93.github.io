@@ -14,9 +14,113 @@ export default {
       return handleConfig(env);
     }
 
+    if (request.method === 'GET' && (url.pathname === '/orcado/' || url.pathname === '/orcado/index.html')) {
+      return handleOrcadoComPermissoes(request, env);
+    }
+
     return env.ASSETS.fetch(request);
   }
 };
+
+// Aplicacao temporaria para o teste de staging. O HTML do Orcado tem mais de
+// 1 MB e inclui a base orcamentaria embutida; por seguranca, publicamos somente
+// o patch de codigo e o aplicamos ao servir a pagina. Depois da homologacao, o
+// patch pode ser incorporado diretamente ao HTML e este bloco removido.
+async function handleOrcadoComPermissoes(request, env) {
+  const asset = await env.ASSETS.fetch(request);
+  if (!asset.ok) return asset;
+
+  const html = await asset.text();
+  if (html.includes('const LNB_ORCAMENTO_RECURSOS=')) {
+    return responseHtml(asset, html, 'incorporado');
+  }
+
+  const patchUrl = new URL('/runtime-patches/orcado-permissions.patch', request.url);
+  const patchResponse = await env.ASSETS.fetch(new Request(patchUrl, { method: 'GET' }));
+  if (!patchResponse.ok) {
+    console.error('Patch de permissoes do Orcado indisponivel:', patchResponse.status);
+    return responseHtml(asset, html, 'indisponivel');
+  }
+
+  try {
+    const patched = applyUnifiedPatch(html, await patchResponse.text(), 'orcado/index.html');
+    return responseHtml(asset, patched, 'staging-v1');
+  } catch (error) {
+    console.error('Falha ao aplicar patch de permissoes do Orcado:', error);
+    return responseHtml(asset, html, 'erro');
+  }
+}
+
+function responseHtml(original, body, patchStatus) {
+  const headers = new Headers(original.headers);
+  headers.delete('content-length');
+  headers.set('content-type', 'text/html; charset=utf-8');
+  headers.set('cache-control', 'no-store');
+  headers.set('x-lnb-permissions-patch', patchStatus);
+  return new Response(body, { status: original.status, headers });
+}
+
+function applyUnifiedPatch(source, patch, targetPath) {
+  const marker = `diff --git a/${targetPath} b/${targetPath}`;
+  const start = patch.indexOf(marker);
+  if (start < 0) throw new Error(`Arquivo ${targetPath} nao encontrado no patch.`);
+
+  const nextDiff = patch.indexOf('\ndiff --git ', start + marker.length);
+  const section = patch.slice(start, nextDiff < 0 ? patch.length : nextDiff);
+  const patchLines = section.split('\n');
+  const sourceLines = source.split('\n');
+  let delta = 0;
+
+  for (let i = 0; i < patchLines.length; i += 1) {
+    const match = patchLines[i].match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
+    if (!match) continue;
+
+    const oldStart = Number(match[1]);
+    const oldCount = match[2] === undefined ? 1 : Number(match[2]);
+    const newCount = match[4] === undefined ? 1 : Number(match[4]);
+    const index = oldStart - 1 + delta;
+    let cursor = index;
+    let consumedOld = 0;
+    let producedNew = 0;
+    const replacement = [];
+
+    i += 1;
+    while (i < patchLines.length && (consumedOld < oldCount || producedNew < newCount)) {
+      const line = patchLines[i];
+      if (line === '\\ No newline at end of file') {
+        i += 1;
+        continue;
+      }
+
+      const kind = line.charAt(0);
+      const value = line.slice(1);
+      if (kind === ' ' || kind === '-') {
+        if (sourceLines[cursor] !== value) {
+          throw new Error(`Contexto divergente na linha ${cursor + 1}.`);
+        }
+        consumedOld += 1;
+        if (kind === ' ') {
+          replacement.push(value);
+          producedNew += 1;
+        }
+        cursor += 1;
+      } else if (kind === '+') {
+        replacement.push(value);
+        producedNew += 1;
+      }
+      i += 1;
+    }
+
+    const removed = cursor - index;
+    sourceLines.splice(index, removed, ...replacement);
+    delta += replacement.length - removed;
+    i -= 1;
+  }
+
+  return sourceLines.join('\n');
+}
+
+export { applyUnifiedPatch };
 
 async function handleGemini(request, env) {
   const key = env.GEMINI_API_KEY;
