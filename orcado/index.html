@@ -1571,14 +1571,15 @@ body[data-theme="dark"] .chart-title{fill:#ffffff!important}
 
 <div id="lnb-auth-overlay" style="position:fixed;inset:0;background:#0b1220;color:#fff;z-index:99999;display:flex;align-items:center;justify-content:center;font-family:inherit;">
   <div style="background:#111827;padding:32px 28px;border-radius:12px;max-width:360px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.5)">
-    <h2 style="margin:0 0 6px;font-size:20px;">Painel LNB — Acesso restrito</h2>
-    <div style="opacity:.7;font-size:13px;margin-bottom:18px;">Entre com seu e-mail e senha individual. Sem login pessoal ainda? Deixe o e-mail em branco e use a senha da equipe.</div>
-    <input id="lnb-auth-email" type="email" placeholder="E-mail (deixe em branco para usar a senha da equipe)" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #374151;background:#0b1220;color:#fff;font-size:15px;box-sizing:border-box;margin-bottom:10px;" autocomplete="username">
-    <input id="lnb-auth-pass" type="password" placeholder="Senha" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #374151;background:#0b1220;color:#fff;font-size:15px;box-sizing:border-box;" autocomplete="current-password">
-    <div id="lnb-auth-err" style="color:#f87171;font-size:13px;margin-top:8px;min-height:16px;"></div>
-    <button id="lnb-auth-btn" type="button" style="margin-top:14px;width:100%;padding:10px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-size:15px;cursor:pointer;">Entrar</button>
+    <div style="text-align:center;padding:8px 0">
+      <div style="width:34px;height:34px;margin:0 auto 16px;border:3px solid rgba(255,255,255,.2);border-top-color:#fbbf24;border-radius:50%;animation:lnbModuleSpin .8s linear infinite"></div>
+      <h2 style="margin:0 0 8px;font-size:20px;">Orçado x Realizado</h2>
+      <div style="opacity:.72;font-size:13px;">Validando seu acesso e carregando o módulo…</div>
+    </div>
+    <div id="lnb-auth-err" style="display:none"></div>
   </div>
 </div>
+<style>@keyframes lnbModuleSpin{to{transform:rotate(360deg)}}</style>
 <div class="hero">
   <div class="hero-top"><div>
     <h1>Orçado x Realizado — Temporada 2026/2027</h1>

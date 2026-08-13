@@ -2989,7 +2989,7 @@ body.lnb-mob-only .nav-tab.benefit-prud{ display:none!important; }
 <body>
 <div id="lnb-auth-overlay">
   <div id="lnb-auth-box">
-    <div id="lnb-auth-form-wrap">
+    <div id="lnb-auth-form-wrap" style="display:none">
       <h2>Liga Nacional de Basquete</h2>
       <p>Sistema de Benefícios — entre com a senha do painel.</p>
       <div class="form-group">
@@ -3008,12 +3008,15 @@ body.lnb-mob-only .nav-tab.benefit-prud{ display:none!important; }
       <div id="lnb-auth-err"></div>
       <div class="lnb-auth-hint">Mesma senha usada no painel Orçado x Realizado. O perfil de somente leitura só visualiza os módulos — nenhuma alteração é salva.</div>
     </div>
-    <div id="lnb-loading-msg" style="display:none;text-align:center;padding:12px 0 4px">
+    <div id="lnb-loading-msg" style="display:block;text-align:center;padding:12px 0 4px">
+      <div style="width:34px;height:34px;margin:0 auto 16px;border:3px solid #e6e9ee;border-top-color:#E85D04;border-radius:50%;animation:lnbModuleSpin .8s linear infinite"></div>
       <h2>Liga Nacional de Basquete</h2>
-      <p>Carregando os dados do Sistema de Benefícios…</p>
+      <p>Validando seu acesso e carregando o Sistema de Benefícios…</p>
     </div>
   </div>
 </div>
+
+<style>@keyframes lnbModuleSpin{to{transform:rotate(360deg)}}</style>
 
 <script>
 // ============================================================
