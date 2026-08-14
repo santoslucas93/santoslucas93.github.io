@@ -1,153 +1,644 @@
-(function(global){
+/* ============================================================
+ * LNB RH — parser.js
+ * Extração de PDF (PDF.js) e Excel (XLSX.js)
+ * Expõe window.RHParser com a API esperada pelo app.js
+ * ============================================================ */
+
+(function (window) {
   'use strict';
 
-  function clean(s){return String(s==null?'':s).replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ').trim();}
-  function brNumber(v){
-    if(typeof v==='number') return Number.isFinite(v)?v:0;
-    var s=String(v==null?'':v).trim().replace(/R\$/gi,'').replace(/\s/g,'');
-    if(!s) return 0;
-    if(s.indexOf(',')>=0) s=s.replace(/\./g,'').replace(',','.');
-    var n=Number(s); return Number.isFinite(n)?n:0;
-  }
-  function isoDate(v){
-    var m=String(v||'').match(/(\d{2})\/(\d{2})\/(\d{4})/); return m?m[3]+'-'+m[2]+'-'+m[1]:null;
-  }
-  function competenceDate(v){
-    var m=String(v||'').match(/(\d{2})\/(\d{4})/); return m?m[2]+'-'+m[1]+'-01':null;
-  }
-  function findNumber(text,re){var m=text.match(re);return m?brNumber(m[1]):0;}
-  function sum(a,key){return Math.round(a.reduce(function(t,x){return t+(Number(x[key])||0);},0)*100)/100;}
-  function cpfMask(v){var d=String(v||'').replace(/\D/g,'');return d.length===11?'***.***.***-'+d.slice(-2):'';}
-  function cnpjMask(v){var d=String(v||'').replace(/\D/g,'');return d.length===14?d.slice(0,2)+'.***.***/****-'+d.slice(-2):'';}
+  // ── Utilitários ────────────────────────────────────────────────────────────
 
-  async function hashBuffer(buffer){
-    if(!global.crypto||!global.crypto.subtle) return '';
-    var digest=await global.crypto.subtle.digest('SHA-256',buffer.slice(0));
-    return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  /** Converte número brasileiro ("1.234,56") em float */
+  function brNumber(s) {
+    if (s == null || s === '') return 0;
+    const str = String(s).replace(/[^\d,.-]/g, '');
+    return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
   }
 
-  function pageText(content){
-    var rows={};
-    content.items.forEach(function(item){
-      if(!item.str) return;
-      var y=Math.round((item.transform&&item.transform[5]||0)*2)/2;
-      var key=String(y);(rows[key]||(rows[key]=[])).push({x:item.transform&&item.transform[4]||0,s:item.str,w:item.width||0});
-    });
-    return Object.keys(rows).map(Number).sort(function(a,b){return b-a;}).map(function(y){
-      var parts=rows[String(y)].sort(function(a,b){return a.x-b.x;});
-      var line='',end=0;
-      parts.forEach(function(p,i){var gap=p.x-end;if(i&&gap>1.8)line+=' '.repeat(Math.min(12,Math.max(1,Math.round(gap/4))));line+=p.s;end=p.x+p.w;});
-      return line.trimEnd();
-    }).join('\n');
+  /** Mascara CPF: mantém posições 3-8, oculta o resto  →  ***.XXX.XXX-** */
+  function cpfMask(cpf) {
+    const digits = String(cpf).replace(/\D/g, '');
+    if (digits.length !== 11) return cpf; // mantém o original se formato incomum
+    return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`;
   }
 
-  async function extractPdf(file,onProgress){
-    if(!global.pdfjsLib) throw new Error('Leitor de PDF indisponível. Recarregue a página.');
-    global.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    var buffer=await file.arrayBuffer();
-    var pdf=await global.pdfjsLib.getDocument({data:buffer}).promise,pages=[];
-    for(var i=1;i<=pdf.numPages;i++){
-      var page=await pdf.getPage(i),content=await page.getTextContent({normalizeWhitespace:true});
-      pages.push(pageText(content));if(onProgress)onProgress(i,pdf.numPages);
+  /** Mascara CNPJ: oculta os últimos 2 dígitos verificadores */
+  function cnpjMask(cnpj) {
+    return String(cnpj).replace(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-)(\d{2})/, '$1**');
+  }
+
+  /** DD/MM/YYYY → YYYY-MM-DD */
+  function isoDate(br) {
+    const m = String(br || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+  }
+
+  /** MM/YYYY → YYYY-MM-01 */
+  function competenciaToDate(s) {
+    const m = String(s || '').match(/^(\d{2})\/(\d{4})$/);
+    return m ? `${m[2]}-${m[1]}-01` : null;
+  }
+
+  /** SHA-256 de um ArrayBuffer */
+  async function hashBuffer(buf) {
+    const arr = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', buf)));
+    return arr.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // ── Parser de rubricas ─────────────────────────────────────────────────────
+
+  /**
+   * Parseia uma linha de rubrica que pode conter 1 ou 2 itens
+   * (layout de duas colunas: proventos à esquerda, descontos à direita).
+   *
+   * Formato de cada item:
+   *   {CODIGO}{NOME}  {REFERENCIA}  {VALOR}{P|D}
+   *
+   * Casos especiais tratados:
+   *   • "9311/3 DAS FERIAS"  → código 931, nome "1/3 DAS FERIAS"
+   *   • "855013 SALARIO..."  → código 8550, nome "13 SALARIO..."   (\d{2,4} para no 4º dígito)
+   *   • "81691/3 FERIAS..."  → código 8169, nome "1/3 FERIAS..."
+   *
+   * @param {string} line
+   * @returns {Array<{codigo, nome, referencia, valor, tipo}>}
+   */
+  function parseRubrics(line) {
+    line = (line || '').trim();
+    if (!line) return [];
+
+    // Localiza todas as ocorrências de "VALOR P|D" na linha para dividir os itens
+    const termRe = /([\d.]+,\d{2})\s*([PD])(?=\s|$)/g;
+    const terminals = [];
+    let tm;
+    while ((tm = termRe.exec(line)) !== null) {
+      terminals.push({ start: tm.index, end: tm.index + tm[0].length, type: tm[2] });
     }
-    return {text:pages.join('\n\f\n'),hash:await hashBuffer(buffer),pages:pdf.numPages};
-  }
+    if (!terminals.length) return [];
 
-  function parseRubrics(block){
-    var before=(block.split(/\n\s*ND:\s*/)[0]||'').split(/\n/).slice(3).join('\n');
-    var out=[],re=/(?:^|\s)(\d{1,4})\s+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ0-9ºª%()\/.,+\- ]{3,}?)\s+(-?[\d.]+,\d{2})\s+(-?[\d.]+,\d{2})\s+([PDI])(?=\s|$)/g,m;
-    while((m=re.exec(before))){
-      var nome=clean(m[2]).replace(/^\d{1,4}\s+/,'');
-      if(!nome||/^(CPF|ADM|SALÁRIO|FILIAL)$/i.test(nome))continue;
-      out.push({codigo:m[1],nome:nome,referencia:brNumber(m[3]),valor:brNumber(m[4]),tipo:m[5]});
+    const items = [];
+    let cursor = 0;
+
+    for (const term of terminals) {
+      const segment = line.slice(cursor, term.end).trim();
+
+      // Cada segmento: (\d{2,4})\s*NOME  REF  VALOR[PD]
+      const itemRe = /^(\d{2,4})\s*([\s\S]+?)\s+([\d.,]+)\s+([\d.,]+)\s*([PD])$/;
+      const m = itemRe.exec(segment);
+
+      if (m) {
+        let codigo = m[1];
+        let nome   = m[2].trim();
+
+        // Fix: "9311" + "/3 DAS FERIAS" → código "931", nome "1/3 DAS FERIAS"
+        if (nome.startsWith('/') && codigo.length > 2) {
+          nome   = codigo.slice(-1) + nome;
+          codigo = codigo.slice(0, -1);
+        }
+
+        // Ignora linhas informativas de FERIAS / DEMITIDO que não são rubricas
+        if (/^(FERIAS DE|DEMITIDO EM)/i.test(nome)) {
+          cursor = term.end;
+          while (cursor < line.length && line[cursor] === ' ') cursor++;
+          continue;
+        }
+
+        items.push({
+          codigo,
+          nome,
+          referencia: m[3],
+          valor: brNumber(m[4]),
+          tipo: m[5] === 'P' ? 'provento' : 'desconto'
+        });
+      }
+
+      cursor = term.end;
+      while (cursor < line.length && line[cursor] === ' ') cursor++;
     }
-    return out;
-  }
 
-  function parseEmployee(block){
-    var head=block.match(/^\s*(\d+)\s+(.+?)\s+Situa(?:ç|c)[aã]o:\s*(.+?)\s+CPF:\s*([\d.\-]+)\s+Adm:\s*(\d{2}\/\d{2}\/\d{4})/i);
-    if(!head)return null;
-    var v=block.match(/V[ií]nculo:\s*(.+?)\s+CC:\s*([^\s]+)\s+Depto:\s*([^\s]+)\s+Horas M[eê]s:\s*([\d.,]+)/i)||[];
-    var c=block.match(/Cargo:\s*(?:\d+\s+)?(.+?)\s+C\.B\.O:\s*([^\s]+)\s+Filial:\s*([^\s]+)\s+Sal[aá]rio:\s*([\d.,]+)/i)||[];
-    var t=block.match(/Proventos:\s*([\d.,]+)\s+Descontos:\s*([\d.,]+)\s+Informativa:\s*([\d.,]+).*?L[ií]quido:\s*([\d.,]+)/is)||[];
-    var b=block.match(/Base INSS:\s*([\d.,]+)\s+Excedente INSS:\s*([\d.,]+).*?Base FGTS:\s*([\d.,]+).*?Valor FGTS:\s*([\d.,]+).*?Base IRRF:\s*(-?[\d.,]+)/is)||[];
-    return {
-      matricula:head[1],nome:clean(head[2]),situacao:clean(head[3]),cpf:head[4],cpf_mascarado:cpfMask(head[4]),admissao:isoDate(head[5]),
-      vinculo:clean(v[1]),centro_custo:clean(v[2]),departamento:clean(v[3]),horas_mes:brNumber(v[4]),
-      cargo:clean(c[1]),cbo:clean(c[2]),filial:clean(c[3]),salario:brNumber(c[4]),
-      proventos:brNumber(t[1]),descontos:brNumber(t[2]),informativa:brNumber(t[3]),liquido:brNumber(t[4]),
-      base_inss:brNumber(b[1]),excedente_inss:brNumber(b[2]),base_fgts:brNumber(b[3]),valor_fgts:brNumber(b[4]),base_irrf:brNumber(b[5]),
-      observacao:(block.match(/\n(FERIAS[^\n]+)/i)||[])[1]||'',lancamentos:parseRubrics(block)
-    };
-  }
-
-  function parseDepartments(text){
-    var section=(text.match(/Totais por Departamento([\s\S]*?)Totais por Centro de Custos/i)||[])[1]||'',out=[];
-    section.split(/\n/).forEach(function(line){
-      var m=line.match(/^\s*(\d+)\s+(.+?)\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s+([\d.]+,\d{2})\s*$/);
-      if(m)out.push({codigo:m[1],nome:clean(m[2]),proventos:brNumber(m[3]),descontos:brNumber(m[4]),liquido:brNumber(m[5])});
-    });return out;
-  }
-
-  function parseCharges(text){
-    var s=text.slice(Math.max(0,text.lastIndexOf('\nINSS')));
-    return {
-      inss_segurados:findNumber(s,/Segurados:\s*([\d.,]+)/i),inss_empresa:findNumber(s,/Empresa:\s*([\d.,]+)/i),rat:findNumber(s,/RAT:\s*([\d.,]+)/i),terceiros:findNumber(s,/Terceiros:\s*([\d.,]+)/i),total_inss:findNumber(s,/Total INSS:\s*([\d.,]+)/i),
-      base_fgts:findNumber(s,/Base do FGTS:\s*([\d.,]+)/i),valor_fgts:findNumber(s,/Valor do FGTS:\s*([\d.,]+)/i),base_pis:findNumber(s,/Base PIS:\s*([\d.,]+)/i),valor_pis:findNumber(s,/Valor PIS:\s*([\d.,]+)/i),valor_irrf:findNumber(s,/Valor Total do IRRF:\s*([\d.,]+)/i)
-    };
-  }
-
-  function parseSituations(text){
-    var s=text.slice(Math.max(0,text.lastIndexOf('Situações'))),out={};
-    [['empregados',/No\. Empregados:\s*(\d+)/i],['estagiarios',/No\. Estagiários:\s*(\d+)/i],['trabalhando',/Trabalhando:\s*(\d+)/i],['demitidos',/Demitido:\s*(\d+)/i],['admissoes',/Admissões:\s*(\d+)/i],['ferias',/Férias:\s*(\d+)/i],['afastados',/Outros afastamentos:\s*(\d+)/i]].forEach(function(x){var m=s.match(x[1]);out[x[0]]=m?Number(m[1]):0;});
-    return out;
-  }
-
-  function validate(result,reported){
-    var calc={proventos:sum(result.colaboradores,'proventos'),descontos:sum(result.colaboradores,'descontos'),liquido:sum(result.colaboradores,'liquido')},items=[];
-    ['proventos','descontos','liquido'].forEach(function(k){var diff=Math.abs(calc[k]-reported[k]);items.push({tipo:diff<.03?'ok':'alerta',campo:k,calculado:calc[k],informado:reported[k],mensagem:diff<.03?'Composição individual confere com o total geral.':'Diferença de R$ '+diff.toFixed(2)+' entre composição e total geral.'});});
-    items.push({tipo:result.colaboradores.length?'ok':'alerta',campo:'colaboradores',mensagem:result.colaboradores.length?result.colaboradores.length+' colaboradores identificados.':'Nenhum colaborador foi identificado.'});
     return items;
   }
 
-  function parsePdfText(text,meta){
-    text=String(text||'').replace(/\r/g,'');
-    var company=text.match(/Empresa:\s*(\d+)\s*-\s*([^\n]+)/i)||[],cnpj=(text.match(/CNPJ:\s*([\d./-]+)/i)||[])[1]||'',compet=(text.match(/Compet[eê]ncia:\s*(\d{2}\/\d{4})/i)||[])[1]||'',calc=(text.match(/C[aá]lculo:\s*([^\n]+)/i)||[])[1]||'Folha mensal';
-    var blocks=text.split(/\bEmpr\.:\s*/).slice(1),employees=blocks.map(parseEmployee).filter(Boolean);
-    var reported={
-      proventos:findNumber(text,/Total Geral Proventos:\s*([\d.,]+)/i)||sum(employees,'proventos'),
-      descontos:findNumber(text,/Total Geral Descontos:\s*([\d.,]+)/i)||sum(employees,'descontos'),
-      liquido:findNumber(text,/L[ií]quido Geral:\s*([\d.,]+)/i)||sum(employees,'liquido'),
-      base_inss:sum(employees,'base_inss'),base_fgts:sum(employees,'base_fgts'),valor_fgts:sum(employees,'valor_fgts'),base_irrf:sum(employees,'base_irrf')
+  // ── Parser de colaborador individual ──────────────────────────────────────
+
+  /**
+   * Recebe o bloco de texto de um colaborador e retorna objeto estruturado.
+   * @param {string} block
+   */
+  function parseEmployee(block) {
+    const headerRe  = /Empr\.: (\d+)([^\n]+?)Situ[aã]ção:(\S+)\s+CPF:([\d.*\/-]+)\s+Adm: (\d{2}\/\d{2}\/\d{4})/;
+    const vinculoRe = /V[ií]nculo:\s*([^\n]+?)CC:(\S+)\s+Depto:(\d+)\s+Horas M[eê]s: ([\d,.]+)/;
+    const cargoRe   = /Cargo:\s*(\d+)([^\n]+?)C\.B\.O:([\d]+)\s+Filial:(\d+)\s+Sal[aá]rio: ([\d,.]+)/;
+    const ndRe      = /ND:.*?Proventos: ([\d,.]+)\s+Descontos: ([\d,.]+).*?Informativa: ([\d,.]+).*?L[ií]quido: ([\d,.]+)/;
+    const nfRe      = /NF:.*?Base INSS: ([\d,.]+)\s+Excedente INSS: ([\d,.]+)\s+Base FGTS: ([\d,.]+)\s+Valor FGTS: ([\d,.]+)\s+Base IRRF: ([\d,.+\-]+)/;
+
+    const hm  = headerRe.exec(block);
+    const vm  = vinculoRe.exec(block);
+    const cm  = cargoRe.exec(block);
+    const ndm = ndRe.exec(block);
+    const nfm = nfRe.exec(block);
+
+    if (!hm || !vm || !cm || !ndm || !nfm) return null;
+
+    // Bloco entre a linha de Cargo e a linha "ND:" contém as rubricas
+    const cargoEnd = block.indexOf('\n', block.indexOf('C.B.O:'));
+    const ndStart  = block.indexOf('\nND:');
+    const rubricBlock = (cargoEnd >= 0 && ndStart > cargoEnd)
+      ? block.slice(cargoEnd + 1, ndStart)
+      : '';
+
+    const lancamentos = [];
+    for (const line of rubricBlock.split('\n')) {
+      lancamentos.push(...parseRubrics(line));
+    }
+
+    return {
+      matricula:    hm[1].trim(),
+      nome:         hm[2].trim(),
+      cpf_mascarado: cpfMask(hm[4].trim()),
+      admissao:     isoDate(hm[5]),
+      situacao:     hm[3].trim(),
+      vinculo:      vm[1].trim(),
+      centro_custo: vm[2].trim(),
+      departamento: vm[3].trim(),
+      cargo:        cm[2].trim(),
+      cbo:          cm[3].trim(),
+      filial:       cm[4].trim(),
+      salario:      brNumber(cm[5]),
+      folha: {
+        horas_mes:     brNumber(vm[4]),
+        salario:       brNumber(cm[5]),
+        proventos:     brNumber(ndm[1]),
+        descontos:     brNumber(ndm[2]),
+        informativa:   brNumber(ndm[3]),
+        liquido:       brNumber(ndm[4]),
+        base_inss:     brNumber(nfm[1]),
+        excedente_inss: brNumber(nfm[2]),
+        base_fgts:     brNumber(nfm[3]),
+        valor_fgts:    brNumber(nfm[4]),
+        base_irrf:     brNumber(nfm[5])
+      },
+      lancamentos
     };
-    var situations=parseSituations(text),departments=parseDepartments(text),charges=parseCharges(text);
-    var result={
-      meta:{competencia:competenceDate(compet),competencia_rotulo:compet,empresa_codigo:company[1]||'',empresa_nome:clean((company[2]||'').replace(/\s+Página:.*/i,'')),cnpj_mascarado:cnpjMask(cnpj),tipo_calculo:clean(String(calc).replace(/\s+Horas:.*/i,'')),fonte:'pdf',arquivo_nome:meta&&meta.fileName||'',arquivo_hash:meta&&meta.hash||'',paginas:meta&&meta.pages||0},
-      resumo:Object.assign({},reported,situations,{pessoas:employees.length,departamentos:departments}),encargos:charges,colaboradores:employees,validacoes:[]
+  }
+
+  // ── Parser de departamentos ────────────────────────────────────────────────
+
+  function parseDepartments(text) {
+    const depts = [];
+    // O cabeçalho "Proventos Descontos Liquido" fica na MESMA linha que "Totais por Departamento"
+    const sectionRe = /Totais por Departamento[^\n]*\n([\s\S]+?)Total:/;
+    const sec = sectionRe.exec(text);
+    if (!sec) return depts;
+
+    const lineRe = /^(\d+)(.+?)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)$/gm;
+    let m;
+    while ((m = lineRe.exec(sec[1])) !== null) {
+      depts.push({
+        codigo: m[1],
+        nome:   m[2].trim(),
+        proventos: brNumber(m[3]),
+        descontos:  brNumber(m[4]),
+        liquido:    brNumber(m[5])
+      });
+    }
+    return depts;
+  }
+
+  // ── Parser de centros de custo ─────────────────────────────────────────────
+
+  function parseCostCenters(text) {
+    const ccs = [];
+    // Idem: cabeçalho na mesma linha; termina em "Total Geral" ou segunda ocorrência de "Total:"
+    const sectionRe = /Totais por Centro de Custos[^\n]*\n([\s\S]+?)Total:/;
+    const all = [...text.matchAll(/Totais por Centro de Custos[^\n]*\n([\s\S]+?)Total:/g)];
+    const sec = all[0];
+    if (!sec) return ccs;
+
+    const lineRe = /^(\d+)(.+?)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)$/gm;
+    let m;
+    while ((m = lineRe.exec(sec[1])) !== null) {
+      ccs.push({
+        codigo: m[1],
+        nome:   m[2].trim(),
+        proventos: brNumber(m[3]),
+        descontos:  brNumber(m[4]),
+        liquido:    brNumber(m[5])
+      });
+    }
+    return ccs;
+  }
+
+  // ── Parser de encargos (pág. 7) ────────────────────────────────────────────
+
+  function parseCharges(text) {
+    const enc = {};
+    const fields = {
+      sal_contrib_empregados: /Sal[aá]rio contribui[cç][aã]o empregados:\s*([\d.,]+)/,
+      excedente_inss:         /Excedente:\s*([\d.,]+)/,
+      base_total_inss:        /Base total:\s*([\d.,]+)/,
+      segurados:              /Segurados:\s*([\d.,]+)/,
+      empresa_inss:           /Empresa:\s*([\d.,]+)/,
+      rat:                    /RAT:\s*([\d.,]+)/,
+      terceiros:              /Terceiros:\s*([\d.,]+)/,
+      total_inss:             /Total INSS:\s*([\d.,]+)/,
+      base_fgts:              /Base do FGTS:\s*([\d.,]+)/,
+      valor_fgts:             /Valor do FGTS:\s*([\d.,]+)/,
+      base_pis:               /Base PIS:\s*([\d.,]+)/,
+      valor_pis:              /Valor PIS:\s*([\d.,]+)/,
+      base_irrf_mensal:       /Base IRRF Mensal:\s*([\d.,]+)/,
+      valor_irrf_mensal:      /Valor IRRF Mensal:\s*([\d.,]+)/,
+      valor_total_irrf:       /Valor Total do IRRF:\s*([\d.,]+)/
     };
-    result.validacoes=validate(result,reported);return result;
+
+    for (const [k, re] of Object.entries(fields)) {
+      const m = re.exec(text);
+      if (m) enc[k] = brNumber(m[1]);
+    }
+
+    // Situações — extrai apenas o bloco específico para não capturar "Férias" de IRRF
+    const sit = {};
+    const sitSection = /Situa[cç][oõ]es\n([\s\S]+?)(?:\n\n|Sal[aá]rio maternidade[^\n]*\n[^\n]*\n[^\n]*$)/m.exec(text);
+    const sitText = sitSection ? sitSection[1] : text;
+
+    const sitFields = {
+      empregados:  /N[o°]\.\s*Empregados:\s*(\d+)/,
+      estagiarios: /N[o°]\.\s*Estagi[aá]rios:\s*(\d+)/,
+      trabalhando: /Trabalhando:\s*(\d+)/,
+      demitido:    /Demitido:\s*(\d+)/,
+      transferido: /Transferido:\s*(\d+)/,
+      ferias:      /F[eé]rias:\s*(\d+)(?![\d,])/,   // não captura "Férias: 765,57"
+      afastado:    /Afastado direitos integrais:\s*(\d+)/
+    };
+    for (const [k, re] of Object.entries(sitFields)) {
+      const m = re.exec(sitText);
+      if (m) sit[k] = parseInt(m[1], 10);
+    }
+    enc.situacoes = sit;
+
+    return enc;
   }
 
-  function normHeader(v){return clean(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');}
-  function excelValue(row,keys){for(var i=0;i<keys.length;i++)if(row[keys[i]]!=null&&row[keys[i]]!=='')return row[keys[i]];return '';}
-  async function parseExcel(file){
-    if(!global.XLSX)throw new Error('Leitor de Excel indisponível. Recarregue a página.');
-    var buffer=await file.arrayBuffer(),book=global.XLSX.read(buffer,{type:'array',cellDates:true}),sheet=book.Sheets[book.SheetNames[0]],raw=global.XLSX.utils.sheet_to_json(sheet,{defval:''});
-    if(!raw.length)throw new Error('A planilha está vazia.');
-    var rows=raw.map(function(r){var o={};Object.keys(r).forEach(function(k){o[normHeader(k)]=r[k];});return o;});
-    var employees=rows.map(function(r){
-      var adm=excelValue(r,['admissao','data_admissao']);if(adm instanceof Date)adm=adm.toISOString().slice(0,10);else adm=isoDate(adm)||String(adm||'');
-      return {matricula:String(excelValue(r,['matricula','codigo','empregado'])),nome:clean(excelValue(r,['nome','colaborador','funcionario'])),cpf:String(excelValue(r,['cpf'])),cpf_mascarado:cpfMask(excelValue(r,['cpf'])),admissao:adm,vinculo:clean(excelValue(r,['vinculo','tipo_vinculo'])),cargo:clean(excelValue(r,['cargo','funcao'])),cbo:String(excelValue(r,['cbo'])),centro_custo:String(excelValue(r,['centro_custo','cc'])),departamento:clean(excelValue(r,['departamento','depto','area'])),filial:String(excelValue(r,['filial'])),situacao:clean(excelValue(r,['situacao','status'])),horas_mes:brNumber(excelValue(r,['horas_mes','horas'])),salario:brNumber(excelValue(r,['salario','salario_base'])),proventos:brNumber(excelValue(r,['proventos','total_proventos','bruto'])),descontos:brNumber(excelValue(r,['descontos','total_descontos'])),liquido:brNumber(excelValue(r,['liquido','valor_liquido'])),informativa:brNumber(excelValue(r,['informativa'])),base_inss:brNumber(excelValue(r,['base_inss'])),excedente_inss:brNumber(excelValue(r,['excedente_inss'])),base_fgts:brNumber(excelValue(r,['base_fgts'])),valor_fgts:brNumber(excelValue(r,['valor_fgts','fgts'])),base_irrf:brNumber(excelValue(r,['base_irrf'])),lancamentos:[]};
-    }).filter(function(x){return x.matricula&&x.nome;});
-    var competence=excelValue(rows[0],['competencia','mes_competencia']);if(competence instanceof Date)competence=competence.toISOString().slice(0,7)+'-01';else if(!/^\d{4}-\d{2}-\d{2}$/.test(String(competence)))competence=competenceDate(competence);
-    var summary={proventos:sum(employees,'proventos'),descontos:sum(employees,'descontos'),liquido:sum(employees,'liquido'),base_inss:sum(employees,'base_inss'),base_fgts:sum(employees,'base_fgts'),valor_fgts:sum(employees,'valor_fgts'),base_irrf:sum(employees,'base_irrf'),pessoas:employees.length,departamentos:[]};
-    var result={meta:{competencia:competence,competencia_rotulo:competence?competence.slice(5,7)+'/'+competence.slice(0,4):'',empresa_codigo:String(excelValue(rows[0],['empresa_codigo','codigo_empresa'])||'2038'),empresa_nome:clean(excelValue(rows[0],['empresa_nome','empresa'])||'LIGA NACIONAL DE BASQUETE'),cnpj_mascarado:cnpjMask(excelValue(rows[0],['cnpj'])),tipo_calculo:'Folha mensal',fonte:'excel',arquivo_nome:file.name,arquivo_hash:await hashBuffer(buffer)},resumo:summary,encargos:{},colaboradores:employees,validacoes:[]};
-    result.validacoes=validate(result,summary);return result;
+  // ── Resumo por rubrica (pág. 6) ────────────────────────────────────────────
+
+  function parseResumoRubricas(text) {
+    const sec = /Resumo por Rubrica\n?([\s\S]+?)(?:Totais por Filial|Sistema licenciado|$)/.exec(text);
+    if (!sec) return [];
+    const items = [];
+    for (const line of sec[1].split('\n')) {
+      items.push(...parseRubrics(line.trim()));
+    }
+    return items;
   }
 
-  function safePayload(result){
-    var copy=JSON.parse(JSON.stringify(result));copy.colaboradores.forEach(function(x){var masked=cpfMask(x.cpf)||x.cpf_mascarado||'';delete x.cpf;x.cpf_mascarado=masked;});return copy;
+  // ── Parser de texto extraído do PDF ───────────────────────────────────────
+
+  /**
+   * Recebe o texto bruto extraído (via PDF.js ou pdfplumber) e retorna payload.
+   * @param {string} text
+   * @returns {{ competencia: Object, colaboradores: Array }}
+   */
+  function parsePdfText(text) {
+    // Remove cabeçalhos repetidos em cada página
+    const headerRe = /Empresa: \d+ - [^\n]+\n(?:CNPJ:[^\n]+\n)?(?:C[aá]lculo:[^\n]+\n)?(?:Compet[eê]ncia:[^\n]+\n)?(?:Complemento[^\n]*\n)?(?:Vinculos:[^\n]+\n)?(?:EXTRATO MENSAL\n)?(?:Folha Mensal\n)?/g;
+    let clean = text.replace(headerRe, '');
+    clean = clean.replace(/Sistema licenciado para[^\n]*\n?/g, '');
+
+    // Metadados da empresa
+    const empRe   = /Empresa: (\d+) - ([^\n]+)/;
+    const cnpjRe  = /CNPJ: ([\d.\/\-]+)/;
+    const calcRe  = /C[aá]lculo: ([^\n]+)/;
+    const compRe  = /Compet[eê]ncia: (\d{2}\/\d{4})/;
+
+    const empM  = empRe.exec(text);
+    const cnpjM = cnpjRe.exec(text);
+    const calcM = calcRe.exec(text);
+    const compM = compRe.exec(text);
+
+    const empresa_codigo = empM  ? empM[1]  : '';
+    const empresa_nome   = empM  ? empM[2].split(' P')[0].trim() : '';  // corta " Página: X/Y"
+    const cnpj_raw       = cnpjM ? cnpjM[1] : '';
+    const tipo_calculo   = calcM ? calcM[1].split(' Horas:')[0].trim() : '';
+    const competencia    = compM ? competenciaToDate(compM[1]) : null;
+
+    // Localiza todos os blocos de colaboradores
+    // (funciona mesmo com texto sem quebras de cabeçalho, pois usa clean)
+    const empBlockRe = new RegExp(
+      'Empr\\.: (\\d+)([^\\n]+?)Situ[aã][cç][aã]o:(\\S+)\\s+CPF:([\\d.*\\/-]+)\\s+Adm: (\\d{2}\\/\\d{2}\\/\\d{4})\\n' +
+      'V[ií]nculo:\\s*([^\\n]+?)CC:(\\S+)\\s+Depto:(\\d+)\\s+Horas M[eê]s: ([\\d,.]+)\\n' +
+      'Cargo:\\s*(\\d+)([^\\n]+?)C\\.B\\.O:([\\d]+)\\s+Filial:(\\d+)\\s+Sal[aá]rio: ([\\d,.]+)\\n' +
+      '([\\s\\S]*?)' +
+      '\\nND:.*?Proventos: ([\\d,.]+)\\s+Descontos: ([\\d,.]+).*?Informativa: ([\\d,.]+).*?L[ií]quido: ([\\d,.]+)\\n' +
+      'NF:.*?Base INSS: ([\\d,.]+)\\s+Excedente INSS: ([\\d,.]+)\\s+Base FGTS: ([\\d,.]+)\\s+Valor FGTS: ([\\d,.]+)\\s+Base IRRF: ([\\d,.+\\-]+)',
+      'g'
+    );
+
+    const colaboradores = [];
+    let em;
+    while ((em = empBlockRe.exec(clean)) !== null) {
+      const rubricBlock = em[15].trim();
+      const lancamentos = [];
+      for (const line of rubricBlock.split('\n')) {
+        lancamentos.push(...parseRubrics(line));
+      }
+
+      colaboradores.push({
+        matricula:      em[1].trim(),
+        nome:           em[2].trim(),
+        cpf_mascarado:  cpfMask(em[4].trim()),
+        admissao:       isoDate(em[5]),
+        situacao:       em[3].trim(),
+        vinculo:        em[6].trim(),
+        centro_custo:   em[7].trim(),
+        departamento:   em[8].trim(),
+        cbo:            em[12].trim(),
+        cargo:          em[11].trim(),
+        filial:         em[13].trim(),
+        salario:        brNumber(em[14]),
+        folha: {
+          horas_mes:      brNumber(em[9]),
+          salario:        brNumber(em[14]),
+          proventos:      brNumber(em[16]),
+          descontos:      brNumber(em[17]),
+          informativa:    brNumber(em[18]),
+          liquido:        brNumber(em[19]),
+          base_inss:      brNumber(em[20]),
+          excedente_inss: brNumber(em[21]),
+          base_fgts:      brNumber(em[22]),
+          valor_fgts:     brNumber(em[23]),
+          base_irrf:      brNumber(em[24])
+        },
+        lancamentos
+      });
+    }
+
+    // Totais gerais (pág. 6)
+    const totalM = /Total Geral Proventos: ([\d.,]+)\s+Total Geral Descontos: ([\d.,]+)\s+L[ií]quido Geral: ([\d.,]+)/.exec(text);
+    const proventos = totalM ? brNumber(totalM[1]) : 0;
+    const descontos  = totalM ? brNumber(totalM[2]) : 0;
+    const liquido    = totalM ? brNumber(totalM[3]) : 0;
+
+    // Encargos e situações (pág. 7)
+    const encargos = parseCharges(text);
+
+    // Resumo
+    const resumo = {
+      departamentos: parseDepartments(text),
+      centros_custo: parseCostCenters(text),
+      rubricas:      parseResumoRubricas(text)
+    };
+
+    // Validações
+    const validacoes = [];
+    const calcProv = colaboradores.reduce((s, c) => s + (c.folha.proventos || 0), 0);
+    if (Math.abs(calcProv - proventos) > 0.10) {
+      validacoes.push({
+        tipo: 'aviso',
+        msg: `Proventos calculados (${calcProv.toFixed(2)}) divergem do total do PDF (${proventos.toFixed(2)})`
+      });
+    }
+    if (colaboradores.length === 0) {
+      validacoes.push({ tipo: 'erro', msg: 'Nenhum colaborador encontrado — verifique se o PDF é um Extrato Mensal válido' });
+    }
+
+    return {
+      competencia: {
+        competencia,
+        empresa_codigo,
+        empresa_nome,
+        cnpj_mascarado: cnpj_raw,   // CNPJ da empresa (não é dado pessoal)
+        tipo_calculo,
+        fonte: 'pdf',
+        status: 'processado',
+        proventos,
+        descontos,
+        liquido,
+        base_inss:  encargos.base_total_inss || 0,
+        base_fgts:  encargos.base_fgts       || 0,
+        valor_fgts: encargos.valor_fgts      || 0,
+        base_irrf:  encargos.base_irrf_mensal || 0,
+        encargos,
+        resumo,
+        validacoes
+      },
+      colaboradores
+    };
   }
 
-  global.RHParser={extractPdf:extractPdf,parsePdfText:parsePdfText,parseExcel:parseExcel,safePayload:safePayload,brNumber:brNumber};
+  // ── Extração via PDF.js (browser) ─────────────────────────────────────────
+
+  /**
+   * Reconstrói o texto de uma página a partir dos itens do PDF.js,
+   * preservando o layout de duas colunas com espaços.
+   */
+  function _pageItemsToText(items) {
+    if (!items || !items.length) return '';
+
+    // Filtra itens vazios e normaliza
+    const pts = items
+      .filter(it => it.str && it.str.trim())
+      .map(it => ({
+        str: it.str,
+        x:   it.transform[4],
+        y:   Math.round(it.transform[5]),  // y = base da linha (coord. PDF: 0 = base da pág.)
+        w:   it.width || 0
+      }));
+
+    if (!pts.length) return '';
+
+    // Agrupa por y (tolerância 3 unidades)
+    const Y_TOL = 3;
+    const lineGroups = [];     // [{yKey, items:[]}]
+
+    for (const pt of pts) {
+      let found = null;
+      for (const g of lineGroups) {
+        if (Math.abs(g.yKey - pt.y) <= Y_TOL) { found = g; break; }
+      }
+      if (found) {
+        found.items.push(pt);
+      } else {
+        lineGroups.push({ yKey: pt.y, items: [pt] });
+      }
+    }
+
+    // Ordena linhas do topo para a base (y maior = mais alto na página PDF)
+    lineGroups.sort((a, b) => b.yKey - a.yKey);
+
+    const lines = lineGroups.map(g => {
+      // Ordena itens da linha da esquerda para a direita
+      g.items.sort((a, b) => a.x - b.x);
+
+      let text = '';
+      let prevRight = null;
+
+      for (const it of g.items) {
+        if (prevRight !== null && it.x - prevRight > 3) {
+          text += ' ';
+        }
+        text += it.str;
+        prevRight = it.x + it.w;
+      }
+      return text;
+    });
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Extrai PDF a partir de um objeto File (browser).
+   * Requer PDF.js carregado (window.pdfjsLib).
+   * @param {File} file
+   * @returns {Promise<{ competencia: Object, colaboradores: Array }>}
+   */
+  async function extractPdf(file) {
+    // Localiza PDF.js
+    const pdfjsLib = window.pdfjsLib
+      || window['pdfjs-dist/build/pdf']
+      || (window.pdfjsLib = window.pdfjsLib);
+
+    if (!pdfjsLib || typeof pdfjsLib.getDocument !== 'function') {
+      throw new Error(
+        'PDF.js não encontrado. Certifique-se de que a biblioteca está carregada antes do parser.'
+      );
+    }
+
+    // Configura worker se ainda não foi feito
+    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const hash = await hashBuffer(arrayBuffer);
+
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+
+    const pageParts = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const tc   = await page.getTextContent({
+        normalizeWhitespace:   false,
+        disableCombineTextItems: false,
+        includeMarkedContent:  false
+      });
+      pageParts.push(_pageItemsToText(tc.items));
+    }
+
+    const fullText = pageParts.join('\n');
+    const result   = parsePdfText(fullText);
+
+    result.competencia.arquivo_nome = file.name;
+    result.competencia.arquivo_hash = hash;
+
+    return result;
+  }
+
+  // ── Validação de payload ───────────────────────────────────────────────────
+
+  function validate(payload) {
+    const erros = [];
+    if (!payload || !payload.competencia) {
+      erros.push('Payload inválido: campo "competencia" ausente');
+    } else {
+      if (!payload.competencia.competencia)
+        erros.push('Competência não identificada no documento');
+      if (!payload.competencia.empresa_codigo)
+        erros.push('Código da empresa não identificado');
+    }
+    if (!payload.colaboradores || payload.colaboradores.length === 0)
+      erros.push('Nenhum colaborador encontrado');
+
+    if (payload.competencia && payload.competencia.validacoes) {
+      for (const v of payload.competencia.validacoes) {
+        if (v.tipo === 'erro') erros.push(v.msg);
+      }
+    }
+
+    return { valido: erros.length === 0, erros };
+  }
+
+  // ── Payload seguro (sem dados sensíveis para log) ─────────────────────────
+
+  function safePayload(payload) {
+    if (!payload) return payload;
+    const safe = JSON.parse(JSON.stringify(payload));
+    // CPF já está mascarado; remove lancamentos para reduzir tamanho do log
+    if (safe.colaboradores) {
+      safe.colaboradores = safe.colaboradores.map(c => {
+        const copy = Object.assign({}, c);
+        delete copy.lancamentos;
+        return copy;
+      });
+    }
+    return safe;
+  }
+
+  // ── Parser Excel ───────────────────────────────────────────────────────────
+
+  /**
+   * Extrai dados de arquivo Excel (XLSX/XLS).
+   * Requer XLSX.js (window.XLSX).
+   * Implementação completa quando o arquivo Excel for fornecido.
+   * @param {File} file
+   */
+  async function parseExcel(file) {
+    const XLSX = window.XLSX;
+    if (!XLSX) throw new Error('XLSX.js não encontrado. Carregue a biblioteca antes do parser.');
+
+    const arrayBuffer = await file.arrayBuffer();
+    const hash = await hashBuffer(arrayBuffer);
+    const wb   = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', cellDates: true });
+
+    // Stub: retorna estrutura mínima enquanto o layout do Excel não é conhecido
+    return {
+      competencia: {
+        fonte: 'excel',
+        arquivo_nome: file.name,
+        arquivo_hash: hash,
+        status: 'rascunho',
+        validacoes: [{ tipo: 'aviso', msg: 'Import Excel pendente: envie o arquivo para implementação completa.' }]
+      },
+      colaboradores: []
+    };
+  }
+
+  // ── API pública ────────────────────────────────────────────────────────────
+
+  window.RHParser = {
+    /** Extrai PDF (File → payload). Principal ponto de entrada para o app. */
+    extractPdf,
+
+    /** Extrai Excel (File → payload). */
+    parseExcel,
+
+    /** Parseia texto bruto já extraído de um PDF. Útil para testes. */
+    parsePdfText,
+
+    /** Parseia bloco de texto de um único colaborador. */
+    parseEmployee,
+
+    /** Parseia uma linha de rubricas (suporte a duas colunas). */
+    parseRubrics,
+
+    /** Parseia totais por departamento do texto do PDF. */
+    parseDepartments,
+
+    /** Parseia encargos (INSS, FGTS, PIS, IRRF) do texto do PDF. */
+    parseCharges,
+
+    /** Utilitários */
+    brNumber,
+    cpfMask,
+    cnpjMask,
+    isoDate,
+    hashBuffer,
+
+    /** Valida payload gerado pelo parser. */
+    validate,
+
+    /** Retorna versão "segura" do payload para logs (sem dados sensíveis detalhados). */
+    safePayload
+  };
+
 })(window);
