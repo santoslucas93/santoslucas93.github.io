@@ -6,11 +6,19 @@
   <meta name="color-scheme" content="dark light">
   <title>RH & Folha · Painel LNB</title>
   <link rel="stylesheet" href="/rh/styles.css?v=1">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
-  <script src="/rh/parser.js?v=1" defer></script>
-  <script src="/rh/app.js?v=1" defer></script>
+  <script>
+    window.__rhBootReady=false;
+    window.setTimeout(function(){
+      var message=document.getElementById('gate-message');
+      if(!window.__rhBootReady&&message&&/Validando/i.test(message.textContent)){
+        message.textContent='O módulo demorou para iniciar. Atualize a página e tente novamente.';
+        var home=document.getElementById('gate-home');
+        if(home)home.hidden=false;
+      }
+    },15000);
+  </script>
+  <script src="/rh/parser.js?v=2" defer></script>
+  <script src="/rh/app.js?v=2" defer></script>
 </head>
 <body>
   <div class="gate" id="gate" aria-live="polite">
