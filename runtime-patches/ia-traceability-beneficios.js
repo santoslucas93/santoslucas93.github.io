@@ -17,7 +17,7 @@
     const comps=mod==='mob'&&typeof iaCompetenciasMob==='function'?iaCompetenciasMob():(mod?iaTodasCompetencias(mod):[]);
     const period=iaResolverPeriodo(nq,comps),trace={id:'ben-'+(++seq),verified:true,module:mod||'multimodulo',period,source:'',origin:null,composition:null};
     const cadastro=/\bquant[oa]s\b|\bnumero de\b|ativ[oa]s?|cadastrad|desligad|inconsistenc|duplicad|sem departamento|sem centro de custo/.test(nq);
-    if(!mod){trace.source='Históricos oficiais dos módulos de benefícios';if(composition&&composition.length)trace.composition={type:'dialog'};return trace.composition?trace:null;}
+    if(!mod){trace.source='Bases oficiais dos módulos de benefícios';if(composition&&composition.length)trace.composition={type:'dialog'};return trace.composition?trace:null;}
     const t=tabs[mod],label={vr:'VR/VA/Cesta Básica',vt:'Vale Transporte',med:'Assistência Médica SulAmérica',prud:'Seguro de Vida Prudential',mob:'Mobilidade Corporativa'}[mod];if(!t)return null;
     if(cadastro){trace.source='Cadastro ativo · '+label;trace.origin={type:'navigate',mod,tab:t.base,target:t.baseTarget};trace.composition={...trace.origin};}
     else{trace.source='Histórico oficial processado · '+label;trace.origin={type:'navigate',mod,tab:t.history,target:t.historyTarget};trace.composition={type:'navigate',mod,tab:t.consolidated,target:t.tableTarget};}
@@ -35,8 +35,56 @@
     if(trace.composition){const b=document.createElement('button');b.type='button';b.className='ia-trace-btn';b.textContent='▦ Ver composição'+(composition&&composition.length?' ('+composition.length+')':'');b.title='Abrir os registros que formam o resultado';b.onclick=function(){if(trace.composition.type==='navigate')navigate(trace,'composition');else if(legacy)legacy.click();};box.appendChild(b);}
     const src=document.createElement('span');src.className='ia-trace-source';src.textContent='Fonte: '+trace.source;box.appendChild(src);const fl=filterLabel(trace);if(fl){const f=document.createElement('span');f.className='ia-trace-filter';f.textContent=fl;box.appendChild(f);}bubble.parentNode.insertBefore(box,bubble.nextSibling);
   }
+  function ticketPorColaborador(nq,mod){
+    if(!/\bticket\b/.test(nq) && !/\bm[ée]dia\s+(?:por|de)\s+colaborador/.test(nq) && !/\bcusto\s+m[ée]dio\s+(?:por|de)\s+colaborador/.test(nq))return false;
+    if(mod==='mob'&&!/colaborador/.test(nq))return false;
+    return true;
+  }
+  async function calcularTicket(mods,periodo,tipo){
+    const porPessoa={};
+    for(const mod of mods){
+      const itens=await iaItensModulo(mod,periodo,tipo);
+      itens.forEach(function(item){
+        const nome=String(item.nome||'').trim(),valor=Number(item.valor)||0,key=iaNormBen(nome);
+        if(!nome||!key||valor<=0)return;
+        if(!porPessoa[key])porPessoa[key]={nome,total:0};
+        porPessoa[key].total+=valor;
+      });
+    }
+    const pessoas=Object.values(porPessoa).map(p=>({nome:p.nome,total:+p.total.toFixed(2)})).sort((a,b)=>b.total-a.total);
+    const total=+pessoas.reduce((s,p)=>s+p.total,0).toFixed(2),quantidade=pessoas.length;
+    return {total,quantidade,ticket:quantidade?+(total/quantidade).toFixed(2):null,composicao:pessoas.map(p=>({label:p.nome,valor:p.total}))};
+  }
+  function installTicketFix(){
+    if(window.__lnbIaTicketMedioFix||typeof window.iaRespSoma!=='function'||typeof window.iaMotorLocal!=='function')return;
+    window.__lnbIaTicketMedioFix=true;
+    const somaOriginal=window.iaRespSoma,motorOriginal=window.iaMotorLocal;
+    window.iaRespSoma=async function(nq){
+      const mod=iaResolverModulo(nq);
+      if(!ticketPorColaborador(nq,mod))return somaOriginal.apply(this,arguments);
+      if(mod==='mob')return somaOriginal.apply(this,arguments);
+      const mods=mod?[mod]:['vt','med','prud','vr'],tipo=iaResolverTipo(nq);
+      const competencias=[...new Set(mods.flatMap(m=>iaTodasCompetencias(m)))].sort();
+      const periodo=iaResolverPeriodo(nq,competencias),r=await calcularTicket(mods,periodo,tipo);
+      if(r.ticket==null)return {texto:'Não encontrei colaboradores com valor positivo para calcular o ticket médio em '+iaPeriodoLabel(periodo)+'.'};
+      const escopo=mod?iaLabelModulo(mod).replace(/^n[ao]s? /,''):'de benefícios';
+      const recorte=tipo?' · '+tipo:'';
+      const texto='Ticket médio '+escopo+' ('+iaPeriodoLabel(periodo)+recorte+'):\n'+
+        '• Custo total considerado: '+iaMoneyBen(r.total)+'\n'+
+        '• Colaboradores considerados: '+r.quantidade+'\n'+
+        '• Cálculo: '+iaMoneyBen(r.total)+' ÷ '+r.quantidade+' = '+iaMoneyBen(r.ticket)+'\n'+
+        '• Ticket médio por colaborador: '+iaMoneyBen(r.ticket)+'.';
+      return {texto,composicao:r.composicao};
+    };
+    window.iaMotorLocal=async function(q){
+      const nq=iaNormBen(q).replace(/[^\w\s\/\-]/g,' ').replace(/\s+/g,' ').trim(),mod=iaResolverModulo(nq);
+      if(ticketPorColaborador(nq,mod))return window.iaRespSoma(nq);
+      return motorOriginal.apply(this,arguments);
+    };
+  }
   function install(){
     if(typeof window.iaSend!=='function'||typeof window.iaFinalizarResposta!=='function')return setTimeout(install,80);
+    installTicketFix();
     const send=window.iaSend;window.iaSend=function(){lastQuestion=document.getElementById('ia-q')?.value.trim()||'';return send.apply(this,arguments);};
     const finish=window.iaFinalizarResposta;window.iaFinalizarResposta=function(bubble,text,composition,source){finish.apply(this,arguments);const legacy=bubble.nextElementSibling&&/Ver composição/i.test(bubble.nextElementSibling.textContent||'')?bubble.nextElementSibling:null;if(source==='gemini')sourceOnly(bubble);else addActions(bubble,traceFor(lastQuestion,composition),composition,legacy);};
   }
