@@ -41,19 +41,59 @@
     return true;
   }
   async function calcularTicket(mods,periodo,tipo){
-    const porPessoa={};
+    const porPessoa={},labels={vr:'VR / VA / Cesta Básica',vt:'Vale Transporte',med:'Assistência Médica SulAmérica',prud:'Seguro de Vida Prudential'};
     for(const mod of mods){
       const itens=await iaItensModulo(mod,periodo,tipo);
       itens.forEach(function(item){
         const nome=String(item.nome||'').trim(),valor=Number(item.valor)||0,key=iaNormBen(nome);
         if(!nome||!key||valor<=0)return;
-        if(!porPessoa[key])porPessoa[key]={nome,total:0};
+        if(!porPessoa[key])porPessoa[key]={nome,total:0,componentes:{}};
         porPessoa[key].total+=valor;
+        if(!porPessoa[key].componentes[mod])porPessoa[key].componentes[mod]={label:labels[mod]||mod,total:0,registros:0,competencias:new Set()};
+        const componente=porPessoa[key].componentes[mod];
+        componente.total+=valor;componente.registros+=1;
+        if(item.competencia)componente.competencias.add(item.competencia);
       });
     }
-    const pessoas=Object.values(porPessoa).map(p=>({nome:p.nome,total:+p.total.toFixed(2)})).sort((a,b)=>b.total-a.total);
+    const pessoas=Object.values(porPessoa).map(function(p){
+      const detalhes=Object.values(p.componentes).map(c=>({
+        label:c.label,
+        valor:+c.total.toFixed(2),
+        registros:c.registros,
+        referencia:c.competencias.size?[...c.competencias].sort().map(compLabel).join(', '):iaPeriodoLabel(periodo)
+      })).sort((a,b)=>b.valor-a.valor);
+      return {nome:p.nome,total:+p.total.toFixed(2),detalhes};
+    }).sort((a,b)=>b.total-a.total);
     const total=+pessoas.reduce((s,p)=>s+p.total,0).toFixed(2),quantidade=pessoas.length;
-    return {total,quantidade,ticket:quantidade?+(total/quantidade).toFixed(2):null,composicao:pessoas.map(p=>({label:p.nome,valor:p.total}))};
+    return {total,quantidade,ticket:quantidade?+(total/quantidade).toFixed(2):null,composicao:pessoas.map(p=>({label:p.nome,valor:p.total,tipo:'colaborador',detalhes:p.detalhes}))};
+  }
+  function escapeHtml(value){return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+  function abrirDetalheColaborador(item){
+    let ov=document.getElementById('ia-colaborador-overlay');
+    if(!ov){
+      ov=document.createElement('div');ov.id='ia-colaborador-overlay';ov.className='modal-overlay ia-colaborador-overlay';ov.style.zIndex='1000002';
+      ov.onclick=e=>{if(e.target===ov)ov.classList.remove('open');};
+      ov.innerHTML='<div class="modal ia-colaborador-modal" role="dialog" aria-modal="true" aria-labelledby="ia-colaborador-titulo"><div id="ia-colaborador-body"></div></div>';
+      document.body.appendChild(ov);
+    }
+    const detalhes=Array.isArray(item.detalhes)?item.detalhes:[],total=+detalhes.reduce((s,d)=>s+(Number(d.valor)||0),0).toFixed(2);
+    const linhas=detalhes.map(d=>'<tr><td><strong>'+escapeHtml(d.label)+'</strong><span class="ia-colaborador-ref">'+escapeHtml(d.referencia||'Situação atual')+' · '+d.registros+' registro'+(d.registros===1?'':'s')+'</span></td><td class="ia-colaborador-valor">'+iaMoneyBen(d.valor)+'</td></tr>').join('');
+    document.getElementById('ia-colaborador-body').innerHTML='<div class="ia-colaborador-head"><div><span class="ia-colaborador-kicker">Composição por colaborador</span><h3 id="ia-colaborador-titulo">'+escapeHtml(item.label)+'</h3></div><button type="button" class="ia-colaborador-close" aria-label="Fechar">×</button></div><div class="ia-colaborador-total"><span>Total considerado</span><strong>'+iaMoneyBen(total)+'</strong></div><div class="ia-colaborador-table-wrap"><table class="ia-colaborador-table"><thead><tr><th>Benefício / referência</th><th>Valor</th></tr></thead><tbody>'+linhas+'</tbody><tfoot><tr><td>Total conferido</td><td>'+iaMoneyBen(total)+'</td></tr></tfoot></table></div><div class="ia-colaborador-foot"><span>'+detalhes.length+' benefício'+(detalhes.length===1?'':'s')+' com valor no cálculo</span><button type="button" class="btn btn-ghost ia-colaborador-ok">Fechar</button></div>';
+    ov.querySelector('.ia-colaborador-close').onclick=ov.querySelector('.ia-colaborador-ok').onclick=()=>ov.classList.remove('open');
+    ov.classList.add('open');setTimeout(()=>ov.querySelector('.ia-colaborador-close')?.focus(),30);
+  }
+  function installCompositionDrilldown(){
+    if(window.__lnbIaCompositionDrilldown||typeof window.iaAbrirComposicao!=='function')return;
+    window.__lnbIaCompositionDrilldown=true;
+    const original=window.iaAbrirComposicao;
+    window.iaAbrirComposicao=function(idx){
+      const lista=typeof __iaComposicoes!=='undefined'?(__iaComposicoes[idx]||[]):[];
+      if(!lista.some(item=>item&&item.tipo==='colaborador'&&Array.isArray(item.detalhes)))return original.apply(this,arguments);
+      original.apply(this,arguments);
+      const body=document.getElementById('ia-composicao-body');if(!body)return;
+      body.innerHTML='<p class="ia-comp-help">Clique em um colaborador para visualizar a composição individual por benefício.</p><div class="ia-comp-table-wrap"><table class="ia-comp-table"><thead><tr><th>Colaborador</th><th>Valor</th></tr></thead><tbody>'+lista.map((item,i)=>'<tr><td><button type="button" class="ia-comp-person" data-ia-person="'+i+'"><span>'+escapeHtml(item.label)+'</span><small>Ver composição individual →</small></button></td><td class="ia-comp-value">'+iaMoneyBen(item.valor)+'</td></tr>').join('')+'</tbody></table></div>';
+      body.querySelectorAll('[data-ia-person]').forEach(btn=>{btn.onclick=()=>abrirDetalheColaborador(lista[Number(btn.dataset.iaPerson)]);});
+    };
   }
   function installTicketFix(){
     if(window.__lnbIaTicketMedioFix||typeof window.iaRespSoma!=='function'||typeof window.iaMotorLocal!=='function')return;
@@ -85,6 +125,7 @@
   function install(){
     if(typeof window.iaSend!=='function'||typeof window.iaFinalizarResposta!=='function')return setTimeout(install,80);
     installTicketFix();
+    installCompositionDrilldown();
     const send=window.iaSend;window.iaSend=function(){lastQuestion=document.getElementById('ia-q')?.value.trim()||'';return send.apply(this,arguments);};
     const finish=window.iaFinalizarResposta;window.iaFinalizarResposta=function(bubble,text,composition,source){finish.apply(this,arguments);const legacy=bubble.nextElementSibling&&/Ver composição/i.test(bubble.nextElementSibling.textContent||'')?bubble.nextElementSibling:null;if(source==='gemini')sourceOnly(bubble);else addActions(bubble,traceFor(lastQuestion,composition),composition,legacy);};
   }
