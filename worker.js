@@ -18,6 +18,10 @@ export default {
       return handleOrcadoComPermissoes(request, env);
     }
 
+    if (request.method === 'GET' && (url.pathname === '/beneficios/' || url.pathname === '/beneficios/index.html')) {
+      return handleBeneficiosComRastreabilidade(request, env);
+    }
+
     return env.ASSETS.fetch(request);
   }
 };
@@ -32,23 +36,44 @@ async function handleOrcadoComPermissoes(request, env) {
 
   const html = await asset.text();
   if (html.includes('const LNB_ORCAMENTO_RECURSOS=')) {
-    return responseHtml(asset, html, 'incorporado');
+    return responseHtml(asset, injectIaTraceability(html, 'orcado'), 'incorporado');
   }
 
   const patchUrl = new URL('/runtime-patches/orcado-permissions.patch', request.url);
   const patchResponse = await env.ASSETS.fetch(new Request(patchUrl, { method: 'GET' }));
   if (!patchResponse.ok) {
     console.error('Patch de permissoes do Orcado indisponivel:', patchResponse.status);
-    return responseHtml(asset, html, 'indisponivel');
+    return responseHtml(asset, injectIaTraceability(html, 'orcado'), 'indisponivel');
   }
 
   try {
     const patched = applyUnifiedPatch(html, await patchResponse.text(), 'orcado/index.html');
-    return responseHtml(asset, patched, 'staging-v1');
+    return responseHtml(asset, injectIaTraceability(patched, 'orcado'), 'staging-v1');
   } catch (error) {
     console.error('Falha ao aplicar patch de permissoes do Orcado:', error);
-    return responseHtml(asset, html, 'erro');
+    return responseHtml(asset, injectIaTraceability(html, 'orcado'), 'erro');
   }
+}
+
+async function handleBeneficiosComRastreabilidade(request, env) {
+  const asset = await env.ASSETS.fetch(request);
+  if (!asset.ok) return asset;
+  return responseHtml(asset, injectIaTraceability(await asset.text(), 'beneficios'), 'nao-aplicavel');
+}
+
+// Mantem os HTMLs grandes e as conexoes de dados intocados. O Worker injeta
+// somente a camada de navegacao do Chat IA quando serve cada modulo.
+function injectIaTraceability(html, moduleName) {
+  const marker = `data-lnb-ia-traceability="${moduleName}"`;
+  if (html.includes(marker)) return html;
+  const style = '<link rel="stylesheet" href="/runtime-patches/ia-traceability.css?v=1" '+marker+'>';
+  const script = `<script src="/runtime-patches/ia-traceability-${moduleName}.js?v=1" ${marker}></` + 'script>';
+  let out = html;
+  if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>');
+  else out = style + '\n' + out;
+  if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>');
+  else out += '\n' + script;
+  return out;
 }
 
 function responseHtml(original, body, patchStatus) {
@@ -57,6 +82,7 @@ function responseHtml(original, body, patchStatus) {
   headers.set('content-type', 'text/html; charset=utf-8');
   headers.set('cache-control', 'no-store');
   headers.set('x-lnb-permissions-patch', patchStatus);
+  headers.set('x-lnb-ia-traceability', 'v1');
   return new Response(body, { status: original.status, headers });
 }
 
