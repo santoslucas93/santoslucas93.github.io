@@ -268,6 +268,12 @@ var GLOBAIS=[
   {recurso:'orcamento', acao:'administrar',     rot:'Administrar o módulo',     desc:'Tudo do Orçado x Realizado'},
   {recurso:'orcamento', acao:'ver_valores',     rot:'Ver valores em R$',        desc:'Sem isto, vê a estrutura sem os números'},
   {recurso:'orcamento', acao:'ver_remuneracao', rot:'Ver remuneração (RH)',     desc:'O conteúdo dos grupos RH'},
+  {recurso:'rh',        acao:'importar',        rot:'Importar folha',            desc:'Processar PDF, Excel ou CSV de folha'},
+  {recurso:'rh',        acao:'exportar',        rot:'Exportar relatórios de RH', desc:'Gerar planilhas a partir do histórico'},
+  {recurso:'rh',        acao:'ver_valores',     rot:'Ver totais da folha',       desc:'Consultar valores consolidados'},
+  {recurso:'rh',        acao:'ver_nomes',       rot:'Ver nomes de colaboradores',desc:'Exibir a identificação dos colaboradores'},
+  {recurso:'rh',        acao:'ver_valores_individuais', rot:'Ver folha individual', desc:'Abrir composição e rubricas por colaborador'},
+  {recurso:'rh',        acao:'administrar',     rot:'Administrar RH & Folha',    desc:'Gerenciar competências e configurações'},
   {recurso:'admin',     acao:'visualizar',      rot:'Abrir a Administração',    desc:'Entrar nesta tela'},
   {recurso:'admin',     acao:'administrar',     rot:'Gerenciar usuários e permissões', desc:'Conceder e revogar acesso'}
 ];
@@ -320,7 +326,8 @@ function precisaEntrarNoModulo(){
     '<div style="font-size:12.5px;color:#9FB0C7;margin-bottom:14px;line-height:1.55">'
     + 'Esta área usa a sessão que você já abriu em um dos módulos. Entre em um deles e volte aqui.</div>'
     + '<a href="/orcado/"><button class="btn-ouro" style="margin-bottom:8px">Abrir Orçado x Realizado</button></a>'
-    + '<a href="/beneficios/"><button class="btn">Abrir Gestão de Benefícios</button></a>';
+    + '<a href="/beneficios/"><button class="btn" style="margin-bottom:8px">Abrir Gestão de Benefícios</button></a>'
+    + '<a href="/rh/"><button class="btn">Abrir RH &amp; Folha</button></a>';
   msg('');
 }
 

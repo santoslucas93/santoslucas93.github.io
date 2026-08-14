@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>RH & Folha · Painel LNB</title>
+  <link rel="stylesheet" href="/rh/styles.css?v=1">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+  <script src="/rh/parser.js?v=1" defer></script>
+  <script src="/rh/app.js?v=1" defer></script>
+</head>
+<body>
+  <div class="gate" id="gate" aria-live="polite">
+    <div class="gate-card">
+      <div class="brand-mark" aria-hidden="true">LNB</div>
+      <h1>RH & Folha</h1>
+      <p id="gate-message">Validando sua sessão e suas permissões…</p>
+      <a class="button primary" id="gate-home" href="/" hidden>Voltar à Central de Gestão</a>
+    </div>
+  </div>
+
+  <div class="app" id="app" hidden>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Voltar à Central de Gestão">
+        <span class="brand-mark small">LNB</span>
+        <span><b>RH & FOLHA</b><small>Administração de Pessoal</small></span>
+      </a>
+      <div class="top-actions">
+        <span class="privacy-chip">🔒 Dados restritos</span>
+        <span class="user-name" id="user-name"></span>
+        <button class="icon-button" id="theme-toggle" type="button" title="Alternar tema">☀️</button>
+        <button class="button ghost" id="logout" type="button">Sair</button>
+      </div>
+    </header>
+
+    <div class="shell">
+      <aside class="sidebar" aria-label="Navegação do módulo">
+        <nav id="nav">
+          <button class="nav-item active" data-view="visao"><span>◈</span>Visão geral</button>
+          <button class="nav-item" data-view="colaboradores"><span>👥</span>Colaboradores</button>
+          <button class="nav-item" data-view="folha"><span>▤</span>Folha mensal</button>
+          <button class="nav-item" data-view="rubricas"><span>≡</span>Rubricas</button>
+          <button class="nav-item" data-view="encargos"><span>◆</span>Encargos</button>
+          <button class="nav-item" data-view="movimentacoes"><span>↔</span>Movimentações</button>
+          <button class="nav-item" data-view="rateio"><span>⌘</span>Rateio</button>
+          <button class="nav-item" data-view="importacao"><span>⇧</span>Importação</button>
+          <button class="nav-item" data-view="conciliacao"><span>✓</span>Conciliação</button>
+          <button class="nav-item admin-only" data-view="configuracoes"><span>⚙</span>Configurações</button>
+        </nav>
+        <div class="sidebar-note"><b>Fase 1</b><span>Folha e Administração de Pessoal</span></div>
+      </aside>
+
+      <main class="content">
+        <section class="page active" id="page-visao">
+          <div class="page-head">
+            <div><span class="eyebrow">PAINEL EXECUTIVO</span><h1>Visão geral da folha</h1><p>Histórico consolidado, composição e encargos em uma única leitura.</p></div>
+            <div class="head-actions"><label>Competência<select id="competencia-select"><option value="">Nenhuma importação</option></select></label><button class="button primary import-only" data-go="importacao">Importar folha</button></div>
+          </div>
+          <div class="empty-state" id="empty-state">
+            <div class="empty-icon">⇧</div><h2>O histórico começa com a primeira importação</h2>
+            <p>Envie o extrato mensal em PDF agora. Quando os arquivos Excel estiverem disponíveis, use o mesmo fluxo sem perder o histórico.</p>
+            <button class="button primary import-only" data-go="importacao">Importar PDF de 06/2026</button>
+          </div>
+          <div id="dashboard" hidden>
+            <div class="kpi-grid">
+              <button class="kpi source-target" data-trace="proventos"><span>Proventos</span><strong id="kpi-proventos">R$ 0,00</strong><small>Valor bruto da competência</small></button>
+              <button class="kpi source-target" data-trace="descontos"><span>Descontos</span><strong id="kpi-descontos">R$ 0,00</strong><small>Retenções e deduções</small></button>
+              <button class="kpi featured source-target" data-trace="liquido"><span>Líquido</span><strong id="kpi-liquido">R$ 0,00</strong><small>Valor líquido processado</small></button>
+              <button class="kpi source-target" data-trace="headcount"><span>Pessoas na folha</span><strong id="kpi-pessoas">0</strong><small id="kpi-vinculos">—</small></button>
+            </div>
+            <div class="grid two">
+              <article class="panel source-target" data-trace="composicao"><div class="panel-head"><div><span class="panel-kicker">COMPOSIÇÃO</span><h2>Bruto, descontos e líquido</h2></div><span class="source-badge">Folha oficial</span></div><div class="chart-wrap"><canvas id="chart-composicao"></canvas></div></article>
+              <article class="panel source-target" data-trace="departamentos"><div class="panel-head"><div><span class="panel-kicker">DISTRIBUIÇÃO</span><h2>Custo líquido por departamento</h2></div><button class="text-button" data-go="rateio">Ver rateio →</button></div><div class="chart-wrap"><canvas id="chart-departamentos"></canvas></div></article>
+            </div>
+            <div class="grid three">
+              <article class="panel compact source-target" data-trace="vinculos"><div class="panel-head"><div><span class="panel-kicker">QUADRO</span><h2>Vínculos</h2></div></div><div class="chart-wrap small"><canvas id="chart-vinculos"></canvas></div></article>
+              <article class="panel compact source-target" data-trace="encargos"><div class="panel-head"><div><span class="panel-kicker">ENCARGOS</span><h2>Recolhimentos</h2></div><button class="text-button" data-go="encargos">Detalhar →</button></div><div id="charge-list" class="metric-list"></div></article>
+              <article class="panel compact source-target" data-trace="validacoes"><div class="panel-head"><div><span class="panel-kicker">CONCILIAÇÃO</span><h2>Qualidade da importação</h2></div></div><div id="validation-list" class="validation-list"></div></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-colaboradores">
+          <div class="page-head"><div><span class="eyebrow">ADMINISTRAÇÃO DE PESSOAL</span><h1>Colaboradores</h1><p>Consulta histórica com CPF protegido e composição individual da folha.</p></div><div class="head-actions"><input class="search" id="employee-search" placeholder="Buscar nome, matrícula ou área"><button class="button ghost export-only" id="export-employees">Exportar</button></div></div>
+          <article class="panel table-panel source-target" data-trace="colaboradores"><div class="table-wrap"><table><thead><tr><th>Colaborador</th><th>Matrícula</th><th>Vínculo</th><th>Departamento</th><th>Situação</th><th class="money">Líquido</th><th></th></tr></thead><tbody id="employee-rows"></tbody></table></div></article>
+        </section>
+
+        <section class="page" id="page-folha">
+          <div class="page-head"><div><span class="eyebrow">COMPETÊNCIA ATUAL</span><h1>Folha mensal</h1><p>Resumo financeiro e composição por colaborador.</p></div></div>
+          <div class="kpi-grid slim" id="payroll-kpis"></div>
+          <article class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Colaborador</th><th class="money">Salário</th><th class="money">Proventos</th><th class="money">Descontos</th><th class="money">Líquido</th><th></th></tr></thead><tbody id="payroll-rows"></tbody></table></div></article>
+        </section>
+
+        <section class="page" id="page-rubricas">
+          <div class="page-head"><div><span class="eyebrow">COMPOSIÇÃO</span><h1>Rubricas</h1><p>Proventos e descontos consolidados da competência.</p></div></div>
+          <div class="grid two"><article class="panel"><div class="panel-head"><h2>Maiores rubricas</h2></div><div class="chart-wrap tall"><canvas id="chart-rubricas"></canvas></div></article><article class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Código</th><th>Rubrica</th><th>Tipo</th><th class="money">Valor</th></tr></thead><tbody id="rubric-rows"></tbody></table></div></article></div>
+        </section>
+
+        <section class="page" id="page-encargos">
+          <div class="page-head"><div><span class="eyebrow">OBRIGAÇÕES</span><h1>Encargos</h1><p>INSS, FGTS, PIS e IRRF extraídos do fechamento.</p></div></div>
+          <div class="kpi-grid" id="charges-kpis"></div><article class="panel"><div class="panel-head"><h2>Composição dos encargos</h2></div><div class="chart-wrap tall"><canvas id="chart-encargos"></canvas></div></article>
+        </section>
+
+        <section class="page" id="page-movimentacoes"><div class="page-head"><div><span class="eyebrow">PESSOAS</span><h1>Movimentações</h1><p>Admissões, desligamentos, férias e afastamentos da competência.</p></div></div><div class="kpi-grid" id="movement-kpis"></div><article class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Colaborador</th><th>Movimentação</th><th>Data</th><th>Departamento</th></tr></thead><tbody id="movement-rows"></tbody></table></div></article></section>
+
+        <section class="page" id="page-rateio"><div class="page-head"><div><span class="eyebrow">CUSTO DE PESSOAL</span><h1>Rateio</h1><p>Distribuição por departamento e centro de custo.</p></div></div><div class="grid two"><article class="panel"><div class="panel-head"><h2>Por departamento</h2></div><div class="chart-wrap tall"><canvas id="chart-rateio"></canvas></div></article><article class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Departamento</th><th class="money">Proventos</th><th class="money">Descontos</th><th class="money">Líquido</th></tr></thead><tbody id="department-rows"></tbody></table></div></article></div></section>
+
+        <section class="page" id="page-importacao">
+          <div class="page-head"><div><span class="eyebrow">ENTRADA DE DADOS</span><h1>Importação</h1><p>PDF disponível agora; Excel preparado como fonte principal futura.</p></div></div>
+          <div class="import-grid">
+            <article class="panel upload-card"><span class="file-icon">PDF</span><h2>Extrato mensal</h2><p>Importa o relatório textual do sistema de folha, identifica colaboradores, rubricas, totais e encargos.</p><label class="button primary import-only">Selecionar PDF<input id="pdf-input" type="file" accept="application/pdf,.pdf" hidden></label><small>O arquivo não é armazenado. Somente dados estruturados e CPF mascarado são enviados.</small></article>
+            <article class="panel upload-card"><span class="file-icon excel">XLS</span><h2>Planilha Excel</h2><p>Formato principal para as próximas competências, com mapeamento flexível de colunas.</p><label class="button secondary import-only">Selecionar Excel<input id="excel-input" type="file" accept=".xlsx,.xls,.csv" hidden></label><small>Compatível com XLSX, XLS e CSV.</small></article>
+          </div>
+          <article class="panel preview" id="import-preview" hidden>
+            <div class="panel-head"><div><span class="panel-kicker">PRÉ-VALIDAÇÃO</span><h2 id="preview-title">Arquivo processado</h2></div><span class="status success" id="preview-status">Pronto para importar</span></div>
+            <div class="preview-summary" id="preview-summary"></div><div class="validation-list" id="preview-validations"></div>
+            <div class="preview-actions"><button class="button ghost" id="cancel-import">Cancelar</button><button class="button primary import-only" id="confirm-import">Confirmar importação</button></div>
+          </article>
+        </section>
+
+        <section class="page" id="page-conciliacao"><div class="page-head"><div><span class="eyebrow">CONTROLE</span><h1>Conciliação</h1><p>Validações entre totais gerais, composição individual e encargos.</p></div></div><article class="panel"><div id="reconciliation-list" class="reconciliation-list"></div></article></section>
+
+        <section class="page" id="page-configuracoes"><div class="page-head"><div><span class="eyebrow">ADMINISTRAÇÃO</span><h1>Configurações</h1><p>Governança, retenção e parâmetros do módulo.</p></div></div><div class="grid two"><article class="panel settings-card"><h2>Privacidade</h2><p>CPF completo não é persistido. O arquivo de origem não é armazenado e o acesso é controlado por perfil.</p><span class="status success">Proteção ativa</span></article><article class="panel settings-card"><h2>Histórico</h2><p>Nova importação da mesma competência substitui a composição de forma transacional e registra auditoria.</p><span class="status">Versionamento por competência</span></article></div></section>
+      </main>
+    </div>
+
+    <button class="ai-launch" id="ai-launch" type="button" aria-label="Abrir Chat IA">IA</button>
+    <aside class="ai-panel" id="ai-panel" hidden aria-label="Chat IA">
+      <div class="ai-head"><div><b>Chat IA — RH & Folha</b><small>Respostas com rastreabilidade</small></div><button id="ai-close" type="button">×</button></div>
+      <div class="ai-body" id="ai-body"><div class="ai-message bot">Posso explicar os números da competência e levar você até a origem. Experimente uma pergunta abaixo.</div></div>
+      <div class="ai-suggestions" id="ai-suggestions"><button>Qual é o líquido da folha?</button><button>Qual departamento tem maior custo?</button><button>Quantas pessoas estão na folha?</button><button>Quanto foi recolhido de FGTS?</button></div>
+      <form class="ai-form" id="ai-form"><input id="ai-input" placeholder="Pergunte sobre a folha…"><button type="submit">Perguntar</button></form>
+    </aside>
+    <button class="back-chat" id="back-chat" type="button" hidden>← Voltar ao Chat IA</button>
+  </div>
+
+  <div class="modal" id="employee-modal" hidden><div class="modal-backdrop" data-close-modal></div><article class="modal-card" role="dialog" aria-modal="true" aria-labelledby="employee-modal-title"><div class="modal-head"><div><span class="eyebrow">COMPOSIÇÃO INDIVIDUAL</span><h2 id="employee-modal-title">Colaborador</h2></div><button class="modal-close" data-close-modal>×</button></div><div id="employee-modal-summary" class="modal-summary"></div><div class="table-wrap modal-table"><table><thead><tr><th>Rubrica</th><th>Tipo</th><th class="money">Referência</th><th class="money">Valor</th></tr></thead><tbody id="employee-modal-rows"></tbody></table></div><div class="modal-foot"><span>Fonte: folha oficial da competência selecionada</span><button class="button ghost" data-close-modal>Fechar</button></div></article></div>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+</body>
+</html>
