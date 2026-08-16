@@ -492,41 +492,44 @@
    * @returns {Promise<{ competencia: Object, colaboradores: Array }>}
    */
   async function extractPdf(file) {
-  const data  = new Uint8Array(await file.arrayBuffer());
-  const hash  = await hashBuffer(data);
-  const pdf   = await pdfjsLib.getDocument({ data }).promise;
-  const pageTexts = [];
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const tc   = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
-    const vp   = page.getViewport({ scale: 1 });
-    const allItems = tc.items
-      .filter(it => 'str' in it && it.str.trim())
-      .map(it => ({ str: it.str, x: it.transform[4], y: vp.height - it.transform[5], w: it.width || 0 }));
-    const lines = [];
-    for (const it of allItems) {
-      const ex = lines.find(l => Math.abs(l.y - it.y) <= 4);
+  var NL = String.fromCharCode(10);
+  var data  = new Uint8Array(await file.arrayBuffer());
+  var hash  = await hashBuffer(data);
+  var pdf   = await pdfjsLib.getDocument({ data }).promise;
+  var pageTexts = [];
+  for (var i = 1; i <= pdf.numPages; i++) {
+    var page = await pdf.getPage(i);
+    var tc   = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+    var vp   = page.getViewport({ scale: 1 });
+    var allItems = tc.items
+      .filter(function(it){ return 'str' in it && it.str.trim(); })
+      .map(function(it){ return { str: it.str, x: it.transform[4], y: vp.height - it.transform[5], w: it.width || 0 }; });
+    var lines = [];
+    for (var j = 0; j < allItems.length; j++) {
+      var it = allItems[j];
+      var ex = null;
+      for (var k = 0; k < lines.length; k++) { if (Math.abs(lines[k].y - it.y) <= 4) { ex = lines[k]; break; } }
       if (ex) ex.items.push(it);
       else lines.push({ y: it.y, items: [it] });
     }
-    lines.sort((a, b) => a.y - b.y);
-    lines.forEach(l => l.items.sort((a, b) => a.x - b.x));
-    let pageText = '';
-    for (const line of lines) {
-      let lt = '', lx = null;
-      for (const it of line.items) {
-        if (lx !== null && it.x > lx + 3) lt += ' ';
-        lt += it.str;
-        lx = it.x + it.w;
+    lines.sort(function(a, b){ return a.y - b.y; });
+    lines.forEach(function(l){ l.items.sort(function(a, b){ return a.x - b.x; }); });
+    var pageText = "";
+    for (var li = 0; li < lines.length; li++) {
+      var lt = "", lx = null;
+      var litems = lines[li].items;
+      for (var m = 0; m < litems.length; m++) {
+        var pit = litems[m];
+        if (lx !== null && pit.x > lx + 3) lt += " ";
+        lt += pit.str;
+        lx = pit.x + pit.w;
       }
-      pageText += lt + '
-';
+      pageText += lt + NL;
     }
-    pageTexts.push(pageText.trimEnd());
+    pageTexts.push(pageText.trimEnd ? pageText.trimEnd() : pageText.replace(/\s+$/, ""));
   }
-  const text   = pageTexts.join('
-');
-  const result = parsePdfText(text);
+  var text   = pageTexts.join(NL);
+  var result = parsePdfText(text);
   result.competencia.arquivo_nome = file.name;
   result.competencia.arquivo_hash = hash;
   return result;
