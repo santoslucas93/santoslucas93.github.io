@@ -128,7 +128,7 @@
   function parseEmployee(block) {
     const headerRe  = /Empr\.: (\d+)([^\n]+?)Situ[aã]ção:(\S+)\s+CPF:([\d.*\/-]+)\s+Adm: (\d{2}\/\d{2}\/\d{4})/;
     const vinculoRe = /V[ií]nculo:\s*([^\n]+?)CC:(\S+)\s+Depto:(\d+)\s+Horas M[eê]s: ([\d,.]+)/;
-    const cargoRe   = /Cargo:\s*(\d+)([^\n]+?)C\.B\.O:([\d]+)\s+Filial:(\d+)\s+Sal[aá]rio: ([\d,.]+)/;
+    const cargoRe   = /Cargo:\s*(\d+)([^\n]+?)C\.B\.O:([\d]+)\s+Filial:\s*(\d+)\s+Sal[aá]rio: ([\d,.]+)/;
     const ndRe      = /ND:.*?Proventos: ([\d,.]+)\s+Descontos: ([\d,.]+).*?Informativa: ([\d,.]+).*?L[ií]quido: ([\d,.]+)/;
     const nfRe      = /NF:.*?Base INSS: ([\d,.]+)\s+Excedente INSS: ([\d,.]+)\s+Base FGTS: ([\d,.]+)\s+Valor FGTS: ([\d,.]+)\s+Base IRRF: ([\d,.+\-]+)/;
 
@@ -325,7 +325,7 @@
     // (funciona mesmo com texto sem quebras de cabeçalho, pois usa clean)
     const empBlockRe = new RegExp(
       'Empr\\.: (\\d+)([^\\n]+?)Situ[aã][cç][aã]o:(\\S+)\\s+CPF:([\\d.*\\/-]+)\\s+Adm: (\\d{2}\\/\\d{2}\\/\\d{4})\\n' +
-      'V[ií]nculo:\\s*([^\\n]+?)CC:(\\S+)\\s+Depto:(\\d+)\\s+Horas M[eê]s: ([\\d,.]+)\\n' +
+      'V[ií]nculo:\\s*([^\\n]+?)CC:(\\S+)\\s+Depto:\\s*(\\d+)\\s+Horas M[eê]s: ([\\d,.]+)\\n' +
       'Cargo:\\s*(\\d+)([^\\n]+?)C\\.B\\.O:([\\d]+)\\s+Filial:(\\d+)\\s+Sal[aá]rio: ([\\d,.]+)\\n' +
       '([\\s\\S]*?)' +
       '\\nND:.*?Proventos: ([\\d,.]+)\\s+Descontos: ([\\d,.]+).*?Informativa: ([\\d,.]+).*?L[ií]quido: ([\\d,.]+)\\n' +
@@ -492,97 +492,46 @@
    * @returns {Promise<{ competencia: Object, colaboradores: Array }>}
    */
   async function extractPdf(file) {
-    // Localiza PDF.js
-    const pdfjsLib = window.pdfjsLib
-      || window['pdfjs-dist/build/pdf']
-      || (window.pdfjsLib = window.pdfjsLib);
-
-    if (!pdfjsLib || typeof pdfjsLib.getDocument !== 'function') {
-      throw new Error(
-        'PDF.js não encontrado. Certifique-se de que a biblioteca está carregada antes do parser.'
-      );
+  const data  = new Uint8Array(await file.arrayBuffer());
+  const hash  = await hashBuffer(data);
+  const pdf   = await pdfjsLib.getDocument({ data }).promise;
+  const pageTexts = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const tc   = await page.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+    const vp   = page.getViewport({ scale: 1 });
+    const allItems = tc.items
+      .filter(it => 'str' in it && it.str.trim())
+      .map(it => ({ str: it.str, x: it.transform[4], y: vp.height - it.transform[5], w: it.width || 0 }));
+    const lines = [];
+    for (const it of allItems) {
+      const ex = lines.find(l => Math.abs(l.y - it.y) <= 4);
+      if (ex) ex.items.push(it);
+      else lines.push({ y: it.y, items: [it] });
     }
-
-    // Configura worker se ainda não foi feito
-    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-
-    const arrayBuffer = await file.arrayBuffer();
-    const hash = await hashBuffer(arrayBuffer);
-
-    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
-
-    const pageParts = [];
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const tc   = await page.getTextContent({
-        normalizeWhitespace:   false,
-        disableCombineTextItems: false,
-        includeMarkedContent:  false
-      });
-      pageParts.push(_pageItemsToText(tc.items));
-    }
-
-    const fullText = pageParts.join('\n');
-    const result   = parsePdfText(fullText);
-
-    result.competencia.arquivo_nome = file.name;
-    result.competencia.arquivo_hash = hash;
-
-    return result;
-  }
-
-  // ── Validação de payload ───────────────────────────────────────────────────
-
-  function validate(payload) {
-    const erros = [];
-    if (!payload || !payload.competencia) {
-      erros.push('Payload inválido: campo "competencia" ausente');
-    } else {
-      if (!payload.competencia.competencia)
-        erros.push('Competência não identificada no documento');
-      if (!payload.competencia.empresa_codigo)
-        erros.push('Código da empresa não identificado');
-    }
-    if (!payload.colaboradores || payload.colaboradores.length === 0)
-      erros.push('Nenhum colaborador encontrado');
-
-    if (payload.competencia && payload.competencia.validacoes) {
-      for (const v of payload.competencia.validacoes) {
-        if (v.tipo === 'erro') erros.push(v.msg);
+    lines.sort((a, b) => a.y - b.y);
+    lines.forEach(l => l.items.sort((a, b) => a.x - b.x));
+    let pageText = '';
+    for (const line of lines) {
+      let lt = '', lx = null;
+      for (const it of line.items) {
+        if (lx !== null && it.x > lx + 3) lt += ' ';
+        lt += it.str;
+        lx = it.x + it.w;
       }
+      pageText += lt + '
+';
     }
-
-    return { valido: erros.length === 0, erros };
+    pageTexts.push(pageText.trimEnd());
   }
-
-  // ── Payload seguro (sem dados sensíveis para log) ─────────────────────────
-
-  function safePayload(payload) {
-    if (!payload) return payload;
-    const safe = JSON.parse(JSON.stringify(payload));
-    // CPF já está mascarado; remove lancamentos para reduzir tamanho do log
-    if (safe.colaboradores) {
-      safe.colaboradores = safe.colaboradores.map(c => {
-        const copy = Object.assign({}, c);
-        delete copy.lancamentos;
-        return copy;
-      });
-    }
-    return safe;
-  }
-
-  // ── Parser Excel ───────────────────────────────────────────────────────────
-
-  /**
-   * Extrai dados de arquivo Excel (XLSX/XLS).
-   * Requer XLSX.js (window.XLSX).
-   * Implementação completa quando o arquivo Excel for fornecido.
-   * @param {File} file
-   */
-  async function parseExcel(file) {
+  const text   = pageTexts.join('
+');
+  const result = parsePdfText(text);
+  result.competencia.arquivo_nome = file.name;
+  result.competencia.arquivo_hash = hash;
+  return result;
+}
+async function parseExcel(file) {
     const XLSX = window.XLSX;
     if (!XLSX) throw new Error('XLSX.js não encontrado. Carregue a biblioteca antes do parser.');
 
