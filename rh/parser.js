@@ -326,7 +326,7 @@
     const empBlockRe = new RegExp(
       'Empr\\.: (\\d+)([^\\n]+?)Situ[aÃ£][cÃ§][aÃ£]o:(\\S+)\\s+CPF:([\\d.*\\/-]+)\\s+Adm: (\\d{2}\\/\\d{2}\\/\\d{4})\\n' +
       'V[iÃ­]nculo:\\s*([^\\n]+?)CC:(\\S+)\\s+Depto:\\s*(\\d+)\\s+Horas M[eÃª]s: ([\\d,.]+)\\n' +
-      'Cargo:\\s*(\\d+)([^\\n]+?)C\\.B\\.O:([\\d]+)\\s+Filial:(\\d+)\\s+Sal[aÃ¡]rio: ([\\d,.]+)\\n' +
+      'Cargo:\\s*(\\d+)([^\\n]+?)C\\.B\\.O:([\\d]+)\\s+Filial:\\s*(\\d+)\\s+Sal[aÃ¡]rio: ([\\d,.]+)\\n' +
       '([\\s\\S]*?)' +
       '\\nND:.*?Proventos: ([\\d,.]+)\\s+Descontos: ([\\d,.]+).*?Informativa: ([\\d,.]+).*?L[iÃ­]quido: ([\\d,.]+)\\n' +
       'NF:.*?Base INSS: ([\\d,.]+)\\s+Excedente INSS: ([\\d,.]+)\\s+Base FGTS: ([\\d,.]+)\\s+Valor FGTS: ([\\d,.]+)\\s+Base IRRF: ([\\d,.+\\-]+)',
@@ -556,6 +556,41 @@ async function parseExcel(file) {
   }
 
   // ââ API pÃºblica ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+  function validate(payload) {
+    const erros = [];
+    if (!payload || !payload.competencia) {
+      erros.push('Payload invalido: campo competencia ausente');
+    } else {
+      if (!payload.competencia.competencia)
+        erros.push('Competencia nao identificada no documento');
+      if (!payload.competencia.empresa_codigo)
+        erros.push('Codigo da empresa nao identificado');
+    }
+    if (!payload.colaboradores || payload.colaboradores.length === 0)
+      erros.push('Nenhum colaborador encontrado');
+
+    if (payload.competencia && payload.competencia.validacoes) {
+      for (const v of payload.competencia.validacoes) {
+        if (v.tipo === 'erro') erros.push(v.msg);
+      }
+    }
+
+    return { valido: erros.length === 0, erros };
+  }
+
+  function safePayload(payload) {
+    if (!payload) return payload;
+    const safe = JSON.parse(JSON.stringify(payload));
+    if (safe.colaboradores) {
+      safe.colaboradores = safe.colaboradores.map(c => {
+        const copy = Object.assign({}, c);
+        delete copy.lancamentos;
+        return copy;
+      });
+    }
+    return safe;
+  }
 
   window.RHParser = {
     /** Extrai PDF (File â payload). Principal ponto de entrada para o app. */
