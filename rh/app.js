@@ -1,4 +1,4 @@
-nction(){
+(function(){
 'use strict';
 var K=['lnb_auth_session_v1','lnb_auth_session_beneficios_v1'],AK='lnb_access_snapshot_v1',CFG=null,SES=null,ACCESS=null;
 var S={competencias:[],competencia:null,colaboradores:[],folhas:[],lancamentos:[],pessoas:[],preview:null,charts:{},view:'visao',fromChat:false};
