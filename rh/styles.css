@@ -18,3 +18,26 @@ body.light{
 @media(max-width:760px){.topbar{height:auto;min-height:68px;padding:10px 14px}.privacy-chip,.user-name{display:none}.shell{display:block}.sidebar{position:sticky;top:68px;z-index:35;width:100%;height:auto;padding:7px;border-right:0;border-bottom:1px solid var(--line-soft);overflow:auto}.sidebar nav{display:flex}.nav-item{width:auto;flex:none;padding:9px 12px;font-size:10px}.nav-item span{font-size:12px}.content{padding:22px 14px 80px}.page-head{align-items:flex-start;flex-direction:column}.head-actions{width:100%;flex-wrap:wrap}.head-actions label,.head-actions select,.search{width:100%;max-width:none}.grid.two,.grid.three,.import-grid{grid-template-columns:1fr}.grid.three>*:last-child{grid-column:auto}.kpi-grid,.preview-summary,.modal-summary{grid-template-columns:repeat(2,1fr)}.chart-wrap{height:280px}.ai-panel{right:15px;bottom:86px}.ai-launch{right:18px;bottom:18px}.back-chat{left:14px}.modal-card{max-height:calc(100vh - 20px)}.modal-summary{padding:12px}.modal-foot{align-items:flex-start;gap:10px;flex-direction:column}}
 @media(max-width:430px){.brand small{display:none}.kpi-grid{grid-template-columns:1fr}.preview-summary,.modal-summary{grid-template-columns:1fr 1fr}.button{padding-inline:11px}.top-actions{gap:6px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+/* Composicao da remuneracao (modal do colaborador) */
+.modal-table tr.group-head td{
+  background:var(--surface-soft);
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  font-size:.72rem;
+  padding-top:14px;
+}
+.modal-table tr.group-total td{
+  border-top:1px solid var(--line);
+  background:var(--surface-2);
+}
+.modal-table tr.group-total.destaque td{
+  border-top:2px solid var(--gold);
+  color:var(--gold);
+  font-size:1.02rem;
+}
+.modal-table tr.group-total.destaque td .money,
+.modal-table tr.group-total.destaque td b{
+  color:var(--gold);
+}
