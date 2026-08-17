@@ -78,7 +78,7 @@
   function showPreview(result){S.preview=result;var comp=result.competencia||{},validacoes=comp.validacoes||[];$('import-preview').hidden=false;$('preview-title').textContent=comp.arquivo_nome||'';$('preview-status').textContent=validacoes.every(function(x){return x.tipo==='ok';})?'Pronto para importar':'Importar com ressalvas';var compRot=comp.competencia?comp.competencia.slice(5,7)+'/'+comp.competencia.slice(0,4):'—';$('preview-summary').innerHTML=[['Competência',compRot],['Pessoas',result.colaboradores.length],['Proventos',fmt(comp.proventos)],['Líquido',fmt(comp.liquido)]].map(function(x){return '<div><span>'+x[0]+'</span><strong>'+esc(x[1])+'</strong></div>';}).join('');$('preview-validations').innerHTML=validacoes.map(function(x){return '<div class="validation-row '+(x.tipo==='ok'?'':'warn')+'"><i>'+(x.tipo==='ok'?'✓':'!')+'</i><span>'+esc(x.msg||x.mensagem||'')+'</span></div>';}).join('');$('import-preview').scrollIntoView({behavior:'smooth',block:'center'});}
   function buildRpcPayload(preview){
   var comp = preview.competencia || {};
-  var resumo = comp.resumo || {};
+  var enc = comp.encargos || {};
   var colaboradores = (preview.colaboradores || []).map(function(c){
     var f = c.folha || {};
     var lancamentos = (c.lancamentos || []).map(function(l){
@@ -116,7 +116,58 @@
       lancamentos: lancamentos
     };
   });
-  return { meta: comp, resumo: resumo, colaboradores: colaboradores };
+  var competenciaYm = (comp.competencia || '').slice(0,7);
+  var admissoesNoMes = colaboradores.filter(function(c){ return c.admissao && c.admissao.slice(0,7) === competenciaYm; }).length;
+  var sit = enc.situacoes || {};
+  return {
+    meta: {
+      competencia: comp.competencia,
+      empresa_codigo: comp.empresa_codigo,
+      empresa_nome: comp.empresa_nome,
+      cnpj_mascarado: comp.cnpj_mascarado,
+      tipo_calculo: comp.tipo_calculo,
+      fonte: comp.fonte,
+      arquivo_nome: comp.arquivo_nome,
+      arquivo_hash: comp.arquivo_hash
+    },
+    resumo: {
+      proventos: comp.proventos,
+      descontos: comp.descontos,
+      liquido: comp.liquido,
+      base_inss: comp.base_inss,
+      base_fgts: comp.base_fgts,
+      valor_fgts: comp.valor_fgts,
+      base_irrf: comp.base_irrf,
+      trabalhando: sit.trabalhando,
+      demitidos: sit.demitido,
+      ferias: sit.ferias,
+      admissoes: admissoesNoMes,
+      departamentos: (comp.resumo || {}).departamentos,
+      centros_custo: (comp.resumo || {}).centros_custo,
+      rubricas: (comp.resumo || {}).rubricas
+    },
+    encargos: {
+      sal_contrib_empregados: enc.sal_contrib_empregados,
+      excedente_inss: enc.excedente_inss,
+      base_total_inss: enc.base_total_inss,
+      segurados: enc.segurados,
+      empresa_inss: enc.empresa_inss,
+      rat: enc.rat,
+      terceiros: enc.terceiros,
+      total_inss: enc.total_inss,
+      base_fgts: enc.base_fgts,
+      valor_fgts: enc.valor_fgts,
+      base_pis: enc.base_pis,
+      valor_pis: enc.valor_pis,
+      base_irrf_mensal: enc.base_irrf_mensal,
+      valor_irrf_mensal: enc.valor_irrf_mensal,
+      valor_total_irrf: enc.valor_total_irrf,
+      valor_irrf: enc.valor_total_irrf,
+      situacoes: sit
+    },
+    validacoes: comp.validacoes || [],
+    colaboradores: colaboradores
+  };
 }
 async function confirmImport(){if(!S.preview)return;var btn=$('confirm-import');btn.disabled=true;btn.textContent='Importando…';try{var id=await rpc('rh_importar_folha',{p_payload:buildRpcPayload(S.preview)});toast('Competência importada com sucesso.');S.preview=null;$('import-preview').hidden=true;await loadCompetences(id);go('visao');}catch(e){toast('Não foi possível importar: '+e.message,true);}finally{btn.disabled=false;btn.textContent='Confirmar importação';}}
 
