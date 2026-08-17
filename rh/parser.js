@@ -19,7 +19,7 @@
   /** Mascara CPF: mantém posições 3-8, oculta o resto  →  ***.XXX.XXX-** */
   function cpfMask(cpf) {
     const digits = String(cpf).replace(/\D/g, '');
-    if (digits.length !== 11) return cpf; // mantém o original se formato incomum
+    if (digits.length !== 11) return cpf; // mant\u00e9m o original se formato incomum
     return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`;
   }
 
@@ -128,10 +128,10 @@
   function parseEmployee(block) {
     // Todos os separadores usam \s* — o espaçamento do texto extraído varia
     // conforme o motor (PDF.js x pdfplumber) e o limiar de gap usado.
-    const headerRe  = /Empr\.:\s*(\d+)([^\n]+?)Situ[aá]?[cç][aã]o:\s*(\S+)\s*CPF:\s*([\d.*\/-]+)\s*Adm:\s*(\d{2}\/\d{2}\/\d{4})/;
-    const vinculoRe = /V[ií]nculo:\s*([^\n]+?)CC:\s*(\S+)\s*Depto:\s*(\d+)\s*Horas\s*M[eê]s:\s*([\d,.]+)/;
-    const cargoRe   = /Cargo:\s*(\d+)([^\n]+?)C\.B\.O:\s*(\d+)\s*Filial:\s*(\d+)\s*Sal[aá]rio:\s*([\d,.]+)/;
-    const ndRe      = /ND:.*?Proventos:\s*([\d,.]+)\s*Descontos:\s*([\d,.]+).*?Informativa:\s*([\d,.]+).*?L[ií]quido:\s*([\d,.]+)/;
+    const headerRe  = /Empr\.:\s*(\d+)([^\n]+?)Situ[a\u00e1]?[c\u00e7][a\u00e3]o:\s*(\S+)\s*CPF:\s*([\d.*\/-]+)\s*Adm:\s*(\d{2}\/\d{2}\/\d{4})/;
+    const vinculoRe = /V[i\u00ed]nculo:\s*([^\n]+?)CC:\s*(\S+)\s*Depto:\s*(\d+)\s*Horas\s*M[e\u00ea]s:\s*([\d,.]+)/;
+    const cargoRe   = /Cargo:\s*(\d+)([^\n]+?)C\.B\.O:\s*(\d+)\s*Filial:\s*(\d+)\s*Sal[a\u00e1]rio:\s*([\d,.]+)/;
+    const ndRe      = /ND:.*?Proventos:\s*([\d,.]+)\s*Descontos:\s*([\d,.]+).*?Informativa:\s*([\d,.]+).*?L[i\u00ed]quido:\s*([\d,.]+)/;
     const nfRe      = /NF:.*?Base\s*INSS:\s*([\d,.]+)\s*Excedente\s*INSS:\s*([\d,.]+)\s*Base\s*FGTS:\s*([\d,.]+)\s*Valor\s*FGTS:\s*([\d,.]+)\s*Base\s*IRRF:\s*([\d,.+\-]+)/;
 
     const hm  = headerRe.exec(block);
@@ -236,7 +236,7 @@
   function parseCharges(text) {
     const enc = {};
     const fields = {
-      sal_contrib_empregados: /Sal[aá]rio contribui[cç][aã]o empregados:\s*([\d.,]+)/,
+      sal_contrib_empregados: /Sal[a\u00e1]rio contribui[c\u00e7][a\u00e3]o empregados:\s*([\d.,]+)/,
       excedente_inss:         /Excedente:\s*([\d.,]+)/,
       base_total_inss:        /Base total:\s*([\d.,]+)/,
       segurados:              /Segurados:\s*([\d.,]+)/,
@@ -260,16 +260,16 @@
 
     // Situações — extrai apenas o bloco específico para não capturar "Férias" de IRRF
     const sit = {};
-    const sitSection = /Situa[cç][oõ]es\n([\s\S]+?)(?:\n\n|Sal[aá]rio maternidade[^\n]*\n[^\n]*\n[^\n]*$)/m.exec(text);
+    const sitSection = /Situa[c\u00e7][o\u00f5]es\n([\s\S]+?)(?:\n\n|Sal[a\u00e1]rio maternidade[^\n]*\n[^\n]*\n[^\n]*$)/m.exec(text);
     const sitText = sitSection ? sitSection[1] : text;
 
     const sitFields = {
-      empregados:  /N[o°]\.\s*Empregados:\s*(\d+)/,
-      estagiarios: /N[o°]\.\s*Estagi[aá]rios:\s*(\d+)/,
+      empregados:  /N[o\u00b0]\.\s*Empregados:\s*(\d+)/,
+      estagiarios: /N[o\u00b0]\.\s*Estagi[a\u00e1]rios:\s*(\d+)/,
       trabalhando: /Trabalhando:\s*(\d+)/,
       demitido:    /Demitido:\s*(\d+)/,
       transferido: /Transferido:\s*(\d+)/,
-      ferias:      /F[eé]rias:\s*(\d+)(?![\d,])/,   // não captura "Férias: 765,57"
+      ferias:      /F[e\u00e9]rias:\s*(\d+)(?![\d,])/,   // n\u00e3o captura "F\u00e9rias: 765,57"
       afastado:    /Afastado direitos integrais:\s*(\d+)/
     };
     for (const [k, re] of Object.entries(sitFields)) {
@@ -302,15 +302,15 @@
    */
   function parsePdfText(text) {
     // Remove cabeçalhos repetidos em cada página
-    const headerRe = /Empresa: \d+ - [^\n]+\n(?:CNPJ:[^\n]+\n)?(?:C[aá]lculo:[^\n]+\n)?(?:Compet[eê]ncia:[^\n]+\n)?(?:Complemento[^\n]*\n)?(?:Vinculos:[^\n]+\n)?(?:EXTRATO MENSAL\n)?(?:Folha Mensal\n)?/g;
+    const headerRe = /Empresa: \d+ - [^\n]+\n(?:CNPJ:[^\n]+\n)?(?:C[a\u00e1]lculo:[^\n]+\n)?(?:Compet[e\u00ea]ncia:[^\n]+\n)?(?:Complemento[^\n]*\n)?(?:Vinculos:[^\n]+\n)?(?:EXTRATO MENSAL\n)?(?:Folha Mensal\n)?/g;
     let clean = text.replace(headerRe, '');
     clean = clean.replace(/Sistema licenciado para[^\n]*\n?/g, '');
 
     // Metadados da empresa
     const empRe   = /Empresa: (\d+) - ([^\n]+)/;
     const cnpjRe  = /CNPJ: ([\d.\/\-]+)/;
-    const calcRe  = /C[aá]lculo: ([^\n]+)/;
-    const compRe  = /Compet[eê]ncia: (\d{2}\/\d{4})/;
+    const calcRe  = /C[a\u00e1]lculo: ([^\n]+)/;
+    const compRe  = /Compet[e\u00ea]ncia: (\d{2}\/\d{4})/;
 
     const empM  = empRe.exec(text);
     const cnpjM = cnpjRe.exec(text);
@@ -318,7 +318,7 @@
     const compM = compRe.exec(text);
 
     const empresa_codigo = empM  ? empM[1]  : '';
-    const empresa_nome   = empM  ? empM[2].split(' P')[0].trim() : '';  // corta " Página: X/Y"
+    const empresa_nome   = empM  ? empM[2].split(' P')[0].trim() : '';  // corta " P\u00e1gina: X/Y"
     const cnpj_raw       = cnpjM ? cnpjM[1] : '';
     const tipo_calculo   = calcM ? calcM[1].split(' Horas:')[0].trim() : '';
     const competencia    = compM ? competenciaToDate(compM[1]) : null;
@@ -326,11 +326,11 @@
     // Localiza todos os blocos de colaboradores
     // (funciona mesmo com texto sem quebras de cabeçalho, pois usa clean)
     const empBlockRe = new RegExp(
-      'Empr\\.:\\s*(\\d+)([^\\n]+?)Situ[aá]?[cç][aã]o:\\s*(\\S+)\\s*CPF:\\s*([\\d.*\\/-]+)\\s*Adm:\\s*(\\d{2}\\/\\d{2}\\/\\d{4})\\n' +
-      'V[ií]nculo:\\s*([^\\n]+?)CC:\\s*(\\S+)\\s*Depto:\\s*(\\d+)\\s*Horas\\s*M[eê]s:\\s*([\\d,.]+)\\n' +
-      'Cargo:\\s*(\\d+)([^\\n]+?)C\\.B\\.O:\\s*(\\d+)\\s*Filial:\\s*(\\d+)\\s*Sal[aá]rio:\\s*([\\d,.]+)\\n' +
+      'Empr\\.:\\s*(\\d+)([^\\n]+?)Situ[a\u00e1]?[c\u00e7][a\u00e3]o:\\s*(\\S+)\\s*CPF:\\s*([\\d.*\\/-]+)\\s*Adm:\\s*(\\d{2}\\/\\d{2}\\/\\d{4})\\n' +
+      'V[i\u00ed]nculo:\\s*([^\\n]+?)CC:\\s*(\\S+)\\s*Depto:\\s*(\\d+)\\s*Horas\\s*M[e\u00ea]s:\\s*([\\d,.]+)\\n' +
+      'Cargo:\\s*(\\d+)([^\\n]+?)C\\.B\\.O:\\s*(\\d+)\\s*Filial:\\s*(\\d+)\\s*Sal[a\u00e1]rio:\\s*([\\d,.]+)\\n' +
       '([\\s\\S]*?)' +
-      '\\nND:.*?Proventos:\\s*([\\d,.]+)\\s*Descontos:\\s*([\\d,.]+).*?Informativa:\\s*([\\d,.]+).*?L[ií]quido:\\s*([\\d,.]+)\\n' +
+      '\\nND:.*?Proventos:\\s*([\\d,.]+)\\s*Descontos:\\s*([\\d,.]+).*?Informativa:\\s*([\\d,.]+).*?L[i\u00ed]quido:\\s*([\\d,.]+)\\n' +
       'NF:.*?Base\\s*INSS:\\s*([\\d,.]+)\\s*Excedente\\s*INSS:\\s*([\\d,.]+)\\s*Base\\s*FGTS:\\s*([\\d,.]+)\\s*Valor\\s*FGTS:\\s*([\\d,.]+)\\s*Base\\s*IRRF:\\s*([\\d,.+\\-]+)',
       'g'
     );
@@ -375,7 +375,7 @@
     }
 
     // Totais gerais (pág. 6)
-    const totalM = /Total Geral Proventos: ([\d.,]+)\s+Total Geral Descontos: ([\d.,]+)\s+L[ií]quido Geral: ([\d.,]+)/.exec(text);
+    const totalM = /Total Geral Proventos: ([\d.,]+)\s+Total Geral Descontos: ([\d.,]+)\s+L[i\u00ed]quido Geral: ([\d.,]+)/.exec(text);
     const proventos = totalM ? brNumber(totalM[1]) : 0;
     const descontos  = totalM ? brNumber(totalM[2]) : 0;
     const liquido    = totalM ? brNumber(totalM[3]) : 0;
@@ -400,7 +400,7 @@
       });
     }
     if (colaboradores.length === 0) {
-      validacoes.push({ tipo: 'erro', msg: 'Nenhum colaborador encontrado — verifique se o PDF é um Extrato Mensal válido' });
+      validacoes.push({ tipo: 'erro', msg: 'Nenhum colaborador encontrado \u2014 verifique se o PDF \u00e9 um Extrato Mensal v\u00e1lido' });
     }
 
     return {
@@ -408,7 +408,7 @@
         competencia,
         empresa_codigo,
         empresa_nome,
-        cnpj_mascarado: cnpj_raw,   // CNPJ da empresa (não é dado pessoal)
+        cnpj_mascarado: cnpj_raw,   // CNPJ da empresa (n\u00e3o \u00e9 dado pessoal)
         tipo_calculo,
         fonte: 'pdf',
         status: 'processado',
@@ -443,7 +443,7 @@
       .map(it => ({
         str: it.str,
         x:   it.transform[4],
-        y:   Math.round(it.transform[5]),  // y = base da linha (coord. PDF: 0 = base da pág.)
+        y:   Math.round(it.transform[5]),  // y = base da linha (coord. PDF: 0 = base da p\u00e1g.)
         w:   it.width || 0
       }));
 
@@ -503,7 +503,7 @@
 
     if (!pdfjsLib || typeof pdfjsLib.getDocument !== 'function') {
       throw new Error(
-        'PDF.js não encontrado. Certifique-se de que a biblioteca está carregada antes do parser.'
+        'PDF.js n\u00e3o encontrado. Certifique-se de que a biblioteca est\u00e1 carregada antes do parser.'
       );
     }
 
@@ -543,12 +543,12 @@
   function validate(payload) {
     const erros = [];
     if (!payload || !payload.competencia) {
-      erros.push('Payload inválido: campo "competencia" ausente');
+      erros.push('Payload inv\u00e1lido: campo "competencia" ausente');
     } else {
       if (!payload.competencia.competencia)
-        erros.push('Competência não identificada no documento');
+        erros.push('Compet\u00eancia n\u00e3o identificada no documento');
       if (!payload.competencia.empresa_codigo)
-        erros.push('Código da empresa não identificado');
+        erros.push('C\u00f3digo da empresa n\u00e3o identificado');
     }
     if (!payload.colaboradores || payload.colaboradores.length === 0)
       erros.push('Nenhum colaborador encontrado');
@@ -588,7 +588,7 @@
    */
   async function parseExcel(file) {
     const XLSX = window.XLSX;
-    if (!XLSX) throw new Error('XLSX.js não encontrado. Carregue a biblioteca antes do parser.');
+    if (!XLSX) throw new Error('XLSX.js n\u00e3o encontrado. Carregue a biblioteca antes do parser.');
 
     const arrayBuffer = await file.arrayBuffer();
     const hash = await hashBuffer(arrayBuffer);
@@ -601,7 +601,7 @@
         arquivo_nome: file.name,
         arquivo_hash: hash,
         status: 'rascunho',
-        validacoes: [{ tipo: 'aviso', msg: 'Import Excel pendente: envie o arquivo para implementação completa.' }]
+        validacoes: [{ tipo: 'aviso', msg: 'Import Excel pendente: envie o arquivo para implementa\u00e7\u00e3o completa.' }]
       },
       colaboradores: []
     };
