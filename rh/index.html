@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title>RH & Folha · Painel LNB</title>
-  <link rel="stylesheet" href="/rh/styles.css?v=2">
+  <link rel="stylesheet" href="/rh/styles.css?v=3">
+  <style>
+    .gate-logo{height:80px;width:auto;display:block;margin:0 auto 16px;filter:drop-shadow(0 2px 12px rgba(0,0,0,.4))}
+    .header-logo{height:30px;width:auto;display:block}
+  </style>
   <script>
     window.__rhBootReady=false;
     window.setTimeout(function(){
@@ -18,12 +22,12 @@
     },15000);
   </script>
   <script src="/rh/parser.js?v=2" defer></script>
-  <script src="/rh/app.js?v=3" defer></script>
+  <script src="/rh/app.js?v=4" defer></script>
 </head>
 <body>
   <div class="gate" id="gate" aria-live="polite">
     <div class="gate-card">
-      <div class="brand-mark" aria-hidden="true">LNB</div>
+      <img src="/rh/lnb-logo.png" class="gate-logo" alt="LNB">
       <h1>RH & Folha</h1>
       <p id="gate-message">Validando sua sessão e suas permissões…</p>
       <a class="button primary" id="gate-home" href="/?abrir=rh" hidden>Validar pela Central de Gestão</a>
@@ -33,7 +37,7 @@
   <div class="app" id="app" hidden>
     <header class="topbar">
       <a class="brand" href="/" aria-label="Voltar à Central de Gestão">
-        <span class="brand-mark small">LNB</span>
+        <img src="/rh/lnb-logo.png" class="header-logo" alt="LNB">
         <span><b>RH & FOLHA</b><small>Administração de Pessoal</small></span>
       </a>
       <div class="top-actions">
