@@ -1,40 +1,40 @@
 /* ============================================================
- * LNB RH — parser.js
- * Extração de PDF (PDF.js) e Excel (XLSX.js)
- * Expõe window.RHParser com a API esperada pelo app.js
+ * LNB RH â parser.js
+ * ExtraÃ§Ã£o de PDF (PDF.js) e Excel (XLSX.js)
+ * ExpÃµe window.RHParser com a API esperada pelo app.js
  * ============================================================ */
 
 (function (window) {
   'use strict';
 
-  // ── Utilitários ────────────────────────────────────────────────────────────
+  // ââ UtilitÃ¡rios ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-  /** Converte número brasileiro ("1.234,56") em float */
+  /** Converte nÃºmero brasileiro ("1.234,56") em float */
   function brNumber(s) {
     if (s == null || s === '') return 0;
     const str = String(s).replace(/[^\d,.-]/g, '');
     return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
   }
 
-  /** Mascara CPF: mantém posições 3-8, oculta o resto  →  ***.XXX.XXX-** */
+  /** Mascara CPF: mantÃ©m posiÃ§Ãµes 3-8, oculta o resto  â  ***.XXX.XXX-** */
   function cpfMask(cpf) {
     const digits = String(cpf).replace(/\D/g, '');
-    if (digits.length !== 11) return cpf; // mantém o original se formato incomum
+    if (digits.length !== 11) return cpf; // mantÃ©m o original se formato incomum
     return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`;
   }
 
-  /** Mascara CNPJ: oculta os últimos 2 dígitos verificadores */
+  /** Mascara CNPJ: oculta os Ãºltimos 2 dÃ­gitos verificadores */
   function cnpjMask(cnpj) {
     return String(cnpj).replace(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-)(\d{2})/, '$1**');
   }
 
-  /** DD/MM/YYYY → YYYY-MM-DD */
+  /** DD/MM/YYYY â YYYY-MM-DD */
   function isoDate(br) {
     const m = String(br || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
   }
 
-  /** MM/YYYY → YYYY-MM-01 */
+  /** MM/YYYY â YYYY-MM-01 */
   function competenciaToDate(s) {
     const m = String(s || '').match(/^(\d{2})\/(\d{4})$/);
     return m ? `${m[2]}-${m[1]}-01` : null;
@@ -46,19 +46,19 @@
     return arr.map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
-  // ── Parser de rubricas ─────────────────────────────────────────────────────
+  // ââ Parser de rubricas âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   /**
    * Parseia uma linha de rubrica que pode conter 1 ou 2 itens
-   * (layout de duas colunas: proventos à esquerda, descontos à direita).
+   * (layout de duas colunas: proventos Ã  esquerda, descontos Ã  direita).
    *
    * Formato de cada item:
    *   {CODIGO}{NOME}  {REFERENCIA}  {VALOR}{P|D}
    *
    * Casos especiais tratados:
-   *   • "9311/3 DAS FERIAS"  → código 931, nome "1/3 DAS FERIAS"
-   *   • "855013 SALARIO..."  → código 8550, nome "13 SALARIO..."   (\d{2,4} para no 4º dígito)
-   *   • "81691/3 FERIAS..."  → código 8169, nome "1/3 FERIAS..."
+   *   â¢ "9311/3 DAS FERIAS"  â cÃ³digo 931, nome "1/3 DAS FERIAS"
+   *   â¢ "855013 SALARIO..."  â cÃ³digo 8550, nome "13 SALARIO..."   (\d{2,4} para no 4Âº dÃ­gito)
+   *   â¢ "81691/3 FERIAS..."  â cÃ³digo 8169, nome "1/3 FERIAS..."
    *
    * @param {string} line
    * @returns {Array<{codigo, nome, referencia, valor, tipo}>}
@@ -67,7 +67,7 @@
     line = (line || '').trim();
     if (!line) return [];
 
-    // Localiza todas as ocorrências de "VALOR P|D" na linha para dividir os itens
+    // Localiza todas as ocorrÃªncias de "VALOR P|D" na linha para dividir os itens
     const termRe = /([\d.]+,\d{2})\s*([PD])(?=\s|$)/g;
     const terminals = [];
     let tm;
@@ -90,13 +90,13 @@
         let codigo = m[1];
         let nome   = m[2].trim();
 
-        // Fix: "9311" + "/3 DAS FERIAS" → código "931", nome "1/3 DAS FERIAS"
+        // Fix: "9311" + "/3 DAS FERIAS" â cÃ³digo "931", nome "1/3 DAS FERIAS"
         if (nome.startsWith('/') && codigo.length > 2) {
           nome   = codigo.slice(-1) + nome;
           codigo = codigo.slice(0, -1);
         }
 
-        // Ignora linhas informativas de FERIAS / DEMITIDO que não são rubricas
+        // Ignora linhas informativas de FERIAS / DEMITIDO que nÃ£o sÃ£o rubricas
         if (/^(FERIAS DE|DEMITIDO EM)/i.test(nome)) {
           cursor = term.end;
           while (cursor < line.length && line[cursor] === ' ') cursor++;
@@ -119,17 +119,17 @@
     return items;
   }
 
-  // ── Parser de colaborador individual ──────────────────────────────────────
+  // ââ Parser de colaborador individual ââââââââââââââââââââââââââââââââââââââ
 
   /**
    * Recebe o bloco de texto de um colaborador e retorna objeto estruturado.
    * @param {string} block
    */
   function parseEmployee(block) {
-    const headerRe  = /Empr\.: (\d+)([^\n]+?)Situ[aã]ção:(\S+)\s+CPF:([\d.*\/-]+)\s+Adm: (\d{2}\/\d{2}\/\d{4})/;
-    const vinculoRe = /V[ií]nculo:\s*([^\n]+?)CC:(\S+)\s+Depto:(\d+)\s+Horas M[eê]s: ([\d,.]+)/;
-    const cargoRe   = /Cargo:\s*(\d+)([^\n]+?)C\.B\.O:([\d]+)\s+Filial:\s*(\d+)\s+Sal[aá]rio: ([\d,.]+)/;
-    const ndRe      = /ND:.*?Proventos: ([\d,.]+)\s+Descontos: ([\d,.]+).*?Informativa: ([\d,.]+).*?L[ií]quido: ([\d,.]+)/;
+    const headerRe  = /Empr\.: (\d+)([^\n]+?)Situ[aÃ£]Ã§Ã£o:(\S+)\s+CPF:([\d.*\/-]+)\s+Adm: (\d{2}\/\d{2}\/\d{4})/;
+    const vinculoRe = /V[iÃ­]nculo:\s*([^\n]+?)CC:(\S+)\s+Depto:\s*(\d+)\s+Horas M[eÃª]s: ([\d,.]+)/;
+    const cargoRe   = /Cargo:\s*(\d+)([^\n]+?)C\.B\.O:([\d]+)\s+Filial:\s*(\d+)\s+Sal[aÃ¡]rio: ([\d,.]+)/;
+    const ndRe      = /ND:.*?Proventos: ([\d,.]+)\s+Descontos: ([\d,.]+).*?Informativa: ([\d,.]+).*?L[iÃ­]quido: ([\d,.]+)/;
     const nfRe      = /NF:.*?Base INSS: ([\d,.]+)\s+Excedente INSS: ([\d,.]+)\s+Base FGTS: ([\d,.]+)\s+Valor FGTS: ([\d,.]+)\s+Base IRRF: ([\d,.+\-]+)/;
 
     const hm  = headerRe.exec(block);
@@ -140,7 +140,7 @@
 
     if (!hm || !vm || !cm || !ndm || !nfm) return null;
 
-    // Bloco entre a linha de Cargo e a linha "ND:" contém as rubricas
+    // Bloco entre a linha de Cargo e a linha "ND:" contÃ©m as rubricas
     const cargoEnd = block.indexOf('\n', block.indexOf('C.B.O:'));
     const ndStart  = block.indexOf('\nND:');
     const rubricBlock = (cargoEnd >= 0 && ndStart > cargoEnd)
@@ -182,11 +182,11 @@
     };
   }
 
-  // ── Parser de departamentos ────────────────────────────────────────────────
+  // ââ Parser de departamentos ââââââââââââââââââââââââââââââââââââââââââââââââ
 
   function parseDepartments(text) {
     const depts = [];
-    // O cabeçalho "Proventos Descontos Liquido" fica na MESMA linha que "Totais por Departamento"
+    // O cabeÃ§alho "Proventos Descontos Liquido" fica na MESMA linha que "Totais por Departamento"
     const sectionRe = /Totais por Departamento[^\n]*\n([\s\S]+?)Total:/;
     const sec = sectionRe.exec(text);
     if (!sec) return depts;
@@ -205,11 +205,11 @@
     return depts;
   }
 
-  // ── Parser de centros de custo ─────────────────────────────────────────────
+  // ââ Parser de centros de custo âââââââââââââââââââââââââââââââââââââââââââââ
 
   function parseCostCenters(text) {
     const ccs = [];
-    // Idem: cabeçalho na mesma linha; termina em "Total Geral" ou segunda ocorrência de "Total:"
+    // Idem: cabeÃ§alho na mesma linha; termina em "Total Geral" ou segunda ocorrÃªncia de "Total:"
     const sectionRe = /Totais por Centro de Custos[^\n]*\n([\s\S]+?)Total:/;
     const all = [...text.matchAll(/Totais por Centro de Custos[^\n]*\n([\s\S]+?)Total:/g)];
     const sec = all[0];
@@ -229,12 +229,12 @@
     return ccs;
   }
 
-  // ── Parser de encargos (pág. 7) ────────────────────────────────────────────
+  // ââ Parser de encargos (pÃ¡g. 7) ââââââââââââââââââââââââââââââââââââââââââââ
 
   function parseCharges(text) {
     const enc = {};
     const fields = {
-      sal_contrib_empregados: /Sal[aá]rio contribui[cç][aã]o empregados:\s*([\d.,]+)/,
+      sal_contrib_empregados: /Sal[aÃ¡]rio contribui[cÃ§][aÃ£]o empregados:\s*([\d.,]+)/,
       excedente_inss:         /Excedente:\s*([\d.,]+)/,
       base_total_inss:        /Base total:\s*([\d.,]+)/,
       segurados:              /Segurados:\s*([\d.,]+)/,
@@ -256,18 +256,18 @@
       if (m) enc[k] = brNumber(m[1]);
     }
 
-    // Situações — extrai apenas o bloco específico para não capturar "Férias" de IRRF
+    // SituaÃ§Ãµes â extrai apenas o bloco especÃ­fico para nÃ£o capturar "FÃ©rias" de IRRF
     const sit = {};
-    const sitSection = /Situa[cç][oõ]es\n([\s\S]+?)(?:\n\n|Sal[aá]rio maternidade[^\n]*\n[^\n]*\n[^\n]*$)/m.exec(text);
+    const sitSection = /Situa[cÃ§][oÃµ]es\n([\s\S]+?)(?:\n\n|Sal[aÃ¡]rio maternidade[^\n]*\n[^\n]*\n[^\n]*$)/m.exec(text);
     const sitText = sitSection ? sitSection[1] : text;
 
     const sitFields = {
-      empregados:  /N[o°]\.\s*Empregados:\s*(\d+)/,
-      estagiarios: /N[o°]\.\s*Estagi[aá]rios:\s*(\d+)/,
+      empregados:  /N[oÂ°]\.\s*Empregados:\s*(\d+)/,
+      estagiarios: /N[oÂ°]\.\s*Estagi[aÃ¡]rios:\s*(\d+)/,
       trabalhando: /Trabalhando:\s*(\d+)/,
       demitido:    /Demitido:\s*(\d+)/,
       transferido: /Transferido:\s*(\d+)/,
-      ferias:      /F[eé]rias:\s*(\d+)(?![\d,])/,   // não captura "Férias: 765,57"
+      ferias:      /F[eÃ©]rias:\s*(\d+)(?![\d,])/,   // nÃ£o captura "FÃ©rias: 765,57"
       afastado:    /Afastado direitos integrais:\s*(\d+)/
     };
     for (const [k, re] of Object.entries(sitFields)) {
@@ -279,7 +279,7 @@
     return enc;
   }
 
-  // ── Resumo por rubrica (pág. 6) ────────────────────────────────────────────
+  // ââ Resumo por rubrica (pÃ¡g. 6) ââââââââââââââââââââââââââââââââââââââââââââ
 
   function parseResumoRubricas(text) {
     const sec = /Resumo por Rubrica\n?([\s\S]+?)(?:Totais por Filial|Sistema licenciado|$)/.exec(text);
@@ -291,24 +291,24 @@
     return items;
   }
 
-  // ── Parser de texto extraído do PDF ───────────────────────────────────────
+  // ââ Parser de texto extraÃ­do do PDF âââââââââââââââââââââââââââââââââââââââ
 
   /**
-   * Recebe o texto bruto extraído (via PDF.js ou pdfplumber) e retorna payload.
+   * Recebe o texto bruto extraÃ­do (via PDF.js ou pdfplumber) e retorna payload.
    * @param {string} text
    * @returns {{ competencia: Object, colaboradores: Array }}
    */
   function parsePdfText(text) {
-    // Remove cabeçalhos repetidos em cada página
-    const headerRe = /Empresa: \d+ - [^\n]+\n(?:CNPJ:[^\n]+\n)?(?:C[aá]lculo:[^\n]+\n)?(?:Compet[eê]ncia:[^\n]+\n)?(?:Complemento[^\n]*\n)?(?:Vinculos:[^\n]+\n)?(?:EXTRATO MENSAL\n)?(?:Folha Mensal\n)?/g;
+    // Remove cabeÃ§alhos repetidos em cada pÃ¡gina
+    const headerRe = /Empresa: \d+ - [^\n]+\n(?:CNPJ:[^\n]+\n)?(?:C[aÃ¡]lculo:[^\n]+\n)?(?:Compet[eÃª]ncia:[^\n]+\n)?(?:Complemento[^\n]*\n)?(?:Vinculos:[^\n]+\n)?(?:EXTRATO MENSAL\n)?(?:Folha Mensal\n)?/g;
     let clean = text.replace(headerRe, '');
     clean = clean.replace(/Sistema licenciado para[^\n]*\n?/g, '');
 
     // Metadados da empresa
     const empRe   = /Empresa: (\d+) - ([^\n]+)/;
     const cnpjRe  = /CNPJ: ([\d.\/\-]+)/;
-    const calcRe  = /C[aá]lculo: ([^\n]+)/;
-    const compRe  = /Compet[eê]ncia: (\d{2}\/\d{4})/;
+    const calcRe  = /C[aÃ¡]lculo: ([^\n]+)/;
+    const compRe  = /Compet[eÃª]ncia: (\d{2}\/\d{4})/;
 
     const empM  = empRe.exec(text);
     const cnpjM = cnpjRe.exec(text);
@@ -316,19 +316,19 @@
     const compM = compRe.exec(text);
 
     const empresa_codigo = empM  ? empM[1]  : '';
-    const empresa_nome   = empM  ? empM[2].split(' P')[0].trim() : '';  // corta " Página: X/Y"
+    const empresa_nome   = empM  ? empM[2].split(' P')[0].trim() : '';  // corta " PÃ¡gina: X/Y"
     const cnpj_raw       = cnpjM ? cnpjM[1] : '';
     const tipo_calculo   = calcM ? calcM[1].split(' Horas:')[0].trim() : '';
     const competencia    = compM ? competenciaToDate(compM[1]) : null;
 
     // Localiza todos os blocos de colaboradores
-    // (funciona mesmo com texto sem quebras de cabeçalho, pois usa clean)
+    // (funciona mesmo com texto sem quebras de cabeÃ§alho, pois usa clean)
     const empBlockRe = new RegExp(
-      'Empr\\.: (\\d+)([^\\n]+?)Situ[aã][cç][aã]o:(\\S+)\\s+CPF:([\\d.*\\/-]+)\\s+Adm: (\\d{2}\\/\\d{2}\\/\\d{4})\\n' +
-      'V[ií]nculo:\\s*([^\\n]+?)CC:(\\S+)\\s+Depto:\\s*(\\d+)\\s+Horas M[eê]s: ([\\d,.]+)\\n' +
-      'Cargo:\\s*(\\d+)([^\\n]+?)C\\.B\\.O:([\\d]+)\\s+Filial:(\\d+)\\s+Sal[aá]rio: ([\\d,.]+)\\n' +
+      'Empr\\.: (\\d+)([^\\n]+?)Situ[aÃ£][cÃ§][aÃ£]o:(\\S+)\\s+CPF:([\\d.*\\/-]+)\\s+Adm: (\\d{2}\\/\\d{2}\\/\\d{4})\\n' +
+      'V[iÃ­]nculo:\\s*([^\\n]+?)CC:(\\S+)\\s+Depto:\\s*(\\d+)\\s+Horas M[eÃª]s: ([\\d,.]+)\\n' +
+      'Cargo:\\s*(\\d+)([^\\n]+?)C\\.B\\.O:([\\d]+)\\s+Filial:(\\d+)\\s+Sal[aÃ¡]rio: ([\\d,.]+)\\n' +
       '([\\s\\S]*?)' +
-      '\\nND:.*?Proventos: ([\\d,.]+)\\s+Descontos: ([\\d,.]+).*?Informativa: ([\\d,.]+).*?L[ií]quido: ([\\d,.]+)\\n' +
+      '\\nND:.*?Proventos: ([\\d,.]+)\\s+Descontos: ([\\d,.]+).*?Informativa: ([\\d,.]+).*?L[iÃ­]quido: ([\\d,.]+)\\n' +
       'NF:.*?Base INSS: ([\\d,.]+)\\s+Excedente INSS: ([\\d,.]+)\\s+Base FGTS: ([\\d,.]+)\\s+Valor FGTS: ([\\d,.]+)\\s+Base IRRF: ([\\d,.+\\-]+)',
       'g'
     );
@@ -372,13 +372,13 @@
       });
     }
 
-    // Totais gerais (pág. 6)
-    const totalM = /Total Geral Proventos: ([\d.,]+)\s+Total Geral Descontos: ([\d.,]+)\s+L[ií]quido Geral: ([\d.,]+)/.exec(text);
+    // Totais gerais (pÃ¡g. 6)
+    const totalM = /Total Geral Proventos: ([\d.,]+)\s+Total Geral Descontos: ([\d.,]+)\s+L[iÃ­]quido Geral: ([\d.,]+)/.exec(text);
     const proventos = totalM ? brNumber(totalM[1]) : 0;
     const descontos  = totalM ? brNumber(totalM[2]) : 0;
     const liquido    = totalM ? brNumber(totalM[3]) : 0;
 
-    // Encargos e situações (pág. 7)
+    // Encargos e situaÃ§Ãµes (pÃ¡g. 7)
     const encargos = parseCharges(text);
 
     // Resumo
@@ -388,7 +388,7 @@
       rubricas:      parseResumoRubricas(text)
     };
 
-    // Validações
+    // ValidaÃ§Ãµes
     const validacoes = [];
     const calcProv = colaboradores.reduce((s, c) => s + (c.folha.proventos || 0), 0);
     if (Math.abs(calcProv - proventos) > 0.10) {
@@ -398,7 +398,7 @@
       });
     }
     if (colaboradores.length === 0) {
-      validacoes.push({ tipo: 'erro', msg: 'Nenhum colaborador encontrado — verifique se o PDF é um Extrato Mensal válido' });
+      validacoes.push({ tipo: 'erro', msg: 'Nenhum colaborador encontrado â verifique se o PDF Ã© um Extrato Mensal vÃ¡lido' });
     }
 
     return {
@@ -406,7 +406,7 @@
         competencia,
         empresa_codigo,
         empresa_nome,
-        cnpj_mascarado: cnpj_raw,   // CNPJ da empresa (não é dado pessoal)
+        cnpj_mascarado: cnpj_raw,   // CNPJ da empresa (nÃ£o Ã© dado pessoal)
         tipo_calculo,
         fonte: 'pdf',
         status: 'processado',
@@ -425,11 +425,11 @@
     };
   }
 
-  // ── Extração via PDF.js (browser) ─────────────────────────────────────────
+  // ââ ExtraÃ§Ã£o via PDF.js (browser) âââââââââââââââââââââââââââââââââââââââââ
 
   /**
-   * Reconstrói o texto de uma página a partir dos itens do PDF.js,
-   * preservando o layout de duas colunas com espaços.
+   * ReconstrÃ³i o texto de uma pÃ¡gina a partir dos itens do PDF.js,
+   * preservando o layout de duas colunas com espaÃ§os.
    */
   function _pageItemsToText(items) {
     if (!items || !items.length) return '';
@@ -440,13 +440,13 @@
       .map(it => ({
         str: it.str,
         x:   it.transform[4],
-        y:   Math.round(it.transform[5]),  // y = base da linha (coord. PDF: 0 = base da pág.)
+        y:   Math.round(it.transform[5]),  // y = base da linha (coord. PDF: 0 = base da pÃ¡g.)
         w:   it.width || 0
       }));
 
     if (!pts.length) return '';
 
-    // Agrupa por y (tolerância 3 unidades)
+    // Agrupa por y (tolerÃ¢ncia 3 unidades)
     const Y_TOL = 3;
     const lineGroups = [];     // [{yKey, items:[]}]
 
@@ -462,7 +462,7 @@
       }
     }
 
-    // Ordena linhas do topo para a base (y maior = mais alto na página PDF)
+    // Ordena linhas do topo para a base (y maior = mais alto na pÃ¡gina PDF)
     lineGroups.sort((a, b) => b.yKey - a.yKey);
 
     const lines = lineGroups.map(g => {
@@ -536,38 +536,38 @@
 }
 async function parseExcel(file) {
     const XLSX = window.XLSX;
-    if (!XLSX) throw new Error('XLSX.js não encontrado. Carregue a biblioteca antes do parser.');
+    if (!XLSX) throw new Error('XLSX.js nÃ£o encontrado. Carregue a biblioteca antes do parser.');
 
     const arrayBuffer = await file.arrayBuffer();
     const hash = await hashBuffer(arrayBuffer);
     const wb   = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', cellDates: true });
 
-    // Stub: retorna estrutura mínima enquanto o layout do Excel não é conhecido
+    // Stub: retorna estrutura mÃ­nima enquanto o layout do Excel nÃ£o Ã© conhecido
     return {
       competencia: {
         fonte: 'excel',
         arquivo_nome: file.name,
         arquivo_hash: hash,
         status: 'rascunho',
-        validacoes: [{ tipo: 'aviso', msg: 'Import Excel pendente: envie o arquivo para implementação completa.' }]
+        validacoes: [{ tipo: 'aviso', msg: 'Import Excel pendente: envie o arquivo para implementaÃ§Ã£o completa.' }]
       },
       colaboradores: []
     };
   }
 
-  // ── API pública ────────────────────────────────────────────────────────────
+  // ââ API pÃºblica ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   window.RHParser = {
-    /** Extrai PDF (File → payload). Principal ponto de entrada para o app. */
+    /** Extrai PDF (File â payload). Principal ponto de entrada para o app. */
     extractPdf,
 
-    /** Extrai Excel (File → payload). */
+    /** Extrai Excel (File â payload). */
     parseExcel,
 
-    /** Parseia texto bruto já extraído de um PDF. Útil para testes. */
+    /** Parseia texto bruto jÃ¡ extraÃ­do de um PDF. Ãtil para testes. */
     parsePdfText,
 
-    /** Parseia bloco de texto de um único colaborador. */
+    /** Parseia bloco de texto de um Ãºnico colaborador. */
     parseEmployee,
 
     /** Parseia uma linha de rubricas (suporte a duas colunas). */
@@ -579,7 +579,7 @@ async function parseExcel(file) {
     /** Parseia encargos (INSS, FGTS, PIS, IRRF) do texto do PDF. */
     parseCharges,
 
-    /** Utilitários */
+    /** UtilitÃ¡rios */
     brNumber,
     cpfMask,
     cnpjMask,
@@ -589,7 +589,7 @@ async function parseExcel(file) {
     /** Valida payload gerado pelo parser. */
     validate,
 
-    /** Retorna versão "segura" do payload para logs (sem dados sensíveis detalhados). */
+    /** Retorna versÃ£o "segura" do payload para logs (sem dados sensÃ­veis detalhados). */
     safePayload
   };
 
