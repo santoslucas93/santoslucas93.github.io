@@ -49,7 +49,7 @@ function emptyRow(n,text){return '<tr><td colspan="'+n+'" style="text-align:cent
 function title(v){return String(v||'').replace(/_/g,' ').replace(/^./,function(c){return c.toUpperCase();});}
 
 /* \u2500\u2500 custo do empregador por pessoa \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
-/* ── cálculo IRRF progressivo (tabela 2024) ───────────────────────────── */
+/* ââ cÃ¡lculo IRRF progressivo (tabela 2024) âââââââââââââââââââââââââââââ */
 function calcIrrf(base){
   if(!base||base<=2824)return 0;
   if(base<=3751.05)return Math.max(0,base*0.075-211.78);
@@ -79,7 +79,7 @@ function custoEmpresa(p){
   if(S.beneficios&&S.beneficios.length){
     var ben=S.beneficios.find(function(b){return b.colaborador_id===p.colaborador_id||b.cpf_mascarado===p.cpf_mascarado||b.matricula===p.matricula;});
     if(ben){
-      [['Seguro de Vida',ben.seguro_vida],['Assistência Médica',ben.assistencia_medica||ben.assist_medica],['VR Caixa',ben.vr_caixa],['Vale Transporte',ben.vale_transporte]].forEach(function(x){if(Number(x[1])>0){itens.push([x[0],Number(x[1]),'benefício']);total+=Number(x[1]);}});
+      [['Seguro de Vida',ben.seguro_vida],['AssistÃªncia MÃ©dica',ben.assistencia_medica||ben.assist_medica],['VR Caixa',ben.vr_caixa],['Vale Transporte',ben.vale_transporte]].forEach(function(x){if(Number(x[1])>0){itens.push([x[0],Number(x[1]),'benefÃ­cio']);total+=Number(x[1]);}});
     }
   }
   return {itens:itens,total:total};
@@ -110,7 +110,7 @@ async function selectCompetence(id){
     var bd=await api('beneficios_colaboradores?select=*&competencia_id=eq.'+encodeURIComponent(id));
     if(bd&&bd.length)S.beneficios=bd;
     else{var bd2=await api('ben_contratos?select=*&is_ativo=eq.true');if(bd2&&bd2.length)S.beneficios=bd2;}
-  }catch(e){/* benefícios serão integrados quando disponíveis */}
+  }catch(e){/* benefÃ­cios serÃ£o integrados quando disponÃ­veis */}
   renderAll();
 }
 function renderAll(){
@@ -122,7 +122,7 @@ function renderAll(){
 /* \u2500\u2500 KPIs \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
 function renderKpis(){
   var c=S.competencia,r=c.resumo||{};
-  $('kpi-proventor').textContent=fmt(c.proventos);$('kpi-descontos').textContent=fmt(c.descontos);$('kpi-liquido').textContent=fmt(c.liquido);
+  $('kpi-proventos').textContent=fmt(c.proventos);$('kpi-descontos').textContent=fmt(c.descontos);$('kpi-liquido').textContent=fmt(c.liquido);
   $('kpi-pessoas').textContent=nfmt(r.pessoas||S.pessoas.length);
   $('kpi-vinculos').textContent=(r.empregados||0)+' CLT \u00b7 '+(r.estagiarios||0)+' estagi\u00e1rios';
   $('payroll-kpis').innerHTML=[['Proventos',c.proventos],['Descontos',c.descontos],['L\u00edquido',c.liquido],['FGTS',c.valor_fgts]].map(function(x){return '<div class="kpi"><span>'+x[0]+'</span><strong>'+fmt(x[1])+'</strong><small>'+formatCompetence(c.competencia)+'</small></div>';}).join('');
@@ -207,7 +207,7 @@ function renderCharts(){
 }
 function renderEmptyTables(){['employee-rows','payroll-rows','rubric-rows','movement-rows','department-rows'].forEach(function(id){if($(id))$(id).innerHTML='';});}
 
-/* ── aba: Custo Real ──────────────────────────────────────────────────── */
+/* ââ aba: Custo Real ââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 function renderCustoReal(){
   if(!$('custo-real-rows')||!S.competencia)return;
   var hasBen=S.beneficios&&S.beneficios.length>0;
@@ -215,16 +215,16 @@ function renderCustoReal(){
   var totCusto=0,totProv=0,totFgts=0,totEnc=0,totBen=0;
   rows.forEach(function(p){
     var c=custoEmpresa(p);totCusto+=c.total;totProv+=Number(p.proventos)||0;totFgts+=Number(p.valor_fgts)||0;
-    c.itens.forEach(function(it){if(it[2]==='rateado')totEnc+=it[1];if(it[2]==='benefício')totBen+=it[1];});
+    c.itens.forEach(function(it){if(it[2]==='rateado')totEnc+=it[1];if(it[2]==='benefÃ­cio')totBen+=it[1];});
   });
-  var kpiItems=[['Custo total LNB',totCusto],['Salários brutos',totProv],['FGTS + Encargos patronais',totFgts+totEnc]];
-  if(hasBen)kpiItems.push(['Benefícios',totBen]);
+  var kpiItems=[['Custo total LNB',totCusto],['SalÃ¡rios brutos',totProv],['FGTS + Encargos patronais',totFgts+totEnc]];
+  if(hasBen)kpiItems.push(['BenefÃ­cios',totBen]);
   $('custo-real-kpis').innerHTML=kpiItems.map(function(x){return '<div class="kpi"><span>'+esc(x[0])+'</span><strong>'+fmt(x[1])+'</strong><small>'+formatCompetence(S.competencia.competencia)+'</small></div>';}).join('');
-  var colBen=hasBen?'<th class="money">Benefícios</th>':'';
+  var colBen=hasBen?'<th class="money">BenefÃ­cios</th>':'';
   $('custo-real-head').innerHTML='<th>Colaborador</th><th class="money">Proventos</th><th class="money">FGTS</th><th class="money">INSS+RAT+Terc.</th>'+colBen+'<th class="money">Custo total</th>';
   $('custo-real-rows').innerHTML=rows.length?rows.map(function(p,i){
     var c=custoEmpresa(p);
-    var enc=0,ben=0;c.itens.forEach(function(it){if(it[2]==='rateado')enc+=it[1];if(it[2]==='benefício')ben+=it[1];});
+    var enc=0,ben=0;c.itens.forEach(function(it){if(it[2]==='rateado')enc+=it[1];if(it[2]==='benefÃ­cio')ben+=it[1];});
     return '<tr>'
       +'<td><span class="rank">'+(i+1)+'</span> <b>'+esc(p.nome)+'</b><br><small>'+esc(departmentName(p.departamento))+'</small></td>'
       +'<td class="money">'+fmt(p.proventos)+'</td>'
@@ -233,9 +233,9 @@ function renderCustoReal(){
       +(hasBen?'<td class="money">'+fmt(ben)+'</td>':'')
       +'<td class="money"><b>'+fmt(c.total)+'</b></td>'
       +'</tr>';
-  }).join(''):emptyRow(hasBen?6:5,'Dados individuais não disponíveis para este perfil.');
+  }).join(''):emptyRow(hasBen?6:5,'Dados individuais nÃ£o disponÃ­veis para este perfil.');
   if(!hasBen&&$('custo-ben-note')){$('custo-ben-note').hidden=false;}else if($('custo-ben-note')){$('custo-ben-note').hidden=true;}
-  // gráfico top 15
+  // grÃ¡fico top 15
   if(window.Chart&&rows.length){
     var c=chartColors(),top=rows.slice(0,15);
     var datasets=[
@@ -243,7 +243,7 @@ function renderCustoReal(){
       {label:'FGTS',data:top.map(function(p){return Number(p.valor_fgts)||0;}),backgroundColor:c.blue,borderRadius:4},
       {label:'Encargos',data:top.map(function(p){var e=0;custoEmpresa(p).itens.forEach(function(it){if(it[2]==='rateado')e+=it[1];});return e;}),backgroundColor:c.orange,borderRadius:4}
     ];
-    if(hasBen)datasets.push({label:'Benefícios',data:top.map(function(p){var b=0;custoEmpresa(p).itens.forEach(function(it){if(it[2]==='benefício')b+=it[1];});return b;}),backgroundColor:c.purple,borderRadius:4});
+    if(hasBen)datasets.push({label:'BenefÃ­cios',data:top.map(function(p){var b=0;custoEmpresa(p).itens.forEach(function(it){if(it[2]==='benefÃ­cio')b+=it[1];});return b;}),backgroundColor:c.purple,borderRadius:4});
     chart('chart-custo-real','bar',{labels:top.map(function(p){return p.nome.split(' ')[0];}),datasets:datasets},{indexAxis:'y',plugins:{legend:{display:true,position:'top'}},scales:{x:{stacked:true},y:{stacked:true}}});
   }
 }
@@ -382,13 +382,13 @@ function openInssBreakdown(){
     ['INSS retido (colaboradores)',retido,'empregados'],
     ['INSS patronal (20% da base)',patronal,'empresa'],
     ['RAT (1% da base)',rat,'empresa'],
-    ['Terceiros — SESC/SENAI/etc. (5,8%)',terceiros,'empresa']
+    ['Terceiros â SESC/SENAI/etc. (5,8%)',terceiros,'empresa']
   ].filter(function(x){return x[1]>0;});
   var totalGeral=itens.reduce(function(a,x){return a+x[1];},0);
   // per-person breakdown
   var perPerson=S.pessoas.filter(function(p){return Number(p.base_inss)>0;}).sort(function(a,b){return b.base_inss-a.base_inss;});
   var perPersonHtml=perPerson.length?
-    '<details style="margin-top:1rem"><summary style="cursor:pointer;color:var(--gold);font-size:.85rem;padding:.4rem 0">▶ INSS por colaborador ('+perPerson.length+')</summary>'+
+    '<details style="margin-top:1rem"><summary style="cursor:pointer;color:var(--gold);font-size:.85rem;padding:.4rem 0">â¶ INSS por colaborador ('+perPerson.length+')</summary>'+
     '<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Base INSS</th><th class="money">INSS patronal</th><th class="money">RAT</th><th class="money">Terceiros</th></tr></thead><tbody>'+
     perPerson.map(function(p){var bi=Number(p.base_inss)||0,share=base>0?bi/base:0;return '<tr><td>'+esc(p.nome)+'</td><td class="money">'+fmt(bi)+'</td><td class="money">'+fmt(patronal*share)+'</td><td class="money">'+fmt(rat*share)+'</td><td class="money">'+fmt(terceiros*share)+'</td></tr>';}).join('')+
     '</tbody></table></details>':'';
@@ -413,7 +413,7 @@ function openIrrfBreakdown(){
     var calc=calcIrrf(base);
     var irrfLancs=(p.lancamentos||[]).filter(function(x){return /irrf/i.test(x.rubrica_nome||x.nome||'');});
     var folha=irrfLancs.reduce(function(a,x){return a+(Number(x.valor)||0);},0);
-    if(!folha)folha=calc; // se não tiver rubrica individual, usa o calculado
+    if(!folha)folha=calc; // se nÃ£o tiver rubrica individual, usa o calculado
     var diff=Math.round((calc-folha)*100)/100;
     return {nome:p.nome,base:base,calc:calc,folha:folha,diff:diff};
   });
@@ -423,7 +423,7 @@ function openIrrfBreakdown(){
     '<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Base IRRF</th><th class="money">Calculado</th><th class="money">Folha</th><th class="money">Dif.</th></tr></thead><tbody>'+
     rows.map(function(r){var abs=Math.abs(r.diff);var dc=abs>1?'money danger':'money';return '<tr><td>'+esc(r.nome)+'</td><td class="money">'+fmt(r.base)+'</td><td class="money">'+fmt(r.calc)+'</td><td class="money">'+fmt(r.folha)+'</td><td class="'+dc+'">'+fmt(r.diff)+'</td></tr>';}).join('')+
     '</tbody></table>':
-    '<p style="color:var(--muted);padding:1rem 0">Dados individuais de IRRF não disponíveis para este perfil.</p>';
+    '<p style="color:var(--muted);padding:1rem 0">Dados individuais de IRRF nÃ£o disponÃ­veis para este perfil.</p>';
   modal.hidden=false;
 }
 
@@ -439,7 +439,7 @@ function openFgtsBreakdown(){
     '<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Base FGTS</th><th class="money">FGTS (8%)</th></tr></thead><tbody>'+
     pessoas.map(function(p){return '<tr><td>'+esc(p.nome)+'</td><td class="money">'+fmt(p.base_fgts)+'</td><td class="money">'+fmt(p.valor_fgts)+'</td></tr>';}).join('')+
     '</tbody></table>':
-    '<p style="color:var(--muted);padding:1rem 0">Dados individuais de FGTS não disponíveis para este perfil.</p>';
+    '<p style="color:var(--muted);padding:1rem 0">Dados individuais de FGTS nÃ£o disponÃ­veis para este perfil.</p>';
   modal.hidden=false;
 }
 
