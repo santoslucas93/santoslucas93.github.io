@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var K=['lnb_auth_session_v1','lnb_auth_session_beneficios_v1'],AK='lnb_access_snapshot_v1',CFG=null,SES=null,ACCESS=null;
-var S={competencias:[],competencia:null,colaboradores:[],folhas:[],lancamentos:[],pessoas:[],preview:null,charts:{},view:'visao',fromChat:false};
+var S={competencias:[],competencia:null,colaboradores:[],folhas:[],lancamentos:[],pessoas:[],beneficios:[],preview:null,charts:{},view:'visao',fromChat:false};
 var LIBRARIES={
   pdf:{url:'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',ready:function(){return !!window.pdfjsLib;}},
   xlsx:{url:'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',ready:function(){return !!window.XLSX;}},
@@ -9,7 +9,7 @@ var LIBRARIES={
 },libraryPromises={};
 var $=function(id){return document.getElementById(id);};
 var money=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),num=new Intl.NumberFormat('pt-BR');
-function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function eschv){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function fmt(v){return money.format(Number(v)||0);}function nfmt(v){return num.format(Number(v)||0);}
 function toast(msg,err){var el=$('toast');el.textContent=msg;el.className='toast'+(err?' error':'');el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){el.hidden=true;},4200);}
 function headers(token){return {'apikey':CFG.SUPABASE_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json'};}
@@ -31,7 +31,7 @@ function validAccess(access){if(!access||!access.autenticado||!access.cadastrado
 
 function applyTheme(){var light=localStorage.getItem('lnb_rh_theme')==='light';document.body.classList.toggle('light',light);$('theme-toggle').textContent=light?'\ud83c\udf19':'\u2600\ufe0f';Object.keys(S.charts).forEach(function(k){try{S.charts[k].destroy();}catch(e){}});S.charts={};if(S.competencia)renderCharts();}
 function chartColors(){var css=getComputedStyle(document.documentElement);return {text:css.getPropertyValue('--chart-text').trim(),grid:css.getPropertyValue('--chart-grid').trim(),gold:css.getPropertyValue('--gold').trim(),emerald:css.getPropertyValue('--emerald').trim(),red:css.getPropertyValue('--red').trim(),blue:css.getPropertyValue('--blue').trim(),orange:css.getPropertyValue('--orange').trim(),purple:css.getPropertyValue('--purple').trim()};}
-function chart(id,type,data,options,clickHandler){if(!window.Chart||!$(id))return;if(S.charts[id])S.charts[id].destroy();var c=chartColors(),base={responsive:true,maintainAspectRatio:false,animation:{duration:450},plugins:{legend:{labels:{color:c.text,font:{family:'Segoe UI',size:11,weight:'700'},usePointStyle:true,padding:16}},tooltip:{backgroundColor:'#071a2c',titleColor:'#fff',bodyColor:'#dce7f3',padding:12}},scales:type==='doughnut'?{}:{x:{ticks:{color:c.text,font:{size:10,weight:'650'}},grid:{color:c.grid}},y:{ticks:{color:c.text,font:{size:10,weight:'650'}},grid:{color:c.grid}}}};var opts=Object.assign({},base,options||{});if(clickHandler)opts.onClick=clickHandler;S.charts[id]=new Chart($(id),{type:type,data:data,options:opts});}
+function chart(id,type,data,options,clickHandler){if(!window.Chart||!$(id))return;if(S.charts[id])S.charts[id].destroy();var c=chartColors(),base={responsive:true,maintainAspectRatio:false,animation:{duration:450},plugins:{legend:{labels:{color:c.text,font:zfamily:'Segoe UI',size:11,weight:'700'},usePointStyle:true,padding:16}},tooltip:{backgroundColor:'#071a2c',titleColor:'#fff',bodyColor:'#dce7f3',padding:12}},scales:type==='doughnut'?{}:{x:{ticks:{color:c.text,font:{size:10,weight:'650'}},grid:{color:c.grid}},y:{ticks:{color:c.text,font:{size:10,weight:'650'}},grid:{color:c.grid}}}};var opts=Object.assign({},base,options||{});if(clickHandler)opts.onClick=clickHandler;S.charts[id]=new Chart($(id),{type:type,data:data,options:opts});}
 
 function go(view,trace){
   S.view=view;document.querySelectorAll('.page').forEach(function(p){p.classList.toggle('active',p.id==='page-'+view);});document.querySelectorAll('.nav-item').forEach(function(b){b.classList.toggle('active',b.dataset.view===view);});window.scrollTo({top:0,behavior:'smooth'});
@@ -49,6 +49,15 @@ function emptyRow(n,text){return '<tr><td colspan="'+n+'" style="text-align:cent
 function title(v){return String(v||'').replace(/_/g,' ').replace(/^./,function(c){return c.toUpperCase();});}
 
 /* \u2500\u2500 custo do empregador por pessoa \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+/* ── cálculo IRRF progressivo (tabela 2024) ───────────────────────────── */
+function calcIrrf(base){
+  if(!base||base<=2824)return 0;
+  if(base<=3751.05)return Math.max(0,base*0.075-211.78);
+  if(base<=4664.68)return Math.max(0,base*0.15-493.22);
+  if(base<=5981.69)return Math.max(0,base*0.225-843.78);
+  return Math.max(0,base*0.275-1242.34);
+}
+
 function custoEmpresa(p){
   var enc=(S.competencia&&S.competencia.encargos)||{};
   var itens=[],total=0;
@@ -60,10 +69,18 @@ function custoEmpresa(p){
   var baseInd=Number(p.base_inss)||0;
   if(baseTotal>0&&baseInd>0){
     var share=baseInd/baseTotal;
-    [['INSS patronal',Number(enc.empresa_inss)||0],['RAT',Number(enc.rat)||0],['Terceiros',Number(enc.terceiros)||0]].forEach(function(x){
+    var patronalTotal=baseTotal*0.20;
+    var rat=baseTotal*0.01,terceiros=baseTotal*0.058;
+    [['INSS patronal',patronalTotal],['RAT',rat],['Terceiros',terceiros]].forEach(function(x){
       if(!x[1])return;
       var v=x[1]*share;itens.push([x[0],v,'rateado']);total+=v;
     });
+  }
+  if(S.beneficios&&S.beneficios.length){
+    var ben=S.beneficios.find(function(b){return b.colaborador_id===p.colaborador_id||b.cpf_mascarado===p.cpf_mascarado||b.matricula===p.matricula;});
+    if(ben){
+      [['Seguro de Vida',ben.seguro_vida],['Assistência Médica',ben.assistencia_medica||ben.assist_medica],['VR Caixa',ben.vr_caixa],['Vale Transporte',ben.vale_transporte]].forEach(function(x){if(Number(x[1])>0){itens.push([x[0],Number(x[1]),'benefício']);total+=Number(x[1]);}});
+    }
   }
   return {itens:itens,total:total};
 }
@@ -88,18 +105,24 @@ async function selectCompetence(id){
   var by={};S.colaboradores.forEach(function(x){by[x.id]=x;});
   var lanc={};S.lancamentos.forEach(function(x){(lanc[x.folha_colaborador_id]||(lanc[x.folha_colaborador_id]=[])).push(x);});
   S.pessoas=S.folhas.map(function(f){return Object.assign({},by[f.colaborador_id]||{id:f.colaborador_id,nome:'Dados protegidos'},f,{lancamentos:lanc[f.id]||[]});});
+  S.beneficios=[];
+  try{
+    var bd=await api('beneficios_colaboradores?select=*&competencia_id=eq.'+encodeURIComponent(id));
+    if(bd&&bd.length)S.beneficios=bd;
+    else{var bd2=await api('ben_contratos?select=*&is_ativo=eq.true');if(bd2&&bd2.length)S.beneficios=bd2;}
+  }catch(e){/* benefícios serão integrados quando disponíveis */}
   renderAll();
 }
 function renderAll(){
   $('empty-state').hidden=true;$('dashboard').hidden=false;
-  renderKpis();renderPeople();renderPayroll();renderRubrics();renderCharges();renderMovements();renderDepartments();renderValidations();renderCharts();
+  renderKpis();renderPeople();renderPayroll();renderRubrics();renderCharges();renderMovements();renderDepartments();renderValidations();renderCharts();renderCustoReal();
   populatePainelFilters();
 }
 
 /* \u2500\u2500 KPIs \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
 function renderKpis(){
   var c=S.competencia,r=c.resumo||{};
-  $('kpi-proventos').textContent=fmt(c.proventos);$('kpi-descontos').textContent=fmt(c.descontos);$('kpi-liquido').textContent=fmt(c.liquido);
+  $('kpi-proventor').textContent=fmt(c.proventos);$('kpi-descontos').textContent=fmt(c.descontos);$('kpi-liquido').textContent=fmt(c.liquido);
   $('kpi-pessoas').textContent=nfmt(r.pessoas||S.pessoas.length);
   $('kpi-vinculos').textContent=(r.empregados||0)+' CLT \u00b7 '+(r.estagiarios||0)+' estagi\u00e1rios';
   $('payroll-kpis').innerHTML=[['Proventos',c.proventos],['Descontos',c.descontos],['L\u00edquido',c.liquido],['FGTS',c.valor_fgts]].map(function(x){return '<div class="kpi"><span>'+x[0]+'</span><strong>'+fmt(x[1])+'</strong><small>'+formatCompetence(c.competencia)+'</small></div>';}).join('');
@@ -144,9 +167,11 @@ function renderRubrics(){var a=rubricGroups();$('rubric-rows').innerHTML=a.lengt
 function chargeData(){var e=S.competencia&&S.competencia.encargos||{};return [['INSS total',e.total_inss],['FGTS',e.valor_fgts||S.competencia.valor_fgts],['PIS',e.valor_pis],['IRRF',e.valor_irrf]];}
 function renderCharges(){
   var a=chargeData();
+  var handlers={'INSS total':'window._openInss()','FGTS':'window._openFgts()','IRRF':'window._openIrrf()'};
   $('charge-list').innerHTML=a.map(function(x){
-    var clickable=x[0].indexOf('INSS')>=0;
-    return '<div class="metric-row'+(clickable?' clickable':'')+(clickable?'" onclick="window._openInss()':'"')+'"><span>'+x[0]+'</span><strong>'+fmt(x[1])+'</strong>'+(clickable?'<small>clique para detalhar</small>':'')+'</div>';
+    var oc=Object.keys(handlers).find(function(k){return x[0].indexOf(k)>=0;});
+    var onclick=oc?handlers[oc]:'';
+    return '<div class="metric-row'+(onclick?' clickable':'')+(onclick?'" onclick="'+onclick+'"':'"')+'><span>'+x[0]+'</span><strong>'+fmt(x[1])+'</strong>'+(onclick?'<small>clique para detalhar</small>':'')+'</div>';
   }).join('');
   $('charges-kpis').innerHTML=a.map(function(x){return '<div class="kpi"><span>'+x[0]+'</span><strong>'+fmt(x[1])+'</strong><small>Compet\u00eancia '+formatCompetence(S.competencia.competencia)+'</small></div>';}).join('');
 }
@@ -157,8 +182,7 @@ function renderMovements(){
   $('movement-rows').innerHTML=moves.length?moves.map(function(p){var dem=/demit/i.test(p.situacao||'');return '<tr><td>'+esc(p.nome)+'</td><td><span class="status '+(dem?'danger':'success')+'">'+(dem?'Desligamento':'Admiss\u00e3o')+'</span></td><td>'+esc(dem?'Na compet\u00eancia':dateBR(p.admissao))+'</td><td>'+esc(departmentName(p.departamento))+'</td></tr>';}).join(''):emptyRow(4,'Nenhuma movimenta\u00e7\u00e3o individual dispon\u00edvel.');
 }
 function departments(){var a=(S.competencia.resumo||{}).departamentos||[];if(a.length)return a;var m={};S.pessoas.forEach(function(p){var k=departmentName(p.departamento);if(!m[k])m[k]={nome:k,proventos:0,descontos:0,liquido:0};m[k].proventos+=Number(p.proventos)||0;m[k].descontos+=Number(p.descontos)||0;m[k].liquido+=Number(p.liquido)||0;});return Object.keys(m).map(function(k){return m[k];});}
-function renderDepartments(){
-  var a=departments();$('department-rows').innerHTML=a.length?a.map(function(x){return '<tr><td><b>'+esc(x.nome)+'</b></td><td class="money">'+fmt(x.proventos)+'</td><td class="money">'+fmt(x.descontos)+'</td><td class="money"><b>'+fmt(x.liquido)+'</b></td></tr>';}).join(''):emptyRow(4,'Sem rateio por departamento.');}
+function renderDepartments(){var a=departments();$('department-rows').innerHTML=a.length?a.map(function(x){return '<tr><td><b>'+esc(x.nome)+'</b></td><td class="money">'+fmt(x.proventos)+'</td><td class="money">'+fmt(x.descontos)+'</td><td class="money"><b>'+fmt(x.liquido)+'</b></td></tr>';}).join(''):emptyRow(4,'Sem rateio por departamento.');}
 function validations(){return S.competencia.validacoes||[];}
 function renderValidations(){
   var a=validations();
@@ -178,10 +202,51 @@ function renderCharts(){
   chart('chart-departamentos','bar',{labels:fdepts.map(function(x){return x.nome;}),datasets:[{label:'L\u00edquido',data:fdepts.map(function(x){return x.liquido;}),backgroundColor:c.emerald,borderRadius:7}]},{indexAxis:'y',plugins:{legend:{display:false}}},function(evt,elements){if(!elements.length)return;var idx=elements[0].index;var dname=fdepts[idx]&&fdepts[idx].nome;if(dname){var key=Object.keys({'1':'Administrativa','2':'Comunica\u00e7\u00e3o','3':'Financeira','4':'Marketing','5':'T\u00e9cnica','6':'T\u00e9cnica/Projetos'}).find(function(k){return departmentName(k)===dname;});if(key&&$('filter-dept')){$('filter-dept').value=key;renderPeople();renderCharts();}go('colaboradores');}});
   chart('chart-vinculos','doughnut',{labels:['CLT','Estagi\u00e1rios','Outros'],datasets:[{data:[r.empregados||0,r.estagiarios||0,Math.max(0,(r.pessoas||0)-(r.empregados||0)-(r.estagiarios||0))],backgroundColor:[c.blue,c.gold,c.purple],borderColor:getComputedStyle(document.body).getPropertyValue('--surface'),borderWidth:3}]},{cutout:'66%'},function(evt,elements){if(!elements.length)return;var labels=['Celetista','Estagi\u00e1rio',''];var lbl=labels[elements[0].index];if(lbl&&$('filter-vinculo')){$('filter-vinculo').value=lbl;renderPeople();renderCharts();}go('colaboradores');});
   chart('chart-rubricas','bar',{labels:rub.map(function(x){return x.nome;}),datasets:[{label:'Valor',data:rub.map(function(x){return x.valor;}),backgroundColor:rub.map(function(x){return x.tipo==='D'||x.tipo==='desconto'?c.red:c.gold;}),borderRadius:6}]},{indexAxis:'y',plugins:{legend:{display:false}}});
-  chart('chart-encargos','bar',{labels:charges.map(function(x){return x[0];}),datasets:[{label:'Valor',data:charges.map(function(x){return Number(x[1])||0;}),backgroundColor:[c.blue,c.gold,c.emerald,c.purple],borderRadius:7}]},{plugins:{legend:{display:false}}},function(evt,elements){if(!elements.length)return;var idx=elements[0].index;if(charges[idx]&&charges[idx][0].indexOf('INSS')>=0)openInssBreakdown();});
+  chart('chart-encargos','bar',{labels:charges.map(function(x){return x[0];}),datasets:[{label:'Valor',data:charges.map(function(x){return Number(x[1])||0;}),backgroundColor:[c.blue,c.gold,c.emerald,c.purple],borderRadius:7}]},{plugins:{legend:{display:false}}},function(evt,elements){if(!elements.length)return;var idx=elements[0].index;var lbl=charges[idx]&&charges[idx][0]||'';if(lbl.indexOf('INSS')>=0)openInssBreakdown();else if(lbl.indexOf('FGTS')>=0)openFgtsBreakdown();else if(lbl.indexOf('IRRF')>=0)openIrrfBreakdown();});
   chart('chart-rateio','bar',{labels:fdepts.map(function(x){return x.nome;}),datasets:[{label:'Proventos',data:fdepts.map(function(x){return x.proventos;}),backgroundColor:c.gold,borderRadius:5},{label:'Descontos',data:fdepts.map(function(x){return x.descontos;}),backgroundColor:c.red,borderRadius:5},{label:'L\u00edquido',data:fdepts.map(function(x){return x.liquido;}),backgroundColor:c.emerald,borderRadius:5}]},{indexAxis:'y'});
 }
 function renderEmptyTables(){['employee-rows','payroll-rows','rubric-rows','movement-rows','department-rows'].forEach(function(id){if($(id))$(id).innerHTML='';});}
+
+/* ── aba: Custo Real ──────────────────────────────────────────────────── */
+function renderCustoReal(){
+  if(!$('custo-real-rows')||!S.competencia)return;
+  var hasBen=S.beneficios&&S.beneficios.length>0;
+  var rows=S.pessoas.slice().sort(function(a,b){return custoEmpresa(b).total-custoEmpresa(a).total;});
+  var totCusto=0,totProv=0,totFgts=0,totEnc=0,totBen=0;
+  rows.forEach(function(p){
+    var c=custoEmpresa(p);totCusto+=c.total;totProv+=Number(p.proventos)||0;totFgts+=Number(p.valor_fgts)||0;
+    c.itens.forEach(function(it){if(it[2]==='rateado')totEnc+=it[1];if(it[2]==='benefício')totBen+=it[1];});
+  });
+  var kpiItems=[['Custo total LNB',totCusto],['Salários brutos',totProv],['FGTS + Encargos patronais',totFgts+totEnc]];
+  if(hasBen)kpiItems.push(['Benefícios',totBen]);
+  $('custo-real-kpis').innerHTML=kpiItems.map(function(x){return '<div class="kpi"><span>'+esc(x[0])+'</span><strong>'+fmt(x[1])+'</strong><small>'+formatCompetence(S.competencia.competencia)+'</small></div>';}).join('');
+  var colBen=hasBen?'<th class="money">Benefícios</th>':'';
+  $('custo-real-head').innerHTML='<th>Colaborador</th><th class="money">Proventos</th><th class="money">FGTS</th><th class="money">INSS+RAT+Terc.</th>'+colBen+'<th class="money">Custo total</th>';
+  $('custo-real-rows').innerHTML=rows.length?rows.map(function(p,i){
+    var c=custoEmpresa(p);
+    var enc=0,ben=0;c.itens.forEach(function(it){if(it[2]==='rateado')enc+=it[1];if(it[2]==='benefício')ben+=it[1];});
+    return '<tr>'
+      +'<td><span class="rank">'+(i+1)+'</span> <b>'+esc(p.nome)+'</b><br><small>'+esc(departmentName(p.departamento))+'</small></td>'
+      +'<td class="money">'+fmt(p.proventos)+'</td>'
+      +'<td class="money">'+fmt(p.valor_fgts)+'</td>'
+      +'<td class="money">'+fmt(enc)+'</td>'
+      +(hasBen?'<td class="money">'+fmt(ben)+'</td>':'')
+      +'<td class="money"><b>'+fmt(c.total)+'</b></td>'
+      +'</tr>';
+  }).join(''):emptyRow(hasBen?6:5,'Dados individuais não disponíveis para este perfil.');
+  if(!hasBen&&$('custo-ben-note')){$('custo-ben-note').hidden=false;}else if($('custo-ben-note')){$('custo-ben-note').hidden=true;}
+  // gráfico top 15
+  if(window.Chart&&rows.length){
+    var c=chartColors(),top=rows.slice(0,15);
+    var datasets=[
+      {label:'Proventos',data:top.map(function(p){return Number(p.proventos)||0;}),backgroundColor:c.gold,borderRadius:4},
+      {label:'FGTS',data:top.map(function(p){return Number(p.valor_fgts)||0;}),backgroundColor:c.blue,borderRadius:4},
+      {label:'Encargos',data:top.map(function(p){var e=0;custoEmpresa(p).itens.forEach(function(it){if(it[2]==='rateado')e+=it[1];});return e;}),backgroundColor:c.orange,borderRadius:4}
+    ];
+    if(hasBen)datasets.push({label:'Benefícios',data:top.map(function(p){var b=0;custoEmpresa(p).itens.forEach(function(it){if(it[2]==='benefício')b+=it[1];});return b;}),backgroundColor:c.purple,borderRadius:4});
+    chart('chart-custo-real','bar',{labels:top.map(function(p){return p.nome.split(' ')[0];}),datasets:datasets},{indexAxis:'y',plugins:{legend:{display:true,position:'top'}},scales:{x:{stacked:true},y:{stacked:true}}});
+  }
+}
 
 /* \u2500\u2500 filtros do painel \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
 function populatePainelFilters(){
@@ -229,7 +294,7 @@ function buildRpcPayload(preview){
   var admissoesNoMes=colaboradores.filter(function(c){return c.admissao&&c.admissao.slice(0,7)===competenciaYm;}).length;
   var sit=enc.situacoes||{};
   return {
-    meta:{competencia:comp.competencia,empresa_codigo:comp.empresa_codigo,empresa_nome:comp.empresa_nome,cnpj_mascarado:comp.cnpj_mascarado,tipo_calculo:comp.tipo_calculo,fonte:comp.fonte,arquivo_nome:comp.arquivo_nome,arquivo_hash:comp.arquivo_hash},
+    meta:{competencia:comp.competencia,empresa_codigo:comp.empresa_codigo,empresa_nome:comp.empresa_nome,cnpj_mascarado:comp.cnpj_mascarado,"tipo_calculo:comp.tipo_calculo,fonte:comp.fonte,arquivo_nome:comp.arquivo_nome,arquivo_hash:comp.arquivo_hash},
     resumo:{proventos:comp.proventos,descontos:comp.descontos,liquido:comp.liquido,base_inss:comp.base_inss,base_fgts:comp.base_fgts,valor_fgts:comp.valor_fgts,base_irrf:comp.base_irrf,trabalhando:sit.trabalhando,demitidos:sit.demitido,ferias:sit.ferias,admissoes:admissoesNoMes,departamentos:(comp.resumo||{}).departamentos,centros_custo:(comp.resumo||{}).centros_custo,rubricas:(comp.resumo||{}).rubricas},
     encargos:{sal_contrib_empregados:enc.sal_contrib_empregados,excedente_inss:enc.excedente_inss,base_total_inss:enc.base_total_inss,segurados:enc.segurados,empresa_inss:enc.empresa_inss,rat:enc.rat,terceiros:enc.terceiros,total_inss:enc.total_inss,base_fgts:enc.base_fgts,valor_fgts:enc.valor_fgts,base_pis:enc.base_pis,valor_pis:enc.valor_pis,base_irrf_mensal:enc.base_irrf_mensal,valor_irrf_mensal:enc.valor_irrf_mensal,valor_total_irrf:enc.valor_total_irrf,valor_irrf:enc.valor_total_irrf,situacoes:sit},
     validacoes:comp.validacoes||[],
@@ -238,7 +303,7 @@ function buildRpcPayload(preview){
 }
 async function confirmImport(){
   if(!S.preview)return;var btn=$('confirm-import');btn.disabled=true;btn.textContent='Importando\u2026';
-  try{var id=await rpc('rh_importar_folha',{p_payload:buildRpcPayload(S.preview)});toast('Compet\u00eancia importada com sucesso.');S.preview=null;$('import-preview').hidden=true;await loadCompetences(id);go('visao');}
+  try{var id=await rpc('rh_importar_folha',{p_payload:buildRpcPayload(S.preview)});toast('Compet\u00eancia importada com sucesso.');S.preview=null;$('import-preview').hidden=true;await loadCompetences(id);go 'visao');}
   catch(e){toast('N\u00e3o foi poss\u00edvel importar: '+e.message,true);}
   finally{btn.disabled=false;btn.textContent='Confirmar importa\u00e7\u00e3o';}
 }
@@ -252,7 +317,7 @@ function openPerson(id){
   var p=S.pessoas.find(function(x){return x.id===id;});if(!p)return;
   $('employee-modal-title').textContent=p.nome;
   $('employee-modal-summary').innerHTML=[
-    ['Matr\u00edcula',p.matricula||'\u2014'],['Cargo',p.cargo||'\u2014'],
+    ['Matr\u00edcula'p.matricula||'\u2014'],['Cargo',p.cargo||'\u2014'],
     ['Departamento',departmentName(p.departamento)],['Centro de custo',p.centro_custo||'\u2014'],
     ['V\u00ednculo',p.vinculo||'\u2014'],['Admiss\u00e3o',brDate(p.admissao)],
     ['Situa\u00e7\u00e3o',p.situacao||'\u2014'],['Sal\u00e1rio base',fmt(p.salario)]
@@ -301,27 +366,80 @@ function openEncargosPopup(id){
 
 /* \u2500\u2500 popup: detalhamento INSS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
 window._openInss=function(){openInssBreakdown();};
+window._openIrrf=function(){openIrrfBreakdown();};
+window._openFgts=function(){openFgtsBreakdown();};
+
 function openInssBreakdown(){
   var modal=$('inss-modal');if(!modal)return;
   var e=(S.competencia&&S.competencia.encargos)||{};
+  var base=Number(e.base_total_inss)||0;
   var totalInss=Number(e.total_inss)||0;
-  var patronal=Number(e.empresa_inss)||0;
-  var rat=Number(e.rat)||0;
-  var terceiros=Number(e.terceiros)||0;
-  var retido=Math.max(0,totalInss-patronal);
+  var patronal=base>0?base*0.20:(Number(e.empresa_inss)||0);
+  var rat=base>0?base*0.01:(Number(e.rat)||0);
+  var terceiros=base>0?base*0.058:(Number(e.terceiros)||0);
+  var retido=Math.max(0,totalInss-patronal-rat-terceiros);
   var itens=[
-    ['INSS dos colaboradores (retido)',retido,'empregados'],
-    ['INSS patronal',patronal,'empresa'],
-    ['RAT (Risco de Acidente)',rat,'empresa'],
-    ['Terceiros (SESC/SENAI/etc.)',terceiros,'empresa']
+    ['INSS retido (colaboradores)',retido,'empregados'],
+    ['INSS patronal (20% da base)',patronal,'empresa'],
+    ['RAT (1% da base)',rat,'empresa'],
+    ['Terceiros — SESC/SENAI/etc. (5,8%)',terceiros,'empresa']
   ].filter(function(x){return x[1]>0;});
   var totalGeral=itens.reduce(function(a,x){return a+x[1];},0);
+  // per-person breakdown
+  var perPerson=S.pessoas.filter(function(p){return Number(p.base_inss)>0;}).sort(function(a,b){return b.base_inss-a.base_inss;});
+  var perPersonHtml=perPerson.length?
+    '<details style="margin-top:1rem"><summary style="cursor:pointer;color:var(--gold);font-size:.85rem;padding:.4rem 0">▶ INSS por colaborador ('+perPerson.length+')</summary>'+
+    '<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Base INSS</th><th class="money">INSS patronal</th><th class="money">RAT</th><th class="money">Terceiros</th></tr></thead><tbody>'+
+    perPerson.map(function(p){var bi=Number(p.base_inss)||0,share=base>0?bi/base:0;return '<tr><td>'+esc(p.nome)+'</td><td class="money">'+fmt(bi)+'</td><td class="money">'+fmt(patronal*share)+'</td><td class="money">'+fmt(rat*share)+'</td><td class="money">'+fmt(terceiros*share)+'</td></tr>';}).join('')+
+    '</tbody></table></details>':'';
   modal.querySelector('.im-total-inss').textContent=fmt(totalInss);
-  modal.querySelector('.im-base').textContent=fmt(Number(e.base_total_inss)||0);
+  modal.querySelector('.im-base').textContent=fmt(base);
   modal.querySelector('.im-body').innerHTML=itens.map(function(it){
     return '<div class="ep-row"><span>'+esc(it[0])+'</span><small class="ep-tag">'+esc(it[2])+'</small><strong>'+fmt(it[1])+'</strong></div>';
   }).join('')
-  +'<div class="ep-row ep-total"><span><b>Total INSS</b></span><strong>'+fmt(totalGeral)+'</strong></div>';
+  +'<div class="ep-row ep-total"><span><b>Total INSS (empresa + empregados)</b></span><strong>'+fmt(totalGeral)+'</strong></div>'
+  +perPersonHtml;
+  modal.hidden=false;
+}
+
+function openIrrfBreakdown(){
+  var modal=$('irrf-modal');if(!modal)return;
+  var e=(S.competencia&&S.competencia.encargos)||{};
+  var totalFolha=Number(e.valor_total_irrf||e.valor_irrf||S.competencia.valor_irrf)||0;
+  var pessoas=S.pessoas.filter(function(p){return Number(p.base_irrf)>0;}).sort(function(a,b){return b.base_irrf-a.base_irrf;});
+  var totalCalc=pessoas.reduce(function(a,p){return a+calcIrrf(Number(p.base_irrf));},0);
+  var rows=pessoas.map(function(p){
+    var base=Number(p.base_irrf)||0;
+    var calc=calcIrrf(base);
+    var irrfLancs=(p.lancamentos||[]).filter(function(x){return /irrf/i.test(x.rubrica_nome||x.nome||'');});
+    var folha=irrfLancs.reduce(function(a,x){return a+(Number(x.valor)||0);},0);
+    if(!folha)folha=calc; // se não tiver rubrica individual, usa o calculado
+    var diff=Math.round((calc-folha)*100)/100;
+    return {nome:p.nome,base:base,calc:calc,folha:folha,diff:diff};
+  });
+  modal.querySelector('.irrf-total-folha').textContent=fmt(totalFolha);
+  modal.querySelector('.irrf-total-calc').textContent=fmt(totalCalc);
+  modal.querySelector('.irrf-body').innerHTML=rows.length?
+    '<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Base IRRF</th><th class="money">Calculado</th><th class="money">Folha</th><th class="money">Dif.</th></tr></thead><tbody>'+
+    rows.map(function(r){var abs=Math.abs(r.diff);var dc=abs>1?'money danger':'money';return '<tr><td>'+esc(r.nome)+'</td><td class="money">'+fmt(r.base)+'</td><td class="money">'+fmt(r.calc)+'</td><td class="money">'+fmt(r.folha)+'</td><td class="'+dc+'">'+fmt(r.diff)+'</td></tr>';}).join('')+
+    '</tbody></table>':
+    '<p style="color:var(--muted);padding:1rem 0">Dados individuais de IRRF não disponíveis para este perfil.</p>';
+  modal.hidden=false;
+}
+
+function openFgtsBreakdown(){
+  var modal=$('fgts-modal');if(!modal)return;
+  var e=(S.competencia&&S.competencia.encargos)||{};
+  var totalFgts=Number(e.valor_fgts||S.competencia.valor_fgts)||0;
+  var base=Number(e.base_fgts||S.competencia.base_fgts)||0;
+  var pessoas=S.pessoas.filter(function(p){return Number(p.valor_fgts)>0;}).sort(function(a,b){return b.valor_fgts-a.valor_fgts;});
+  modal.querySelector('.fgts-total').textContent=fmt(totalFgts);
+  modal.querySelector('.fgts-base').textContent=fmt(base);
+  modal.querySelector('.fgts-body').innerHTML=pessoas.length?
+    '<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Base FGTS</th><th class="money">FGTS (8%)</th></tr></thead><tbody>'+
+    pessoas.map(function(p){return '<tr><td>'+esc(p.nome)+'</td><td class="money">'+fmt(p.base_fgts)+'</td><td class="money">'+fmt(p.valor_fgts)+'</td></tr>';}).join('')+
+    '</tbody></table>':
+    '<p style="color:var(--muted);padding:1rem 0">Dados individuais de FGTS não disponíveis para este perfil.</p>';
   modal.hidden=false;
 }
 
@@ -345,7 +463,7 @@ function askAI(question){
   if(!S.competencia){answer='Ainda n\u00e3o existe uma compet\u00eancia importada. Use o m\u00f3dulo de Importa\u00e7\u00e3o para carregar o primeiro arquivo.';view='importacao';trace=null;}
   else if(/liquido|l\u00edquido|total da folha/.test(q)){answer='O l\u00edquido da folha de '+formatCompetence(S.competencia.competencia)+' \u00e9 '+fmt(S.competencia.liquido)+'.';trace='liquido';composition=true;}
   else if(/departamento|area|\u00e1rea|maior custo/.test(q)){answer=d.length?'O departamento com maior custo l\u00edquido \u00e9 '+d[0].nome+', com '+fmt(d[0].liquido)+'.':'A compet\u00eancia n\u00e3o possui rateio por departamento.';trace='departamentos';view='rateio';}
-  else if(/quanttpessoa|colaborador|headcount/.test(q)){answer='A folha possui '+nfmt(r.pessoas||S.pessoas.length)+' pessoas: '+nfmt(r.empregados)+' empregados e '+nfmt(r.estagiarios)+' estagi\u00e1rios.';trace='headcount';view='colaboradores';composition=true;}
+  else if(/quant|pessoa|colaborador|headcount/.test(q)){answer='A folha possui '+nfmt(r.pessoas||S.pessoas.length)+' pessoas: '+nfmt(r.empregados)+' empregados e '+nfmt(r.estagiarios)+' estagi\u00e1rios.';trace='headcount';view='colaboradores';composition=true;}
   else if(/fgts/.test(q)){answer='O FGTS da compet\u00eancia \u00e9 '+fmt(e.valor_fgts||S.competencia.valor_fgts)+', sobre base de '+fmt(e.base_fgts||S.competencia.base_fgts)+'.';trace='encargos';view='encargos';}
   else if(/desconto/.test(q)){answer='Os descontos totalizam '+fmt(S.competencia.descontos)+'. A composi\u00e7\u00e3o est\u00e1 dispon\u00edvel em Rubricas.';trace='descontos';view='rubricas';composition=true;}
   else{answer='Posso responder sobre l\u00edquido, descontos, FGTS, quantidade de pessoas e custos por departamento. Quando houver v\u00ednculo verific\u00e1vel, mostro a origem e a composi\u00e7\u00e3o.';trace=null;}
@@ -362,6 +480,18 @@ function addAnswer(text,trace,view,composition){
 
 /* \u2500\u2500 inje\u00e7\u00e3o de UI (modals, filtros, headers) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
 function setupUI(){
+  /* 0. estilos de suporte para novos modais */
+  if(!$('_rh_extra_styles')){
+    var st=document.createElement('style');st.id='_rh_extra_styles';
+    st.textContent='.modal-table-inner{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:.5rem}'
+      +'.modal-table-inner th,.modal-table-inner td{padding:.35rem .5rem;border-bottom:1px solid var(--border)}'
+      +'.modal-table-inner th{color:var(--muted);font-weight:600;text-align:left}'
+      +'.modal-table-inner td.money,.modal-table-inner th.money{text-align:right}'
+      +'.money.danger{color:var(--red)!important}'
+      +'.rank{display:inline-block;width:1.4rem;color:var(--muted);font-size:.8rem;text-align:right;margin-right:.3rem}';
+    document.head.appendChild(st);
+  }
+
   /* 1. header da tabela de colaboradores: 8 colunas */
   var ethead=document.querySelector('#employee-rows')&&document.querySelector('#employee-rows').closest('table')&&document.querySelector('#employee-rows').closest('table').querySelector('thead tr');
   if(ethead)ethead.innerHTML='<th>Colaborador</th><th>Matr\u00edcula</th><th>V\u00ednculo</th><th>Departamento</th><th>Situa\u00e7\u00e3o</th><th class="money">Bruto</th><th class="money">Encargos</th><th class="money">L\u00edquido</th>';
@@ -381,12 +511,47 @@ function setupUI(){
   /* 4. modal de detalhamento INSS */
   if(!$('inss-modal')){
     var im=document.createElement('div');im.id='inss-modal';im.className='modal';im.hidden=true;
-    im.innerHTML='<div class="modal-backdrop" data-close-inss></div><article class="modal-card" role="dialog" style="max-width:460px"><div class="modal-head"><div><span class="eyebrow">DETALHAMENTO INSS</span><h2>Composi\u00e7\u00e3o do INSS</h2></div><button class="modal-close" data-close-inss>\u00d7</button></div><div style="padding:1rem 1.4rem 0"><div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1rem"><div class="kpi" style="padding:.8rem"><span>INSS total</span><strong class="im-total-inss">\u2014</strong></div><div class="kpi" style="padding:.8rem"><span>Base de c\u00e1lculo</span><strong class="im-base">\u2014</strong></div></div></div><div class="im-body" style="padding:0 1.4rem 1.4rem"></div></article>';
+    im.innerHTML='<div class="modal-backdrop" data-close-inss></div><article class="modal-card" role="dialog" style="max-width:560px;max-height:90vh;overflow-y=auto"><div class="modal-head" style="position:sticky;top:0;background:var(--surface);z-index:1"><div><span class="eyebrow">DETALHAMENTO INSS</span><h2>Composi\u00e7\u00e3o do INSS</h2></div><button class="modal-close" data-close-inss>\u00d7</button></div><div style="padding:1rem 1.4rem 0"><div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1rem"><div class="kpi" style="padding:.8rem"><span>INSS total (folha)</span><strong class="im-total-inss">\u2014</strong></div><div class="kpi" style="padding:.8rem"><span>Base de c\u00e1lculo</span><strong class="im-base">\u2014</strong></div></div></div><div class="im-body" style="padding:0 1.4rem 1.4rem"></div></article>';
     document.body.appendChild(im);
     im.querySelectorAll('[data-close-inss]').forEach(function(b){b.onclick=function(){im.hidden=true;};});
   }
 
-  /* 5. barra de filtros no painel */
+  /* 5. modal de detalhamento IRRF */
+  if(!$('irrf-modal')){
+    var irm=document.createElement('div');irm.id='irrf-modal';irm.className='modal';irm.hidden=true;
+    irm.innerHTML='<div class="modal-backdrop" data-close-irrf></div><article class="modal-card" role="dialog" style="max-width:640px;max-height:90vh;overflow-y:auto"><div class="modal-head" style="position:sticky;top:0;background:var(--surface);z-index:1"><div><span class="eyebrow">DETALHAMENTO IRRF</span><h2>Composi\u00e7\u00e3o do IRRF</h2></div><button class="modal-close" data-close-irrf>\u00d7</button></div><div style="padding:1rem 1.4rem 0"><div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1rem"><div class="kpi" style="padding:.8rem"><span>IRRF total (folha)</span><strong class="irrf-total-folha">\u2014</strong></div><div class="kpi" style="padding:.8rem"><span>IRRF calculado (tabela 2024)</span><strong class="irrf-total-calc">\u2014</strong></div></div><p style="color:var(--muted);font-size:.8rem;margin-bottom:1rem">Tabela progressiva 2024: isento at\u00e9 R$ 2.824 \u00b7 7,5% \u00b7 15% \u00b7 22,5% \u00b7 27,5%. <em>Folha de junho = sal\u00e1rio pago em julho.</em></p></div><div class="irrf-body" style="padding:0 1.4rem 1.4rem"></div></article>';
+    document.body.appendChild(irm);
+    irm.querySelectorAll('[data-close-irrf]').forEach(function(b){b.onclick=function(){irm.hidden=true;};});
+  }
+
+  /* 6. modal de detalhamento FGTS */
+  if(!$('fgts-modal')){
+    var fgm=document.createElement('div');fgm.id='fgts-modal';fgm.className='modal';fgm.hidden=true;
+    fgm.innerHTML='<div class="modal-backdrop" data-close-fgts></div><article class="modal-card" role="dialog" style="max-width:520px;max-height:90vh;overflow-y:auto"><div class="modal-head" style="position:sticky;top:0;background:var(--surface);z-index:1"><div><span class="eyebrow">DETALHAMENTO FGTS</span><h2>FGTS por Colaborador</h2></div><button class="modal-close" data-close-fgts>\u00d7</button></div><div style="padding:1rem 1.4rem 0"><div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1rem"><div class="kpi" style="padding:.8rem"><span>FGTS total (8% base)</span><strong class="fgts-total">\u2014</strong></div><div class="kpi" style="padding:.8rem"><span>Base de c\u00e1lculo</span><strong class="fgts-base">\u2014</strong></div></div></div><div class="fgts-body" style="padding:0 1.4rem 1.4rem"></div></article>';
+    document.body.appendChild(fgm);
+    fgm.querySelectorAll('[data-close-fgts]').forEach(function(b){b.onclick=function(){fgm.hidden=true;};});
+  }
+
+  /* 7. aba Custo Real */
+  if(!$('page-custoreal')){
+    var crPage=document.createElement('div');crPage.id='page-custoreal';crPage.className='page';
+    crPage.innerHTML='<h1>Custo Real por Colaborador</h1><p style="color:var(--muted);margin-bottom:1.5rem">Soma de folha + encargos patronais + benef\u00edcios \u2014 custo efetivo da LNB por pessoa.</p>'
+      +'<div id="custo-real-kpis" class="kpi-grid" style="margin-bottom:1.5rem"></div>'
+      +'<p id="custo-ben-note" class="validation-row warn" hidden>\u2139\ufe0f Benef\u00edcios (Seguro de Vida, Assist\u00eancia M\u00e9dica, VR Caixa, Vale Transporte) ser\u00e3o inclu\u00eddos automaticamente quando o m\u00f3dulo de Gest\u00e3o de Benef\u00edcios estiver integrado.</p>'
+      +'<div class="chart-wrap tall" style="margin-bottom:2rem"><canvas id="chart-custo-real"></canvas></div>'
+      +'<div class="table-wrap"><table><thead><tr id="custo-real-head"></tr></thead><tbody id="custo-real-rows"></tbody></table></div>';
+    var _mainContent=document.querySelector('#app .content')||document.querySelector('#app .main')||document.querySelector('#app');
+    _mainContent.appendChild(crPage);
+    // bot\u00e3o no nav
+    if(!document.querySelector('[data-view="custoreal"]')){
+      var crBtn=document.createElement('button');crBtn.className='nav-item';crBtn.dataset.view='custoreal';crBtn.innerHTML='<span>\ud83d\udcb0</span>Custo Real';
+      crBtn.onclick=function(){go('custoreal');};
+      var nav=document.querySelector('.sidebar nav')||document.querySelector('nav');
+      if(nav){var lastBtn=nav.querySelector('.nav-item:last-child');if(lastBtn)nav.insertBefore(crBtn,lastBtn);else nav.appendChild(crBtn);}
+    }
+  }
+
+  /* 8. barra de filtros no painel */
   var dashboard=$('dashboard');
   if(dashboard&&!$('painel-filters')){
     var fb=document.createElement('div');fb.id='painel-filters';fb.className='filter-bar';
@@ -417,8 +582,7 @@ function bind(){
   document.addEventListener('keydown',function(e){
     if(e.key==='Escape'){
       closeModal();$('ai-panel').hidden=true;
-      if($('encargos-popup'))$('encargos-popup').hidden=true;
-      if($('inss-modal'))$('inss-modal').hidden=true;
+      ['encargos-popup','inss-modal','irrf-modal','fgts-modal'].forEach(function(id){if($(id))$(id).hidden=true;});
     }
   });
   $('ai-launch').onclick=function(){$('ai-panel').hidden=false;};
@@ -450,9 +614,9 @@ async function start(){
     if(validAccess(cachedAccess)){setGate('Abrindo RH & Folha\u2026');await openModule(cachedAccess);revalidateInBackground();return;}
     setGate('Verificando seu acesso ao RH & Folha\u2026');
     try{ACCESS=await rpc('meu_acesso');}catch(firstError){setGate('A valida\u00e7\u00e3o demorou. Fazendo uma segunda tentativa\u2026');await delay(650);ACCESS=await rpc('meu_acesso');}
-    if(!validAccess(ACCESS))throw new Error('Seu usu\u00a1rio n\u00e3o possui acesso ao m\u00f3dulo RH & Folha.');
+    if(!validAccess(ACCESS))throw new Error('Seu usu\u00e1rio n\u00e3o possui acesso ao m\u00f3dulo RH & Folha.');
     saveAccessSnapshot(ACCESS);await openModule(ACCESS);
-  }catch(e){setGate(e&&e.message?e.message:'N\u00e3o foi poss\u00eevel validar o acesso. Tente novamente.');$('gate-home').hidden=false;}
+  }catch(e){setGate(e&&e.message?e.message:'N\u00e3o foi poss\u00edvel validar o acesso. Tente novamente.');$('gate-home').hidden=false;}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
