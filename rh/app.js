@@ -9,7 +9,7 @@ var LIBRARIES={
 },libraryPromises={};
 var $=function(id){return document.getElementById(id);};
 var money=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}),num=new Intl.NumberFormat('pt-BR');
-function eschv){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function fmt(v){return money.format(Number(v)||0);}function nfmt(v){return num.format(Number(v)||0);}
 function toast(msg,err){var el=$('toast');el.textContent=msg;el.className='toast'+(err?' error':'');el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){el.hidden=true;},4200);}
 function headers(token){return {'apikey':CFG.SUPABASE_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json'};}
