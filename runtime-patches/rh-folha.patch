@@ -25,12 +25,13 @@ diff --git a/rh/app.js b/rh/app.js
 @@ -169,1 +169,1 @@
 -  var a=chargeData();
 +  var a=chargeData(),total=a.reduce(function(s,x){return s+(Number(x[1])||0);},0);
-@@ -175,2 +175,3 @@
+@@ -175,1 +175,1 @@
 -  }).join('');
--  $('charges-kpis').innerHTML=a.map(function(x){return '<div class="kpi"><span>'+x[0]+'</span><strong>'+fmt(x[1])+'</strong><small>Compet\\u00eancia '+formatCompetence(S.competencia.competencia)+'</small></div>';}).join('');
 +  }).join('')+'<div class="metric-row"><span><b>Total recolhimentos</b></span><strong>'+fmt(total)+'</strong></div>';
-+  var cards=a.concat([['Total recolhimentos',total]]);
-+  $('charges-kpis').innerHTML=cards.map(function(x,i){return '<div class="kpi'+(i===cards.length-1?' featured':'')+'"><span>'+x[0]+'</span><strong>'+fmt(x[1])+'</strong><small>Compet\\u00eancia '+formatCompetence(S.competencia.competencia)+'</small></div>';}).join('');
+@@ -177,1 +177,2 @@
+-}
++  $('charges-kpis').insertAdjacentHTML('beforeend','<div class="kpi featured"><span>Total recolhimentos</span><strong>'+fmt(total)+'</strong><small>Total da competência</small></div>');
++}
 @@ -195,1 +195,12 @@
 -function renderCharts(){
 +function chartPoint(id,evt){var ch=S.charts[id];if(!ch)return null;var a=ch.getElementsAtEventForMode(evt,'nearest',{intersect:true},true);return a&&a[0]||null;}
