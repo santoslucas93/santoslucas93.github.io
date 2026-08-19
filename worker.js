@@ -70,26 +70,33 @@ async function handleRhAppPatch(request, env) {
   if (!asset.ok) return asset;
 
   const source = await asset.text();
-  const patchUrl = new URL('/runtime-patches/rh-folha.patch', request.url);
-  const patchResponse = await env.ASSETS.fetch(new Request(patchUrl, { method: 'GET' }));
-  if (!patchResponse.ok) {
-    console.error('Patch do RH indisponivel:', patchResponse.status);
-    return asset;
+  const hotfixUrl = new URL('/runtime-patches/rh-folha-hotfix-v2.inc.js', request.url);
+  const hotfixResponse = await env.ASSETS.fetch(new Request(hotfixUrl, { method: 'GET' }));
+  if (!hotfixResponse.ok) {
+    console.error('Hotfix do RH indisponivel:', hotfixResponse.status);
+    const headers = new Headers(asset.headers);
+    headers.set('cache-control', 'no-store');
+    headers.set('x-lnb-rh-patch', 'hotfix-indisponivel');
+    return new Response(source, { status: asset.status, headers });
   }
 
   try {
-    const patched = applyUnifiedPatch(source, await patchResponse.text(), 'rh/app.js');
+    const bootMarker = "if(document.readyState==='loading')";
+    const index = source.lastIndexOf(bootMarker);
+    if (index < 0) throw new Error('Marcador de inicializacao do RH nao encontrado.');
+    const hotfix = await hotfixResponse.text();
+    const injected = source.slice(0, index) + '\n/* LNB RH HOTFIX V2 */\n' + hotfix + '\n' + source.slice(index);
     const headers = new Headers(asset.headers);
     headers.delete('content-length');
     headers.set('content-type', 'application/javascript; charset=utf-8');
     headers.set('cache-control', 'no-store');
-    headers.set('x-lnb-rh-patch', 'staging-v1');
-    return new Response(patched, { status: asset.status, headers });
+    headers.set('x-lnb-rh-patch', 'hotfix-v2');
+    return new Response(injected, { status: asset.status, headers });
   } catch (error) {
-    console.error('Falha ao aplicar patch do RH:', error);
+    console.error('Falha ao injetar hotfix do RH:', error);
     const headers = new Headers(asset.headers);
     headers.set('cache-control', 'no-store');
-    headers.set('x-lnb-rh-patch', 'erro');
+    headers.set('x-lnb-rh-patch', 'hotfix-erro');
     return new Response(source, { status: asset.status, headers });
   }
 }
