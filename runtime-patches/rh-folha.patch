@@ -82,11 +82,6 @@ diff --git a/rh/app.js b/rh/app.js
 @@ -408,1 +408,1 @@
 -  var totalFolha=Number(e.valor_total_irrf||e.valor_irrf||S.competencia.valor_irrf)||0;
 +  var totalFolha=Number(e.valor_irrf_folha||e.valor_irrf)||0;
-@@ -414,3 +414,1 @@
--    var irrfLancs=(p.lancamentos||[]).filter(function(x){return /irrf/i.test(x.rubrica_nome||x.nome||'');});
--    var folha=irrfLancs.reduce(function(a,x){return a+(Number(x.valor)||0);},0);
--    if(!folha)folha=calc; // se nÃ£o tiver rubrica individual, usa o calculado
-+    var folha=Number(p.valor_irrf)||0;
 @@ -422,2 +422,2 @@
 -  modal.querySelector('.irrf-body').innerHTML=rows.length?
 -    '<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Base IRRF</th><th class="money">Calculado</th><th class="money">Folha</th><th class="money">Dif.</th></tr></thead><tbody>'+
