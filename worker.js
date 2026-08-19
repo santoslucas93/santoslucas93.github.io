@@ -22,6 +22,10 @@ export default {
       return handleBeneficiosComRastreabilidade(request, env);
     }
 
+    if (request.method === 'GET' && url.pathname === '/rh/app.js') {
+      return handleRhAppPatch(request, env);
+    }
+
     return env.ASSETS.fetch(request);
   }
 };
@@ -59,6 +63,35 @@ async function handleBeneficiosComRastreabilidade(request, env) {
   const asset = await env.ASSETS.fetch(request);
   if (!asset.ok) return asset;
   return responseHtml(asset, injectIaTraceability(await asset.text(), 'beneficios'), 'nao-aplicavel');
+}
+
+async function handleRhAppPatch(request, env) {
+  const asset = await env.ASSETS.fetch(request);
+  if (!asset.ok) return asset;
+
+  const source = await asset.text();
+  const patchUrl = new URL('/runtime-patches/rh-folha.patch', request.url);
+  const patchResponse = await env.ASSETS.fetch(new Request(patchUrl, { method: 'GET' }));
+  if (!patchResponse.ok) {
+    console.error('Patch do RH indisponivel:', patchResponse.status);
+    return asset;
+  }
+
+  try {
+    const patched = applyUnifiedPatch(source, await patchResponse.text(), 'rh/app.js');
+    const headers = new Headers(asset.headers);
+    headers.delete('content-length');
+    headers.set('content-type', 'application/javascript; charset=utf-8');
+    headers.set('cache-control', 'no-store');
+    headers.set('x-lnb-rh-patch', 'staging-v1');
+    return new Response(patched, { status: asset.status, headers });
+  } catch (error) {
+    console.error('Falha ao aplicar patch do RH:', error);
+    const headers = new Headers(asset.headers);
+    headers.set('cache-control', 'no-store');
+    headers.set('x-lnb-rh-patch', 'erro');
+    return new Response(source, { status: asset.status, headers });
+  }
 }
 
 // Mantem os HTMLs grandes e as conexoes de dados intocados. O Worker injeta
