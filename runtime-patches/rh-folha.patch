@@ -15,83 +15,168 @@ diff --git a/rh/app.js b/rh/app.js
 @@ -82,1 +82,1 @@
 -      [['Seguro de Vida',ben.seguro_vida],['AssistÃªncia MÃ©dica',ben.assistencia_medica||ben.assist_medica],['VR Caixa',ben.vr_caixa],['Vale Transporte',ben.vale_transporte]].forEach(function(x){if(Number(x[1])>0){itens.push([x[0],Number(x[1]),'benefÃ­cio']);total+=Number(x[1]);}});
 +      [['Seguro de Vida',ben.seguro_vida],['Assistência Médica',ben.assistencia_medica||ben.assist_medica],['VR / VA / Cesta Básica',ben.vr_caixa],['Vale Transporte',ben.vale_transporte]].forEach(function(x){if(Number(x[1])>0){itens.push([x[0],Number(x[1]),'benefício']);total+=Number(x[1]);}});
-@@ -167,1 +167,1 @@
+@@ -166,12 +166,32 @@
+-function renderRubrics(){var a=rubricGroups();$('rubric-rows').innerHTML=a.length?a.map(function(x){return '<tr><td>'+esc(x.codigo||'\u2014')+'</td><td>'+esc(x.nome)+'</td><td><span class="status">'+esc(x.tipo)+'</span></td><td class="money">'+fmt(x.valor)+'</td></tr>';}).join(''):emptyRow(4,'Rubricas indispon\u00edveis para este perfil ou compet\u00eancia.');}
 -function chargeData(){var e=S.competencia&&S.competencia.encargos||{};return [['INSS total',e.total_inss],['FGTS',e.valor_fgts||S.competencia.valor_fgts],['PIS',e.valor_pis],['IRRF',e.valor_irrf]];}
-+function chargeData(){var e=S.competencia&&S.competencia.encargos||{};return [['INSS total',e.total_inss],['FGTS',e.valor_fgts||S.competencia.valor_fgts],['PIS',e.valor_pis],['IRRF folha',e.valor_irrf_folha||e.valor_irrf]];}
-@@ -169,1 +169,1 @@
+-function renderCharges(){
 -  var a=chargeData();
-+  var a=chargeData(),total=a.reduce(function(s,x){return s+(Number(x[1])||0);},0);
-@@ -175,1 +175,1 @@
+-  var handlers={'INSS total':'window._openInss()','FGTS':'window._openFgts()','IRRF':'window._openIrrf()'};
+-  $('charge-list').innerHTML=a.map(function(x){
+-    var oc=Object.keys(handlers).find(function(k){return x[0].indexOf(k)>=0;});
+-    var onclick=oc?handlers[oc]:'';
+-    return '<div class="metric-row'+(onclick?' clickable':'')+(onclick?'" onclick="'+onclick+'"':'"')+'><span>'+x[0]+'</span><strong>'+fmt(x[1])+'</strong>'+(onclick?'<small>clique para detalhar</small>':'')+'</div>';
 -  }).join('');
-+  }).join('')+'<div class="metric-row"><span><b>Total recolhimentos</b></span><strong>'+fmt(total)+'</strong></div>';
-@@ -177,1 +177,2 @@
+-  $('charges-kpis').innerHTML=a.map(function(x){return '<div class="kpi"><span>'+x[0]+'</span><strong>'+fmt(x[1])+'</strong><small>Compet\u00eancia '+formatCompetence(S.competencia.competencia)+'</small></div>';}).join('');
 -}
++function openRubricBreakdown(x){
++  if(!x)return;var rows=[];
++  S.pessoas.forEach(function(p){var v=(p.lancamentos||[]).filter(function(l){return String(l.rubrica_codigo||'')===String(x.codigo||'')&&String(l.rubrica_nome||'')===String(x.nome||'')&&String(l.tipo||'')===String(x.tipo||'');}).reduce(function(a,l){return a+(Number(l.valor)||0);},0);if(v)rows.push({nome:p.nome,departamento:departmentName(p.departamento),valor:v});});
++  rows.sort(function(a,b){return b.valor-a.valor;});
++  openGenericDetail(x.nome||'Rubrica','COMPOSIÇÃO DA RUBRICA','<div class="detail-summary"><b>'+esc(x.codigo||'—')+'</b><strong>'+fmt(x.valor)+'</strong></div>'+(rows.length?'<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th>Departamento</th><th class="money">Valor</th></tr></thead><tbody>'+rows.map(function(r){return '<tr><td>'+esc(r.nome)+'</td><td>'+esc(r.departamento)+'</td><td class="money"><b>'+fmt(r.valor)+'</b></td></tr>';}).join('')+'</tbody></table>':'<p class="detail-empty">Sem composição individual disponível.</p>'));
++}
++function bindRubricRows(a){document.querySelectorAll('[data-rubric-index]').forEach(function(tr){tr.onclick=function(){openRubricBreakdown(a[Number(tr.dataset.rubricIndex)]);};tr.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();tr.click();}};});}
++function renderRubrics(){var a=rubricGroups();$('rubric-rows').innerHTML=a.length?a.map(function(x,i){return '<tr class="detail-clickable" tabindex="0" data-rubric-index="'+i+'"><td>'+esc(x.codigo||'\u2014')+'</td><td><b>'+esc(x.nome)+'</b><small class="click-hint">Clique para ver colaboradores</small></td><td><span class="status">'+esc(x.tipo)+'</span></td><td class="money">'+fmt(x.valor)+'</td></tr>';}).join(''):emptyRow(4,'Rubricas indispon\u00edveis para este perfil ou compet\u00eancia.');bindRubricRows(a);}
++function chargeData(){var e=S.competencia&&S.competencia.encargos||{};return [['INSS total',e.total_inss],['FGTS',e.valor_fgts||S.competencia.valor_fgts],['PIS',e.valor_pis],['IRRF folha',e.valor_irrf_folha||e.valor_irrf]];}
++function renderCharges(){
++  var a=chargeData(),total=a.reduce(function(s,x){return s+(Number(x[1])||0);},0);
++  var handlers={'INSS total':'window._openInss()','FGTS':'window._openFgts()','PIS':'window._openPis()','IRRF':'window._openIrrf()'};
++  $('charge-list').innerHTML=a.map(function(x){
++    var oc=Object.keys(handlers).find(function(k){return x[0].indexOf(k)>=0;});
++    var onclick=oc?handlers[oc]:'';
++    return '<div class="metric-row'+(onclick?' clickable':'')+(onclick?'" onclick="'+onclick+'"':'"')+'><span>'+x[0]+'</span><strong>'+fmt(x[1])+'</strong>'+(onclick?'<small>clique para detalhar</small>':'')+'</div>';
++  }).join('')+'<div class="metric-row"><span><b>Total recolhimentos</b></span><strong>'+fmt(total)+'</strong></div>';
++  $('charges-kpis').innerHTML=a.map(function(x){var oc=Object.keys(handlers).find(function(k){return x[0].indexOf(k)>=0;});var onclick=oc?handlers[oc]:'';return '<button type="button" class="kpi clickable"'+(onclick?' onclick="'+onclick+'"':'')+'><span>'+x[0]+'</span><strong>'+fmt(x[1])+'</strong><small>Competência '+formatCompetence(S.competencia.competencia)+' · clique para detalhar</small></button>';}).join('');
 +  $('charges-kpis').insertAdjacentHTML('beforeend','<div class="kpi featured"><span>Total recolhimentos</span><strong>'+fmt(total)+'</strong><small>Total da competência</small></div>');
 +}
-@@ -195,1 +195,12 @@
+@@ -185,1 +205,3 @@
+-function renderDepartments(){var a=departments();$('department-rows').innerHTML=a.length?a.map(function(x){return '<tr><td><b>'+esc(x.nome)+'</b></td><td class="money">'+fmt(x.proventos)+'</td><td class="money">'+fmt(x.descontos)+'</td><td class="money"><b>'+fmt(x.liquido)+'</b></td></tr>';}).join(''):emptyRow(4,'Sem rateio por departamento.');}
++function bindDepartmentRows(a){document.querySelectorAll('[data-dept-index]').forEach(function(tr){tr.onclick=function(){var x=a[Number(tr.dataset.deptIndex)];if(x)openDepartmentBreakdown(x.nome);};tr.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();tr.click();}};});}
++function renderDepartments(){var a=departments();$('department-rows').innerHTML=a.length?a.map(function(x,i){return '<tr class="detail-clickable" tabindex="0" data-dept-index="'+i+'"><td><b>'+esc(x.nome)+'</b><small class="click-hint">Clique para ver a composição</small></td><td class="money">'+fmt(x.proventos)+'</td><td class="money">'+fmt(x.descontos)+'</td><td class="money"><b>'+fmt(x.liquido)+'</b></td></tr>';}).join(''):emptyRow(4,'Sem rateio por departamento.');bindDepartmentRows(a);}
+@@ -195,1 +217,12 @@
 -function renderCharts(){
 +function chartPoint(id,evt){var ch=S.charts[id];if(!ch)return null;var a=ch.getElementsAtEventForMode(evt,'nearest',{intersect:true},true);return a&&a[0]||null;}
-+function openDepartmentChart(fdepts,idx){var d=fdepts[idx];if(!d)return;var key=Object.keys({'1':'Administrativa','2':'Comunicação','3':'Financeira','4':'Marketing','5':'Técnica','6':'Técnica/Projetos'}).find(function(k){return departmentName(k)===d.nome;});if(key&&$('filter-dept')){$('filter-dept').value=key;if($('filter-vinculo'))$('filter-vinculo').value='';}go('colaboradores');renderPeople();}
++function openDepartmentChart(fdepts,idx){var d=fdepts[idx];if(d)openDepartmentBreakdown(d.nome);}
 +function bindUniversalChartClicks(fdepts,rub,charges){
 +  var el=$('chart-composicao');if(el)el.onclick=function(e){var p=chartPoint('chart-composicao',e);if(p)go(p.index===1?'rubricas':'folha');};
 +  el=$('chart-departamentos');if(el)el.onclick=function(e){var p=chartPoint('chart-departamentos',e);if(p)openDepartmentChart(fdepts,p.index);};
 +  el=$('chart-vinculos');if(el)el.onclick=function(e){var p=chartPoint('chart-vinculos',e);if(!p)return;var v=['Celetista','Estagiário',''][p.index];if($('filter-vinculo'))$('filter-vinculo').value=v;go('colaboradores');renderPeople();};
-+  el=$('chart-rubricas');if(el)el.onclick=function(e){var p=chartPoint('chart-rubricas',e);if(!p)return;go('rubricas');var tr=$('rubric-rows')&&$('rubric-rows').children[p.index];if(tr){tr.scrollIntoView({behavior:'smooth',block:'center'});tr.classList.add('trace-highlight');setTimeout(function(){tr.classList.remove('trace-highlight');},1500);}};
-+  el=$('chart-encargos');if(el)el.onclick=function(e){var p=chartPoint('chart-encargos',e);if(!p)return;var lbl=charges[p.index][0];if(lbl.indexOf('INSS')>=0)openInssBreakdown();else if(lbl.indexOf('FGTS')>=0)openFgtsBreakdown();else if(lbl.indexOf('IRRF')>=0)openIrrfBreakdown();else toast('PIS da competência: '+fmt(charges[p.index][1]));};
++  el=$('chart-rubricas');if(el)el.onclick=function(e){var p=chartPoint('chart-rubricas',e);if(p&&rub[p.index])openRubricBreakdown(rub[p.index]);};
++  el=$('chart-encargos');if(el)el.onclick=function(e){var p=chartPoint('chart-encargos',e);if(!p)return;var lbl=charges[p.index][0];if(lbl.indexOf('INSS')>=0)openInssBreakdown();else if(lbl.indexOf('FGTS')>=0)openFgtsBreakdown();else if(lbl.indexOf('PIS')>=0)openPisBreakdown();else if(lbl.indexOf('IRRF')>=0)openIrrfBreakdown();};
 +  el=$('chart-rateio');if(el)el.onclick=function(e){var p=chartPoint('chart-rateio',e);if(p)openDepartmentChart(fdepts,p.index);};
 +  ['chart-composicao','chart-departamentos','chart-vinculos','chart-rubricas','chart-encargos','chart-rateio'].forEach(function(id){if($(id))$(id).style.cursor='pointer';});
 +}
 +function renderCharts(){
-@@ -207,1 +207,2 @@
+@@ -207,1 +240,2 @@
 -}
 +  bindUniversalChartClicks(fdepts,rub,charges);
 +}
-@@ -218,1 +218,1 @@
+@@ -218,1 +252,1 @@
 -    c.itens.forEach(function(it){if(it[2]==='rateado')totEnc+=it[1];if(it[2]==='benefÃ­cio')totBen+=it[1];});
 +    c.itens.forEach(function(it){if(it[2]==='rateado')totEnc+=it[1];if(it[2]==='benefício')totBen+=it[1];});
-@@ -220,2 +220,2 @@
+@@ -220,2 +254,2 @@
 -  var kpiItems=[['Custo total LNB',totCusto],['SalÃ¡rios brutos',totProv],['FGTS + Encargos patronais',totFgts+totEnc]];
 -  if(hasBen)kpiItems.push(['BenefÃ­cios',totBen]);
 +  var kpiItems=[['Custo total LNB',totCusto],['Salários brutos',totProv],['FGTS + Encargos patronais',totFgts+totEnc]];
 +  if(hasBen)kpiItems.push(['Benefícios',totBen]);
-@@ -223,1 +223,1 @@
+@@ -223,1 +257,1 @@
 -  var colBen=hasBen?'<th class="money">BenefÃ­cios</th>':'';
 +  var colBen=hasBen?'<th class="money">Benefícios</th>':'';
-@@ -227,1 +227,1 @@
+@@ -227,1 +261,1 @@
 -    var enc=0,ben=0;c.itens.forEach(function(it){if(it[2]==='rateado')enc+=it[1];if(it[2]==='benefÃ­cio')ben+=it[1];});
 +    var enc=0,ben=0;c.itens.forEach(function(it){if(it[2]==='rateado')enc+=it[1];if(it[2]==='benefício')ben+=it[1];});
-@@ -236,3 +236,3 @@
+@@ -236,3 +270,3 @@
 -  }).join(''):emptyRow(hasBen?6:5,'Dados individuais nÃ£o disponÃ­veis para este perfil.');
 -  if(!hasBen&&$('custo-ben-note')){$('custo-ben-note').hidden=false;}else if($('custo-ben-note')){$('custo-ben-note').hidden=true;}
 -  // grÃ¡fico top 15
 +  }).join(''):emptyRow(hasBen?6:5,'Dados individuais não disponíveis para este perfil.');
 +  if($('custo-ben-note')){$('custo-ben-note').hidden=false;$('custo-ben-note').className='validation-row'+(hasBen?'':' warn');$('custo-ben-note').textContent=hasBen?'✓ Benefícios integrados automaticamente: Seguro de Vida, Assistência Médica, VR / VA / Cesta Básica e Vale Transporte.':'ℹ️ Benefícios individualizados indisponíveis nesta competência.';}
 +  // gráfico top 15
-@@ -242,2 +242,2 @@
+@@ -242,2 +276,2 @@
 -      {label:'Proventos',data:top.map(function(p){return Number(p.proventos)||0;}),backgroundColor:c.gold,borderRadius:4},
 -      {label:'FGTS',data:top.map(function(p){return Number(p.valor_fgts)||0;}),backgroundColor:c.blue,borderRadius:4},
 +      {label:'Salários / Proventos',data:top.map(function(p){return Number(p.proventos)||0;}),backgroundColor:c.blue,borderRadius:4},
 +      {label:'FGTS',data:top.map(function(p){return Number(p.valor_fgts)||0;}),backgroundColor:c.gold,borderRadius:4},
-@@ -246,1 +246,1 @@
+@@ -246,1 +280,1 @@
 -    if(hasBen)datasets.push({label:'BenefÃ­cios',data:top.map(function(p){var b=0;custoEmpresa(p).itens.forEach(function(it){if(it[2]==='benefÃ­cio')b+=it[1];});return b;}),backgroundColor:c.purple,borderRadius:4});
 +    if(hasBen)datasets.push({label:'Benefícios',data:top.map(function(p){var b=0;custoEmpresa(p).itens.forEach(function(it){if(it[2]==='benefício')b+=it[1];});return b;}),backgroundColor:c.purple,borderRadius:4});
-@@ -248,1 +248,2 @@
+@@ -248,1 +282,2 @@
 -  }
 +    if($('chart-custo-real')){$('chart-custo-real').style.cursor='pointer';$('chart-custo-real').onclick=function(e){var p=chartPoint('chart-custo-real',e);if(p&&top[p.index])openPerson(top[p.index].id);};}
 +  }
-@@ -408,1 +408,1 @@
+@@ -370,1 +405,2 @@
+-window._openFgts=function(){openFgtsBreakdown();};
++window._openFgts=function(){openFgtsBreakdown();};
++window._openPis=function(){openPisBreakdown();};
+@@ -378,2 +414,2 @@
+-  var rat=base>0?base*0.01:(Number(e.rat)||0);
+-  var terceiros=base>0?base*0.058:(Number(e.terceiros)||0);
++  var rat=Number(e.rat)||(base>0?base*0.01:0);
++  var terceiros=Number(e.terceiros)||(base>0?base*0.058:0);
+@@ -385,1 +421,1 @@
+-    ['Terceiros â SESC/SENAI/etc. (5,8%)',terceiros,'empresa']
++    ['Terceiros — SESC/SENAI/etc. (5,8%)',terceiros,'empresa']
+@@ -389,5 +425,6 @@
+-  var perPerson=S.pessoas.filter(function(p){return Number(p.base_inss)>0;}).sort(function(a,b){return b.base_inss-a.base_inss;});
++  var perPerson=S.pessoas.filter(function(p){return Number(p.base_inss)>0;}).sort(function(a,b){return b.base_inss-a.base_inss;});
++  var baseRateio=perPerson.reduce(function(a,p){return a+(Number(p.base_inss)||0);},0);
+   var perPersonHtml=perPerson.length?
+-    '<details style="margin-top:1rem"><summary style="cursor:pointer;color:var(--gold);font-size:.85rem;padding:.4rem 0">â¶ INSS por colaborador ('+perPerson.length+')</summary>'+
++    '<details style="margin-top:1rem"><summary style="cursor:pointer;color:var(--gold);font-size:.85rem;padding:.4rem 0">▶ INSS por colaborador ('+perPerson.length+')</summary>'+
+     '<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Base INSS</th><th class="money">INSS patronal</th><th class="money">RAT</th><th class="money">Terceiros</th></tr></thead><tbody>'+
+-    perPerson.map(function(p){var bi=Number(p.base_inss)||0,share=base>0?bi/base:0;return '<tr><td>'+esc(p.nome)+'</td><td class="money">'+fmt(bi)+'</td><td class="money">'+fmt(patronal*share)+'</td><td class="money">'+fmt(rat*share)+'</td><td class="money">'+fmt(terceiros*share)+'</td></tr>';}).join('')+
++    perPerson.map(function(p){var bi=Number(p.base_inss)||0,share=baseRateio>0?bi/baseRateio:0;return '<tr><td>'+esc(p.nome)+'</td><td class="money">'+fmt(bi)+'</td><td class="money">'+fmt(patronal*share)+'</td><td class="money">'+fmt(rat*share)+'</td><td class="money">'+fmt(terceiros*share)+'</td></tr>';}).join('')+
+@@ -408,1 +445,1 @@
 -  var totalFolha=Number(e.valor_total_irrf||e.valor_irrf||S.competencia.valor_irrf)||0;
 +  var totalFolha=Number(e.valor_irrf_folha||e.valor_irrf)||0;
-@@ -422,2 +422,2 @@
+@@ -422,2 +459,2 @@
 -  modal.querySelector('.irrf-body').innerHTML=rows.length?
 -    '<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Base IRRF</th><th class="money">Calculado</th><th class="money">Folha</th><th class="money">Dif.</th></tr></thead><tbody>'+
 +  modal.querySelector('.irrf-body').innerHTML='<div class="irrf-official-note">Valor oficial: IRRF da folha (cód. 0561). RPA (cód. 0588) excluído nesta etapa.</div>'+(rows.length?
 +    '<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Base IRRF</th><th class="money">Calculado ref.</th><th class="money">Folha oficial</th><th class="money">Dif.</th></tr></thead><tbody>'+
-@@ -425,2 +425,2 @@
+@@ -425,2 +462,2 @@
 -    '</tbody></table>':
 -    '<p style="color:var(--muted);padding:1rem 0">Dados individuais de IRRF nÃ£o disponÃ­veis para este perfil.</p>';
 +    '</tbody></table>':
 +    '<p style="color:var(--muted);padding:1rem 0">Dados individuais de IRRF não disponíveis para este perfil.</p>');
-@@ -491,1 +491,1 @@
+@@ -430,15 +467,45 @@
+-function openFgtsBreakdown(){
+-  var modal=$('fgts-modal');if(!modal)return;
+-  var e=(S.competencia&&S.competencia.encargos)||{};
+-  var totalFgts=Number(e.valor_fgts||S.competencia.valor_fgts)||0;
+-  var base=Number(e.base_fgts||S.competencia.base_fgts)||0;
+-  var pessoas=S.pessoas.filter(function(p){return Number(p.valor_fgts)>0;}).sort(function(a,b){return b.valor_fgts-a.valor_fgts;});
+-  modal.querySelector('.fgts-total').textContent=fmt(totalFgts);
+-  modal.querySelector('.fgts-base').textContent=fmt(base);
+-  modal.querySelector('.fgts-body').innerHTML=pessoas.length?
+-    '<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Base FGTS</th><th class="money">FGTS (8%)</th></tr></thead><tbody>'+
+-    pessoas.map(function(p){return '<tr><td>'+esc(p.nome)+'</td><td class="money">'+fmt(p.base_fgts)+'</td><td class="money">'+fmt(p.valor_fgts)+'</td></tr>';}).join('')+
+-    '</tbody></table>':
+-    '<p style="color:var(--muted);padding:1rem 0">Dados individuais de FGTS nÃ£o disponÃ­veis para este perfil.</p>';
+-  modal.hidden=false;
+-}
++function openGenericDetail(titleText,eyebrow,html){var modal=$('encargos-popup');if(!modal)return;var card=modal.querySelector('.modal-card');if(card){card.style.maxWidth='820px';card.style.width='min(820px,calc(100vw - 32px))';card.style.maxHeight='90vh';card.style.overflow='auto';}var eye=modal.querySelector('.eyebrow');if(eye)eye.textContent=eyebrow||'DETALHAMENTO';modal.querySelector('.ep-title').textContent=titleText||'Detalhamento';modal.querySelector('.ep-body').innerHTML=html;modal.hidden=false;}
++function openDepartmentBreakdown(nome){var pessoas=S.pessoas.filter(function(p){return departmentName(p.departamento)===nome;}).sort(function(a,b){return (Number(b.proventos)||0)-(Number(a.proventos)||0);});var tp=0,td=0,tl=0;pessoas.forEach(function(p){tp+=Number(p.proventos)||0;td+=Number(p.descontos)||0;tl+=Number(p.liquido)||0;});openGenericDetail(nome,'COMPOSIÇÃO DO DEPARTAMENTO','<div class="detail-summary"><span>'+pessoas.length+' colaborador(es)</span><strong>'+fmt(tl)+'</strong></div>'+(pessoas.length?'<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Proventos</th><th class="money">Descontos</th><th class="money">Líquido</th></tr></thead><tbody>'+pessoas.map(function(p){return '<tr><td>'+esc(p.nome)+'</td><td class="money">'+fmt(p.proventos)+'</td><td class="money">'+fmt(p.descontos)+'</td><td class="money"><b>'+fmt(p.liquido)+'</b></td></tr>';}).join('')+'<tr class="group-total"><td><b>Total</b></td><td class="money"><b>'+fmt(tp)+'</b></td><td class="money"><b>'+fmt(td)+'</b></td><td class="money"><b>'+fmt(tl)+'</b></td></tr></tbody></table>':'<p class="detail-empty">Nenhum colaborador encontrado neste departamento.</p>'));
++}
++function openFgtsBreakdown(){
++  var modal=$('fgts-modal');if(!modal)return;
++  var e=(S.competencia&&S.competencia.encargos)||{};
++  var totalFgts=Number(e.valor_fgts||S.competencia.valor_fgts)||0;
++  var base=Number(e.base_fgts||S.competencia.base_fgts)||0;
++  var pessoas=S.pessoas.filter(function(p){return Number(p.valor_fgts)>0;}).sort(function(a,b){return b.valor_fgts-a.valor_fgts;});
++  modal.querySelector('.fgts-total').textContent=fmt(totalFgts);
++  modal.querySelector('.fgts-base').textContent=fmt(base);
++  modal.querySelector('.fgts-body').innerHTML=pessoas.length?
++    '<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Base FGTS</th><th class="money">FGTS individual</th></tr></thead><tbody>'+
++    pessoas.map(function(p){return '<tr><td>'+esc(p.nome)+'</td><td class="money">'+fmt(p.base_fgts)+'</td><td class="money"><b>'+fmt(p.valor_fgts)+'</b></td></tr>';}).join('')+
++    '<tr class="group-total"><td><b>Total</b></td><td class="money"><b>'+fmt(base)+'</b></td><td class="money"><b>'+fmt(totalFgts)+'</b></td></tr></tbody></table>':
++    '<p style="color:var(--muted);padding:1rem 0">Dados individuais de FGTS não disponíveis para este perfil.</p>';
++  modal.hidden=false;
++}
++function openPisBreakdown(){
++  var e=(S.competencia&&S.competencia.encargos)||{},total=Number(e.valor_pis)||0,base=Number(e.base_pis)||0;
++  var pessoas=S.pessoas.filter(function(p){return Number(p.base_fgts)>0;}).map(function(p){return {nome:p.nome,base:Number(p.base_fgts)||0,valor:(Number(p.base_fgts)||0)*0.01};}).sort(function(a,b){return b.valor-a.valor;});
++  openGenericDetail('PIS por Colaborador','DETALHAMENTO PIS','<div class="detail-summary"><span>Base '+fmt(base)+'</span><strong>'+fmt(total)+'</strong></div>'+(pessoas.length?'<table class="modal-table-inner"><thead><tr><th>Colaborador</th><th class="money">Base PIS</th><th class="money">PIS (1%)</th></tr></thead><tbody>'+pessoas.map(function(p){return '<tr><td>'+esc(p.nome)+'</td><td class="money">'+fmt(p.base)+'</td><td class="money"><b>'+fmt(p.valor)+'</b></td></tr>';}).join('')+'<tr class="group-total"><td><b>Total oficial</b></td><td class="money"><b>'+fmt(base)+'</b></td><td class="money"><b>'+fmt(total)+'</b></td></tr></tbody></table>':'<p class="detail-empty">Dados individuais de PIS indisponíveis.</p>'));
++}
+@@ -491,1 +558,1 @@
 -      +'.rank{display:inline-block;width:1.4rem;color:var(--muted);font-size:.8rem;text-align:right;margin-right:.3rem}';
-+      +'.rank{display:inline-block;width:1.4rem;color:var(--muted);font-size:.8rem;text-align:right;margin-right:.3rem}.irrf-body{overflow-x:auto}.irrf-body .modal-table-inner{min-width:820px}#irrf-modal .modal-card{width:min(960px,calc(100vw - 32px))!important;max-width:min(960px,calc(100vw - 32px))!important;overflow:auto!important}.irrf-official-note{margin:.2rem 1.4rem .8rem;padding:.7rem .9rem;border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:.82rem;background:var(--surface-2)}';
++      +'.rank{display:inline-block;width:1.4rem;color:var(--muted);font-size:.8rem;text-align:right;margin-right:.3rem}.irrf-body{overflow-x:auto}.irrf-body .modal-table-inner{min-width:820px}#irrf-modal .modal-card{width:min(960px,calc(100vw - 32px))!important;max-width:min(960px,calc(100vw - 32px))!important;overflow:auto!important}.irrf-official-note{margin:.2rem 1.4rem .8rem;padding:.7rem .9rem;border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:.82rem;background:var(--surface-2)}.detail-clickable{cursor:pointer}.detail-clickable:hover{background:var(--surface-2)}.click-hint{display:block;color:var(--muted);font-size:.68rem;margin-top:.15rem}.kpi.clickable{cursor:pointer;text-align:left;color:inherit;font:inherit}.detail-summary{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem .9rem;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);margin-bottom:.8rem}.detail-summary strong{font-size:1.15rem}.detail-empty{color:var(--muted);padding:1rem 0}';
