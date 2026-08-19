@@ -1,10 +1,6 @@
 diff --git a/rh/app.js b/rh/app.js
 --- a/rh/app.js
 +++ b/rh/app.js
-@@ -12,1 +12,2 @@
--function esc(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];});}
-+function fixText(v){var s=String(v==null?'':v),m={'Ã¡':'á','Ã£':'ã','Ã¢':'â','Ã©':'é','Ãª':'ê','Ã­':'í','Ã³':'ó','Ã´':'ô','Ãµ':'õ','Ãº':'ú','Ã§':'ç','Ã':'Á','Ã‰':'É','ÃŠ':'Ê','Ã“':'Ó','Ãš':'Ú','Ã‡':'Ç','Â·':'·','â':'—','â¶':'▶','â':'─'};Object.keys(m).forEach(function(k){s=s.split(k).join(m[k]);});return s;}
-+function esc(v){return fixText(v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];});}
 @@ -69,5 +69,5 @@
 -  var baseInd=Number(p.base_inss)||0;
 -  if(baseTotal>0&&baseInd>0){
