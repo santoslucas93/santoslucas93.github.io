@@ -58,3 +58,21 @@ setupUI=function(){
     document.head.appendChild(st);
   }
 };
+
+/* Custo Real é criado dinamicamente e não possui .page-head; injeta os filtros diretamente no topo da página. */
+function rhV7EnsureCustoRealFilters(){
+  var page=$('page-custoreal');if(!page)return;
+  if(!$('custo-real-scope-filters')){
+    var bar=document.createElement('div');bar.id='custo-real-scope-filters';bar.className='filter-bar custo-real-scope-filters';
+    bar.innerHTML='<label class="rh-scope-label">Departamento<select id="rh-scope-dept-custoreal" data-rh-scope-dept></select></label>'
+      +'<label class="rh-scope-label">Vínculo<select id="rh-scope-vinc-custoreal" data-rh-scope-vinc></select></label>';
+    var anchor=$('custo-real-kpis');if(anchor&&anchor.parentNode===page)page.insertBefore(bar,anchor);else page.appendChild(bar);
+  }
+  if(!$('_rh_v7_custo_filters_style')){
+    var st=document.createElement('style');st.id='_rh_v7_custo_filters_style';
+    st.textContent='.custo-real-scope-filters{display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;margin:0 0 16px}.custo-real-scope-filters label{display:grid;gap:5px;color:var(--muted);font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:.08em}.custo-real-scope-filters select{min-width:190px;height:40px;padding:0 12px;border:1px solid var(--line-soft);border-radius:10px;background:var(--surface);color:var(--text)}@media(max-width:680px){.custo-real-scope-filters{justify-content:stretch}.custo-real-scope-filters label,.custo-real-scope-filters select{width:100%;min-width:0}}';
+    document.head.appendChild(st);
+  }
+}
+var _rhV7CostSetupUI=setupUI;
+setupUI=function(){_rhV7CostSetupUI();rhV7EnsureCustoRealFilters();};
