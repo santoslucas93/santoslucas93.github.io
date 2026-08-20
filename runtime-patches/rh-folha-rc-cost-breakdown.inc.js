@@ -1,19 +1,27 @@
-/* RH & Folha — composição clara do Custo Real por departamento */
+/* RH & Folha — composição sincronizada do Custo Real por departamento */
 function rhDepartmentCostPerson(p){
   var out={proventos:Number(p.proventos)||0,fgts:0,inss:0,rat:0,terceiros:0,pis:0,beneficios:0,encargos:0,total:0};
-  var employer=typeof rhEmployerCharges==='function'?rhEmployerCharges(p):{itens:[]};
+  var employer=typeof rhEmployerCharges==='function'?rhEmployerCharges(p):{itens:[],total:0};
   (employer.itens||[]).forEach(function(it){
     var k=cleanSearch(it[0]),v=Number(it[1])||0;
+    out.encargos+=v;
     if(k==='fgts')out.fgts+=v;
     else if(k.indexOf('inss patronal')>=0)out.inss+=v;
     else if(k==='rat')out.rat+=v;
     else if(k.indexOf('terceiros')>=0)out.terceiros+=v;
     else if(k==='pis')out.pis+=v;
   });
-  out.encargos=out.fgts+out.inss+out.rat+out.terceiros+out.pis;
-  var custo=custoEmpresa(p);
-  (custo.itens||[]).forEach(function(it){if(it[2]==='benefício')out.beneficios+=Number(it[1])||0;});
-  out.total=Number(custo.total)||0;
+  var b=typeof rhPersonBenefit==='function'?rhPersonBenefit(p):null;
+  if(b){
+    out.beneficios=(Number(b.seguro_vida)||0)
+      +(Number(b.assistencia_medica||b.assist_medica)||0)
+      +(Number(b.vr_caixa)||0)
+      +(Number(b.vale_transporte)||0);
+  }else{
+    var custo=typeof custoEmpresa==='function'?custoEmpresa(p):{itens:[]};
+    (custo.itens||[]).forEach(function(it){if(it[2]==='benefício')out.beneficios+=Number(it[1])||0;});
+  }
+  out.total=out.proventos+out.encargos+out.beneficios;
   return out;
 }
 function rhDepartmentCostTotals(items){
@@ -22,28 +30,45 @@ function rhDepartmentCostTotals(items){
     return t;
   },{proventos:0,fgts:0,inss:0,rat:0,terceiros:0,pis:0,beneficios:0,encargos:0,total:0});
 }
+function rhDepartmentCostModel(nome){
+  var key=rhDeptKey(nome),source=typeof rhScopePeople==='function'?rhScopePeople():S.pessoas;
+  var items=source.filter(function(p){return rhDeptKey(departmentName(p.departamento))===key;})
+    .map(function(p){return {person:p,cost:rhDepartmentCostPerson(p)};})
+    .sort(function(a,b){return b.cost.total-a.cost.total;});
+  return {nome:nome,items:items,totals:rhDepartmentCostTotals(items)};
+}
 function rhOpenDepartmentCostBreakdown(nome){
-  var key=rhDeptKey(nome);
-  var items=rhScopePeople().filter(function(p){return rhDeptKey(departmentName(p.departamento))===key;}).map(function(p){return {person:p,cost:rhDepartmentCostPerson(p)};}).sort(function(a,b){return b.cost.total-a.cost.total;});
-  var t=rhDepartmentCostTotals(items);
+  var model=rhDepartmentCostModel(nome),items=model.items,t=model.totals;
   if(!items.length){openGenericDetail(nome,'COMPOSIÇÃO DO CUSTO REAL','<p class="detail-empty">Nenhum colaborador para os filtros selecionados.</p>');return;}
   var summary=[['Proventos',t.proventos],['FGTS',t.fgts],['INSS patronal',t.inss],['RAT',t.rat],['Terceiros',t.terceiros],['PIS',t.pis],['Benefícios',t.beneficios],['Custo Real',t.total]];
   var html='<div class="rh-dept-cost-explain"><b>Como este valor é formado?</b><span>Proventos + FGTS + INSS Patronal + RAT + Terceiros + PIS + Benefícios = Custo Real</span></div>'
     +'<div class="rh-dept-cost-summary">'+summary.map(function(x,i){return '<div class="rh-dept-cost-card'+(i===summary.length-1?' featured':'')+'"><span>'+esc(x[0])+'</span><strong>'+fmt(x[1])+'</strong></div>';}).join('')+'</div>'
-    +'<div class="rh-dept-cost-note">Descontos, IRRF e INSS retido do colaborador não são somados ao Custo Real, pois são deduções do colaborador e não encargos patronais.</div>'
+    +'<div class="rh-dept-cost-note">O total acima é exatamente a mesma base usada no gráfico. Descontos, IRRF e INSS retido do colaborador não entram no Custo Real porque são deduções do colaborador, e não custo patronal da LNB.</div>'
     +'<h3 class="rh-dept-cost-title">Composição por colaborador</h3>'
     +'<table class="modal-table-inner responsive-table rh-dept-cost-table"><thead><tr><th>Colaborador</th><th class="money">Proventos</th><th class="money">Encargos</th><th class="money">Benefícios</th><th class="money">Custo Real</th></tr></thead><tbody>'
     +items.map(function(x){return '<tr><td><b>'+esc(x.person.nome)+'</b><small>'+esc(departmentName(x.person.departamento))+'</small></td><td class="money">'+fmt(x.cost.proventos)+'</td><td class="money">'+fmt(x.cost.encargos)+'</td><td class="money">'+fmt(x.cost.beneficios)+'</td><td class="money"><b>'+fmt(x.cost.total)+'</b></td></tr>';}).join('')
     +'</tbody>'+rhFoot(['TOTAL',fmt(t.proventos),fmt(t.encargos),fmt(t.beneficios),fmt(t.total)])+'</table>';
-  openGenericDetail('Custo Real — '+nome,'COMPOSIÇÃO DO DEPARTAMENTO',html);
+  openGenericDetail(nome,'COMPOSIÇÃO DO CUSTO REAL',html);
+}
+function rhSyncDepartmentCostChartData(data){
+  if(!data||!Array.isArray(data.labels)||!Array.isArray(data.datasets))return data;
+  var out=typeof rhUniversalClone==='function'?rhUniversalClone(data):JSON.parse(JSON.stringify(data));
+  var target=-1;
+  (out.datasets||[]).some(function(ds,i){if(cleanSearch(ds&&ds.label||'').indexOf('custo real')>=0){target=i;return true;}return false;});
+  if(target<0&&out.datasets.length===1)target=0;
+  if(target>=0){
+    out.datasets[target].data=out.labels.map(function(label){return rhDepartmentCostModel(label).totals.total;});
+  }
+  return out;
 }
 
-/* Nos gráficos de Custo Real por departamento, o clique deve explicar o Custo Real — não apenas proventos/descontos/líquido. */
+/* Indicadores e Dossiê usam a MESMA fonte para desenhar o valor e abrir sua composição. */
 var _rhDepartmentCostChart=chart;
 chart=function(id,type,data,options,clickHandler,fromCache){
   if(id==='chart-insight-dept'||id==='chart-dossier-dept'){
-    var labels=data&&data.labels?data.labels.slice():[];
+    var synced=rhSyncDepartmentCostChartData(data),labels=synced&&synced.labels?synced.labels.slice():[];
     clickHandler=function(e,els){if(els&&els.length){var label=labels[els[0].index];if(label!=null)rhOpenDepartmentCostBreakdown(label);}};
+    return _rhDepartmentCostChart(id,type,synced,options,clickHandler,fromCache);
   }
   return _rhDepartmentCostChart(id,type,data,options,clickHandler,fromCache);
 };
