@@ -58,6 +58,15 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 - [x] Seguro de Vida, Assistência Médica e Vale Transporte integrados pela Gestão de Benefícios.
 - [ ] Confirmar a fonte mensal persistida de VR / VA / Cesta Básica antes de considerar benefícios 100% fechados.
 
+## Auditoria e fechamento
+- [x] Auditoria automática usa a competência inteira, sem ser afetada pelos filtros de Departamento/Vínculo.
+- [x] Conferência de Proventos, Descontos, Líquido, Headcount, Base FGTS, FGTS, PIS, INSS patronal/RAT/Terceiros, IRRF, departamentos e benefícios.
+- [x] Divergências financeiras bloqueantes impedem avanço do fechamento.
+- [x] Status da competência: Importado → Conferido → Conciliado → Fechado.
+- [x] Alteração de status restrita a administrador do RH e registrada em auditoria.
+- [x] Competência fechada protegida contra nova importação ou exclusão.
+- [x] Junho/2026 normalizado para status inicial `importado`.
+
 ## Interface
 - [x] Tema claro com contraste reforçado.
 - [x] Gráficos reconstruídos ao alternar tema.
@@ -66,10 +75,9 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 - [x] Totais nas composições.
 
 ## Pendências para fechar a Fase 1
-- [ ] Auditoria de fechamento da competência: folha, FGTS, PIS, INSS/RAT/Terceiros, benefícios e departamentos.
-- [ ] Status da competência: Importado → Conferido → Conciliado → Fechado.
 - [ ] Consolidar histórico comparativo entre competências.
 - [ ] Revisar Movimentações: admissões, desligamentos, férias e afastamentos.
 - [ ] Dossiê/relatório executivo em PDF/Excel.
 - [ ] Rodada final de regressão em tema claro/escuro, filtros, drill-downs, permissões e login.
+- [ ] Reconciliar `staging` com os 11 commits exclusivos da `principal` antes da promoção.
 - [ ] Congelar RC final e somente então promover para `principal`.
