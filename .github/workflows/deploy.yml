@@ -14,6 +14,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Build and validate RH release candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat \
+            runtime-patches/rh-folha-hotfix-v2.inc.js \
+            runtime-patches/rh-folha-hotfix-v4.inc.js \
+            runtime-patches/rh-folha-hotfix-v6.inc.js \
+            runtime-patches/rh-folha-hotfix-v7.inc.js \
+            runtime-patches/rh-folha-hotfix-v8.inc.js \
+            > runtime-patches/rh-folha-rc.inc.js
+
+          node --check runtime-patches/rh-folha-rc.inc.js
+
+          node <<'NODE'
+          const fs = require('fs');
+          const source = fs.readFileSync('rh/app.js', 'utf8');
+          const rc = fs.readFileSync('runtime-patches/rh-folha-rc.inc.js', 'utf8');
+          const marker = "if(document.readyState==='loading')";
+          const index = source.lastIndexOf(marker);
+          if (index < 0) throw new Error('Marcador de inicialização do RH não encontrado.');
+          const effective = source.slice(0, index)
+            + '\n/* LNB RH RELEASE CANDIDATE */\n'
+            + rc
+            + '\n'
+            + source.slice(index);
+          fs.writeFileSync('/tmp/rh-app-effective.js', effective);
+          NODE
+
+          node --check /tmp/rh-app-effective.js
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
