@@ -98,6 +98,14 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 - [x] Análise automática das principais variações contra a competência anterior.
 - [x] Departamento com maior variação calculado a partir dos snapshots mensais quando houver duas competências.
 
+## Dossiê Executivo
+- [x] Nova tela Dossiê com resumo da competência e do escopo filtrado.
+- [x] Resumo financeiro, encargos, benefícios, custo médio e Custo Real.
+- [x] Rateio por departamento e movimentações da competência.
+- [x] Exportação Excel com Resumo Executivo, Departamentos, Colaboradores e Movimentações.
+- [x] Geração de versão para impressão/PDF em A4 paisagem.
+- [x] Departamento e Vínculo respeitados no relatório e nas exportações.
+
 ## Interface
 - [x] Tema claro com contraste reforçado.
 - [x] Gráficos reconstruídos ao alternar tema.
@@ -106,7 +114,6 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 - [x] Totais nas composições.
 
 ## Pendências para fechar a Fase 1
-- [ ] Dossiê/relatório executivo em PDF/Excel.
 - [ ] Rodada final de regressão em tema claro/escuro, filtros, drill-downs, permissões e login.
 - [ ] Reconciliar `staging` com os 11 commits exclusivos da `principal` antes da promoção.
 - [ ] Congelar RC final e somente então promover para `principal`.
