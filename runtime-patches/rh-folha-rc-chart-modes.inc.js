@@ -1,4 +1,4 @@
-/* RH & Folha — Release Candidate: modos de gráfico globais + ranking real */
+/* RH & Folha — Release Candidate: modos de gráfico globais + ranking em quadro */
 S.rhChartModes=S.rhChartModes||{};
 S.rhUniversalChartArgs=S.rhUniversalChartArgs||{};
 
@@ -67,14 +67,11 @@ function rhUniversalPieDatasets(data){
 }
 function rhUniversalTransform(id,type,data,options,clickHandler){
   var mode=S.rhChartModes[id]||'auto',d=rhUniversalClone(data||{}),o=rhUniversalClone(options||{}),t=type,h=clickHandler;
-  if(mode==='auto')return {type:t,data:d,options:o,clickHandler:h};
+  if(mode==='auto'||mode==='ranking')return {type:t,data:d,options:o,clickHandler:h};
   if(mode==='columns'){
     t='bar';delete o.indexAxis;
   }else if(mode==='bars'){
     t='bar';o.indexAxis='y';
-  }else if(mode==='ranking'){
-    t='bar';o.indexAxis='y';var ranked=rhUniversalRanking(d);d=ranked.data;h=rhUniversalClickMap(h,ranked.order);
-    o.plugins=o.plugins||{};o.plugins.title={display:true,text:'Ranking · maior para menor'};
   }else if(mode==='line'){
     t='line';delete o.indexAxis;rhUniversalLineDatasets(d);
   }else if(mode==='pie'){
@@ -87,16 +84,70 @@ function rhUniversalRenderCached(id){
   chart(id,a.type,a.data,a.options,a.clickHandler,true);
 }
 
+function rhUniversalRankingScoreRule(data){
+  var sets=data.datasets||[],preferred=-1;
+  sets.some(function(ds,i){var k=cleanSearch(ds&&ds.label||'');if(/(^|\s)(total|custo real|custo total)(\s|$)/.test(k)){preferred=i;return true;}return false;});
+  if(preferred<0)sets.some(function(ds,i){var k=cleanSearch(ds&&ds.label||'');if(k.indexOf('provent')>=0){preferred=i;return true;}return false;});
+  return {datasetIndex:preferred,sum:preferred<0&&sets.length>1};
+}
+function rhUniversalRankingScoreAt(data,index,rule){
+  if(rule.datasetIndex>=0){var v=Number(data.datasets[rule.datasetIndex]&&data.datasets[rule.datasetIndex].data&&data.datasets[rule.datasetIndex].data[index]);return isFinite(v)?v:0;}
+  return rhUniversalScore(data,index);
+}
+function rhUniversalIsCountSeries(ds){
+  var key=cleanSearch(ds&&ds.label||''),vals=(ds&&ds.data||[]).map(Number).filter(function(n){return isFinite(n);});
+  if(/pessoas|headcount|corridas|quantidade|qtd|colaboradores|funcionarios/.test(key))return true;
+  if(/valor|custo|provento|desconto|liquido|fgts|inss|pis|irrf|encargo|salario|beneficio|patronal|recolhimento|folha/.test(key))return false;
+  return vals.length>0&&vals.every(function(n){return Math.floor(n)===n;})&&Math.max.apply(Math,vals)<=500;
+}
+function rhUniversalRankingValue(ds,v){
+  var n=Number(v)||0,key=cleanSearch(ds&&ds.label||'');
+  if(/%|percent/.test(key))return n.toFixed(1).replace('.',',')+'%';
+  if(rhUniversalIsCountSeries(ds))return nfmt(n);
+  return fmt(n);
+}
+function rhUniversalRankingHost(id){
+  var canvas=$(id);if(!canvas)return null;
+  var wrap=canvas.closest('.chart-wrap')||canvas.parentNode;if(!wrap)return null;
+  var rid='rh-ranking-'+id,host=$(rid);
+  if(!host){host=document.createElement('div');host.id=rid;host.className='rh-ranking-view';host.hidden=true;wrap.appendChild(host);}
+  return host;
+}
+function rhUniversalHideRanking(id){
+  var canvas=$(id),host=$('rh-ranking-'+id),wrap=canvas&&(canvas.closest('.chart-wrap')||canvas.parentNode);
+  if(host)host.hidden=true;if(canvas)canvas.hidden=false;if(wrap)wrap.classList.remove('rh-ranking-active');
+}
+function rhUniversalRenderRanking(id,data,clickHandler){
+  var canvas=$(id),host=rhUniversalRankingHost(id);if(!canvas||!host)return;
+  if(S.charts[id]){try{S.charts[id].destroy();}catch(e){}delete S.charts[id];}
+  var wrap=canvas.closest('.chart-wrap')||canvas.parentNode;canvas.hidden=true;host.hidden=false;if(wrap)wrap.classList.add('rh-ranking-active');
+  var labels=(data.labels||[]).slice(),sets=(data.datasets||[]).filter(function(ds){return Array.isArray(ds.data);}),rule=rhUniversalRankingScoreRule(data),order=labels.map(function(_,i){return i;});
+  order.sort(function(a,b){var d=rhUniversalRankingScoreAt(data,b,rule)-rhUniversalRankingScoreAt(data,a,rule);return d||a-b;});
+  var addTotal=rule.sum,cols=2+sets.length+(addTotal?1:0);
+  var header='<div class="rh-rank-row rh-rank-head" style="--rh-rank-cols:'+cols+'"><div>#</div><div>Categoria</div>'+sets.map(function(ds){return '<div>'+esc(ds.label||'Valor')+'</div>';}).join('')+(addTotal?'<div>Total</div>':'')+'</div>';
+  var body=order.map(function(originalIndex,rank){
+    var total=rhUniversalScore(data,originalIndex),cells=sets.map(function(ds){return '<div class="rh-rank-value">'+esc(rhUniversalRankingValue(ds,ds.data[originalIndex]))+'</div>';}).join('');
+    return '<button type="button" class="rh-rank-row rh-rank-item" style="--rh-rank-cols:'+cols+'" data-rh-rank-index="'+originalIndex+'"><div class="rh-rank-pos">'+(rank+1)+'º</div><div class="rh-rank-name"><b>'+esc(labels[originalIndex]==null?'—':labels[originalIndex])+'</b><small>posição no ranking</small></div>'+cells+(addTotal?'<div class="rh-rank-total">'+esc(fmt(total))+'</div>':'')+'</button>';
+  }).join('');
+  var totals=sets.map(function(ds){var t=(ds.data||[]).reduce(function(a,v){var n=Number(v);return a+(isFinite(n)?n:0);},0);return '<div class="rh-rank-value">'+esc(rhUniversalRankingValue(ds,t))+'</div>';}).join('');
+  var grand=labels.reduce(function(a,_,i){return a+rhUniversalScore(data,i);},0);
+  var foot='<div class="rh-rank-row rh-rank-foot" style="--rh-rank-cols:'+cols+'"><div></div><div>TOTAL</div>'+totals+(addTotal?'<div class="rh-rank-total">'+esc(fmt(grand))+'</div>':'')+'</div>';
+  host.innerHTML='<div class="rh-rank-table">'+header+body+foot+'</div>';
+  Array.prototype.forEach.call(host.querySelectorAll('[data-rh-rank-index]'),function(row){row.onclick=function(){if(!clickHandler)return;var oi=Number(row.dataset.rhRankIndex),di=rule.datasetIndex>=0?rule.datasetIndex:0;clickHandler(null,[{index:oi,datasetIndex:di}]);};});
+}
+
 var _rhUniversalChartBase=chart;
 chart=function(id,type,data,options,clickHandler,fromCache){
   if(!fromCache)S.rhUniversalChartArgs[id]={type:type,data:rhUniversalClone(data||{}),options:rhUniversalClone(options||{}),clickHandler:clickHandler};
   rhUniversalEnsureSelector(id);
+  if((S.rhChartModes[id]||'auto')==='ranking'){rhUniversalRenderRanking(id,data||{},clickHandler);return null;}
+  rhUniversalHideRanking(id);
   var t=rhUniversalTransform(id,type,data,options,clickHandler);
   return _rhUniversalChartBase(id,t.type,t.data,t.options,t.clickHandler);
 };
 
 if(!$('_rh_universal_chart_styles')){
   var _rhucs=document.createElement('style');_rhucs.id='_rh_universal_chart_styles';
-  _rhucs.textContent='.rh-chart-mode-global{margin-left:auto}.rh-chart-mode select{min-width:118px}';
+  _rhucs.textContent='.rh-chart-mode-global{margin-left:auto}.rh-chart-mode select{min-width:118px}.chart-wrap.rh-ranking-active{height:auto!important;min-height:260px;overflow:hidden!important}.rh-ranking-view{width:100%;max-height:430px;overflow-y:auto;overflow-x:hidden;border:1px solid var(--line-soft);border-radius:12px;background:var(--surface-2)}.rh-rank-table{width:100%;min-width:0}.rh-rank-row{display:grid;grid-template-columns:42px minmax(135px,1.55fr) repeat(calc(var(--rh-rank-cols) - 2),minmax(74px,1fr));align-items:center;width:100%;min-width:0;border:0;border-bottom:1px solid var(--line-soft);background:transparent;color:var(--text);text-align:left;padding:0}.rh-rank-row>div{min-width:0;padding:10px 9px;overflow:hidden;text-overflow:ellipsis}.rh-rank-head{position:sticky;top:0;z-index:2;background:var(--surface);font-size:.67rem;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}.rh-rank-head>div:not(:nth-child(-n+2)){text-align:right}.rh-rank-item{cursor:pointer;font:inherit}.rh-rank-item:hover{background:rgba(255,255,255,.045)}.rh-rank-pos{font-weight:900;text-align:center}.rh-rank-name b{display:block;white-space:normal;line-height:1.15}.rh-rank-name small{display:block;margin-top:3px;color:var(--muted);font-size:.68rem;font-weight:600}.rh-rank-value,.rh-rank-total{text-align:right;white-space:nowrap;font-weight:750}.rh-rank-total{font-weight:950}.rh-rank-foot{position:sticky;bottom:0;background:var(--surface);font-weight:950;border-bottom:0;border-top:2px solid var(--gold)}body.light .rh-ranking-view{border-color:rgba(16,49,78,.24)!important;background:#fff!important}body.light .rh-rank-head,body.light .rh-rank-foot{background:#eef4f8!important;color:#213b55!important}body.light .rh-rank-item:hover{background:#f3f7fa!important}@media(max-width:760px){.rh-rank-row{grid-template-columns:38px minmax(110px,1.4fr) repeat(calc(var(--rh-rank-cols) - 2),minmax(0,1fr))}.rh-rank-row>div{padding:8px 6px;font-size:.72rem}.rh-rank-name small{display:none}}';
   document.head.appendChild(_rhucs);
 }
