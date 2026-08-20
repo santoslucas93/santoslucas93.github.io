@@ -67,6 +67,16 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 - [x] Competência fechada protegida contra nova importação ou exclusão.
 - [x] Junho/2026 normalizado para status inicial `importado`.
 
+## Histórico comparativo
+- [x] Nova tela Histórico com filtro por ano.
+- [x] Evolução mensal de Proventos, Descontos e Líquido.
+- [x] Evolução de FGTS, Encargos Patronais, PIS e IRRF da folha.
+- [x] Headcount e Custo folha + encargos por competência.
+- [x] Variação mensal em R$ e percentual a partir da segunda competência.
+- [x] Competências e pontos dos gráficos clicáveis com detalhamento e acesso à competência original.
+- [x] Benefícios históricos não são replicados retroativamente; a tela só os considera quando houver snapshot mensal persistido.
+- [x] Junho/2026 registrado como mês-base do histórico atual.
+
 ## Interface
 - [x] Tema claro com contraste reforçado.
 - [x] Gráficos reconstruídos ao alternar tema.
@@ -75,7 +85,6 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 - [x] Totais nas composições.
 
 ## Pendências para fechar a Fase 1
-- [ ] Consolidar histórico comparativo entre competências.
 - [ ] Revisar Movimentações: admissões, desligamentos, férias e afastamentos.
 - [ ] Dossiê/relatório executivo em PDF/Excel.
 - [ ] Rodada final de regressão em tema claro/escuro, filtros, drill-downs, permissões e login.
