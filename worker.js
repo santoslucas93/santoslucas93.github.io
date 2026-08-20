@@ -4,12 +4,27 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/api/gemini' && request.method === 'POST') return handleGemini(request, env);
     if (url.pathname === '/api/config' && request.method === 'GET') return handleConfig(env);
+    if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) return handleHubBranding(request, env);
     if (request.method === 'GET' && (url.pathname === '/orcado/' || url.pathname === '/orcado/index.html')) return handleOrcadoComPermissoes(request, env);
     if (request.method === 'GET' && (url.pathname === '/beneficios/' || url.pathname === '/beneficios/index.html')) return handleBeneficiosComRastreabilidade(request, env);
     if (request.method === 'GET' && url.pathname === '/rh/app.js') return handleRhAppPatch(request, env);
     return env.ASSETS.fetch(request);
   }
 };
+
+async function handleHubBranding(request, env) {
+  const asset = await env.ASSETS.fetch(request);
+  if (!asset.ok) return asset;
+  const html = await asset.text();
+  const marker = 'data-lnb-hub-branding="v1"';
+  if (html.includes(marker)) return responsePatchedHtml(asset, html, 'x-lnb-hub-branding', 'v1');
+  const style = '<link rel="stylesheet" href="/runtime-patches/hub-branding.css?v=1" '+marker+'>';
+  const script = '<script src="/runtime-patches/hub-branding.js?v=1" '+marker+'></' + 'script>';
+  let out = html;
+  if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
+  if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;
+  return responsePatchedHtml(asset, out, 'x-lnb-hub-branding', 'v1');
+}
 
 async function handleOrcadoComPermissoes(request, env) {
   const asset = await env.ASSETS.fetch(request);
@@ -71,6 +86,15 @@ function injectIaTraceability(html, moduleName) {
   if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
   if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;
   return out;
+}
+
+function responsePatchedHtml(original, body, headerName, headerValue) {
+  const headers = new Headers(original.headers);
+  headers.delete('content-length');
+  headers.set('content-type', 'text/html; charset=utf-8');
+  headers.set('cache-control', 'no-store');
+  if (headerName) headers.set(headerName, headerValue || '1');
+  return new Response(body, { status: original.status, headers });
 }
 
 function responseHtml(original, body, patchStatus) {
