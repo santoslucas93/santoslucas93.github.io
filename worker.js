@@ -43,7 +43,8 @@ async function handleRhAppPatch(request, env) {
       new URL('/runtime-patches/rh-folha-hotfix-v2.inc.js', request.url),
       new URL('/runtime-patches/rh-folha-hotfix-v4.inc.js', request.url),
       new URL('/runtime-patches/rh-folha-hotfix-v6.inc.js', request.url),
-      new URL('/runtime-patches/rh-folha-hotfix-v7.inc.js', request.url)
+      new URL('/runtime-patches/rh-folha-hotfix-v7.inc.js', request.url),
+      new URL('/runtime-patches/rh-folha-hotfix-v8.inc.js', request.url)
     ];
     const responses = await Promise.all(urls.map(u => env.ASSETS.fetch(new Request(u, { method: 'GET' }))));
     if (responses.some(r => !r.ok)) throw new Error('Hotfix do RH indisponivel.');
@@ -51,12 +52,12 @@ async function handleRhAppPatch(request, env) {
     const bootMarker = "if(document.readyState==='loading')";
     const index = source.lastIndexOf(bootMarker);
     if (index < 0) throw new Error('Marcador de inicializacao do RH nao encontrado.');
-    const injected = source.slice(0, index) + '\n/* LNB RH HOTFIX V2+V4+V6+V7 */\n' + parts.join('\n') + '\n' + source.slice(index);
+    const injected = source.slice(0, index) + '\n/* LNB RH HOTFIX V2+V4+V6+V7+V8 */\n' + parts.join('\n') + '\n' + source.slice(index);
     const headers = new Headers(asset.headers);
     headers.delete('content-length');
     headers.set('content-type', 'application/javascript; charset=utf-8');
     headers.set('cache-control', 'no-store');
-    headers.set('x-lnb-rh-patch', 'hotfix-v7');
+    headers.set('x-lnb-rh-patch', 'hotfix-v8');
     return new Response(injected, { status: asset.status, headers });
   } catch (error) {
     console.error('Falha ao injetar hotfix do RH:', error);
