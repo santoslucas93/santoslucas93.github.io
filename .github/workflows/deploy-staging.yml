@@ -28,6 +28,7 @@ jobs:
             runtime-patches/rh-folha-hotfix-v8.inc.js \
             runtime-patches/rh-folha-rc-audit.inc.js \
             runtime-patches/rh-folha-rc-history.inc.js \
+            runtime-patches/rh-folha-rc-movements.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
@@ -39,7 +40,7 @@ jobs:
           const marker = "if(document.readyState==='loading')";
           const index = source.lastIndexOf(marker);
           if (index < 0) throw new Error('Marcador de inicialização do RH não encontrado.');
-          for (const required of ['rhScopePeople', 'page-custoreal', 'openPisBreakdown', 'renderCustoReal', 'rhAuditChecks', 'rhAdvanceClosing', 'rhHistoryModel', 'renderHistory']) {
+          for (const required of ['rhScopePeople', 'page-custoreal', 'openPisBreakdown', 'renderCustoReal', 'rhAuditChecks', 'rhAdvanceClosing', 'rhHistoryModel', 'renderHistory', 'rhMovementEvents', 'rhBuildBenefitSnapshot']) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);
           }
           const effective = source.slice(0, index)
