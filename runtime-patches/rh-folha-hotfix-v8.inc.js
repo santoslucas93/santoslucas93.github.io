@@ -66,6 +66,7 @@ setupUI=function(){
       +'body.light #chart-custo-real,body.light #chart-departamentos,body.light #chart-rateio,body.light #chart-composicao,body.light #chart-vinculos,body.light #chart-rubricas,body.light #chart-encargos{opacity:1!important}';
     document.head.appendChild(st);
   }
+  rhEnsureScreenDeptFilters();
 };
 
 /* Ao alternar o tema, reconstruir os gráficos já com a paleta/contraste corretos. */
@@ -74,3 +75,86 @@ applyTheme=function(){
   _rhV8ApplyTheme();
   if(S.competencia){setTimeout(function(){try{renderCharts();renderCustoReal();}catch(e){}},0);}
 };
+
+/* Fechamento global de qualquer popup/modal com Esc. */
+if(!window.__lnbRhEscPopupBound){
+  window.__lnbRhEscPopupBound=true;
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape'&&e.key!=='Esc')return;
+    var open=Array.prototype.slice.call(document.querySelectorAll('.modal')).filter(function(m){return m&&!m.hidden&&getComputedStyle(m).display!=='none';});
+    if(open.length){open[open.length-1].hidden=true;e.preventDefault();e.stopPropagation();}
+  },true);
+}
+
+/* Filtro real e sincronizado de departamento em todas as telas analíticas. */
+function rhDeptValue(){var master=$('filter-dept');return master?master.value:'';}
+function rhDeptOptions(){
+  var seen={},out=[];
+  S.pessoas.forEach(function(p){var raw=String(p.departamento==null?'':p.departamento),label=departmentName(p.departamento);if(!raw||seen[raw])return;seen[raw]=1;out.push({value:raw,label:label});});
+  return out.sort(function(a,b){return a.label.localeCompare(b.label,'pt-BR',{sensitivity:'base'});});
+}
+function rhSyncDeptSelects(value,source){
+  document.querySelectorAll('[data-rh-dept-filter]').forEach(function(sel){if(sel!==source)sel.value=value;});
+  var master=$('filter-dept');if(master&&master!==source)master.value=value;
+}
+function rhRefreshDeptScope(){
+  try{renderKpis();renderPeople();renderPayroll();renderRubrics();renderCharges();renderMovements();renderDepartments();renderCharts();renderCustoReal();}catch(e){console.error('Falha ao atualizar filtro de departamento',e);}
+}
+function rhCreateDeptFilter(pageId){
+  var page=$(pageId);if(!page)return;
+  var head=page.querySelector('.page-head');if(!head)return;
+  var id='rh-dept-'+pageId.replace('page-','');if($(id))return;
+  var actions=head.querySelector('.head-actions');if(!actions){actions=document.createElement('div');actions.className='head-actions';head.appendChild(actions);}
+  var label=document.createElement('label');label.innerHTML='Departamento<select id="'+id+'" data-rh-dept-filter><option value="">Todos os departamentos</option></select>';actions.insertBefore(label,actions.firstChild);
+  var sel=$(id);sel.onchange=function(){var master=$('filter-dept');if(master)master.value=sel.value;rhSyncDeptSelects(sel.value,sel);rhRefreshDeptScope();};
+}
+function rhPopulateDeptFilters(){
+  var opts=rhDeptOptions(),value=rhDeptValue();
+  document.querySelectorAll('[data-rh-dept-filter]').forEach(function(sel){var cur=value;sel.innerHTML='<option value="">Todos os departamentos</option>'+opts.map(function(o){return '<option value="'+esc(o.value)+'">'+esc(o.label)+'</option>';}).join('');sel.value=cur;});
+}
+function rhEnsureScreenDeptFilters(){
+  ['page-colaboradores','page-folha','page-rubricas','page-encargos','page-custoreal'].forEach(rhCreateDeptFilter);
+  rhPopulateDeptFilters();
+  var master=$('filter-dept');if(master&&!master.__rhGlobalBound){master.__rhGlobalBound=true;master.addEventListener('change',function(){rhSyncDeptSelects(master.value,master);rhRefreshDeptScope();});}
+}
+
+/* Scope real do filtro: todas as telas abaixo usam somente as pessoas filtradas. */
+var _rhV8FilteredPessoas=filteredPessoas;
+filteredPessoas=function(){
+  var base=_rhV8FilteredPessoas();
+  var master=$('filter-dept'),dept=master?master.value:'';
+  if(!dept)return base;
+  return base.filter(function(p){return String(p.departamento)===String(dept);});
+};
+
+var _rhV8RenderKpis=renderKpis;
+renderKpis=function(){
+  var rows=filteredPessoas(),t={p:0,d:0,l:0},v={clt:0,estagiario:0,outros:0};
+  rows.forEach(function(p){t.p+=Number(p.proventos)||0;t.d+=Number(p.descontos)||0;t.l+=Number(p.liquido)||0;var k=rhVinculoCategory(p);v[k]=(v[k]||0)+1;});
+  $('kpi-proventos').textContent=fmt(t.p);$('kpi-descontos').textContent=fmt(t.d);$('kpi-liquido').textContent=fmt(t.l);$('kpi-pessoas').textContent=nfmt(rows.length);if($('kpi-vinculos'))$('kpi-vinculos').textContent=v.clt+' CLT · '+v.estagiario+' Estagiários · '+v.outros+' Outros';
+  if(typeof rhBindOverviewCards==='function')rhBindOverviewCards();
+};
+
+var _rhV8RenderPayroll=renderPayroll;
+renderPayroll=function(){
+  var rows=filteredPessoas().slice().sort(function(a,b){return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{sensitivity:'base'});});
+  var pf=($('payroll-vinculo-filter')&&$('payroll-vinculo-filter').value)||'';if(pf)rows=rows.filter(function(p){return rhVinculoCategory(p)===pf;});
+  $('payroll-rows').innerHTML=rows.length?rows.map(function(p){return '<tr><td><b>'+esc(p.nome)+'</b><br><small>'+esc(departmentName(p.departamento))+'</small></td><td class="money">'+fmt(p.salario)+'</td><td class="money">'+fmt(p.proventos)+'</td><td class="money">'+fmt(p.descontos)+'</td><td class="money"><b>'+fmt(p.liquido)+'</b></td><td><button class="detail-button" data-person="'+esc(p.id)+'">Detalhar</button></td></tr>';}).join(''):emptyRow(6,'Nenhum colaborador neste departamento.');bindPersonButtons();
+};
+
+var _rhV8RenderRubrics=renderRubrics;
+renderRubrics=function(){
+  var rows=filteredPessoas(),map={};rows.forEach(function(p){(p.lancamentos||[]).forEach(function(x){var k=(x.rubrica_codigo||'')+'|'+x.rubrica_nome+'|'+x.tipo;if(!map[k])map[k]={codigo:x.rubrica_codigo,nome:x.rubrica_nome,tipo:x.tipo,valor:0};map[k].valor+=Number(x.valor)||0;});});
+  var a=Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){return b.valor-a.valor;});$('rubric-rows').innerHTML=a.length?a.map(function(x,i){return '<tr class="detail-clickable" data-rubric-scope="'+i+'"><td>'+esc(x.codigo||'—')+'</td><td><b>'+esc(rhFixTextValue(x.nome))+'</b><small class="click-hint">Clique para ver a composição</small></td><td><span class="status">'+esc(x.tipo)+'</span></td><td class="money">'+fmt(x.valor)+'</td></tr>';}).join(''):emptyRow(4,'Sem rubricas neste departamento.');document.querySelectorAll('[data-rubric-scope]').forEach(function(tr){tr.onclick=function(){openRubricBreakdown(a[Number(tr.dataset.rubricScope)]);};});
+};
+
+var _rhV8RenderDepartments=renderDepartments;
+renderDepartments=function(){
+  var m={};filteredPessoas().forEach(function(p){var k=departmentName(p.departamento);if(!m[k])m[k]={nome:k,proventos:0,descontos:0,liquido:0};m[k].proventos+=Number(p.proventos)||0;m[k].descontos+=Number(p.descontos)||0;m[k].liquido+=Number(p.liquido)||0;});var a=Object.keys(m).map(function(k){return m[k];});$('department-rows').innerHTML=a.length?a.map(function(x,i){return '<tr class="detail-clickable" data-dept-scope="'+i+'"><td><b>'+esc(x.nome)+'</b></td><td class="money">'+fmt(x.proventos)+'</td><td class="money">'+fmt(x.descontos)+'</td><td class="money">'+fmt(x.liquido)+'</td></tr>';}).join(''):emptyRow(4,'Sem rateio neste departamento.');document.querySelectorAll('[data-dept-scope]').forEach(function(tr){tr.onclick=function(){openDepartmentBreakdown(a[Number(tr.dataset.deptScope)].nome);};});
+};
+
+var _rhV8RenderCharts=renderCharts;
+renderCharts=function(){_rhV8RenderCharts();rhPopulateDeptFilters();};
+
+var _rhV8RenderAll=renderAll;
+renderAll=function(){_rhV8RenderAll();rhEnsureScreenDeptFilters();};
