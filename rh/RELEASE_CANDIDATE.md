@@ -49,13 +49,15 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 - [x] Popups e tabelas sem rolagem lateral desnecessária.
 - [x] Totais ao final das colunas numéricas.
 
-## Custo Real
+## Custo Real e benefícios
 - [x] Proventos + FGTS + INSS patronal + RAT + Terceiros + PIS + benefícios integrados.
 - [x] Encargos patronais em vermelho no gráfico.
 - [x] Cards clicáveis com composição.
 - [x] Filtros de Departamento e Vínculo visíveis no topo.
 - [x] Filtros recalculam cards, tabela e gráfico.
 - [x] Seguro de Vida, Assistência Médica e Vale Transporte integrados pela Gestão de Benefícios.
+- [x] Snapshot mensal de benefícios criado e vinculado ao fluxo de Conciliação/Fechamento.
+- [x] Competências com snapshot passam a usar os benefícios históricos em vez da base atual.
 - [ ] Confirmar a fonte mensal persistida de VR / VA / Cesta Básica antes de considerar benefícios 100% fechados.
 
 ## Auditoria e fechamento
@@ -75,7 +77,26 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 - [x] Variação mensal em R$ e percentual a partir da segunda competência.
 - [x] Competências e pontos dos gráficos clicáveis com detalhamento e acesso à competência original.
 - [x] Benefícios históricos não são replicados retroativamente; a tela só os considera quando houver snapshot mensal persistido.
+- [x] Histórico individual por colaborador com departamento, vínculo, proventos, líquido, encargos, benefícios e custo.
 - [x] Junho/2026 registrado como mês-base do histórico atual.
+
+## Movimentações
+- [x] Snapshot de departamento, vínculo, cargo, situação, centro de custo e admissão em cada competência.
+- [x] Admissões e desligamentos identificados na competência.
+- [x] Férias identificadas por situação/rubricas regulares, sem tratar verbas proporcionais de rescisão como férias gozadas.
+- [x] Afastamentos identificados pela situação do colaborador.
+- [x] Transferências/alterações de departamento, vínculo e cargo comparadas contra a competência anterior.
+- [x] Filtros globais de Departamento e Vínculo respeitados.
+- [x] Movimentações clicáveis com detalhamento.
+
+## Indicadores executivos
+- [x] Custo médio por pessoa.
+- [x] Encargos como percentual dos proventos.
+- [x] Benefícios como percentual do custo.
+- [x] Custo médio CLT e Estagiário.
+- [x] Custo Real por departamento e custo médio por vínculo em gráficos clicáveis.
+- [x] Análise automática das principais variações contra a competência anterior.
+- [x] Departamento com maior variação calculado a partir dos snapshots mensais quando houver duas competências.
 
 ## Interface
 - [x] Tema claro com contraste reforçado.
@@ -85,7 +106,6 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 - [x] Totais nas composições.
 
 ## Pendências para fechar a Fase 1
-- [ ] Revisar Movimentações: admissões, desligamentos, férias e afastamentos.
 - [ ] Dossiê/relatório executivo em PDF/Excel.
 - [ ] Rodada final de regressão em tema claro/escuro, filtros, drill-downs, permissões e login.
 - [ ] Reconciliar `staging` com os 11 commits exclusivos da `principal` antes da promoção.
