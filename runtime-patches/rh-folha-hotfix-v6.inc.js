@@ -44,11 +44,12 @@ function rhBindOverviewCards(){
   rhCardAction($('kpi-pessoas'),rhOpenPeopleOverview);
 }
 
-var _rhV6RenderSummary=renderSummary;
-renderSummary=function(){
-  _rhV6RenderSummary();
+var _rhV6RenderKpis=renderKpis;
+renderKpis=function(){
+  _rhV6RenderKpis();
   var v={clt:0,estagiario:0,outros:0};
   S.pessoas.forEach(function(p){var k=rhVinculoCategory(p);v[k]=(v[k]||0)+1;});
+  if($('kpi-pessoas'))$('kpi-pessoas').textContent=nfmt(S.pessoas.length);
   if($('kpi-vinculos'))$('kpi-vinculos').textContent=v.clt+' CLT · '+v.estagiario+' Estagiários · '+v.outros+' Outros';
   rhBindOverviewCards();
 };
