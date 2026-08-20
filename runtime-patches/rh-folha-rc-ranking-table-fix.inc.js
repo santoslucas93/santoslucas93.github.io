@@ -62,6 +62,6 @@ rhUniversalRenderRanking=function(id,data,clickHandler){
 
 if(!$('_rh_ranking_table_fix_styles')){
   var st=document.createElement('style');st.id='_rh_ranking_table_fix_styles';
-  st.textContent='.rh-ranking-view{max-height:430px!important;overflow-y:auto!important;overflow-x:hidden!important}.rh-rank-row{grid-template-columns:none!important}.rh-rank-row[style]{grid-template-columns:var(--rank-template)!important}.rh-rank-head{box-shadow:0 1px 0 var(--line-soft)}.rh-rank-pos{font-size:.8rem}.rh-rank-name b{font-weight:850}.rh-rank-value,.rh-rank-total{font-variant-numeric:tabular-nums}.rh-rank-foot{z-index:2}@media(max-width:760px){.rh-rank-row>div{padding:8px 5px!important;font-size:.7rem!important}.rh-rank-name b{font-size:.72rem}}';
+  st.textContent='.rh-ranking-view{max-height:430px!important;overflow-y:auto!important;overflow-x:hidden!important}.rh-rank-head{box-shadow:0 1px 0 var(--line-soft)}.rh-rank-pos{font-size:.8rem}.rh-rank-name b{font-weight:850}.rh-rank-value,.rh-rank-total{font-variant-numeric:tabular-nums}.rh-rank-foot{z-index:2}@media(max-width:760px){.rh-rank-row>div{padding:8px 5px!important;font-size:.7rem!important}.rh-rank-name b{font-size:.72rem}}';
   document.head.appendChild(st);
 }
