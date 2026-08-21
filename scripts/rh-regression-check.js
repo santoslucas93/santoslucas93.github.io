@@ -7,13 +7,16 @@ const workflow = read('.github/workflows/deploy-staging.yml');
 const baseline = read('runtime-patches/rh-folha-stability-baseline.inc.js');
 const ui = read('runtime-patches/rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
 const reports = read('runtime-patches/rh-folha-hotfix-v40-relatorios-executivos.inc.js');
+const stability40 = read('runtime-patches/rh-folha-hotfix-v40a-runtime-stability.inc.js');
 
 const orderBaseline = workflow.indexOf('rh-folha-stability-baseline.inc.js');
 const orderUi = workflow.indexOf('rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
 const orderV40 = workflow.indexOf('rh-folha-hotfix-v40-relatorios-executivos.inc.js');
+const orderV40a = workflow.indexOf('rh-folha-hotfix-v40a-runtime-stability.inc.js');
 assert(orderBaseline >= 0, 'baseline de estabilidade não está no release candidate');
 assert(orderUi > orderBaseline, 'baseline precisa ser carregado antes da camada visual v38');
 assert(orderV40 > orderUi, 'v40 precisa ser carregado depois da camada visual para assumir o card fit e os relatórios');
+assert(orderV40a > orderV40, 'v40a precisa ser carregado após o v40');
 assert(!workflow.includes('rh-folha-hotfix-v37-ativos-cards-provisoes.inc.js'), 'v37 obsoleto ainda está sendo carregado');
 assert(!workflow.includes('rh-folha-hotfix-v30-planejamento-tabelas.inc.js'), 'v30 obsoleto não pode voltar ao release');
 assert(!workflow.includes('rh-folha-hotfix-v16-card-fit-canvas.inc.js'), 'card fit v16 com MutationObserver não pode coexistir com o v40');
@@ -48,5 +51,10 @@ assert(reports.includes('ExcelJS'), 'Excel executivo precisa usar ExcelJS para m
 assert(reports.includes('Guia Gerencial'), 'v40 precisa gerar guias gerenciais de encargos');
 assert(reports.includes('não substitui DARF'), 'guias gerenciais precisam deixar claro que não são documentos oficiais');
 assert(reports.includes('Conferência'), 'Excel executivo precisa trazer aba de conferência');
+
+assert(stability40.includes('RH_V40A_STABILITY'), 'v40a sem marcador de estabilidade');
+assert(stability40.includes('selectCompetence'), 'seletor executivo precisa carregar a competência escolhida');
+assert(stability40.includes('rhFitAllCardValues'), 'interações precisam reaplicar o encaixe dos cards');
+assert(!stability40.includes("busy(this,'Carregando...'"), 'select não pode ser tratado como botão e perder suas opções');
 
 console.log('RH regression baseline: OK');
