@@ -1,2 +1,0 @@
-v41 central de relatórios e documentos
-release: central visível + PDF/Excel + guias gerenciais + provisões + rescisões
