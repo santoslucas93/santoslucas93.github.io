@@ -37,6 +37,7 @@ jobs:
             runtime-patches/rh-folha-rc-ranking-table-fix.inc.js \
             runtime-patches/rh-folha-rc-cost-breakdown.inc.js \
             runtime-patches/rh-folha-hotfix-v11-import.inc.js \
+            runtime-patches/rh-folha-hotfix-v12-periodo-consolidado.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
@@ -48,7 +49,7 @@ jobs:
           const marker = "if(document.readyState==='loading')";
           const index = source.lastIndexOf(marker);
           if (index < 0) throw new Error('Marcador de inicialização do RH não encontrado.');
-          for (const required of ['rhScopePeople', 'page-custoreal', 'openPisBreakdown', 'renderCustoReal', 'rhAuditChecks', 'rhAdvanceClosing', 'rhHistoryModel', 'renderHistory', 'rhMovementEvents', 'rhBuildBenefitSnapshot', 'renderInsights', 'renderPersonHistory', 'rhEnsurePersonHistoryUI', 'rhDossierModel', 'rhExportDossierExcel', 'rhPrintDossier', 'rhInterCardify', 'rhInterRenderHistoryCharts', 'rhInterRenderInsightsCharts', 'rhInterRenderDossierCharts', 'rhUniversalEnsureSelector', 'rhUniversalRanking', 'rhUniversalTransform', 'rhRankingApplyTemplate', 'rhRankingAggregateValue', 'rhOpenDepartmentCostBreakdown', 'rhDepartmentCostPerson', 'rhImportCompanyCode']) {
+          for (const required of ['rhScopePeople', 'page-custoreal', 'openPisBreakdown', 'renderCustoReal', 'rhAuditChecks', 'rhAdvanceClosing', 'rhHistoryModel', 'renderHistory', 'rhMovementEvents', 'rhBuildBenefitSnapshot', 'renderInsights', 'renderPersonHistory', 'rhEnsurePersonHistoryUI', 'rhDossierModel', 'rhExportDossierExcel', 'rhPrintDossier', 'rhInterCardify', 'rhInterRenderHistoryCharts', 'rhInterRenderInsightsCharts', 'rhInterRenderDossierCharts', 'rhUniversalEnsureSelector', 'rhUniversalRanking', 'rhUniversalTransform', 'rhRankingApplyTemplate', 'rhRankingAggregateValue', 'rhOpenDepartmentCostBreakdown', 'rhDepartmentCostPerson', 'rhImportCompanyCode', 'rhPeriodLoad', 'rhPeriodEnsureUI', 'rhPeriodSyntheticCompetence']) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);
           }
           const effective = source.slice(0, index)
