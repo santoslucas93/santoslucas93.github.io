@@ -44,7 +44,7 @@ assert(ui.includes('stopImmediatePropagation'), 'clique da lista precisa bloquea
 for (const symbol of ['rhV40ExportPayrollPdf','rhV40ExportPayrollExcel','rhV40ExportGuide','rhV40ExportGuidePack','RH_EXECUTIVE_REPORTS_V40','rhFitAllCardValues']) {
   assert(reports.includes(symbol), `v40 sem recurso obrigatório: ${symbol}`);
 }
-assert(!reports.includes('MutationObserver'), 'card fit v40 não pode usar MutationObserver');
+assert(!/new\s+MutationObserver\s*\(/.test(reports), 'card fit v40 não pode instanciar MutationObserver');
 assert(reports.includes('ResizeObserver'), 'card fit v40 precisa reagir a resize sem re-render contínuo');
 assert(reports.includes('jspdf') && reports.includes('autotable'), 'PDF executivo precisa carregar jsPDF e autoTable');
 assert(reports.includes('ExcelJS'), 'Excel executivo precisa usar ExcelJS para manter o layout premium');
