@@ -1,0 +1,105 @@
+/* RH v38 — Planejamento: quadro ativo persistente e UI simples após qualquer rerender */
+(function(){
+'use strict';
+var V={ids:null,names:new Set(),latest:null,loading:null,obs:null,timer:0};
+function E(id){return document.getElementById(id)}
+function norm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase()}
+function inactive(v){return /demit|deslig|rescind|inativ|transferid/.test(norm(v))}
+function key(p){return String(p&&p.colaborador_id||p&&p.id||'')}
+function parseMoney(v){return Number(String(v||'').replace(/R\$|\s/g,'').replace(/\./g,'').replace(',','.'))||0}
+function money(v){try{return fmt(Number(v)||0)}catch(e){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v)||0)}}
+function setText(el,v){if(el&&el.textContent!==v)el.textContent=v}
+async function rhV38LoadRoster(){
+  if(V.loading)return V.loading;
+  V.loading=(async function(){
+    var comps=await api('rh_competencias?select=id,competencia&order=competencia.desc&limit=1');
+    var c=comps&&comps[0];if(!c)return null;
+    var rows=await api('rh_folha_colaboradores?competencia_id=eq.'+encodeURIComponent(c.id)+'&select=colaborador_id,situacao_snapshot');
+    var ids=new Set();(rows||[]).forEach(function(r){if(r.colaborador_id&&!inactive(r.situacao_snapshot))ids.add(String(r.colaborador_id))});
+    var names=new Set();(S.colaboradores||[]).forEach(function(p){if(ids.has(String(p.id)))names.add(norm(p.nome))});
+    (S.pessoas||[]).forEach(function(p){if(ids.has(key(p)))names.add(norm(p.nome))});
+    V.ids=ids;V.names=names;V.latest={id:c.id,competencia:c.competencia,ativos:ids.size,total:(rows||[]).length};
+    window.RH_CURRENT_ACTIVE_IDS=ids;window.RH_CURRENT_ACTIVE_META=V.latest;
+    return V.latest;
+  })().finally(function(){V.loading=null});
+  return V.loading;
+}
+function isActiveRow(tr){
+  if(!V.ids)return true;
+  var id=String(tr.dataset.id||tr.dataset.colaboradorId||'');
+  if(id)return V.ids.has(id);
+  var td=tr.cells&&tr.cells[0],name=norm(td&&td.textContent);return !name||V.names.has(name);
+}
+function removeExecutiveSummary(pane){
+  Array.from(pane.querySelectorAll('article.table-panel')).forEach(function(article){
+    var table=article.querySelector('table'),title=norm((article.querySelector('h2')||{}).textContent),kick=norm((article.querySelector('.panel-kicker')||{}).textContent);
+    if((table&&!table.classList.contains('rh26-wide'))||title.indexOf('centro de custo')>=0||kick==='resumo executivo')article.remove();
+  });
+}
+function makeNameOnly(kind){
+  var pane=document.querySelector('[data-plan-pane="'+kind+'"]');if(!pane)return;
+  removeExecutiveSummary(pane);
+  var table=pane.querySelector('table.rh26-wide');if(!table)return;
+  table.classList.add('rh38-name-list');
+  Array.from(table.querySelectorAll('tbody tr')).forEach(function(tr){if(!isActiveRow(tr))tr.remove()});
+  var thead=table.tHead;if(thead){Array.from(thead.querySelectorAll('.rh30-group-head')).forEach(function(x){x.remove()});if(thead.rows[0]&&thead.rows[0].cells[0])setText(thead.rows[0].cells[0],'Colaborador')}
+  var article=table.closest('article.table-panel');if(article){
+    var title=article.querySelector('.panel-head h2'),note=article.querySelector('.detail-note');
+    setText(title,kind==='13'?'Colaboradores — provisão de 13º':'Colaboradores — provisão de férias');
+    setText(note,'Clique no colaborador para abrir a memória de cálculo completa.');
+  }
+  var wrap=table.closest('.table-wrap');if(wrap){wrap.classList.remove('rh30-scroll');var prev=wrap.previousElementSibling;if(prev&&prev.classList.contains('rh30-scroll-note'))prev.remove()}
+  Array.from(table.querySelectorAll('tbody tr')).forEach(function(tr){var first=tr.cells&&tr.cells[0];if(!first)return;Array.from(first.querySelectorAll('small')).forEach(function(s){s.style.display='none'});first.title='Clique para abrir a memória de cálculo'});
+}
+function filterForecast(){
+  var pane=document.querySelector('[data-plan-pane="folha"]');if(!pane||!V.ids)return;
+  var table=pane.querySelector('table');if(!table)return;
+  Array.from(table.querySelectorAll('tbody tr')).forEach(function(tr){if(!isActiveRow(tr))tr.remove()});
+  var rows=Array.from(table.querySelectorAll('tbody tr')),sum={prov:0,disc:0,liq:0,enc:0,ben:0,custo:0};
+  rows.forEach(function(tr){var c=tr.cells||[];if(c.length>=8){sum.prov+=parseMoney(c[2].textContent);sum.disc+=parseMoney(c[3].textContent);sum.liq+=parseMoney(c[4].textContent);sum.enc+=parseMoney(c[5].textContent);sum.ben+=parseMoney(c[6].textContent);sum.custo+=parseMoney(c[7].textContent)}});
+  Array.from(pane.querySelectorAll('.kpi')).forEach(function(card){var label=norm((card.querySelector('span')||{}).textContent),strong=card.querySelector('strong'),small=card.querySelector('small');if(!strong)return;
+    if(label.indexOf('proventos previstos')>=0)setText(strong,money(sum.prov));
+    else if(label.indexOf('liquido previsto')>=0)setText(strong,money(sum.liq));
+    else if(label.indexOf('encargos + beneficios')>=0)setText(strong,money(sum.enc+sum.ben));
+    else if(label.indexOf('custo previsto')>=0)setText(strong,money(sum.custo));
+    if(small&&label.indexOf('proventos previstos')>=0)small.title=rows.length+' colaboradores ativos considerados';
+  });
+  var tf=table.querySelector('tfoot tr');if(tf&&tf.cells.length>=8){tf.cells[2].innerHTML='<b>'+money(sum.prov)+'</b>';tf.cells[3].innerHTML='<b>'+money(sum.disc)+'</b>';tf.cells[4].innerHTML='<b>'+money(sum.liq)+'</b>';tf.cells[5].innerHTML='<b>'+money(sum.enc)+'</b>';tf.cells[6].innerHTML='<b>'+money(sum.ben)+'</b>';tf.cells[7].innerHTML='<b>'+money(sum.custo)+'</b>'}
+}
+function filterTerminationSelect(){
+  if(!V.ids)return;
+  ['rh26-person','rh-res-person'].forEach(function(id){var sel=E(id);if(!sel)return;var selected=sel.value;Array.from(sel.options).forEach(function(o){if(o.value&&!V.ids.has(String(o.value)))o.remove()});if(!V.ids.has(String(selected))&&sel.options.length)sel.selectedIndex=0});
+  document.querySelectorAll('[data-plan-pane="rescisao"] select').forEach(function(sel){if(!/colaborador/i.test(String((sel.closest('label')||{}).textContent||'')))return;var selected=sel.value;Array.from(sel.options).forEach(function(o){if(o.value&&!V.ids.has(String(o.value)))o.remove()});if(!V.ids.has(String(selected))&&sel.options.length)sel.selectedIndex=0});
+}
+function activeNote(){
+  var page=E('page-planejamento');if(!page||!V.latest)return;var warn=page.querySelector('.rh-plan-warning');if(!warn)return;
+  var el=E('rh38-active-note');if(!el){el=document.createElement('span');el.id='rh38-active-note';warn.appendChild(el)}
+  var comp=String(V.latest.competencia||'').slice(0,7).split('-').reverse().join('/');setText(el,'Quadro atual: '+V.latest.ativos+' colaboradores ativos em '+comp+'. Quem já foi desligado não entra em 13º, férias, próxima folha ou rescisões.');
+}
+function enforceNow(){
+  var page=E('page-planejamento');if(!page)return;
+  if(V.obs)V.obs.disconnect();
+  try{makeNameOnly('13');makeNameOnly('ferias');filterForecast();filterTerminationSelect();activeNote();if(typeof window.rhFitAllCardValues==='function')window.rhFitAllCardValues()}finally{observePage()}
+}
+function schedule(delay){clearTimeout(V.timer);V.timer=setTimeout(function(){rhV38LoadRoster().then(enforceNow).catch(function(e){console.warn('RH v38:',e)})},delay==null?35:delay)}
+function observePage(){
+  var page=E('page-planejamento');if(!page)return;
+  if(!V.obs)V.obs=new MutationObserver(function(muts){if(muts.some(function(m){return m.type==='childList'}))schedule(20)});
+  try{V.obs.observe(page,{childList:true,subtree:true})}catch(e){}
+}
+function styles(){if(E('_rh38'))return;var s=document.createElement('style');s.id='_rh38';s.textContent='\
+#page-planejamento [data-plan-pane="13"] article.table-panel:has(table:not(.rh26-wide)),#page-planejamento [data-plan-pane="ferias"] article.table-panel:has(table:not(.rh26-wide)){display:none!important}\
+#page-planejamento [data-plan-pane="13"] .rh30-scroll-note,#page-planejamento [data-plan-pane="ferias"] .rh30-scroll-note,#page-planejamento [data-plan-pane="13"] .rh30-group-head,#page-planejamento [data-plan-pane="ferias"] .rh30-group-head{display:none!important}\
+#page-planejamento [data-plan-pane="13"] table.rh26-wide,#page-planejamento [data-plan-pane="ferias"] table.rh26-wide{min-width:0!important;width:100%!important;table-layout:auto!important;border-collapse:separate!important;border-spacing:0!important}\
+#page-planejamento [data-plan-pane="13"] table.rh26-wide th:not(:first-child),#page-planejamento [data-plan-pane="13"] table.rh26-wide td:not(:first-child),#page-planejamento [data-plan-pane="13"] table.rh26-wide tfoot,#page-planejamento [data-plan-pane="ferias"] table.rh26-wide th:not(:first-child),#page-planejamento [data-plan-pane="ferias"] table.rh26-wide td:not(:first-child),#page-planejamento [data-plan-pane="ferias"] table.rh26-wide tfoot{display:none!important}\
+#page-planejamento [data-plan-pane="13"] table.rh26-wide th:first-child,#page-planejamento [data-plan-pane="13"] table.rh26-wide td:first-child,#page-planejamento [data-plan-pane="ferias"] table.rh26-wide th:first-child,#page-planejamento [data-plan-pane="ferias"] table.rh26-wide td:first-child{position:relative!important;left:auto!important;width:100%!important;min-width:0!important;max-width:none!important;white-space:normal!important;box-shadow:none!important}\
+#page-planejamento [data-plan-pane="13"] table.rh26-wide tbody td:first-child,#page-planejamento [data-plan-pane="ferias"] table.rh26-wide tbody td:first-child{padding:15px 48px 15px 18px!important;background:transparent!important}\
+#page-planejamento [data-plan-pane="13"] table.rh26-wide tbody td:first-child small,#page-planejamento [data-plan-pane="ferias"] table.rh26-wide tbody td:first-child small{display:none!important}\
+#page-planejamento [data-plan-pane="13"] table.rh26-wide tbody td:first-child:after,#page-planejamento [data-plan-pane="ferias"] table.rh26-wide tbody td:first-child:after{content:"›";position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:1.5rem;font-weight:900;color:var(--gold)}\
+#page-planejamento [data-plan-pane="13"] .table-wrap:has(table.rh26-wide),#page-planejamento [data-plan-pane="ferias"] .table-wrap:has(table.rh26-wide){overflow:visible!important;padding-bottom:0!important}\
+#rh38-active-note{display:block;margin-left:10px;color:var(--text);font-weight:750}\
+';document.head.appendChild(s)}
+function init(){styles();schedule(0);document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('#page-planejamento [data-plan-tab]')){schedule(0);schedule(80)}} ,true);var old=window.renderAll;if(typeof old==='function'&&!old._rh38){var wrapped=function(){var r=old.apply(this,arguments);schedule(0);return r};wrapped._rh38=1;window.renderAll=wrapped}setTimeout(observePage,200)}
+window.rhV38LoadRoster=rhV38LoadRoster;window.rhV38EnforcePlanningUI=function(){schedule(0)};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
