@@ -60,12 +60,12 @@ assert(stability40.includes('selectCompetence'), 'seletor executivo precisa carr
 assert(stability40.includes('rhFitAllCardValues'), 'interações precisam reaplicar o encaixe dos cards');
 assert(!stability40.includes("busy(this,'Carregando...'"), 'select não pode ser tratado como botão e perder suas opções');
 
-for (const symbol of ['RH_REPORT_CENTER_V41','rhV41ExportProvisionPdf','rhV41ExportProvisionExcel','rhV41ExportTerminationPdf','rhV41ExportTerminationExcel','Relatórios & Documentos','Guia gerencial — IRRF','Guia gerencial — INSS','Guia gerencial — PIS','Guia gerencial — FGTS']) {
+for (const symbol of ['RH_REPORT_CENTER_V41','rhV41ExportProvisionPdf','rhV41ExportProvisionExcel','rhV41ExportTerminationPdf','rhV41ExportTerminationExcel','Relatórios & Documentos','Guia gerencial — IRRF','Guia gerencial — INSS','Guia gerencial — PIS','Guia gerencial — FGTS','Provisão de 13º','Provisão de férias','Rescisão']) {
   assert(center41.includes(symbol), `central v41 sem recurso obrigatório: ${symbol}`);
 }
-assert(center41.includes("data-plan-pane=\"13\""), 'v41 precisa exportar provisão de 13º');
-assert(center41.includes("data-plan-pane=\"ferias\""), 'v41 precisa exportar provisão de férias');
-assert(center41.includes("data-plan-pane=\"rescisao\""), 'v41 precisa exportar rescisão');
+assert(center41.includes("exportProvisionPdf('13')") && center41.includes("exportProvisionExcel('13')"), 'v41 precisa exportar provisão de 13º em PDF e Excel');
+assert(center41.includes("exportProvisionPdf('ferias')") && center41.includes("exportProvisionExcel('ferias')"), 'v41 precisa exportar provisão de férias em PDF e Excel');
+assert(center41.includes('exportTerminationPdf') && center41.includes('exportTerminationExcel'), 'v41 precisa exportar rescisão em PDF e Excel');
 assert(center41.includes('canAdmin()') && center41.includes("can('exportar')"), 'v41 precisa respeitar permissão de exportação');
 assert(center41.includes('não substituem DARF, DCTFWeb ou FGTS Digital'), 'central precisa distinguir guia gerencial de documento oficial');
 
