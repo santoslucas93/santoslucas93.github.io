@@ -41,6 +41,7 @@ jobs:
             runtime-patches/rh-folha-hotfix-v13-cards-popup-totais.inc.js \
             runtime-patches/rh-folha-hotfix-v14-periodo-ux-analitico.inc.js \
             runtime-patches/rh-folha-hotfix-v15-card-fit.inc.js \
+            runtime-patches/rh-folha-hotfix-v16-card-fit-canvas.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
