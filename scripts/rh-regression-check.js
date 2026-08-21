@@ -28,5 +28,10 @@ assert(ui.includes("centro de custo"), 'regra de remoção do resumo por centro 
 assert(ui.includes('rh38-name-list'), 'lista simples de colaboradores não está protegida');
 assert((ui.match(/new MutationObserver/g) || []).length === 1, 'deve existir somente um observer visual no planejamento');
 assert(ui.includes('V.obs.disconnect()'), 'observer visual precisa ser desconectado durante a própria atualização');
+assert(ui.includes('rhProvisionOpenMemory'), 'memória das provisões precisa usar a base remuneratória recalculada');
+assert(ui.includes('rhV34TerminationContext'), 'memória das provisões precisa buscar verbas recorrentes no motor remuneratório');
+assert(ui.includes('Base remuneratória'), 'memória das provisões precisa exibir a base remuneratória');
+assert(ui.includes('Salário-base atual'), 'memória das provisões precisa separar salário-base das verbas recorrentes');
+assert(ui.includes('stopImmediatePropagation'), 'clique da lista precisa bloquear a memória antiga baseada somente no salário');
 
 console.log('RH regression baseline: OK');
