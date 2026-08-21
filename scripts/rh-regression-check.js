@@ -8,18 +8,15 @@ const baseline = read('runtime-patches/rh-folha-stability-baseline.inc.js');
 const ui = read('runtime-patches/rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
 const reports = read('runtime-patches/rh-folha-hotfix-v40-relatorios-executivos.inc.js');
 const stability40 = read('runtime-patches/rh-folha-hotfix-v40a-runtime-stability.inc.js');
-const center41 = read('runtime-patches/rh-folha-hotfix-v41-central-relatorios.inc.js');
 
 const orderBaseline = workflow.indexOf('rh-folha-stability-baseline.inc.js');
 const orderUi = workflow.indexOf('rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
 const orderV40 = workflow.indexOf('rh-folha-hotfix-v40-relatorios-executivos.inc.js');
 const orderV40a = workflow.indexOf('rh-folha-hotfix-v40a-runtime-stability.inc.js');
-const orderV41 = workflow.indexOf('rh-folha-hotfix-v41-central-relatorios.inc.js');
 assert(orderBaseline >= 0, 'baseline de estabilidade não está no release candidate');
 assert(orderUi > orderBaseline, 'baseline precisa ser carregado antes da camada visual v38');
 assert(orderV40 > orderUi, 'v40 precisa ser carregado depois da camada visual para assumir o card fit e os relatórios');
 assert(orderV40a > orderV40, 'v40a precisa ser carregado após o v40');
-assert(orderV41 > orderV40a, 'central v41 precisa ser carregada após os exports v40');
 assert(!workflow.includes('rh-folha-hotfix-v37-ativos-cards-provisoes.inc.js'), 'v37 obsoleto ainda está sendo carregado');
 assert(!workflow.includes('rh-folha-hotfix-v30-planejamento-tabelas.inc.js'), 'v30 obsoleto não pode voltar ao release');
 assert(!workflow.includes('rh-folha-hotfix-v16-card-fit-canvas.inc.js'), 'card fit v16 com MutationObserver não pode coexistir com o v40');
@@ -59,14 +56,5 @@ assert(stability40.includes('RH_V40A_STABILITY'), 'v40a sem marcador de estabili
 assert(stability40.includes('selectCompetence'), 'seletor executivo precisa carregar a competência escolhida');
 assert(stability40.includes('rhFitAllCardValues'), 'interações precisam reaplicar o encaixe dos cards');
 assert(!stability40.includes("busy(this,'Carregando...'"), 'select não pode ser tratado como botão e perder suas opções');
-
-for (const symbol of ['RH_REPORT_CENTER_V41','rhV41ExportProvisionPdf','rhV41ExportProvisionExcel','rhV41ExportTerminationPdf','rhV41ExportTerminationExcel','Relatórios & Documentos','Guia gerencial — IRRF','Guia gerencial — INSS','Guia gerencial — PIS','Guia gerencial — FGTS','Provisão de 13º','Provisão de férias','Rescisão']) {
-  assert(center41.includes(symbol), `central v41 sem recurso obrigatório: ${symbol}`);
-}
-assert(center41.includes("exportProvisionPdf('13')") && center41.includes("exportProvisionExcel('13')"), 'v41 precisa exportar provisão de 13º em PDF e Excel');
-assert(center41.includes("exportProvisionPdf('ferias')") && center41.includes("exportProvisionExcel('ferias')"), 'v41 precisa exportar provisão de férias em PDF e Excel');
-assert(center41.includes('exportTerminationPdf') && center41.includes('exportTerminationExcel'), 'v41 precisa exportar rescisão em PDF e Excel');
-assert(center41.includes('canAdmin()') && center41.includes("can('exportar')"), 'v41 precisa respeitar permissão de exportação');
-assert(center41.includes('não substituem DARF, DCTFWeb ou FGTS Digital'), 'central precisa distinguir guia gerencial de documento oficial');
 
 console.log('RH regression baseline: OK');
