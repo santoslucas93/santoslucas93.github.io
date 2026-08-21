@@ -1,0 +1,47 @@
+/* RH & Folha — hotfix v22: composição individual consolidada com referência explícita de competência */
+(function(){
+  'use strict';
+  function compMap(){var m={};(S.competencias||[]).forEach(function(c){m[String(c.id)]=c;});return m;}
+  function compLabelById(id){var c=compMap()[String(id)];if(!c)return '—';try{return _rhPeriodBaseFormatCompetence(c.competencia);}catch(e){try{return formatCompetence(c.competencia);}catch(_){return String(c.competencia||'').slice(0,7);}}}
+  function isMulti(){return !!(window.RH_PERIOD&&RH_PERIOD.active&&RH_PERIOD.active.length>1);}
+  function typeIs(x,t){var v=String(x&&x.tipo||'').toLowerCase();return t==='P'?(v==='p'||v==='provento'):(v==='d'||v==='desconto');}
+  function sortLancs(a,b){var ca=String(a.competencia_id||''),cb=String(b.competencia_id||'');var ma=compMap()[ca],mb=compMap()[cb],da=String(ma&&ma.competencia||''),db=String(mb&&mb.competencia||'');if(da!==db)return da.localeCompare(db);return String(a.rubrica_codigo||a.codigo||'').localeCompare(String(b.rubrica_codigo||b.codigo||''));}
+  function groupByComp(rows){var g={};(rows||[]).forEach(function(x){var k=String(x.competencia_id||'');(g[k]||(g[k]=[])).push(x);});return g;}
+  function sum(rows){return (rows||[]).reduce(function(a,x){return a+(Number(x.valor)||0);},0);}
+  function monthRows(rows,kind){
+    var groups=groupByComp(rows),ids=Object.keys(groups).sort(function(a,b){var ca=compMap()[a],cb=compMap()[b];return String(ca&&ca.competencia||'').localeCompare(String(cb&&cb.competencia||''));}),html='';
+    ids.forEach(function(cid){var rs=groups[cid].slice().sort(sortLancs),label=compLabelById(cid),sub=sum(rs);html+='<tr class="group-head rh-v22-month-head"><td colspan="5"><b>'+esc(label)+'</b><span>'+esc(kind)+'</span><strong>'+fmt(sub)+'</strong></td></tr>';rs.forEach(function(x){html+='<tr><td><span class="rh-v22-comp">'+esc(label)+'</span></td><td><b>'+esc((x.rubrica_codigo||x.codigo||'')+' '+(x.rubrica_nome||x.nome||''))+'</b></td><td class="money">'+nfmt(x.referencia)+'</td><td>'+esc(x.nota||x.observacao||'')+'</td><td class="money">'+fmt(x.valor)+'</td></tr>';});});
+    return html;
+  }
+  function monthlyPayrollForPerson(p){var rows=(S.folhas||[]).filter(function(f){return String(f.colaborador_id)===String(p.id||p.colaborador_id);});var cm=compMap();return rows.slice().sort(function(a,b){return String(cm[a.competencia_id]&&cm[a.competencia_id].competencia||'').localeCompare(String(cm[b.competencia_id]&&cm[b.competencia_id].competencia||''));});}
+  function monthlySummaryRows(p){var fs=monthlyPayrollForPerson(p);if(!fs.length)return '';return '<section class="rh-v22-month-summary"><div class="rh-v22-summary-title"><b>Resumo por competência</b><small>Valores que formam o consolidado individual</small></div><div class="table-wrap"><table class="modal-table-inner rh-v22-summary-table"><thead><tr><th>Competência</th><th class="money">Proventos</th><th class="money">Descontos</th><th class="money">Líquido</th><th class="money">Base INSS</th><th class="money">FGTS</th><th class="money">IRRF</th></tr></thead><tbody>'+fs.map(function(f){return '<tr><td><b>'+esc(compLabelById(f.competencia_id))+'</b></td><td class="money">'+fmt(f.proventos)+'</td><td class="money">'+fmt(f.descontos)+'</td><td class="money">'+fmt(f.liquido)+'</td><td class="money">'+fmt(f.base_inss)+'</td><td class="money">'+fmt(f.valor_fgts)+'</td><td class="money">'+fmt(f.valor_irrf)+'</td></tr>';}).join('')+'</tbody></table></div></section>';}
+  var previous=window.openPerson;
+  if(typeof previous!=='function')return;
+  window.openPerson=function(id){
+    var p=S.pessoas.find(function(x){return String(x.id)===String(id);});if(!p)return previous.apply(this,arguments);
+    previous.apply(this,arguments);
+    if(!isMulti())return;
+    var modal=$('employee-modal'),tbody=$('employee-modal-rows');if(!modal||!tbody)return;
+    var table=tbody.closest('table'),thead=table&&table.querySelector('thead tr');if(!thead)return;
+    thead.innerHTML='<th>Competência</th><th>Rubrica</th><th class="money">Ref.</th><th>Nota</th><th class="money">Valor</th>';
+    var lancs=(p.lancamentos||[]).slice(),provs=lancs.filter(function(x){return typeIs(x,'P');}),descs=lancs.filter(function(x){return typeIs(x,'D');});
+    var html='';
+    if(lancs.length){
+      html+='<tr class="group-head rh-v22-section"><td colspan="5">PROVENTOS — TOTAL '+fmt(sum(provs))+'</td></tr>'+monthRows(provs,'Proventos');
+      html+='<tr class="group-total"><td colspan="4"><b>Total de proventos no período</b></td><td class="money"><b>'+fmt(sum(provs))+'</b></td></tr>';
+      html+='<tr class="group-head rh-v22-section"><td colspan="5">DESCONTOS — TOTAL '+fmt(sum(descs))+'</td></tr>'+monthRows(descs,'Descontos');
+      html+='<tr class="group-total"><td colspan="4"><b>Total de descontos no período</b></td><td class="money"><b>'+fmt(sum(descs))+'</b></td></tr>';
+      html+='<tr class="group-total destaque"><td colspan="4"><b>Líquido consolidado do período</b></td><td class="money"><b>'+fmt(Number(p.liquido)||0)+'</b></td></tr>';
+    }else html=emptyRow(5,'Sem rubricas individuais disponíveis.');
+    tbody.innerHTML=html;
+    var old=modal.querySelector('.rh-v22-month-summary');if(old)old.remove();var summary=document.createElement('div');summary.innerHTML=monthlySummaryRows(p);if(summary.firstChild){var target=table.closest('.table-wrap')||table;target.parentNode.insertBefore(summary.firstChild,target);}
+    modal.dataset.rhV22Person=String(p.id||'');
+    if(typeof window.rhV21ApplyPopupPeriodReferences==='function')window.rhV21ApplyPopupPeriodReferences(modal);
+    if(typeof window.rhV20FixAllPopupTotals==='function')window.rhV20FixAllPopupTotals(modal);
+  };
+  if(!document.getElementById('_rh_v22_person_months')){var st=document.createElement('style');st.id='_rh_v22_person_months';st.textContent='\
+.rh-v22-month-summary{padding:14px 16px 4px;border-top:1px solid var(--line-soft);background:color-mix(in srgb,var(--surface-2) 78%,transparent)}\
+.rh-v22-summary-title{display:flex;justify-content:space-between;gap:12px;align-items:end;margin-bottom:8px}.rh-v22-summary-title small{color:var(--muted)}\
+.rh-v22-summary-table{min-width:820px!important}.rh-v22-month-head td{display:grid!important;grid-template-columns:110px 1fr auto;align-items:center;gap:12px;background:color-mix(in srgb,var(--gold) 7%,var(--surface-2))!important}.rh-v22-month-head span{color:var(--muted);font-size:10px;text-transform:uppercase}.rh-v22-month-head strong{text-align:right}.rh-v22-comp{display:inline-flex;padding:3px 7px;border-radius:999px;border:1px solid var(--line-soft);color:var(--gold-2);font-weight:800;white-space:nowrap}.rh-v22-section td{color:var(--gold-2)!important;font-weight:900!important;letter-spacing:.04em}#employee-modal table{min-width:900px!important}\
+';document.head.appendChild(st);}
+})();
