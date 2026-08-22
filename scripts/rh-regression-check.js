@@ -116,6 +116,15 @@ assert(planningForecast.includes('snapshot:null'), 'Próxima Folha não preserva
 assert(planningForecast.includes('var t=V47.snapshot||auditedForecast47()'), 'pop-up da Próxima Folha voltou a recalcular um total diferente no clique');
 assert(planningForecast.includes('data-rh47-value='), 'cards da Próxima Folha não registram o valor exato do fechamento');
 assert(planningForecast.includes("prov:r247(sum47(rows,'proventos'))"), 'Próxima Folha não fecha os totalizadores na precisão monetária das linhas');
+assert(planningForecast.includes('function taxPersonFields47(r,key)'), 'impostos da Próxima Folha não possuem composição individual centralizada');
+for (const taxKey of ["INSS_EMP:['baseInss','inssSeg']", "IRRF:['baseIrrf','irrf']", "INSS_PAT:['baseEmployer','inssPat']", "RAT:['baseEmployer','rat']", "TERC:['baseEmployer','terceiros']", "PIS:['baseEmployer','pis']", "FGTS:['baseFgts','fgts']"]) {
+  assert(planningForecast.includes(taxKey), `composição individual ausente ou incorreta: ${taxKey}`);
+}
+assert(planningForecast.includes('function openTaxPeople47(t,item)'), 'linhas de impostos não abrem a composição por colaborador');
+assert(planningForecast.includes("['Colaborador','Departamento','Base individual','Alíquota efetiva','Valor','% do total']"), 'pop-up individual de impostos perdeu rateio ou alinhamento');
+assert(planningForecast.includes('if(x)openTaxPeople47(t,x)'), 'clique no imposto ainda abre somente o resumo da obrigação');
+assert(planningForecast.includes('var t=V47.snapshot||auditedForecast47(),all=retainedItems47(t).concat(companyItems47(t))'), 'composição individual voltou a recalcular um fechamento diferente do painel');
+assert(!planningForecast.includes("['Colaborador','Departamento','Centro de custo','Base individual'"), 'CC voltou à composição individual dos impostos');
 
 /* Composições: o rodapé contábil explícito é soberano. */
 assert(popupTotals13.includes("tfoot tr:not(.rh-auto-total):not(.rh-v20-total)"), 'v13 ainda pode substituir um total contábil explícito');
