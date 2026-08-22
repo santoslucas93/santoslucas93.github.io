@@ -74,6 +74,7 @@ jobs:
             runtime-patches/rh-folha-hotfix-v49-cards-estaveis.inc.js \
             runtime-patches/rh-folha-hotfix-v50-fonte-fixa-popup.inc.js \
             runtime-patches/rh-folha-hotfix-v51-planejamento-layout.inc.js \
+            runtime-patches/rh-folha-hotfix-v54-provisoes-seguras.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
@@ -95,7 +96,8 @@ jobs:
             'RH_STABILITY_V48', 'rhV48TerminationModel', 'rhV48SyncTerminationCards', 'rh48-modal',
             'RH_CARD_STABILITY_V49', 'rh49Locked',
             'RH_FIXED_PLAN_FONT_V50', 'rhV50Refresh', 'rh50-encbenef-modal',
-            'RH_PLANNING_LAYOUT_V51', 'rhV51RefreshForecast', 'rhV51FixProvisionTables', 'rh51-forecast-cards']) {
+            'RH_PLANNING_LAYOUT_V51', 'rhV51RefreshForecast', 'rhV51FixProvisionTables', 'rh51-forecast-cards',
+            'RH_PROVISION_SAFE_V54']) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);
           }
           const effective = source.slice(0, index)
