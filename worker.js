@@ -36,7 +36,7 @@ async function handleOrcadoComPermissoes(request, env) {
   if (!patchResponse.ok) return responseHtml(asset, injectIaTraceability(html, 'orcado'), 'indisponivel');
   try {
     const patched = applyUnifiedPatch(html, await patchResponse.text(), 'orcado/index.html');
-    return responseHtml(asset, injectIaTraceability(patched, 'orcado'), 'production-v3');
+    return responseHtml(asset, injectIaTraceability(patched, 'orcado'), 'staging-v1');
   } catch (error) {
     console.error('Falha ao aplicar patch de permissoes do Orcado:', error);
     return responseHtml(asset, injectIaTraceability(html, 'orcado'), 'erro');
