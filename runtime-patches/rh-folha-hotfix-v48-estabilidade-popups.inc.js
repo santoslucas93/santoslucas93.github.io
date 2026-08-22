@@ -49,6 +49,7 @@ function terminationModel48(){
   var fgNew=n48(x.fgNew||x.fgTotal);if(!fgNew)fgNew=n48(x.fgm)+n48(x.fg13)+n48(x.fgav);
   var patParts=[['INSS patronal',n48(x.patInss)],['RAT',n48(x.patRat)],['Terceiros',n48(x.patTerc)],['PIS folha',n48(x.patPis)]].filter(function(a){return Math.abs(a[1])>.004});
   var pat=sum48(patParts,function(a){return a[1]});if(!pat)pat=n48(x.patTotal);
+  if(!patParts.length&&pat>0)patParts=[['Encargos patronais',pat]];
   var multa=n48(x.multa),custo=r248(bruto+fgNew+multa+pat);
   var proventos=[
     ['Saldo de salário',n48(x.saldo)],['13º proporcional',n48(x.v13)],['13º sobre aviso',n48(x.v13Aviso||x.av13)],
@@ -58,7 +59,7 @@ function terminationModel48(){
   ].filter(function(a){return Math.abs(a[1])>.004});
   /* mantém o mesmo resultado em cards/PDF, mas pela equação auditável */
   x.ded=r248(ded);x.liq=liq;x.fgNew=r248(fgNew);x.patTotal=r248(pat);x.custo=custo;
-  return{x:x,bruto:bruto,deductions:deductions,ded:r248(ded),liq:liq,fgNew:r248(fgNew),multa:r248(multa),patParts:patParts,pat:r248(pat),custo:custo,proventos:proventos,okLiq:near48(x.liq,liq),okCost:near48(x.custo,custo)}
+  return{x:x,bruto:bruto,deductions:deductions,ded:r248(ded),liq:liq,fgNew:r248(fgNew),multa:r248(multa),patParts:patParts,pat:r248(pat),custo:custo,proventos:proventos}
 }
 function terminationPopup48(card){
   var m=terminationModel48();if(!m)return;
@@ -69,12 +70,12 @@ function terminationPopup48(card){
     rows=m.deductions.map(function(a){return[a[0],money48(a[1])]});foot=['(−) TOTAL DE DEDUÇÕES',money48(m.ded)];sub='Valores descontados do colaborador. Não são custo adicional do empregador.';
   }else if(label.indexOf('liquido')>=0){
     rows=[['Total bruto',money48(m.bruto)],['(−) Deduções',money48(m.ded)],['Líquido estimado a pagar',money48(m.liq)]];foot=null;sub='O líquido é um resultado derivado; não deve ser somado novamente ao bruto ou às deduções.';
-    formula=formula48([['Bruto',money48(m.bruto),''],['Deduções',money48(m.ded),'minus','−'],['Líquido',money48(m.liq),'result','=']]);
+    formula=formula48([['Bruto',money48(m.bruto),'','−'],['Deduções',money48(m.ded),'minus','='],['Líquido',money48(m.liq),'result','']]);
   }else{
     rows=[['Verbas brutas',money48(m.bruto)],['FGTS novo',money48(m.fgNew)],['Multa do FGTS',money48(m.multa)]];
     m.patParts.forEach(function(a){rows.push([a[0],money48(a[1])])});
     foot=['CUSTO TOTAL DO EMPREGADOR',money48(m.custo)];sub='Custo = bruto + FGTS novo + multa do FGTS + encargos patronais. INSS/IRRF retidos do colaborador não são somados novamente.';
-    formula=formula48([['Bruto',money48(m.bruto),''],['FGTS',money48(m.fgNew),''],['Multa',money48(m.multa),''],['Patronais',money48(m.pat),''],['Custo',money48(m.custo),'result','=']]);
+    formula=formula48([['Bruto',money48(m.bruto),'','+'],['FGTS',money48(m.fgNew),'','+'],['Multa',money48(m.multa),'','+'],['Patronais',money48(m.pat),'','='],['Custo',money48(m.custo),'result','']]);
   }
   open48(title,'RESCISÃO · MEMÓRIA DE CÁLCULO',table48(['Item','Valor'],rows,foot,[72,28]),sub,formula)
 }
