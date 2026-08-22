@@ -1,4 +1,4 @@
-/* RH v56 — popups coesos da Próxima Folha, sem sobra lateral */
+/* RH v56.1 — popups compactos da Próxima Folha, sem sobra lateral ou altura forçada */
 (function(){
 'use strict';
 var V56={observer:null,timer:0,patched:false,applying:false};
@@ -85,6 +85,7 @@ function applyForecastPopup56(){
     box.style.setProperty('overflow','hidden','important');
     box.style.setProperty('box-sizing','border-box','important');
     box.style.setProperty('display','flex','important');
+    box.style.setProperty('flex','0 1 auto','important');
     box.style.setProperty('flex-direction','column','important');
     box.style.setProperty('align-items','stretch','important');
 
@@ -94,7 +95,8 @@ function applyForecastPopup56(){
     body.style.setProperty('padding','14px 20px 20px','important');
     body.style.setProperty('overflow-y','auto','important');
     body.style.setProperty('overflow-x','hidden','important');
-    body.style.setProperty('flex','1 1 auto','important');
+    body.style.setProperty('flex','0 1 auto','important');
+    body.style.setProperty('max-height','calc(90vh - 118px)','important');
 
     stretchTableChain(table,body);
     var sub=body.querySelector('.rh47-popup-sub');if(sub)setFull(sub);
@@ -128,9 +130,9 @@ function styles56(){
   if(E('_rh56'))return;
   var s=document.createElement('style');s.id='_rh56';s.textContent=
     '#encargos-popup.rh56-forecast-popup[hidden]{display:none!important}'+
-    '#encargos-popup.rh56-forecast-popup .modal-card{width:var(--rh56-popup-w)!important;max-width:var(--rh56-popup-w)!important;min-width:0!important}'+
+    '#encargos-popup.rh56-forecast-popup .modal-card{width:var(--rh56-popup-w)!important;max-width:var(--rh56-popup-w)!important;min-width:0!important;height:auto!important;flex:0 1 auto!important}'+
     '#encargos-popup.rh56-forecast-popup .modal-card>.modal-head,#encargos-popup.rh56-forecast-popup .ep-body,#encargos-popup.rh56-forecast-popup .ep-body>*{width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important}'+
-    '#encargos-popup.rh56-forecast-popup .ep-body{display:block!important;overflow-x:hidden!important}'+
+    '#encargos-popup.rh56-forecast-popup .ep-body{display:block!important;overflow-x:hidden!important;flex:0 1 auto!important;max-height:calc(90vh - 118px)!important}'+
     '#encargos-popup.rh56-forecast-popup .rh47-popup-scroll{display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;box-sizing:border-box!important}'+
     '#encargos-popup.rh56-forecast-popup .rh47-popup-table{display:table!important;width:100%!important;max-width:100%!important;min-width:100%!important;margin:0!important;table-layout:fixed!important;float:none!important;box-sizing:border-box!important}'+
     '#encargos-popup.rh56-forecast-popup .rh47-popup-table th,#encargos-popup.rh56-forecast-popup .rh47-popup-table td{box-sizing:border-box!important;word-break:normal!important;overflow-wrap:break-word!important}'+
