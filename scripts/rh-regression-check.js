@@ -111,6 +111,10 @@ assert(planningForecast.includes("k.hidden=true"), 'grade antiga de quatro cards
 assert(planningForecast.includes("if(box.innerHTML!==html)box.innerHTML=html"), 'grade auditada ainda é recriada sem mudança de conteúdo');
 assert(!planningForecast.includes("syncForecastTable47(t);syncOriginalForecastCards47(t)"), 'grade antiga ainda recebe sincronização');
 assert(!planningForecast.includes("installCapture47();observe47();refresh47()"), 'observer v47 ainda recalcula a Próxima Folha');
+assert(planningForecast.includes('snapshot:null'), 'Próxima Folha não preserva o fechamento que gerou os cards');
+assert(planningForecast.includes('var t=V47.snapshot||auditedForecast47()'), 'pop-up da Próxima Folha voltou a recalcular um total diferente no clique');
+assert(planningForecast.includes('data-rh47-value='), 'cards da Próxima Folha não registram o valor exato do fechamento');
+assert(planningForecast.includes("prov:r247(sum47(rows,'proventos'))"), 'Próxima Folha não fecha os totalizadores na precisão monetária das linhas');
 
 /* Composições: o rodapé contábil explícito é soberano. */
 assert(popupTotals13.includes("tfoot tr:not(.rh-auto-total):not(.rh-v20-total)"), 'v13 ainda pode substituir um total contábil explícito');
@@ -119,11 +123,19 @@ assert(popupGrid20.includes("table.querySelector('tfoot tr:not(.rh-auto-total):n
 assert(popupGrid20.includes("grid.querySelector('.rh-comp-total:not(.rh-auto-total):not(.rh-v20-total)')"), 'v20 não preserva o rodapé semântico das grades');
 assert(popupGrid20.includes('function columnWeight(header,index,n)'), 'dimensionamento de colunas não considera o conteúdo do cabeçalho');
 assert(!popupGrid20.includes("var n=heads.length,widths=widthsFor(n)"), 'v20 voltou ao dimensionamento genérico apenas pela quantidade de colunas');
+assert(popupGrid20.includes('function stripCostCenterTable(table)'), 'tabelas de pop-up não aplicam a regra global de remoção do CC');
+assert(popupGrid20.includes('function stripCostCenterGrid(grid)'), 'grades de pop-up não aplicam a regra global de remoção do CC');
+assert(popupGrid20.includes("[role=\"dialog\"] table"), 'regra de remoção do CC não cobre todos os diálogos');
 
 /* Todos os cards operacionais usam a mesma base da composição e do rateio. */
 for (const symbol of ['rhInterBindOverviewAndPayroll','rhInterBindChargeCards','rhInterBindMovementCards','rhInterBindCostCards','rhInterOpenAverageMetric','rhInterCostCenter','COMPOSIÇÃO E RATEIO']) {
   assert(interactivity.includes(symbol), `interatividade sem composição/rateio obrigatório: ${symbol}`);
 }
+assert(interactivity.includes('rhInterOpenPeriodMonthlyAverage'), 'Visão Geral não possui composição própria para a média mensal');
+assert(interactivity.includes('rhInterBindPeriodAverageCards'), 'cards de média mensal não estão vinculados à composição correta');
+assert(interactivity.includes('var contribution=value/months'), 'composição mensal não divide cada competência pela quantidade de meses carregados');
+assert(interactivity.includes("['MÉDIA DO CARD',months+' competência'"), 'rodapé da média mensal não replica o valor do card');
+assert(!interactivity.includes("['Colaborador','Departamento','Centro de custo'"), 'CC voltou às composições compartilhadas');
 assert(interactivity.includes('data-rh-authoritative-composition'), 'composições compartilhadas não estão marcadas como autoritativas');
 assert(interactivity.includes("['MÉDIA DO CARD'"), 'cards de média ainda encerram com soma em vez da média exibida');
 assert(interactivity.includes("['REFERÊNCIA DO CARD',m.competencia]"), 'card de competência do Dossiê ainda pode exibir total incompatível');
@@ -132,13 +144,16 @@ assert(interactivity.includes("['TOTAL DO CARD',fmt(latest.custoFolha)]"), 'card
 /* Custo Real: não depender do rótulo técnico rateado após normalização v47. */
 assert(sourceCards.includes("rhEmployerCharges(p).itens.forEach(function(it){var k=cleanSearch(it[0]),v=Number(it[1])||0;if(k==='fgts')tf+=v;else te+=v;})"), 'Custo Real não classifica todos os encargos patronais pela rubrica');
 assert(!sourceCards.includes("if(it[2]==='rateado')te+=Number(it[1])||0"), 'Custo Real ainda ignora encargos normalizados que não usam o rótulo rateado');
-for (const marker of ['Centro de custo','% do total','% do líquido','data-rh-authoritative-composition']) {
+for (const marker of ['% do total','% do líquido','data-rh-authoritative-composition']) {
   assert(sourceCards.includes(marker), `composições operacionais sem rateio/alinhamento: ${marker}`);
 }
+assert(sourceCards.includes("['page-visao','page-colaboradores'"), 'filtros de Departamento/Vínculo não foram reposicionados no cabeçalho da Visão Geral');
+assert(sourceCards.includes("var legacy=$('painel-filters');if(legacy)legacy.remove()"), 'bloco inferior duplicado de filtros ainda permanece na Visão Geral');
 
 /* Modais estruturais já estabilizados: apenas alinhamento e rateio, sem reativar observadores. */
 assert(planningForecast.includes("function numeric(i)"), 'Próxima Folha não alinha cabeçalho e células pela mesma regra');
-assert(planningForecast.includes("'Centro de custo','Valor','% do card'"), 'Próxima Folha sem rateio por centro de custo');
+assert(!planningForecast.includes("'Centro de custo','Valor','% do card'"), 'CC voltou ao pop-up da Próxima Folha');
+assert(planningForecast.includes("'Colaborador','Departamento','Valor','% do card'"), 'Próxima Folha perdeu a composição por colaborador e departamento');
 assert(planningDetails.includes('data-rh-authoritative-total'), 'provisões não marcam o total contábil como autoritativo');
 assert(planningDetails.includes("function moneyCell(i)"), 'provisões não alinham cabeçalho e células pela mesma regra');
 
