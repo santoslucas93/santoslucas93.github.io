@@ -106,9 +106,21 @@ jobs:
             + '\n'
             + source.slice(index);
           fs.writeFileSync('/tmp/rh-app-effective.js', effective);
+
+          const workerSource = fs.readFileSync('worker.js', 'utf8');
+          const workerMarker = 'const RH_RELEASE_CANDIDATE_INLINE = RH_INLINE_MARKER;';
+          if ((workerSource.split(workerMarker).length - 1) !== 1) {
+            throw new Error('Marcador de injeção do Worker RH inválido.');
+          }
+          const workerEffective = workerSource.replace(
+            workerMarker,
+            'const RH_RELEASE_CANDIDATE_INLINE = ' + JSON.stringify(rc) + ';'
+          );
+          fs.writeFileSync('worker-production.js', workerEffective);
           NODE
 
           node --check /tmp/rh-app-effective.js
+          node --check worker-production.js
 
       - name: Deploy to Cloudflare Workers
         id: publish
@@ -117,7 +129,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4"
-          command: deploy
+          command: deploy worker-production.js
 
       - name: Fixar 100% do tráfego na versão publicada
         shell: bash

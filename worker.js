@@ -1,4 +1,6 @@
 // Worker do painel LNB: serve os arquivos estáticos e expõe APIs seguras.
+const RH_INLINE_MARKER = '__LNB_RH_RC_INLINE__';
+const RH_RELEASE_CANDIDATE_INLINE = RH_INLINE_MARKER;
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -54,10 +56,13 @@ async function handleRhAppPatch(request, env) {
   if (!asset.ok) return asset;
   const source = await asset.text();
   try {
-    const rcUrl = new URL('/runtime-patches/rh-folha-rc.inc.js', request.url);
-    const rcResponse = await env.ASSETS.fetch(new Request(rcUrl, { method: 'GET' }));
-    if (!rcResponse.ok) throw new Error('Release candidate do RH indisponivel.');
-    const rc = await rcResponse.text();
+    let rc = RH_RELEASE_CANDIDATE_INLINE;
+    if (rc === RH_INLINE_MARKER) {
+      const rcUrl = new URL('/runtime-patches/rh-folha-rc.inc.js', request.url);
+      const rcResponse = await env.ASSETS.fetch(new Request(rcUrl, { method: 'GET' }));
+      if (!rcResponse.ok) throw new Error('Release candidate do RH indisponivel.');
+      rc = await rcResponse.text();
+    }
     const bootMarker = "if(document.readyState==='loading')";
     const index = source.lastIndexOf(bootMarker);
     if (index < 0) throw new Error('Marcador de inicializacao do RH nao encontrado.');
