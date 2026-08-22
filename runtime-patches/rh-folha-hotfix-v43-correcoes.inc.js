@@ -124,7 +124,7 @@ function installAvisoGuard(){
 var FIT_SEL='.kpi strong,.rh40-guide-card strong,.rh41-report-card strong,.rh-close-stat strong,.rh-history-metric strong,.metric-row strong,.preview-summary strong,.summary-card strong,.stat-card strong,#charges-kpis strong,#payroll-kpis strong,#movement-kpis strong,#custo-real-kpis strong,#rh-dossier-kpis strong,#rh-insight-kpis strong';
 var _fitTimer=0;
 function fitOneV43(el){
-  if(!el||!el.isConnected||!String(el.textContent||'').trim())return;
+  if(!el||!el.isConnected||el.closest('#page-planejamento')||!String(el.textContent||'').trim())return;
   var box=el.closest('.kpi,.rh40-guide-card,.rh41-report-card,.rh-close-stat,.rh-history-metric,.metric-row,.preview-summary,.summary-card,.stat-card')||el.parentElement;
   if(!box)return;
   /* se a caixa nao tem largura ainda (escondida), tentar via parentElement */
@@ -402,7 +402,7 @@ function init(){
   /* ResizeObserver em cards novos */
   if(window.ResizeObserver){
     var ro=new ResizeObserver(function(){scheduleFitV43(50)});
-    function observeCards(){document.querySelectorAll('.kpi,.rh40-guide-card,.rh41-report-card').forEach(function(el){try{ro.observe(el)}catch(e){}})}
+    function observeCards(){document.querySelectorAll('.kpi,.rh40-guide-card,.rh41-report-card').forEach(function(el){if(el.closest('#page-planejamento'))return;try{ro.observe(el)}catch(e){}})}
     observeCards();setTimeout(observeCards,800)
   }
 }

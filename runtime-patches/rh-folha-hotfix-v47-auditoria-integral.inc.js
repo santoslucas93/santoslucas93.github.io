@@ -255,10 +255,10 @@ function taxRowsScreen47(items,title){
   }).join('')+'</article>'
 }
 function installForecastSummary47(t){
-  var old=E47('rh46-forecast-summary'),k=E47('rh-plan-folha-kpis');if(!k)return;if(old)old.remove();
+  var old=E47('rh46-forecast-summary'),k=E47('rh-plan-folha-kpis');if(!k)return;if(old)old.remove();k.hidden=true;k.setAttribute('aria-hidden','true');k.style.setProperty('display','none','important');
   var box=E47('rh47-forecast-summary');if(!box){box=document.createElement('section');box.id='rh47-forecast-summary';box.className='rh47-summary';k.insertAdjacentElement('afterend',box)}
   var complete=benefitCompleteness47(),benefitSub=complete.complete?'integração da competência-base':'fonte parcial: seguro + saúde; VR/VA/VT ainda sem valor integrado';
-  box.innerHTML='<div class="rh47-summary-grid">'+
+  var html='<div class="rh47-summary-grid">'+
     summaryCard47('Proventos previstos',t.prov,nextComp47(),'prov')+
     summaryCard47('Descontos previstos',t.disc,'retenções + demais descontos','disc')+
     summaryCard47('Líquido previsto',t.liq,'proventos − descontos','liq',true)+
@@ -268,7 +268,8 @@ function installForecastSummary47(t){
     summaryCard47('Tributos / recolhimentos',t.taxTotal,'retidos + empresa','tax')+
     summaryCard47('Custo total estimado',t.cost,'proventos + encargos + benefícios','cost',true)+
     '</div><div class="rh47-tax-grid">'+taxRowsScreen47(retainedItems47(t),'RETENÇÕES ESTIMADAS')+taxRowsScreen47(companyItems47(t),'ENCARGOS PAGOS / DEPOSITADOS PELA EMPRESA')+'</div>'+
-    '<div class="rh47-audit"><b>Auditoria da projeção</b><span class="ok">INSS patronal: 20,00%</span><span class="'+(t.balanceOk?'ok':'warn')+'">Proventos − descontos = líquido: '+(t.balanceOk?'OK':'dif. '+money47(t.balanceDiff))+'</span><span class="'+(t.countOk?'ok':'warn')+'">Quadro: '+t.rows.length+(t.expectedActive?' / '+t.expectedActive:'')+' ativos</span><span class="ok">Tabela x cards: mesma base</span><span class="'+(complete.complete?'ok':'warn')+'">Benefícios: '+(complete.complete?'fonte integrada':'fonte parcial')+'</span></div>'
+    '<div class="rh47-audit"><b>Auditoria da projeção</b><span class="ok">INSS patronal: 20,00%</span><span class="'+(t.balanceOk?'ok':'warn')+'">Proventos − descontos = líquido: '+(t.balanceOk?'OK':'dif. '+money47(t.balanceDiff))+'</span><span class="'+(t.countOk?'ok':'warn')+'">Quadro: '+t.rows.length+(t.expectedActive?' / '+t.expectedActive:'')+' ativos</span><span class="ok">Tabela x cards: mesma base</span><span class="'+(complete.complete?'ok':'warn')+'">Benefícios: '+(complete.complete?'fonte integrada':'fonte parcial')+'</span></div>';
+  if(box.innerHTML!==html)box.innerHTML=html
 }
 
 /* ── popup estável ── */
@@ -421,7 +422,7 @@ function installCapture47(){
 /* ── estilos ── */
 function styles47(){
   if(E47('_rh47'))return;var s=document.createElement('style');s.id='_rh47';s.textContent=
-  '.rh47-summary{margin:0 0 18px}.rh47-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}.rh47-summary-card{min-width:0;min-height:126px;height:126px;box-sizing:border-box;padding:14px 15px;border:1px solid var(--line-soft);border-radius:14px;background:var(--surface);color:var(--text);text-align:left;cursor:pointer}.rh47-summary-card.featured{border-color:var(--line);background:linear-gradient(145deg,rgba(232,185,60,.11),rgba(31,196,141,.09)),var(--surface)}.rh47-summary-card span,.rh47-summary-card small{display:block;color:var(--muted)}.rh47-summary-card span{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}.rh47-summary-card strong{display:block;margin:7px 0 5px;font-size:28px!important;line-height:32px!important;letter-spacing:-.02em!important;white-space:nowrap!important;font-variant-numeric:tabular-nums!important}.rh47-summary-card small{font-size:9.5px;line-height:1.3}'+
+  '#page-planejamento [data-plan-pane="folha"] #rh-plan-folha-kpis{display:none!important}#rh47-forecast-summary,#rh47-forecast-summary *{animation:none!important}#rh47-forecast-summary .rh47-summary-card{transition:none!important}.rh47-summary{margin:0 0 18px}.rh47-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}.rh47-summary-card{min-width:0;min-height:126px;height:126px;box-sizing:border-box;padding:14px 15px;border:1px solid var(--line-soft);border-radius:14px;background:var(--surface);color:var(--text);text-align:left;cursor:pointer}.rh47-summary-card.featured{border-color:var(--line);background:linear-gradient(145deg,rgba(232,185,60,.11),rgba(31,196,141,.09)),var(--surface)}.rh47-summary-card span,.rh47-summary-card small{display:block;color:var(--muted)}.rh47-summary-card span{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}.rh47-summary-card strong{display:block;margin:7px 0 5px;font-size:28px!important;line-height:32px!important;letter-spacing:-.02em!important;white-space:nowrap!important;font-variant-numeric:tabular-nums!important}.rh47-summary-card small{font-size:9.5px;line-height:1.3}'+
   '.rh47-tax-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.rh47-tax-panel{overflow:hidden;border:1px solid var(--line-soft);border-radius:14px;background:var(--surface)}.rh47-tax-head{display:flex;justify-content:space-between;gap:10px;padding:11px 13px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)}.rh47-tax-head b{font-size:10px;color:var(--gold-2);letter-spacing:.08em}.rh47-tax-head span{font-size:9px;color:var(--muted)}.rh47-tax-line{display:grid;grid-template-columns:minmax(170px,1.5fr) minmax(105px,.8fr) 82px minmax(110px,.8fr);gap:10px;align-items:center;width:100%;padding:10px 13px;border:0;border-bottom:1px solid var(--line-soft);background:transparent;color:var(--text);text-align:left;cursor:pointer}.rh47-tax-line:last-child{border-bottom:0}.rh47-tax-line>span:nth-child(n+2),.rh47-tax-line>strong{text-align:right;font-variant-numeric:tabular-nums}.rh47-tax-line span b,.rh47-tax-line span small{display:block}.rh47-tax-line span small{color:var(--muted);font-size:9px;margin-top:2px}.rh47-tax-line>span:nth-child(n+2){color:var(--muted);font-size:10px}.rh47-tax-line>strong{font-size:11px}'+
   '.rh47-audit{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding:10px 12px;border:1px solid var(--line-soft);border-radius:12px;background:var(--surface-2);font-size:10px}.rh47-audit b{margin-right:4px}.rh47-audit span{padding:5px 8px;border:1px solid var(--line-soft);border-radius:999px;color:var(--muted)}.rh47-audit .ok{color:var(--emerald)}.rh47-audit .warn{color:var(--orange)}'+
   '.rh47-popup-sub{margin:0 0 10px;color:var(--muted);font-size:.76rem;line-height:1.5}.rh47-popup-scroll{width:100%;overflow:auto}.rh47-popup-table{width:100%!important;min-width:720px!important;table-layout:fixed!important;border-collapse:collapse!important}.rh47-popup-table th,.rh47-popup-table td{padding:10px 11px!important;border-bottom:1px solid var(--line-soft)!important;vertical-align:top!important;overflow-wrap:anywhere!important;word-break:normal!important;transition:none!important;animation:none!important}.rh47-popup-table th{background:var(--surface-2)!important;color:var(--muted)!important;font-size:.66rem!important;text-transform:uppercase!important;letter-spacing:.06em!important}.rh47-popup-table td{font-size:.74rem!important}.rh47-popup-table .money{text-align:right!important;white-space:nowrap!important;font-variant-numeric:tabular-nums!important}.rh47-popup-table tfoot td{background:color-mix(in srgb,var(--surface-2) 82%,var(--gold) 8%)!important;border-top:2px solid var(--line)!important}'+
@@ -435,7 +436,7 @@ function schedule47(ms){clearTimeout(V47.refreshTimer);V47.refreshTimer=setTimeo
 async function refresh47(){
   styles47();patchParser47();normalizeAll47();installEmployerCharges47();await loadBenefits47(false);
   var pane=forecastPane47();if(pane&&getComputedStyle(pane).display!=='none'){
-    var t=auditedForecast47();if(t.rows.length){syncForecastTable47(t);syncOriginalForecastCards47(t);installForecastSummary47(t)}
+    var t=auditedForecast47();if(t.rows.length){syncForecastTable47(t);installForecastSummary47(t)}
   }
   installAiResize47()
 }
@@ -444,7 +445,7 @@ function observe47(){
   V47.observer.observe(document.body,{childList:true,subtree:true})
 }
 function init47(){
-  styles47();patchParser47();installEmployerCharges47();installCapture47();observe47();refresh47();
+  styles47();patchParser47();installEmployerCharges47();installCapture47();refresh47();
   [250,800,1600].forEach(function(ms){setTimeout(function(){schedule47(0)},ms)});
   document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('[data-plan-tab],.nav-item,#rh-plan-recalc'))schedule47(140)},true);
   ['rh-period-year','rh-period-month','competencia-select'].forEach(function(id){var x=E47(id);if(x)x.addEventListener('change',function(){V47.benefitLoaded=false;schedule47(180)})})

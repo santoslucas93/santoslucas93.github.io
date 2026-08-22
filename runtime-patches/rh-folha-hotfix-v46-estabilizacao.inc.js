@@ -154,7 +154,7 @@ function monthlyTotals46(){
 
 /* ───────────────────────── valores estáveis dos cards ───────────────────────── */
 function stabilizeStrong46(el){
-  if(!el||!el.isConnected)return;
+  if(!el||!el.isConnected||el.closest('#page-planejamento'))return;
   var direct=el.querySelector(':scope > .rh46-card-value');
   if(direct&&el.children.length===1)return;
   var text=String(el.textContent||'').trim();
@@ -510,7 +510,7 @@ function observe46(){
       if(m.type==='childList'){
         Array.prototype.forEach.call(m.addedNodes,function(node){if(node.nodeType===1){stabilizeCards46(node);makeClickable46(node)}});
         var t=m.target&&m.target.nodeType===1?m.target:null;
-        if(t&&(t.id==='payroll-rows'||t.id==='rh-plan-folha-table'||t.closest&&t.closest('#payroll-rows,#rh-plan-folha-table,#rh-plan-folha-kpis')))needs=true
+        if(t&&(t.id==='payroll-rows'||t.closest&&t.closest('#payroll-rows')))needs=true
       }
     });
     if(needs)scheduleRefresh46(90)

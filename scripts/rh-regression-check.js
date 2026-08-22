@@ -9,6 +9,12 @@ const ui = read('runtime-patches/rh-folha-hotfix-v38-planejamento-ativos-ui.inc.
 const reports = read('runtime-patches/rh-folha-hotfix-v40-relatorios-executivos.inc.js');
 const stability40 = read('runtime-patches/rh-folha-hotfix-v40a-runtime-stability.inc.js');
 const stability41 = read('runtime-patches/rh-folha-hotfix-v41a-report-center-stability.inc.js');
+
+const fit40 = read('runtime-patches/rh-folha-hotfix-v40-relatorios-executivos.inc.js');
+const fit41 = read('runtime-patches/rh-folha-hotfix-v41a-report-center-stability.inc.js');
+const fit42 = read('runtime-patches/rh-folha-hotfix-v42-relatorios-ajustes.inc.js');
+const fit43 = read('runtime-patches/rh-folha-hotfix-v43-correcoes.inc.js');
+const stable46 = read('runtime-patches/rh-folha-hotfix-v46-estabilizacao.inc.js');
 const planningForecast = read('runtime-patches/rh-folha-hotfix-v47-auditoria-integral.inc.js');
 const planningDetails = read('runtime-patches/rh-folha-hotfix-v48-estabilidade-popups.inc.js');
 
@@ -89,5 +95,15 @@ assert(!planningDetails.includes("['Colaborador','Departamento','CC','Provisão 
 assert(planningDetails.includes('#page-planejamento .kpi strong'), 'regra de cards precisa permanecer restrita ao Planejamento');
 assert(!planningDetails.includes("'.kpi strong,.rh40-guide-card"), 'Planejamento não pode alterar cards de outras abas');
 assert(planningDetails.includes('width:100%!important;max-width:100%!important;min-width:0!important'), 'tabelas dos pop-ups precisam ocupar toda a caixa');
+
+for (const [name, source] of [['v40',fit40],['v41',fit41],['v42',fit42],['v43',fit43]]) {
+  assert(source.includes("closest('#page-planejamento')"), `${name} ainda permite auto-fit em Planejamento`);
+}
+assert(stable46.includes("el.closest('#page-planejamento')"), 'v46 ainda encapsula valores dos cards de Planejamento');
+assert(!stable46.includes("t.id==='rh-plan-folha-table'"), 'observer v46 ainda reage à tabela da Próxima Folha');
+assert(planningForecast.includes("k.hidden=true"), 'grade antiga de quatro cards não está bloqueada na origem');
+assert(planningForecast.includes("if(box.innerHTML!==html)box.innerHTML=html"), 'grade auditada ainda é recriada sem mudança de conteúdo');
+assert(!planningForecast.includes("syncForecastTable47(t);syncOriginalForecastCards47(t)"), 'grade antiga ainda recebe sincronização');
+assert(!planningForecast.includes("installCapture47();observe47();refresh47()"), 'observer v47 ainda recalcula a Próxima Folha');
 
 console.log('RH regression baseline: OK');
