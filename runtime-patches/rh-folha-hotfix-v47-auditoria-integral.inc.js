@@ -6,6 +6,7 @@ var V47={
   benefitRows:[],
   benefitLoaded:false,
   benefitCompetenceId:'',
+  snapshot:null,
   refreshTimer:0,
   observer:null,
   aiResize:null
@@ -196,14 +197,14 @@ function auditedForecast47(){
     var inssSeg=inssEmployee47(baseInss),irrf=irrf47(baseIrrf,r.proventos);
     var inssPat=baseEmployer*rates.inssPat,rat=baseEmployer*rates.rat,terc=baseEmployer*rates.terceiros,pis=baseEmployer*rates.pis,fgts=baseFgts*rates.fgts;
     var enc=inssPat+rat+terc+pis+fgts,ben=benefitTotal47(p),cost=r.proventos+enc+ben;
-    return Object.assign({},r,{person:p,baseInss:baseInss,baseEmployer:baseEmployer,baseFgts:baseFgts,baseIrrf:baseIrrf,inssSeg:inssSeg,irrf:irrf,inssPat:inssPat,rat:rat,terceiros:terc,pis:pis,fgts:fgts,encargos:enc,beneficios:ben,custo:cost})
+    return Object.assign({},r,{person:p,proventos:r247(r.proventos),descontos:r247(r.descontos),liquido:r247(r.liquido),baseInss:r247(baseInss),baseEmployer:r247(baseEmployer),baseFgts:r247(baseFgts),baseIrrf:r247(baseIrrf),inssSeg:r247(inssSeg),irrf:r247(irrf),inssPat:r247(inssPat),rat:r247(rat),terceiros:r247(terc),pis:r247(pis),fgts:r247(fgts),encargos:r247(enc),beneficios:r247(ben),custo:r247(cost)})
   });
   var t={
-    rows:rows,prov:sum47(rows,'proventos'),disc:sum47(rows,'descontos'),liq:sum47(rows,'liquido'),
-    baseInss:sum47(rows,'baseInss'),baseEmployer:sum47(rows,'baseEmployer'),baseFgts:sum47(rows,'baseFgts'),baseIrrf:sum47(rows,'baseIrrf'),
-    inssSeg:sum47(rows,'inssSeg'),irrf:sum47(rows,'irrf'),inssPat:sum47(rows,'inssPat'),rat:sum47(rows,'rat'),terceiros:sum47(rows,'terceiros'),pis:sum47(rows,'pis'),fgts:sum47(rows,'fgts'),ben:sum47(rows,'beneficios')
+    rows:rows,prov:r247(sum47(rows,'proventos')),disc:r247(sum47(rows,'descontos')),liq:r247(sum47(rows,'liquido')),
+    baseInss:r247(sum47(rows,'baseInss')),baseEmployer:r247(sum47(rows,'baseEmployer')),baseFgts:r247(sum47(rows,'baseFgts')),baseIrrf:r247(sum47(rows,'baseIrrf')),
+    inssSeg:r247(sum47(rows,'inssSeg')),irrf:r247(sum47(rows,'irrf')),inssPat:r247(sum47(rows,'inssPat')),rat:r247(sum47(rows,'rat')),terceiros:r247(sum47(rows,'terceiros')),pis:r247(sum47(rows,'pis')),fgts:r247(sum47(rows,'fgts')),ben:r247(sum47(rows,'beneficios'))
   };
-  t.company=t.inssPat+t.rat+t.terceiros+t.pis+t.fgts;t.retained=t.inssSeg+t.irrf;t.otherDiscounts=Math.max(0,t.disc-t.retained);t.taxTotal=t.retained+t.company;t.cost=t.prov+t.company+t.ben;
+  t.company=r247(t.inssPat+t.rat+t.terceiros+t.pis+t.fgts);t.retained=r247(t.inssSeg+t.irrf);t.otherDiscounts=r247(Math.max(0,t.disc-t.retained));t.taxTotal=r247(t.retained+t.company);t.cost=r247(t.prov+t.company+t.ben);
   var meta=typeof window.rhRosterMeta==='function'?window.rhRosterMeta():window.RH_CURRENT_ACTIVE_META;
   t.expectedActive=n47(meta&&meta.ativos)||activePeople47().length;t.countOk=!t.expectedActive||t.rows.length===t.expectedActive;
   t.balanceDiff=r247(t.prov-t.disc-t.liq);t.balanceOk=Math.abs(t.balanceDiff)<=.02;
@@ -247,7 +248,7 @@ function syncOriginalForecastCards47(t){
   cards.slice(0,4).forEach(function(card,i){var s=card.querySelector('span'),b=card.querySelector('strong'),sm=card.querySelector('small');if(s)s.textContent=vals[i][0];if(b)b.textContent=money47(vals[i][1]);if(sm)sm.textContent=vals[i][2];card.dataset.rh47Forecast=String(i)})
 }
 function summaryCard47(label,value,sub,key,featured){
-  return '<button type="button" class="rh47-summary-card '+(featured?'featured':'')+'" data-rh47-key="'+esc47(key)+'"><span>'+esc47(label)+'</span><strong>'+esc47(money47(value))+'</strong><small>'+esc47(sub||'')+'</small></button>'
+  return '<button type="button" class="rh47-summary-card '+(featured?'featured':'')+'" data-rh47-key="'+esc47(key)+'" data-rh47-value="'+esc47(r247(value).toFixed(2))+'"><span>'+esc47(label)+'</span><strong>'+esc47(money47(value))+'</strong><small>'+esc47(sub||'')+'</small></button>'
 }
 function taxRowsScreen47(items,title){
   return '<article class="rh47-tax-panel"><div class="rh47-tax-head"><b>'+esc47(title)+'</b><span>Base · alíquota · valor</span></div>'+items.map(function(x){
@@ -327,11 +328,11 @@ function benefitCategoryTotals47(t){
 }
 function openBenefits47(t){
   var c=benefitCompleteness47();
-  openStable47(c.complete?'Benefícios projetados':'Benefícios confirmados — fonte parcial','PRÓXIMA FOLHA · BENEFÍCIOS E RATEIO',['Colaborador','Departamento','Centro de custo','Seguro','Saúde','VR / VA / Cesta','VT','Total'],t.rows.map(function(r){var b=benefitExact47(r.person)||{},cc=r.person&&(r.person.centro_custo||r.person.centro_de_custo||r.person.cost_center)||'Sem centro de custo';return[r.nome,r.departamento,cc,money47(b.seguro_vida),money47(b.assistencia_medica),money47(b.vr_caixa),money47(b.vale_transporte),money47(r.beneficios)]}),['TOTAL','','',money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.seguro_vida})),money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.assistencia_medica})),money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.vr_caixa})),money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.vale_transporte})),money47(t.ben)],c.complete?'Fonte integrada da competência-base.':'Fonte atual ainda não contém valores integrados de VR/VA/Cesta e VT; eles não são inventados na projeção.',[24,14,12,9,9,11,9,12])
+  openStable47(c.complete?'Benefícios projetados':'Benefícios confirmados — fonte parcial','PRÓXIMA FOLHA · BENEFÍCIOS E RATEIO',['Colaborador','Departamento','Seguro','Saúde','VR / VA / Cesta','VT','Total'],t.rows.map(function(r){var b=benefitExact47(r.person)||{};return[r.nome,r.departamento,money47(b.seguro_vida),money47(b.assistencia_medica),money47(b.vr_caixa),money47(b.vale_transporte),money47(r.beneficios)]}),['TOTAL','',money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.seguro_vida})),money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.assistencia_medica})),money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.vr_caixa})),money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.vale_transporte})),money47(t.ben)],c.complete?'Fonte integrada da competência-base.':'Fonte atual ainda não contém valores integrados de VR/VA/Cesta e VT; eles não são inventados na projeção.',[28,17,10,10,13,10,12])
 }
 function openPeopleMetric47(t,key,title){
-  var total=sum47(t.rows,key);
-  openStable47(title,'PRÓXIMA FOLHA · COMPOSIÇÃO E RATEIO',['Colaborador','Departamento','Centro de custo','Valor','% do card'],t.rows.map(function(r){var cc=r.person&&(r.person.centro_custo||r.person.centro_de_custo||r.person.cost_center)||'Sem centro de custo',v=n47(r[key]);return[r.nome,r.departamento,cc,money47(v),total?pct47(v/total):'—']}),['TOTAL',t.rows.length+' pessoas','',money47(total),'100,00%'],'Projeção '+nextComp47(),[34,20,17,18,11])
+  var total=r247(sum47(t.rows,key));
+  openStable47(title,'PRÓXIMA FOLHA · COMPOSIÇÃO E RATEIO',['Colaborador','Departamento','Valor','% do card'],t.rows.map(function(r){var v=n47(r[key]);return[r.nome,r.departamento,money47(v),total?pct47(v/total):'—']}),['TOTAL',t.rows.length+' pessoas',money47(total),'100,00%'],'Projeção '+nextComp47(),[43,24,21,12])
 }
 function openEncBenefits47(t){
   var b=benefitCategoryTotals47(t),items=companyItems47(t).map(function(x){return[x.label,'Encargo',money47(x.value)]});
@@ -342,7 +343,7 @@ function openCost47(t){
   openStable47('Custo total estimado','COMPOSIÇÃO DO CUSTO',['Componente','Valor'],[['Proventos previstos',money47(t.prov)],['Encargos da empresa',money47(t.company)],['Benefícios confirmados',money47(t.ben)]],['TOTAL',money47(t.cost)],null,[70,30])
 }
 function handleForecastCard47(card){
-  var t=auditedForecast47(),key=card.dataset.rh47Key||'',ln=norm47((card.querySelector('span')||{}).textContent||'');
+  var t=V47.snapshot||auditedForecast47(),key=card.dataset.rh47Key||'',ln=norm47((card.querySelector('span')||{}).textContent||'');
   if(card.dataset.rh47Forecast==='0'||key==='prov'||/provento/.test(ln))return openPeopleMetric47(t,'proventos','Proventos previstos');
   if(key==='disc'||/desconto/.test(ln))return openPeopleMetric47(t,'descontos','Descontos previstos');
   if(card.dataset.rh47Forecast==='1'||key==='liq'||/liquido/.test(ln))return openPeopleMetric47(t,'liquido','Líquido previsto');
@@ -437,7 +438,7 @@ function schedule47(ms){clearTimeout(V47.refreshTimer);V47.refreshTimer=setTimeo
 async function refresh47(){
   styles47();patchParser47();normalizeAll47();installEmployerCharges47();await loadBenefits47(false);
   var pane=forecastPane47();if(pane&&getComputedStyle(pane).display!=='none'){
-    var t=auditedForecast47();if(t.rows.length){syncForecastTable47(t);installForecastSummary47(t)}
+    var t=auditedForecast47();if(t.rows.length){V47.snapshot=t;syncForecastTable47(t);installForecastSummary47(t)}
   }
   installAiResize47()
 }
