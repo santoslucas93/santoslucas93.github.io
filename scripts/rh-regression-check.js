@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-// Invariantes desta release: card e composição compartilham o mesmo fechamento; pop-ups não exibem CC.
+// Invariantes desta release: card/composição compartilham o fechamento; pop-ups não exibem CC e usam um único colgroup.
 function read(path) { return fs.readFileSync(path, 'utf8'); }
 function assert(ok, msg) { if (!ok) throw new Error(`RH regression: ${msg}`); }
 
