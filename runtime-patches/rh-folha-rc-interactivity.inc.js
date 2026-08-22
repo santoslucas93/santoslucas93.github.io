@@ -35,12 +35,15 @@ function rhInterPalette(){
 function rhInterOpen(title,kicker,headers,rows,footer,subtitle){
   rows=rows||[];headers=headers||[];
   var cols=headers.length||2;
-  var tpl=cols===1?'1fr':(cols===2?'minmax(0,1fr) minmax(120px,.45fr)':('repeat('+cols+',minmax(0,1fr))'));
+  function numeric(h){return /valor|total|provento|desconto|líquido|liquido|fgts|inss|pis|irrf|custo|benef|salário|salario|base|encargo|média|media|%|pessoas|quantidade|qtd/i.test(String(h||''));}
+  function weight(h,i){h=String(h||'');if(/colaborador|empregado|pessoa/i.test(h))return 2.8;if(/departamento/i.test(h))return 1.65;if(/centro de custo|\bcc\b/i.test(h))return 1.45;if(/componente|rubrica|indicador|tratamento|movimenta|detalhe|natureza/i.test(h))return 2.1;if(/al[ií]quota|%|quantidade|qtd|pessoas/i.test(h))return .9;if(cols===2&&i===0)return 2.1;return numeric(h)?1.25:1.45;}
+  var tpl=headers.map(function(h,i){return 'minmax(0,'+weight(h,i)+'fr)';}).join(' ')||'1fr';
+  function cell(v,i,tag){var cls=numeric(headers[i])?' rh-comp-number':'';return '<'+tag+' class="rh-comp-cell'+cls+'" data-label="'+esc(headers[i]||'')+'">'+(v==null?'—':esc(v))+'</'+tag+'>';}
   var html=(subtitle?'<p class="rh-comp-sub">'+esc(subtitle)+'</p>':'')
-    +'<div class="rh-comp-table" style="--rh-comp-cols:'+tpl+'">'
-    +'<div class="rh-comp-row rh-comp-header">'+headers.map(function(h){return '<div>'+esc(h)+'</div>';}).join('')+'</div>'
-    +(rows.length?rows.map(function(r){return '<div class="rh-comp-row">'+r.map(function(v,i){return '<div class="rh-comp-cell" data-label="'+esc(headers[i]||'')+'">'+esc(v==null?'—':v)+'</div>';}).join('')+'</div>';}).join(''):'<div class="detail-empty">Sem dados para a composição selecionada.</div>')
-    +(footer?'<div class="rh-comp-row rh-comp-total">'+footer.map(function(v,i){return '<div class="rh-comp-cell" data-label="'+esc(headers[i]||'')+'">'+esc(v==null?'':v)+'</div>';}).join('')+'</div>':'')
+    +'<div class="rh-comp-table" data-rh-authoritative-composition="1" style="--rh-comp-cols:'+tpl+'">'
+    +'<div class="rh-comp-row rh-comp-header">'+headers.map(function(h,i){return cell(h,i,'div');}).join('')+'</div>'
+    +(rows.length?rows.map(function(r){return '<div class="rh-comp-row">'+r.map(function(v,i){return cell(v,i,'div');}).join('')+'</div>';}).join(''):'<div class="detail-empty">Sem dados para a composição selecionada.</div>')
+    +(footer?'<div class="rh-comp-row rh-comp-total" data-rh-authoritative-total="1">'+footer.map(function(v,i){return cell(v==null?'':v,i,'div');}).join('')+'</div>':'')
     +'</div>';
   openGenericDetail(title,kicker||'COMPOSIÇÃO',html);
 }
@@ -54,32 +57,131 @@ function rhInterCardify(container,handlers){
     if(small&&!small.querySelector('.rh-click-hint'))small.innerHTML+=' <span class="rh-click-hint">· clique para composição</span>';
   });
 }
-function rhInterPersonRows(rows,kind){
+function rhInterCostCenter(p){return String(p&&((p.centro_custo!=null&&p.centro_custo!=='')?p.centro_custo:(p.centro_de_custo||p.cost_center))||'Sem centro de custo');}
+function rhInterValue(rows,p,kind){
+  var c=rhInsightCost(p);
+  if(kind==='proventos')return Number(p.proventos)||0;
+  if(kind==='descontos')return Number(p.descontos)||0;
+  if(kind==='liquido')return Number(p.liquido)||0;
+  if(kind==='fgts')return typeof rhDepartmentCostPerson==='function'?rhDepartmentCostPerson(p).fgts:(Number(p.valor_fgts)||0);
+  if(kind==='encargos')return c.encargos;
+  if(kind==='beneficios')return c.beneficios;
+  return c.total;
+}
+function rhInterPersonRows(rows,kind,total){
   return (rows||[]).slice().sort(function(a,b){return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{sensitivity:'base'});}).map(function(p){
-    var c=rhInsightCost(p),dept=departmentName(p.departamento),vinc=rhVinculoCategory(p);
-    var vlabel={clt:'CLT',estagiario:'Estagiário',outros:'Outros'}[vinc]||vinc;
-    if(kind==='proventos')return [p.nome,dept,fmt(p.proventos)];
-    if(kind==='liquido')return [p.nome,dept,fmt(p.liquido)];
-    if(kind==='encargos')return [p.nome,dept,fmt(c.encargos)];
-    if(kind==='beneficios')return [p.nome,dept,fmt(c.beneficios)];
-    return [p.nome,dept+' · '+vlabel,fmt(c.total)];
+    var value=rhInterValue(rows,p,kind),pct=total?value/total*100:0;
+    return [p.nome,departmentName(p.departamento),rhInterCostCenter(p),fmt(value),(pct||0).toFixed(2).replace('.',',')+'%'];
   });
 }
 function rhInterSum(rows,key){
-  return (rows||[]).reduce(function(a,p){var c=rhInsightCost(p);if(key==='proventos')return a+(Number(p.proventos)||0);if(key==='liquido')return a+(Number(p.liquido)||0);if(key==='encargos')return a+c.encargos;if(key==='beneficios')return a+c.beneficios;return a+c.total;},0);
+  return (rows||[]).reduce(function(a,p){return a+rhInterValue(rows,p,key);},0);
 }
-function rhInterOpenPeopleMetric(title,rows,kind,subtitle){
-  var total=rhInterSum(rows,kind);
-  rhInterOpen(title,'COMPOSIÇÃO POR COLABORADOR',['Colaborador','Departamento / vínculo','Valor'],rhInterPersonRows(rows,kind),['TOTAL',rows.length+' pessoas',fmt(total)],subtitle);
+function rhInterOpenPeopleMetric(title,rows,kind,subtitle,cardTotal){
+  var allocated=rhInterSum(rows,kind),total=cardTotal==null?allocated:Number(cardTotal)||0,body=rhInterPersonRows(rows,kind,total),diff=Math.round((total-allocated)*100)/100;
+  if(Math.abs(diff)>.02)body.push(['Conciliação da competência','Não individualizado','Sem rateio na origem',fmt(diff),total?(diff/total*100).toFixed(2).replace('.',',')+'%':'—']);
+  var coverage=total?Math.min(100,Math.abs(allocated/total*100)):100;
+  rhInterOpen(title,'COMPOSIÇÃO E RATEIO',['Colaborador','Departamento','Centro de custo','Valor','% do card'],body,['TOTAL',rows.length+' pessoas','',fmt(total),'100,00%'],(subtitle?subtitle+' · ':'')+'Rateio individual identificado: '+coverage.toFixed(2).replace('.',',')+'%.');
+}
+function rhInterOpenAverageMetric(title,rows,kind){
+  var total=rhInterSum(rows,kind),average=rows.length?total/rows.length:0;
+  rhInterOpen(title,'MEMÓRIA DA MÉDIA E RATEIO',['Colaborador','Departamento','Centro de custo','Valor individual','% do total'],rhInterPersonRows(rows,kind,total),['MÉDIA DO CARD',rows.length+' pessoas','',fmt(average),'100,00% rateado'],'Média do card = '+fmt(total)+' ÷ '+rows.length+' pessoas.');
 }
 function rhInterOpenRatio(title,rows,leftKey,rightKey,labelLeft,labelRight){
   var out=[],a=0,b=0;
   (rows||[]).slice().sort(function(x,y){return String(x.nome||'').localeCompare(String(y.nome||''),'pt-BR',{sensitivity:'base'});}).forEach(function(p){
     var c=rhInsightCost(p),lv=leftKey==='proventos'?(Number(p.proventos)||0):(leftKey==='beneficios'?c.beneficios:(leftKey==='encargos'?c.encargos:c.total));
     var rv=rightKey==='proventos'?(Number(p.proventos)||0):(rightKey==='beneficios'?c.beneficios:(rightKey==='encargos'?c.encargos:c.total));
-    a+=lv;b+=rv;out.push([p.nome,fmt(lv),fmt(rv),rv?(lv/rv*100).toFixed(1).replace('.',',')+'%':'—']);
+    a+=lv;b+=rv;out.push([p.nome,departmentName(p.departamento),rhInterCostCenter(p),fmt(lv),fmt(rv),rv?(lv/rv*100).toFixed(1).replace('.',',')+'%':'—']);
   });
-  rhInterOpen(title,'COMPOSIÇÃO E CONFERÊNCIA',['Colaborador',labelLeft,labelRight,'%'],out,['TOTAL',fmt(a),fmt(b),b?(a/b*100).toFixed(1).replace('.',',')+'%':'—']);
+  rhInterOpen(title,'COMPOSIÇÃO, RATEIO E CONFERÊNCIA',['Colaborador','Departamento','Centro de custo',labelLeft,labelRight,'%'],out,['TOTAL',rows.length+' pessoas','',fmt(a),fmt(b),b?(a/b*100).toFixed(1).replace('.',',')+'%':'—']);
+}
+
+/* Cards operacionais: uma fonte para valor, composição e rateio. */
+function rhInterCardNumber(card){
+  var text=String(card&&card.querySelector('strong')&&card.querySelector('strong').textContent||'').trim();
+  var clean=text.replace(/R\$/g,'').replace(/\s/g,'').replace(/\./g,'').replace(',','.').replace(/[^0-9.-]/g,'');
+  var n=Number(clean);return isFinite(n)?n:0;
+}
+function rhInterBindByLabel(container,routes){
+  var box=$(container);if(!box)return;
+  Array.prototype.forEach.call(box.querySelectorAll('.kpi'),function(card){
+    var label=cleanSearch((card.querySelector('span')||{}).textContent||''),fn=null;
+    Object.keys(routes).some(function(key){if(label.indexOf(key)>=0){fn=routes[key];return true;}return false;});
+    if(!fn)return;rhInterCardify(container,[].slice.call(box.querySelectorAll('.kpi')).map(function(x){return x===card?function(){fn(card);}:null;}));
+  });
+}
+function rhInterOpenHeadcount(card){
+  var rows=typeof rhScopePeople==='function'?rhScopePeople():(S.pessoas||[]),target=Math.round(rhInterCardNumber(card)),body=rows.slice().sort(function(a,b){return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{sensitivity:'base'});}).map(function(p){return[p.nome,departmentName(p.departamento),rhInterCostCenter(p),p.vinculo||'—'];});
+  var diff=target-body.length;if(diff>0)body.push(['Registros protegidos / não individualizados','Sem detalhamento','Sem rateio na origem',diff+' pessoa'+(diff===1?'':'s')]);
+  rhInterOpen('Pessoas na folha','COMPOSIÇÃO E RATEIO DO QUADRO',['Colaborador','Departamento','Centro de custo','Vínculo'],body,['TOTAL',target+' pessoas','',''],'A quantidade do rodapé é a mesma exibida no card.');
+}
+function rhInterBindOverviewAndPayroll(){
+  var rows=function(){return typeof rhScopePeople==='function'?rhScopePeople():(S.pessoas||[]);};
+  rhInterBindByLabel('page-visao',{
+    'proventos':function(card){rhInterOpenPeopleMetric('Proventos',rows(),'proventos','Valor bruto da competência',rhInterCardNumber(card));},
+    'descontos':function(card){rhInterOpenPeopleMetric('Descontos',rows(),'descontos','Retenções e deduções da folha',rhInterCardNumber(card));},
+    'liquido':function(card){rhInterOpenPeopleMetric('Líquido',rows(),'liquido','Proventos − descontos',rhInterCardNumber(card));},
+    'pessoas na folha':rhInterOpenHeadcount
+  });
+  rhInterBindByLabel('payroll-kpis',{
+    'proventos':function(card){rhInterOpenPeopleMetric('Proventos',rows(),'proventos','Folha mensal',rhInterCardNumber(card));},
+    'descontos':function(card){rhInterOpenPeopleMetric('Descontos',rows(),'descontos','Folha mensal',rhInterCardNumber(card));},
+    'liquido':function(card){rhInterOpenPeopleMetric('Líquido',rows(),'liquido','Folha mensal',rhInterCardNumber(card));},
+    'fgts':function(card){rhInterOpenPeopleMetric('FGTS',rows(),'fgts','Rateio pela base individual da folha',rhInterCardNumber(card));}
+  });
+}
+function rhInterOpenChargeTotal(card){
+  var items=typeof chargeData==='function'?chargeData():[],target=rhInterCardNumber(card);
+  rhInterOpen('Total de recolhimentos','COMPOSIÇÃO EXATA DO CARD',['Componente','Valor'],items.map(function(x){return[x[0],fmt(x[1])];}),['TOTAL',fmt(target)],'Retenções do colaborador e obrigações da empresa permanecem identificadas por natureza.');
+}
+function rhInterBindChargeCards(){
+  rhInterBindByLabel('charges-kpis',{
+    'total recolhimentos':rhInterOpenChargeTotal,
+    'inss total':function(){openInssBreakdown();},
+    'fgts':function(){openFgtsBreakdown();},
+    'pis':function(){openPisBreakdown();},
+    'irrf folha':function(){openIrrfBreakdown();},
+    'irrf':function(){openIrrfBreakdown();}
+  });
+}
+function rhInterMovementGroup(label){
+  var events=typeof rhMovementEvents==='function'?rhMovementEvents():[],key=cleanSearch(label);
+  return events.filter(function(ev){var type=cleanSearch(ev.tipo);if(key.indexOf('admiss')>=0)return type.indexOf('admiss')>=0;if(key.indexOf('deslig')>=0)return type.indexOf('deslig')>=0;if(key.indexOf('ferias')>=0)return type.indexOf('ferias')>=0;if(key.indexOf('afast')>=0)return type.indexOf('afast')>=0;return type.indexOf('transfer')>=0;});
+}
+function rhInterOpenMovementCard(card){
+  var label=String((card.querySelector('span')||{}).textContent||'Movimentações'),events=rhInterMovementGroup(label),target=Math.round(rhInterCardNumber(card)),body=events.map(function(ev){return[ev.person.nome||'—',ev.dep,rhInterCostCenter(ev.person),ev.tipo,ev.detalhe||'—'];});
+  if(target>body.length)body.push(['Eventos consolidados sem linha individual','Sem detalhamento','Sem rateio na origem',label,target-body.length+' evento'+(target-body.length===1?'':'s')]);
+  rhInterOpen(label,'COMPOSIÇÃO DO CARD',['Colaborador','Departamento','Centro de custo','Movimentação','Detalhe'],body,['TOTAL',target+' eventos','','',''],'A quantidade do rodapé é a mesma exibida no card.');
+}
+function rhInterBindMovementCards(){
+  var box=$('movement-kpis');if(!box)return;rhInterCardify('movement-kpis',[].slice.call(box.querySelectorAll('.kpi')).map(function(card){return function(){rhInterOpenMovementCard(card);};}));
+}
+function rhInterBindCostCards(){
+  var rows=function(){return typeof rhScopePeople==='function'?rhScopePeople():(S.pessoas||[]);};
+  rhInterBindByLabel('custo-real-kpis',{
+    'custo total':function(card){rhInterOpenPeopleMetric('Custo total LNB',rows(),'total','Proventos + encargos patronais + benefícios',rhInterCardNumber(card));},
+    'salarios brutos':function(card){rhInterOpenPeopleMetric('Salários / Proventos',rows(),'proventos','Base bruta da competência',rhInterCardNumber(card));},
+    'fgts + encargos patronais':function(card){rhInterOpenPeopleMetric('FGTS + Encargos patronais',rows(),'encargos','Inclui FGTS, INSS patronal, RAT, Terceiros e PIS',rhInterCardNumber(card));},
+    'beneficios':function(card){rhInterOpenPeopleMetric('Benefícios',rows(),'beneficios','Seguro, Saúde, VR/VA/Cesta e VT integrados',rhInterCardNumber(card));}
+  });
+}
+var _rhInterRenderKpis=renderKpis;
+renderKpis=function(){var r=_rhInterRenderKpis.apply(this,arguments);rhInterBindOverviewAndPayroll();return r;};
+var _rhInterRenderCharges=renderCharges;
+renderCharges=function(){var r=_rhInterRenderCharges.apply(this,arguments);rhInterBindChargeCards();return r;};
+var _rhInterRenderMovements=renderMovements;
+renderMovements=function(){var r=_rhInterRenderMovements.apply(this,arguments);rhInterBindMovementCards();return r;};
+var _rhInterRenderCustoReal=renderCustoReal;
+renderCustoReal=function(){var r=_rhInterRenderCustoReal.apply(this,arguments);rhInterBindCostCards();return r;};
+function rhInterBindClosingCards(){
+  var cards=[].slice.call(document.querySelectorAll('#rh-closing-summary .rh-close-stat'));if(cards.length<3||typeof rhAuditChecks!=='function')return;
+  var checks=rhAuditChecks(),groups=[checks,checks.filter(function(x){return x.blocking&&!x.ok;}),checks.filter(function(x){return x.severity==='warn';})];
+  cards.forEach(function(card,i){var fn=function(){var rows=groups[i]||[],label=String((card.querySelector('span')||{}).textContent||'Conferência'),target=Math.round(rhInterCardNumber(card));rhInterOpen(label,'CONFERÊNCIA DA COMPETÊNCIA',['Validação','Situação','Esperado','Encontrado','Diferença'],rows.map(function(x){return[x.label,x.ok?'Conciliado':(x.blocking?'Bloqueio':'Aviso'),x.expected==null?'—':(typeof x.expected==='number'?fmt(x.expected):x.expected),x.actual==null?'—':(typeof x.actual==='number'?fmt(x.actual):x.actual),typeof x.diff==='number'?fmt(x.diff):'—'];}),['TOTAL DO CARD',target+' ocorrências','','',''],'O rodapé replica a quantidade exibida no card.');};card.classList.add('rh-clickable-kpi');card.setAttribute('role','button');card.setAttribute('tabindex','0');card.onclick=fn;card.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();fn();}};});
+}
+if(typeof rhRenderClosing==='function'){
+  var _rhInterRenderClosing=rhRenderClosing;
+  rhRenderClosing=function(){var r=_rhInterRenderClosing.apply(this,arguments);rhInterBindClosingCards();return r;};
 }
 
 /* Histórico */
@@ -87,17 +189,17 @@ function rhInterHistoryCards(){
   var rows=rhHistoryRows();if(!rows.length)return;var latest=rows[rows.length-1];
   rhInterCardify('rh-history-kpis',[
     function(){
-      rhInterOpen('Competências do período','HISTÓRICO',['Competência','Status','Pessoas','Custo folha'],rows.map(function(r){return [formatCompetence(r.competencia),rhAuditStatusLabel(r.status),nfmt(r.pessoas),fmt(r.custoFolha)];}),['TOTAL',rows.length+' competências','—',fmt(rows.reduce(function(a,r){return a+r.custoFolha;},0))]);
+      rhInterOpen('Competências do período','HISTÓRICO',['Competência','Status','Pessoas','Custo folha'],rows.map(function(r){return [formatCompetence(r.competencia),rhAuditStatusLabel(r.status),nfmt(r.pessoas),fmt(r.custoFolha)];}),['TOTAL DO CARD',rows.length+' competências','',''],'Cada linha representa uma competência; valores monetários não são somados entre meses para este card.');
     },
     function(){
       var vals=[['Proventos',fmt(latest.proventos)],['Descontos',fmt(latest.descontos)],['Líquido',fmt(latest.liquido)],['FGTS',fmt(latest.fgts)],['Encargos patronais',fmt(latest.patronais)],['PIS',fmt(latest.pis)],['IRRF folha',fmt(latest.irrf)],['Benefícios históricos',rhHistoryMoneyMaybe(latest.beneficios)]];
-      rhInterOpen('Competência '+formatCompetence(latest.competencia),'RESUMO DA COMPETÊNCIA',['Indicador','Valor'],vals,['TOTAL CUSTO FOLHA + ENCARGOS',fmt(latest.custoFolha)]);
+      rhInterOpen('Competência '+formatCompetence(latest.competencia),'RESUMO DA COMPETÊNCIA',['Indicador','Valor'],vals,['REFERÊNCIA DO CARD',formatCompetence(latest.competencia)],'Indicadores derivados e retenções não são somados entre si.');
     },
     function(){
       rhInterOpen('Pessoas por competência','HEADCOUNT',['Competência','Pessoas'],rows.map(function(r){return [formatCompetence(r.competencia),nfmt(r.pessoas)];}),['ÚLTIMA COMPETÊNCIA',nfmt(latest.pessoas)],'O total final representa o headcount da competência mais recente, evitando somar a mesma pessoa em meses diferentes.');
     },
     function(){
-      rhInterOpen('Custo folha + encargos','COMPOSIÇÃO HISTÓRICA',['Competência','Proventos','FGTS + patronais + PIS','Custo'],rows.map(function(r){return [formatCompetence(r.competencia),fmt(r.proventos),fmt(r.fgts+r.patronais+r.pis),fmt(r.custoFolha)];}),['TOTAL DO PERÍODO','—','—',fmt(rows.reduce(function(a,r){return a+r.custoFolha;},0))]);
+      rhInterOpen('Custo folha + encargos','COMPOSIÇÃO DA ÚLTIMA COMPETÊNCIA',['Componente','Valor'],[['Proventos',fmt(latest.proventos)],['FGTS',fmt(latest.fgts)],['Encargos patronais',fmt(latest.patronais)],['PIS',fmt(latest.pis)]],['TOTAL DO CARD',fmt(latest.custoFolha)],'Referência '+formatCompetence(latest.competencia)+'. Benefícios não versionados permanecem fora deste indicador.');
     }
   ]);
 }
@@ -140,16 +242,35 @@ function rhInterRenderHistoryCharts(){
 var _rhInterRenderHistory=renderHistory;
 renderHistory=function(){_rhInterRenderHistory();rhInterHistoryCards();rhInterRenderHistoryCharts();};
 
+function rhInterPersonHistoryCards(){
+  var box=$('rh-person-history-kpis'),months=$('rh-person-history-months');if(!box||!months)return;
+  var rows=[].slice.call(months.querySelectorAll('.rh-history-month')).map(function(month){
+    var comp=String((month.querySelector('.rh-history-month-head strong')||{}).textContent||'—'),vals={};
+    [].slice.call(month.querySelectorAll('.rh-history-metric')).forEach(function(x){var k=cleanSearch((x.querySelector('span')||{}).textContent||''),v=String((x.querySelector('strong')||{}).textContent||'—');vals[k]=v;});
+    return[comp,vals.proventos||'—',vals.liquido||'—',vals.encargos||'—',vals.beneficios||'—',vals['custo total']||'—'];
+  });
+  var cards=[].slice.call(box.querySelectorAll('.kpi'));if(!cards.length)return;
+  rhInterCardify('rh-person-history-kpis',cards.map(function(card,i){return function(){
+    var label=String((card.querySelector('span')||{}).textContent||'Histórico individual'),value=String((card.querySelector('strong')||{}).textContent||'—');
+    if(i===0)rhInterOpen(label,'HISTÓRICO INDIVIDUAL',['Competência','Proventos','Líquido','Encargos','Benefícios','Custo total'],rows,['TOTAL DO CARD',rows.length+' competências','','','',''],'Valores de competências diferentes não são somados neste card.');
+    else rhInterOpen(label,'ÚLTIMA COMPETÊNCIA',['Indicador','Valor'],[[label,value]],['TOTAL DO CARD',value],rows.length?'Referência '+rows[0][0]+'.':'');
+  };}));
+}
+if(typeof renderPersonHistory==='function'){
+  var _rhInterRenderPersonHistory=renderPersonHistory;
+  renderPersonHistory=function(){var r=_rhInterRenderPersonHistory.apply(this,arguments);return Promise.resolve(r).then(function(x){rhInterPersonHistoryCards();return x;});};
+}
+
 /* Indicadores */
 function rhInterIndicatorCards(){
   var rows=rhInsightRows(),t=rhInsightAggregate(rows);
   var clt=rows.filter(function(p){return rhVinculoCategory(p)==='clt';}),est=rows.filter(function(p){return rhVinculoCategory(p)==='estagiario';});
   rhInterCardify('rh-insight-kpis',[
-    function(){rhInterOpenPeopleMetric('Custo médio por pessoa',rows,'total','Média: '+fmt(rhAvg(t.total,t.pessoas)));},
+    function(){rhInterOpenAverageMetric('Custo médio por pessoa',rows,'total');},
     function(){rhInterOpenRatio('Encargos / proventos',rows,'encargos','proventos','Encargos','Proventos');},
     function(){rhInterOpenRatio('Benefícios / Custo Real',rows,'beneficios','total','Benefícios','Custo Real');},
-    function(){rhInterOpenPeopleMetric('Média CLT',clt,'total','Média: '+fmt(rhAvg(t.clt.total,t.clt.n)));},
-    function(){rhInterOpenPeopleMetric('Média Estagiário',est,'total','Média: '+fmt(rhAvg(t.estagiario.total,t.estagiario.n)));},
+    function(){rhInterOpenAverageMetric('Média CLT',clt,'total');},
+    function(){rhInterOpenAverageMetric('Média Estagiário',est,'total');},
     function(){rhInterOpenPeopleMetric('Custo total filtrado',rows,'total','Departamento e vínculo ativos são respeitados nesta composição.');}
   ]);
 }
@@ -191,10 +312,10 @@ function rhInterDossierCards(){
   var m=rhDossierModel(),rows=m.rows;
   rhInterCardify('rh-dossier-kpis',[
     function(){
-      rhInterOpen('Competência '+m.competencia,'DOSSIÊ EXECUTIVO',['Indicador','Valor'],[['Status',m.status],['Departamento',m.scope.departamento],['Vínculo',m.scope.vinculo],['Pessoas',nfmt(rows.length)],['Proventos',fmt(m.base.proventos)],['Descontos',fmt(m.base.descontos)],['Líquido',fmt(m.base.liquido)]],['TOTAL CUSTO REAL',fmt(m.cost.total)]);
+      rhInterOpen('Competência '+m.competencia,'DOSSIÊ EXECUTIVO',['Indicador','Valor'],[['Status',m.status],['Departamento',m.scope.departamento],['Vínculo',m.scope.vinculo],['Pessoas',nfmt(rows.length)],['Proventos',fmt(m.base.proventos)],['Descontos',fmt(m.base.descontos)],['Líquido',fmt(m.base.liquido)]],['REFERÊNCIA DO CARD',m.competencia],'Indicadores derivados não são somados entre si.');
     },
     function(){
-      rhInterOpen('Pessoas da competência','COMPOSIÇÃO DE PESSOAS',['Colaborador','Departamento','Vínculo'],rows.slice().sort(function(a,b){return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{sensitivity:'base'});}).map(function(p){var v=rhVinculoCategory(p);return [p.nome,departmentName(p.departamento),{clt:'CLT',estagiario:'Estagiário',outros:'Outros'}[v]||v];}),['TOTAL',nfmt(rows.length)+' pessoas','']);
+      rhInterOpen('Pessoas da competência','COMPOSIÇÃO E RATEIO DE PESSOAS',['Colaborador','Departamento','Centro de custo','Vínculo'],rows.slice().sort(function(a,b){return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{sensitivity:'base'});}).map(function(p){var v=rhVinculoCategory(p);return [p.nome,departmentName(p.departamento),rhInterCostCenter(p),{clt:'CLT',estagiario:'Estagiário',outros:'Outros'}[v]||v];}),['TOTAL',nfmt(rows.length)+' pessoas','','']);
     },
     function(){rhInterOpenPeopleMetric('Proventos',rows,'proventos');},
     function(){rhInterOpenPeopleMetric('Líquido',rows,'liquido');},
@@ -237,6 +358,6 @@ applyTheme=function(){
 
 if(!$('_rh_interactive_exec_styles')){
   var _rhInterStyle=document.createElement('style');_rhInterStyle.id='_rh_interactive_exec_styles';
-  _rhInterStyle.textContent='.rh-clickable-kpi{cursor:pointer;transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}.rh-clickable-kpi:hover,.rh-clickable-kpi:focus{transform:translateY(-1px);border-color:var(--gold)!important;box-shadow:0 10px 28px rgba(0,0,0,.12);outline:none}.rh-click-hint{font-size:.62rem;font-weight:800;color:var(--gold)}.rh-chart-mode{margin-left:auto;display:flex;align-items:center;gap:7px;color:var(--muted);font-size:.68rem;font-weight:800;text-transform:uppercase}.rh-chart-mode select{min-width:112px;background:var(--surface-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;text-transform:none}.rh-comp-sub{margin:0 0 12px;color:var(--muted);font-size:.78rem}.rh-comp-table{display:grid;gap:0;border:1px solid var(--line-soft);border-radius:12px;overflow:hidden}.rh-comp-row{display:grid;grid-template-columns:var(--rh-comp-cols);align-items:center;border-bottom:1px solid var(--line-soft)}.rh-comp-row:last-child{border-bottom:0}.rh-comp-row>div{min-width:0;padding:9px 10px;overflow-wrap:anywhere}.rh-comp-header{background:var(--surface-2);color:var(--muted);font-size:.66rem;font-weight:900;text-transform:uppercase}.rh-comp-cell{font-size:.78rem;color:var(--text)}.rh-comp-total{background:var(--surface-2);font-weight:900;color:var(--text)}.rh-dossier-chart-grid{margin-top:14px;margin-bottom:14px}body.light .rh-comp-table,body.light .rh-comp-row{border-color:rgba(16,49,78,.22)!important}body.light .rh-chart-mode select{background:#fff!important;color:#102f4c!important;border-color:rgba(16,49,78,.28)!important}@media(max-width:760px){.rh-chart-mode{width:100%;justify-content:flex-end;margin-top:8px}.rh-comp-header{display:none}.rh-comp-row{grid-template-columns:1fr!important;padding:6px 0}.rh-comp-row>div{display:grid;grid-template-columns:minmax(100px,.42fr) 1fr;gap:8px;padding:5px 10px}.rh-comp-cell:before{content:attr(data-label);color:var(--muted);font-size:.63rem;font-weight:900;text-transform:uppercase}.rh-comp-total>div:before{content:attr(data-label);color:var(--muted);font-size:.63rem;font-weight:900;text-transform:uppercase}.rh-dossier-chart-grid{grid-template-columns:1fr!important}}';
+  _rhInterStyle.textContent='.rh-clickable-kpi{cursor:pointer;transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}.rh-clickable-kpi:hover,.rh-clickable-kpi:focus{transform:translateY(-1px);border-color:var(--gold)!important;box-shadow:0 10px 28px rgba(0,0,0,.12);outline:none}.rh-click-hint{font-size:.62rem;font-weight:800;color:var(--gold)}.rh-chart-mode{margin-left:auto;display:flex;align-items:center;gap:7px;color:var(--muted);font-size:.68rem;font-weight:800;text-transform:uppercase}.rh-chart-mode select{min-width:112px;background:var(--surface-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;text-transform:none}.rh-comp-sub{margin:0 0 12px;color:var(--muted);font-size:.78rem}.rh-comp-table{display:grid;gap:0;border:1px solid var(--line-soft);border-radius:12px;overflow:hidden}.rh-comp-row{display:grid;grid-template-columns:var(--rh-comp-cols);align-items:center;border-bottom:1px solid var(--line-soft)}.rh-comp-row:last-child{border-bottom:0}.rh-comp-row>div{min-width:0;padding:9px 10px;overflow-wrap:anywhere}.rh-comp-header{background:var(--surface-2);color:var(--muted);font-size:.66rem;font-weight:900;text-transform:uppercase}.rh-comp-cell{font-size:.78rem;color:var(--text)}.rh-comp-number{text-align:right!important;font-variant-numeric:tabular-nums!important}.rh-comp-total{background:var(--surface-2);font-weight:900;color:var(--text)}.rh-dossier-chart-grid{margin-top:14px;margin-bottom:14px}body.light .rh-comp-table,body.light .rh-comp-row{border-color:rgba(16,49,78,.22)!important}body.light .rh-chart-mode select{background:#fff!important;color:#102f4c!important;border-color:rgba(16,49,78,.28)!important}@media(max-width:760px){.rh-chart-mode{width:100%;justify-content:flex-end;margin-top:8px}.rh-comp-header{display:none}.rh-comp-row{grid-template-columns:1fr!important;padding:6px 0}.rh-comp-row>div{display:grid;grid-template-columns:minmax(100px,.42fr) 1fr;gap:8px;padding:5px 10px}.rh-comp-cell:before{content:attr(data-label);color:var(--muted);font-size:.63rem;font-weight:900;text-transform:uppercase}.rh-comp-total>div:before{content:attr(data-label);color:var(--muted);font-size:.63rem;font-weight:900;text-transform:uppercase}.rh-dossier-chart-grid{grid-template-columns:1fr!important}}';
   document.head.appendChild(_rhInterStyle);
 }

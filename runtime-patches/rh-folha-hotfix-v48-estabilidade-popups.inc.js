@@ -18,8 +18,8 @@ function comp48(){var c=S&&S.competencia;if(!c)return '—';if(c._periodConsolid
 function close48(){var x=E48('rh48-modal');if(x)x.remove()}
 function table48(headers,rows,footer,widths){
   widths=widths&&widths.length===headers.length?widths:null;
-  function moneyCell(v,i){return i>0&&(/R\$/.test(String(v||''))||/^[-+]?\d+[\d.,]*%$/.test(String(v||'')))?' money':''}
-  return '<div class="rh48-table-scroll"><table class="rh48-table">'+(widths?'<colgroup>'+widths.map(function(w){return '<col style="width:'+w+'%">'}).join('')+'</colgroup>':'')+'<thead><tr>'+headers.map(function(h){return '<th>'+esc48(h)+'</th>'}).join('')+'</tr></thead><tbody>'+rows.map(function(r){return '<tr>'+r.map(function(v,i){return '<td class="'+moneyCell(v,i).trim()+'">'+esc48(v==null?'—':v)+'</td>'}).join('')+'</tr>'}).join('')+'</tbody>'+(footer?'<tfoot><tr>'+footer.map(function(v,i){return '<td class="'+moneyCell(v,i).trim()+'"><b>'+esc48(v==null?'':v)+'</b></td>'}).join('')+'</tr></tfoot>':'')+'</table></div>'
+  function moneyCell(i){return i>0&&/valor|total|saldo|provis|encargo|custo|inss|rat|terceiros|fgts|pis|dedu|bruto|líquido|liquido|multa|base|%/i.test(String(headers[i]||''))?' money':''}
+  return '<div class="rh48-table-scroll"><table class="rh48-table" data-rh-authoritative-composition="1">'+(widths?'<colgroup>'+widths.map(function(w){return '<col style="width:'+w+'%">'}).join('')+'</colgroup>':'')+'<thead><tr>'+headers.map(function(h,i){return '<th class="'+moneyCell(i).trim()+'">'+esc48(h)+'</th>'}).join('')+'</tr></thead><tbody>'+rows.map(function(r){return '<tr>'+r.map(function(v,i){return '<td class="'+moneyCell(i).trim()+'">'+esc48(v==null?'—':v)+'</td>'}).join('')+'</tr>'}).join('')+'</tbody>'+(footer?'<tfoot data-rh-authoritative-total="1"><tr>'+footer.map(function(v,i){return '<td class="'+moneyCell(i).trim()+'"><b>'+esc48(v==null?'':v)+'</b></td>'}).join('')+'</tr></tfoot>':'')+'</table></div>'
 }
 function open48(title,kicker,body,subtitle,formula){
   close48();

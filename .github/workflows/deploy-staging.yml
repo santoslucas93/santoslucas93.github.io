@@ -89,6 +89,7 @@ jobs:
             'RH_CORRECOES_V44', 'patchRhRosterActiveIds', 'patchRhRosterLoad',
             'RH_CORRECOES_V45', 'rhV45ExportTerminationPdf', 'rhV45FitAll',
             'RH_STABILITY_V46', 'rhV46ExportForecastPdf', 'rhV46InstallFloatingAI', 'rh46-payroll-totalizer', 'RH_STABILITY_V46A',
+            'rhInterBindOverviewAndPayroll', 'rhInterBindChargeCards', 'rhInterBindMovementCards', 'rhInterBindCostCards', 'rhInterOpenAverageMetric', 'data-rh-authoritative-composition', 'openGuideCard',
             'RH_AUDIT_V47', 'rhV47ExportForecastPdf', 'rh47-forecast-summary', 'rh47-ai-resize',
             'RH_STABILITY_V48', 'rhV48TerminationModel', 'rhV48SyncTerminationCards', 'rh48-modal',
             

@@ -17,6 +17,10 @@ const fit43 = read('runtime-patches/rh-folha-hotfix-v43-correcoes.inc.js');
 const stable46 = read('runtime-patches/rh-folha-hotfix-v46-estabilizacao.inc.js');
 const planningForecast = read('runtime-patches/rh-folha-hotfix-v47-auditoria-integral.inc.js');
 const planningDetails = read('runtime-patches/rh-folha-hotfix-v48-estabilidade-popups.inc.js');
+const sourceCards = read('runtime-patches/rh-folha-hotfix-v8.inc.js');
+const popupTotals13 = read('runtime-patches/rh-folha-hotfix-v13-cards-popup-totais.inc.js');
+const popupGrid20 = read('runtime-patches/rh-folha-hotfix-v20-popup-totals-grid.inc.js');
+const interactivity = read('runtime-patches/rh-folha-rc-interactivity.inc.js');
 
 const orderBaseline = workflow.indexOf('rh-folha-stability-baseline.inc.js');
 const orderUi = workflow.indexOf('rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
@@ -95,6 +99,8 @@ assert(!planningDetails.includes("['Colaborador','Departamento','CC','Provisão 
 assert(planningDetails.includes('#page-planejamento .kpi strong'), 'regra de cards precisa permanecer restrita ao Planejamento');
 assert(!planningDetails.includes("'.kpi strong,.rh40-guide-card"), 'Planejamento não pode alterar cards de outras abas');
 assert(planningDetails.includes('width:100%!important;max-width:100%!important;min-width:0!important'), 'tabelas dos pop-ups precisam ocupar toda a caixa');
+assert(fit42.includes('openGuideCard'), 'cards das guias gerenciais não possuem composição própria');
+assert(fit42.includes('bindGuideCards'), 'cards das guias gerenciais não estão vinculados à composição');
 
 for (const [name, source] of [['v40',fit40],['v41',fit41],['v42',fit42],['v43',fit43]]) {
   assert(source.includes("closest('#page-planejamento')"), `${name} ainda permite auto-fit em Planejamento`);
@@ -105,5 +111,35 @@ assert(planningForecast.includes("k.hidden=true"), 'grade antiga de quatro cards
 assert(planningForecast.includes("if(box.innerHTML!==html)box.innerHTML=html"), 'grade auditada ainda é recriada sem mudança de conteúdo');
 assert(!planningForecast.includes("syncForecastTable47(t);syncOriginalForecastCards47(t)"), 'grade antiga ainda recebe sincronização');
 assert(!planningForecast.includes("installCapture47();observe47();refresh47()"), 'observer v47 ainda recalcula a Próxima Folha');
+
+/* Composições: o rodapé contábil explícito é soberano. */
+assert(popupTotals13.includes("tfoot tr:not(.rh-auto-total):not(.rh-v20-total)"), 'v13 ainda pode substituir um total contábil explícito');
+assert(popupTotals13.includes(".rh-comp-total:not(.rh-auto-total):not(.rh-v20-total)"), 'v13 ainda pode substituir o total explícito de uma grade');
+assert(popupGrid20.includes("table.querySelector('tfoot tr:not(.rh-auto-total):not(.rh-v20-total)')"), 'v20 não preserva o rodapé semântico das tabelas');
+assert(popupGrid20.includes("grid.querySelector('.rh-comp-total:not(.rh-auto-total):not(.rh-v20-total)')"), 'v20 não preserva o rodapé semântico das grades');
+assert(popupGrid20.includes('function columnWeight(header,index,n)'), 'dimensionamento de colunas não considera o conteúdo do cabeçalho');
+assert(!popupGrid20.includes("var n=heads.length,widths=widthsFor(n)"), 'v20 voltou ao dimensionamento genérico apenas pela quantidade de colunas');
+
+/* Todos os cards operacionais usam a mesma base da composição e do rateio. */
+for (const symbol of ['rhInterBindOverviewAndPayroll','rhInterBindChargeCards','rhInterBindMovementCards','rhInterBindCostCards','rhInterOpenAverageMetric','rhInterCostCenter','COMPOSIÇÃO E RATEIO']) {
+  assert(interactivity.includes(symbol), `interatividade sem composição/rateio obrigatório: ${symbol}`);
+}
+assert(interactivity.includes('data-rh-authoritative-composition'), 'composições compartilhadas não estão marcadas como autoritativas');
+assert(interactivity.includes("['MÉDIA DO CARD'"), 'cards de média ainda encerram com soma em vez da média exibida');
+assert(interactivity.includes("['REFERÊNCIA DO CARD',m.competencia]"), 'card de competência do Dossiê ainda pode exibir total incompatível');
+assert(interactivity.includes("['TOTAL DO CARD',fmt(latest.custoFolha)]"), 'card histórico de custo não fecha na mesma competência exibida');
+
+/* Custo Real: não depender do rótulo técnico rateado após normalização v47. */
+assert(sourceCards.includes("rhEmployerCharges(p).itens.forEach(function(it){var k=cleanSearch(it[0]),v=Number(it[1])||0;if(k==='fgts')tf+=v;else te+=v;})"), 'Custo Real não classifica todos os encargos patronais pela rubrica');
+assert(!sourceCards.includes("if(it[2]==='rateado')te+=Number(it[1])||0"), 'Custo Real ainda ignora encargos normalizados que não usam o rótulo rateado');
+for (const marker of ['Centro de custo','% do total','% do líquido','data-rh-authoritative-composition']) {
+  assert(sourceCards.includes(marker), `composições operacionais sem rateio/alinhamento: ${marker}`);
+}
+
+/* Modais estruturais já estabilizados: apenas alinhamento e rateio, sem reativar observadores. */
+assert(planningForecast.includes("function numeric(i)"), 'Próxima Folha não alinha cabeçalho e células pela mesma regra');
+assert(planningForecast.includes("'Centro de custo','Valor','% do card'"), 'Próxima Folha sem rateio por centro de custo');
+assert(planningDetails.includes('data-rh-authoritative-total'), 'provisões não marcam o total contábil como autoritativo');
+assert(planningDetails.includes("function moneyCell(i)"), 'provisões não alinham cabeçalho e células pela mesma regra');
 
 console.log('RH regression baseline: OK');

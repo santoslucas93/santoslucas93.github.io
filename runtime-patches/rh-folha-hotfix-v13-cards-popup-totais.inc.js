@@ -30,6 +30,8 @@ function rhPopupTotalForColumn(cells,index){
 }
 function rhEnsureHtmlTableTotals(table){
   if(!table||table.dataset.rhTotalsReady==='1')return;
+  var semanticFoot=table.querySelector('tfoot tr:not(.rh-auto-total):not(.rh-v20-total)');
+  if(semanticFoot){table.dataset.rhTotalsReady='1';table.dataset.rhSemanticTotal='1';return;}
   var heads=Array.prototype.map.call(table.querySelectorAll('thead th'),function(x){return x.textContent.trim();});
   var rows=Array.prototype.map.call(table.querySelectorAll('tbody tr'),function(tr){return Array.prototype.map.call(tr.children,function(td){return td.textContent.trim();});});
   if(!heads.length||!rows.length)return;
@@ -40,6 +42,8 @@ function rhEnsureHtmlTableTotals(table){
 }
 function rhEnsureGridTotals(grid){
   if(!grid||grid.dataset.rhTotalsReady==='1')return;
+  var semanticTotal=grid.querySelector('.rh-comp-total:not(.rh-auto-total):not(.rh-v20-total)');
+  if(semanticTotal){grid.dataset.rhTotalsReady='1';grid.dataset.rhSemanticTotal='1';return;}
   var header=grid.querySelector('.rh-comp-header');if(!header)return;
   var heads=Array.prototype.map.call(header.children,function(x){return x.textContent.trim();});
   var body=Array.prototype.filter.call(grid.querySelectorAll('.rh-comp-row'),function(r){return !r.classList.contains('rh-comp-header')&&!r.classList.contains('rh-comp-total');});

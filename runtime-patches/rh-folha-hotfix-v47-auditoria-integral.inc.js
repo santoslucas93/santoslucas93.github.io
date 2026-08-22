@@ -275,8 +275,9 @@ function installForecastSummary47(t){
 /* ── popup estável ── */
 function stableTable47(headers,rows,footer,widths){
   widths=widths||headers.map(function(){return 100/headers.length});
-  function cls(v,i){return i>0&&(/R\$\s|%$/.test(String(v||'')))?' class="money"':''}
-  return '<div class="rh47-popup-scroll"><table class="rh47-popup-table"><colgroup>'+widths.map(function(w){return '<col style="width:'+w+'%">'}).join('')+'</colgroup><thead><tr>'+headers.map(function(h){return '<th>'+esc47(h)+'</th>'}).join('')+'</tr></thead><tbody>'+rows.map(function(r){return '<tr>'+r.map(function(v,i){return '<td'+cls(v,i)+'>'+esc47(v==null?'—':v)+'</td>'}).join('')+'</tr>'}).join('')+'</tbody>'+(footer?'<tfoot><tr>'+footer.map(function(v,i){return '<td'+cls(v,i)+'><b>'+esc47(v==null?'':v)+'</b></td>'}).join('')+'</tr></tfoot>':'')+'</table></div>'
+  function numeric(i){return i>0&&/valor|total|provento|desconto|líquido|liquido|fgts|inss|pis|irrf|custo|benef|base|encargo|al[ií]quota|%|rateio/i.test(String(headers[i]||''))}
+  function cls(i){return numeric(i)?' class="money"':''}
+  return '<div class="rh47-popup-scroll"><table class="rh47-popup-table" data-rh-authoritative-composition="1"><colgroup>'+widths.map(function(w){return '<col style="width:'+w+'%">'}).join('')+'</colgroup><thead><tr>'+headers.map(function(h,i){return '<th'+cls(i)+'>'+esc47(h)+'</th>'}).join('')+'</tr></thead><tbody>'+rows.map(function(r){return '<tr>'+r.map(function(v,i){return '<td'+cls(i)+'>'+esc47(v==null?'—':v)+'</td>'}).join('')+'</tr>'}).join('')+'</tbody>'+(footer?'<tfoot data-rh-authoritative-total="1"><tr>'+footer.map(function(v,i){return '<td'+cls(i)+'><b>'+esc47(v==null?'':v)+'</b></td>'}).join('')+'</tr></tfoot>':'')+'</table></div>'
 }
 function closeStable47(){
   var modal=E47('rh47-forecast-modal');if(!modal)return;
@@ -326,11 +327,11 @@ function benefitCategoryTotals47(t){
 }
 function openBenefits47(t){
   var c=benefitCompleteness47();
-  openStable47(c.complete?'Benefícios projetados':'Benefícios confirmados — fonte parcial','PRÓXIMA FOLHA · BENEFÍCIOS',['Colaborador','Seguro','Saúde','VR / VA / Cesta','VT','Total'],t.rows.map(function(r){var b=benefitExact47(r.person)||{};return[r.nome,money47(b.seguro_vida),money47(b.assistencia_medica),money47(b.vr_caixa),money47(b.vale_transporte),money47(r.beneficios)]}),['TOTAL',money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.seguro_vida})),money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.assistencia_medica})),money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.vr_caixa})),money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.vale_transporte})),money47(t.ben)],c.complete?'Fonte integrada da competência-base.':'Fonte atual ainda não contém valores integrados de VR/VA/Cesta e VT; eles não são inventados na projeção.',[31,13,13,15,13,15])
+  openStable47(c.complete?'Benefícios projetados':'Benefícios confirmados — fonte parcial','PRÓXIMA FOLHA · BENEFÍCIOS E RATEIO',['Colaborador','Departamento','Centro de custo','Seguro','Saúde','VR / VA / Cesta','VT','Total'],t.rows.map(function(r){var b=benefitExact47(r.person)||{},cc=r.person&&(r.person.centro_custo||r.person.centro_de_custo||r.person.cost_center)||'Sem centro de custo';return[r.nome,r.departamento,cc,money47(b.seguro_vida),money47(b.assistencia_medica),money47(b.vr_caixa),money47(b.vale_transporte),money47(r.beneficios)]}),['TOTAL','','',money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.seguro_vida})),money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.assistencia_medica})),money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.vr_caixa})),money47(sum47(t.rows,function(r){var b=benefitExact47(r.person)||{};return b.vale_transporte})),money47(t.ben)],c.complete?'Fonte integrada da competência-base.':'Fonte atual ainda não contém valores integrados de VR/VA/Cesta e VT; eles não são inventados na projeção.',[24,14,12,9,9,11,9,12])
 }
 function openPeopleMetric47(t,key,title){
   var total=sum47(t.rows,key);
-  openStable47(title,'PRÓXIMA FOLHA · COMPOSIÇÃO',['Colaborador','Departamento','Valor'],t.rows.map(function(r){return[r.nome,r.departamento,money47(r[key])]}),['TOTAL',t.rows.length+' pessoas',money47(total)],'Projeção '+nextComp47(),[52,25,23])
+  openStable47(title,'PRÓXIMA FOLHA · COMPOSIÇÃO E RATEIO',['Colaborador','Departamento','Centro de custo','Valor','% do card'],t.rows.map(function(r){var cc=r.person&&(r.person.centro_custo||r.person.centro_de_custo||r.person.cost_center)||'Sem centro de custo',v=n47(r[key]);return[r.nome,r.departamento,cc,money47(v),total?pct47(v/total):'—']}),['TOTAL',t.rows.length+' pessoas','',money47(total),'100,00%'],'Projeção '+nextComp47(),[34,20,17,18,11])
 }
 function openEncBenefits47(t){
   var b=benefitCategoryTotals47(t),items=companyItems47(t).map(function(x){return[x.label,'Encargo',money47(x.value)]});
