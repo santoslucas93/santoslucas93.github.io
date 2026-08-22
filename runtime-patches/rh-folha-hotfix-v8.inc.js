@@ -49,7 +49,8 @@ function rhCreateScreenFilters(pageId){
   if(!page.querySelector('[data-rh-scope-vinc]')){var lv=document.createElement('label');lv.className='rh-scope-label';lv.innerHTML='Vínculo<select id="rh-scope-vinc-'+key+'" data-rh-scope-vinc></select>';actions.insertBefore(lv,actions.firstChild);}
 }
 function rhEnsureScopeFilters(){
-  ['page-colaboradores','page-folha','page-rubricas','page-encargos','page-movimentacoes','page-rateio','page-custoreal'].forEach(rhCreateScreenFilters);
+  ['page-visao','page-colaboradores','page-folha','page-rubricas','page-encargos','page-movimentacoes','page-rateio','page-custoreal'].forEach(rhCreateScreenFilters);
+  var legacy=$('painel-filters');if(legacy)legacy.remove();
   var old=document.querySelector('.payroll-vinculo-bar');if(old)old.remove();
   rhPopulateScopeControls();
   var md=$('filter-dept'),mv=$('filter-vinculo');
