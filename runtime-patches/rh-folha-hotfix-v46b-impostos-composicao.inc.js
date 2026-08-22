@@ -24,13 +24,14 @@ function irrf46b(base,gross){
 }
 
 function forecastPeople46b(){
-  var pane=document.querySelector('#page-planejamento [data-plan-pane="folha"]'),table=pane&&pane.querySelector('#rh-plan-folha-table,table'),pool=window.S&&Array.isArray(S.pessoas)?S.pessoas:[];
+  /* S vive no escopo privado do app.js; não é publicado em window. */
+  var pane=document.querySelector('#page-planejamento [data-plan-pane="folha"]'),table=pane&&pane.querySelector('#rh-plan-folha-table,table'),pool=typeof S!=='undefined'&&Array.isArray(S.pessoas)?S.pessoas:[];
   if(!table)return[];
   return Array.from(table.querySelectorAll('tbody tr')).filter(function(tr){return !tr.hidden&&getComputedStyle(tr).display!=='none'}).map(function(tr){
     var c=tr.cells||[],nameCell=c[0],name=String(nameCell&&nameCell.querySelector('b')?nameCell.querySelector('b').textContent:nameCell&&nameCell.textContent||'').trim();if(!name)return null;
     var p=pool.find(function(x){return norm46b(x.nome)===norm46b(name)})||null,forecastProv=parseMoney46b(c[2]&&c[2].textContent),ratio=p&&n46b(p.proventos)>0?forecastProv/n46b(p.proventos):1;if(!isFinite(ratio)||ratio<=0)ratio=1;
     var baseInss=p?n46b(p.base_inss)*ratio:0,baseFgts=p?n46b(p.base_fgts)*ratio:0,baseIrrf=p?n46b(p.base_irrf)*ratio:0,irrfRaw=p&&n46b(p.valor_irrf)>0?n46b(p.valor_irrf)*ratio:irrf46b(baseIrrf,forecastProv);
-    return{name:name,dep:String(c[1]&&c[1].textContent||dep46b(p,'—')).trim(),baseInss:baseInss,baseFgts:baseFgts,baseIrrf:baseIrrf,inss:inss46b(baseInss),irrf:irrfRaw,flat:baseFgts,fgts:p&&n46b(p.valor_fgts)>0?n46b(p.valor_fgts)*ratio:baseFgts}
+    return{name:name,dep:String(c[1]&&c[1].textContent||dep46b(p,'—')).trim(),matched:!!p,forecastProv:forecastProv,baseInss:baseInss,baseFgts:baseFgts,baseIrrf:baseIrrf,inss:inss46b(baseInss),irrf:irrfRaw,flat:baseFgts,fgts:p&&n46b(p.valor_fgts)>0?n46b(p.valor_fgts)*ratio:baseFgts}
   }).filter(Boolean)
 }
 
@@ -54,7 +55,12 @@ function rawFields46b(row,key){
   return{base:0,value:0}
 }
 function reconciledRows46b(button){
-  var shown=readDisplayedTotals46b(button),rows=forecastPeople46b().map(function(r){var f=rawFields46b(r,shown.key);return{name:r.name,dep:r.dep,rawBase:f.base,rawValue:f.value}}),bases=allocateCents46b(rows,shown.base,function(r){return r.rawBase}),values=allocateCents46b(rows,shown.value,function(r){return r.rawValue});
+  var shown=readDisplayedTotals46b(button),source=forecastPeople46b(),rows=source.map(function(r){var f=rawFields46b(r,shown.key);return{name:r.name,dep:r.dep,matched:r.matched,forecastProv:r.forecastProv,rawBase:f.base,rawValue:f.value}});
+  /* Se a folha ainda estiver terminando de carregar, nunca inventa rateio igual: usa
+     proventos apenas para as linhas sem vínculo, preservando as bases reais já obtidas. */
+  var hasIndividualBase=rows.some(function(r){return r.matched&&r.rawBase>0});
+  if(!hasIndividualBase)rows.forEach(function(r){r.rawBase=r.forecastProv;r.rawValue=r.forecastProv});
+  var bases=allocateCents46b(rows,shown.base,function(r){return r.rawBase}),values=allocateCents46b(rows,shown.value,function(r){return r.rawValue});
   rows.forEach(function(r,i){r.base=bases[i];r.value=values[i];r.rate=r.base?r.value/r.base:0});rows.sort(function(a,b){return String(a.name).localeCompare(String(b.name),'pt-BR',{sensitivity:'base'})});
   return{shown:shown,rows:rows}
 }
