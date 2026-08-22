@@ -71,7 +71,7 @@ function rhInterValue(rows,p,kind){
 function rhInterPersonRows(rows,kind,total){
   return (rows||[]).slice().sort(function(a,b){return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{sensitivity:'base'});}).map(function(p){
     var value=rhInterValue(rows,p,kind),pct=total?value/total*100:0;
-    return [p.nome,departmentName(p.departamento),rhInterCostCenter(p),fmt(value),(pct||0).toFixed(2).replace('.',',')+'%'];
+    return [p.nome,departmentName(p.departamento),fmt(value),(pct||0).toFixed(2).replace('.',',')+'%'];
   });
 }
 function rhInterSum(rows,key){
@@ -79,22 +79,53 @@ function rhInterSum(rows,key){
 }
 function rhInterOpenPeopleMetric(title,rows,kind,subtitle,cardTotal){
   var allocated=rhInterSum(rows,kind),total=cardTotal==null?allocated:Number(cardTotal)||0,body=rhInterPersonRows(rows,kind,total),diff=Math.round((total-allocated)*100)/100;
-  if(Math.abs(diff)>.02)body.push(['Conciliação da competência','Não individualizado','Sem rateio na origem',fmt(diff),total?(diff/total*100).toFixed(2).replace('.',',')+'%':'—']);
+  if(Math.abs(diff)>.02)body.push(['Conciliação da competência','Não individualizado',fmt(diff),total?(diff/total*100).toFixed(2).replace('.',',')+'%':'—']);
   var coverage=total?Math.min(100,Math.abs(allocated/total*100)):100;
-  rhInterOpen(title,'COMPOSIÇÃO E RATEIO',['Colaborador','Departamento','Centro de custo','Valor','% do card'],body,['TOTAL',rows.length+' pessoas','',fmt(total),'100,00%'],(subtitle?subtitle+' · ':'')+'Rateio individual identificado: '+coverage.toFixed(2).replace('.',',')+'%.');
+  rhInterOpen(title,'COMPOSIÇÃO E RATEIO',['Colaborador','Departamento','Valor','% do card'],body,['TOTAL',rows.length+' pessoas',fmt(total),'100,00%'],(subtitle?subtitle+' · ':'')+'Rateio individual identificado: '+coverage.toFixed(2).replace('.',',')+'%.');
 }
 function rhInterOpenAverageMetric(title,rows,kind){
   var total=rhInterSum(rows,kind),average=rows.length?total/rows.length:0;
-  rhInterOpen(title,'MEMÓRIA DA MÉDIA E RATEIO',['Colaborador','Departamento','Centro de custo','Valor individual','% do total'],rhInterPersonRows(rows,kind,total),['MÉDIA DO CARD',rows.length+' pessoas','',fmt(average),'100,00% rateado'],'Média do card = '+fmt(total)+' ÷ '+rows.length+' pessoas.');
+  rhInterOpen(title,'MEMÓRIA DA MÉDIA E RATEIO',['Colaborador','Departamento','Valor individual','% do total'],rhInterPersonRows(rows,kind,total),['MÉDIA DO CARD',rows.length+' pessoas',fmt(average),'100,00% rateado'],'Média do card = '+fmt(total)+' ÷ '+rows.length+' pessoas.');
 }
 function rhInterOpenRatio(title,rows,leftKey,rightKey,labelLeft,labelRight){
   var out=[],a=0,b=0;
   (rows||[]).slice().sort(function(x,y){return String(x.nome||'').localeCompare(String(y.nome||''),'pt-BR',{sensitivity:'base'});}).forEach(function(p){
     var c=rhInsightCost(p),lv=leftKey==='proventos'?(Number(p.proventos)||0):(leftKey==='beneficios'?c.beneficios:(leftKey==='encargos'?c.encargos:c.total));
     var rv=rightKey==='proventos'?(Number(p.proventos)||0):(rightKey==='beneficios'?c.beneficios:(rightKey==='encargos'?c.encargos:c.total));
-    a+=lv;b+=rv;out.push([p.nome,departmentName(p.departamento),rhInterCostCenter(p),fmt(lv),fmt(rv),rv?(lv/rv*100).toFixed(1).replace('.',',')+'%':'—']);
+    a+=lv;b+=rv;out.push([p.nome,departmentName(p.departamento),fmt(lv),fmt(rv),rv?(lv/rv*100).toFixed(1).replace('.',',')+'%':'—']);
   });
-  rhInterOpen(title,'COMPOSIÇÃO, RATEIO E CONFERÊNCIA',['Colaborador','Departamento','Centro de custo',labelLeft,labelRight,'%'],out,['TOTAL',rows.length+' pessoas','',fmt(a),fmt(b),b?(a/b*100).toFixed(1).replace('.',',')+'%':'—']);
+  rhInterOpen(title,'COMPOSIÇÃO, RATEIO E CONFERÊNCIA',['Colaborador','Departamento',labelLeft,labelRight,'%'],out,['TOTAL',rows.length+' pessoas',fmt(a),fmt(b),b?(a/b*100).toFixed(1).replace('.',',')+'%':'—']);
+}
+
+function rhInterOpenPeriodMonthlyAverage(card,kind,title){
+  var comps=typeof rhV14ActiveCompetences==='function'?rhV14ActiveCompetences():((window.RH_PERIOD&&RH_PERIOD.active)||[]);
+  var months=Math.max(1,comps.length),target=rhInterCardNumber(card),allocated=0,body=[];
+  if(kind!=='beneficios')comps.forEach(function(c){
+    var model=typeof rhV14CostModel==='function'?rhV14CostModel(c):{proventos:Number(c.proventos)||0,encargos:0,custo:Number(c.proventos)||0};
+    var value=kind==='proventos'?model.proventos:(kind==='encargos'?model.encargos:(kind==='total'?model.custo:0));
+    var contribution=value/months;allocated+=contribution;
+    body.push([formatCompetence(c.competencia),fmt(value),fmt(contribution),target?(contribution/target*100).toFixed(2).replace('.',',')+'%':'—']);
+  });
+  if(kind==='beneficios'||kind==='total'){
+    var benefits=typeof rhV14BenefitTotal==='function'?rhV14BenefitTotal():Math.max(0,target*months-(kind==='total'?allocated*months:0));
+    var benefitContribution=benefits/months;allocated+=benefitContribution;
+    body.push(['Benefícios integrados no período',fmt(benefits),fmt(benefitContribution),target?(benefitContribution/target*100).toFixed(2).replace('.',',')+'%':'—']);
+  }
+  var diff=Math.round((target-allocated)*100)/100;
+  if(Math.abs(diff)>.02)body.push(['Conciliação do fechamento','—',fmt(diff),target?(diff/target*100).toFixed(2).replace('.',',')+'%':'—']);
+  rhInterOpen(title,'MÉDIA MENSAL · COMPOSIÇÃO DO CARD',['Competência','Total da competência','Contribuição à média','% do card'],body,['MÉDIA DO CARD',months+' competência'+(months===1?'':'s'),fmt(target),'100,00%'],'A contribuição de cada linha é o total da competência dividido pelas '+months+' competências carregadas. O rodapé replica exatamente o card.');
+}
+function rhInterBindPeriodAverageCards(){
+  var box=$('rh-v14-averages');if(!box)return;
+  var cards=[].slice.call(box.querySelectorAll('.kpi'));
+  rhInterCardify('rh-v14-averages',cards.map(function(card){
+    var label=cleanSearch((card.querySelector('span')||{}).textContent||'');
+    if(label.indexOf('proventos')>=0)return function(){rhInterOpenPeriodMonthlyAverage(card,'proventos','Proventos / mês');};
+    if(label.indexOf('encargos')>=0)return function(){rhInterOpenPeriodMonthlyAverage(card,'encargos','Encargos / mês');};
+    if(label.indexOf('beneficios')>=0)return function(){rhInterOpenPeriodMonthlyAverage(card,'beneficios','Benefícios / mês');};
+    if(label.indexOf('custo real')>=0)return function(){rhInterOpenPeriodMonthlyAverage(card,'total','Custo Real / mês');};
+    return null;
+  }));
 }
 
 /* Cards operacionais: uma fonte para valor, composição e rateio. */
@@ -112,9 +143,9 @@ function rhInterBindByLabel(container,routes){
   });
 }
 function rhInterOpenHeadcount(card){
-  var rows=typeof rhScopePeople==='function'?rhScopePeople():(S.pessoas||[]),target=Math.round(rhInterCardNumber(card)),body=rows.slice().sort(function(a,b){return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{sensitivity:'base'});}).map(function(p){return[p.nome,departmentName(p.departamento),rhInterCostCenter(p),p.vinculo||'—'];});
-  var diff=target-body.length;if(diff>0)body.push(['Registros protegidos / não individualizados','Sem detalhamento','Sem rateio na origem',diff+' pessoa'+(diff===1?'':'s')]);
-  rhInterOpen('Pessoas na folha','COMPOSIÇÃO E RATEIO DO QUADRO',['Colaborador','Departamento','Centro de custo','Vínculo'],body,['TOTAL',target+' pessoas','',''],'A quantidade do rodapé é a mesma exibida no card.');
+  var rows=typeof rhScopePeople==='function'?rhScopePeople():(S.pessoas||[]),target=Math.round(rhInterCardNumber(card)),body=rows.slice().sort(function(a,b){return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{sensitivity:'base'});}).map(function(p){return[p.nome,departmentName(p.departamento),p.vinculo||'—'];});
+  var diff=target-body.length;if(diff>0)body.push(['Registros protegidos / não individualizados','Sem detalhamento',diff+' pessoa'+(diff===1?'':'s')]);
+  rhInterOpen('Pessoas na folha','COMPOSIÇÃO E RATEIO DO QUADRO',['Colaborador','Departamento','Vínculo'],body,['TOTAL',target+' pessoas',''],'A quantidade do rodapé é a mesma exibida no card.');
 }
 function rhInterBindOverviewAndPayroll(){
   var rows=function(){return typeof rhScopePeople==='function'?rhScopePeople():(S.pessoas||[]);};
@@ -124,6 +155,7 @@ function rhInterBindOverviewAndPayroll(){
     'liquido':function(card){rhInterOpenPeopleMetric('Líquido',rows(),'liquido','Proventos − descontos',rhInterCardNumber(card));},
     'pessoas na folha':rhInterOpenHeadcount
   });
+  rhInterBindPeriodAverageCards();
   rhInterBindByLabel('payroll-kpis',{
     'proventos':function(card){rhInterOpenPeopleMetric('Proventos',rows(),'proventos','Folha mensal',rhInterCardNumber(card));},
     'descontos':function(card){rhInterOpenPeopleMetric('Descontos',rows(),'descontos','Folha mensal',rhInterCardNumber(card));},
@@ -150,9 +182,9 @@ function rhInterMovementGroup(label){
   return events.filter(function(ev){var type=cleanSearch(ev.tipo);if(key.indexOf('admiss')>=0)return type.indexOf('admiss')>=0;if(key.indexOf('deslig')>=0)return type.indexOf('deslig')>=0;if(key.indexOf('ferias')>=0)return type.indexOf('ferias')>=0;if(key.indexOf('afast')>=0)return type.indexOf('afast')>=0;return type.indexOf('transfer')>=0;});
 }
 function rhInterOpenMovementCard(card){
-  var label=String((card.querySelector('span')||{}).textContent||'Movimentações'),events=rhInterMovementGroup(label),target=Math.round(rhInterCardNumber(card)),body=events.map(function(ev){return[ev.person.nome||'—',ev.dep,rhInterCostCenter(ev.person),ev.tipo,ev.detalhe||'—'];});
-  if(target>body.length)body.push(['Eventos consolidados sem linha individual','Sem detalhamento','Sem rateio na origem',label,target-body.length+' evento'+(target-body.length===1?'':'s')]);
-  rhInterOpen(label,'COMPOSIÇÃO DO CARD',['Colaborador','Departamento','Centro de custo','Movimentação','Detalhe'],body,['TOTAL',target+' eventos','','',''],'A quantidade do rodapé é a mesma exibida no card.');
+  var label=String((card.querySelector('span')||{}).textContent||'Movimentações'),events=rhInterMovementGroup(label),target=Math.round(rhInterCardNumber(card)),body=events.map(function(ev){return[ev.person.nome||'—',ev.dep,ev.tipo,ev.detalhe||'—'];});
+  if(target>body.length)body.push(['Eventos consolidados sem linha individual','Sem detalhamento',label,target-body.length+' evento'+(target-body.length===1?'':'s')]);
+  rhInterOpen(label,'COMPOSIÇÃO DO CARD',['Colaborador','Departamento','Movimentação','Detalhe'],body,['TOTAL',target+' eventos','',''],'A quantidade do rodapé é a mesma exibida no card.');
 }
 function rhInterBindMovementCards(){
   var box=$('movement-kpis');if(!box)return;rhInterCardify('movement-kpis',[].slice.call(box.querySelectorAll('.kpi')).map(function(card){return function(){rhInterOpenMovementCard(card);};}));
@@ -315,7 +347,7 @@ function rhInterDossierCards(){
       rhInterOpen('Competência '+m.competencia,'DOSSIÊ EXECUTIVO',['Indicador','Valor'],[['Status',m.status],['Departamento',m.scope.departamento],['Vínculo',m.scope.vinculo],['Pessoas',nfmt(rows.length)],['Proventos',fmt(m.base.proventos)],['Descontos',fmt(m.base.descontos)],['Líquido',fmt(m.base.liquido)]],['REFERÊNCIA DO CARD',m.competencia],'Indicadores derivados não são somados entre si.');
     },
     function(){
-      rhInterOpen('Pessoas da competência','COMPOSIÇÃO E RATEIO DE PESSOAS',['Colaborador','Departamento','Centro de custo','Vínculo'],rows.slice().sort(function(a,b){return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{sensitivity:'base'});}).map(function(p){var v=rhVinculoCategory(p);return [p.nome,departmentName(p.departamento),rhInterCostCenter(p),{clt:'CLT',estagiario:'Estagiário',outros:'Outros'}[v]||v];}),['TOTAL',nfmt(rows.length)+' pessoas','','']);
+      rhInterOpen('Pessoas da competência','COMPOSIÇÃO E RATEIO DE PESSOAS',['Colaborador','Departamento','Vínculo'],rows.slice().sort(function(a,b){return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR',{sensitivity:'base'});}).map(function(p){var v=rhVinculoCategory(p);return [p.nome,departmentName(p.departamento),{clt:'CLT',estagiario:'Estagiário',outros:'Outros'}[v]||v];}),['TOTAL',nfmt(rows.length)+' pessoas','']);
     },
     function(){rhInterOpenPeopleMetric('Proventos',rows,'proventos');},
     function(){rhInterOpenPeopleMetric('Líquido',rows,'liquido');},
