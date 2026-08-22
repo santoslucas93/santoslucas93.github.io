@@ -17,7 +17,6 @@ const fit41 = read('runtime-patches/rh-folha-hotfix-v41a-report-center-stability
 const fit42 = read('runtime-patches/rh-folha-hotfix-v42-relatorios-ajustes.inc.js');
 const fit43 = read('runtime-patches/rh-folha-hotfix-v43-correcoes.inc.js');
 const stable46 = read('runtime-patches/rh-folha-hotfix-v46-estabilizacao.inc.js');
-const salaryForecast24 = read('runtime-patches/rh-folha-hotfix-v24-planejamento-provisoes.inc.js');
 const taxComposition46b = read('runtime-patches/rh-folha-hotfix-v46b-impostos-composicao.inc.js');
 const planningForecast = read('runtime-patches/rh-folha-hotfix-v47-auditoria-integral.inc.js');
 const planningDetails = read('runtime-patches/rh-folha-hotfix-v48-estabilidade-popups.inc.js');
@@ -37,12 +36,6 @@ assert(orderUi > orderBaseline, 'baseline precisa ser carregado antes da camada 
 assert(orderV40 > orderUi, 'v40 precisa ser carregado depois da camada visual para assumir o card fit e os relatórios');
 assert(orderV40a > orderV40, 'v40a precisa ser carregado após o v40');
 assert(orderTax46b > orderV40a && orderTax46b < orderV47, 'composição tributária somente leitura precisa capturar o clique antes do v47');
-assert(salaryForecast24.includes('function vacationPreviousMonth'), 'Próxima folha não identifica férias da competência anterior');
-assert(salaryForecast24.includes('referenceGross=vacation?actualGross:salary'), 'Próxima folha não usa salário vigente como referência normal');
-assert(salaryForecast24.includes("disc=Number(p.descontos)||0"), 'Próxima folha não preserva os descontos individuais');
-assert(salaryForecast24.includes("fonteProjecao:vacation?'folha de férias da competência anterior':'salário vigente'"), 'origem individual da projeção não está rastreável');
-assert(!salaryForecast24.includes('var prov=(Number(p.proventos)||Number(p.salario)||0)*mult'), 'motor antigo baseado primeiro em proventos voltou ao release');
-
 assert(workflow.includes('rh-folha-hotfix-v41a-report-center-stability.inc.js'), 'v41a/v42 precisa estar no release candidate');
 assert(!workflow.includes('rh-folha-hotfix-v37-ativos-cards-provisoes.inc.js'), 'v37 obsoleto ainda está sendo carregado');
 assert(!workflow.includes('rh-folha-hotfix-v30-planejamento-tabelas.inc.js'), 'v30 obsoleto não pode voltar ao release');

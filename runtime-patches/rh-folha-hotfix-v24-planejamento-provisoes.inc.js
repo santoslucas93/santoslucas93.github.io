@@ -50,16 +50,8 @@
     var a=anchorDate(),r=rates();return planPeople().filter(clt).map(function(p){var sal=Number(p.salario)||0,avos=vacationAvo(p.admissao,a),base=sal/12*avos,third=base/3,gross=base+third,charges=gross*r.total;return {id:p.id,nome:p.nome||'—',departamento:departmentName(p.departamento),salario:sal,avos:avos,base:base,terco:third,provisao:gross,encargos:charges,total:gross+charges};}).sort(function(a,b){return b.total-a.total;});
   }
   function benefitFor(p){try{var b=rhPersonBenefit(p)||{};return (Number(b.seguro_vida)||0)+(Number(b.assistencia_medica||b.assist_medica)||0)+(Number(b.vr_caixa)||0)+(Number(b.vale_transporte)||0);}catch(e){return 0;}}
-  function vacationPreviousMonth(p){
-    var sit=String(p&&p.situacao_snapshot||p&&p.situacao||''),rub=(p&&p.lancamentos||[]).map(function(l){return String((l.rubrica_codigo||l.codigo||'')+' '+(l.rubrica_nome||l.nome||''));}).join(' | '),text=(sit+' | '+rub).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-    return /ferias/.test(String(sit).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase())||/(dias ferias|adiantamento de ferias|desconto de ferias|inss ferias|irrf ferias|dias abono pecuniario|1\/3.*ferias|abono.*ferias)/.test(text);
-  }
   function forecastRows(){
-    var pct=Number(($('rh-plan-adjust')||{}).value)||0,mult=1+pct/100,r=rates();return planPeople().map(function(p){
-      var vacation=vacationPreviousMonth(p),salary=Number(p.salario)||Number(p.proventos)||0,actualGross=Number(p.proventos)||salary,referenceGross=vacation?actualGross:salary,prov=referenceGross*mult,disc=Number(p.descontos)||0,liq=Math.max(0,prov-disc);
-      var historicGross=actualGross||salary||1,factor=historicGross>0?prov/historicGross:mult,baseRef=Number(p.base_inss)||actualGross||salary,base=baseRef*factor,fgts=Number(p.valor_fgts)>0?Number(p.valor_fgts)*factor:base*.08,enc=base*(r.inss+r.rat+r.terceiros+r.pis),ben=benefitFor(p),cost=prov+fgts+enc+ben;
-      return {id:p.id,nome:p.nome||'—',departamento:departmentName(p.departamento),proventos:prov,descontos:disc,liquido:liq,encargos:fgts+enc,beneficios:ben,custo:cost,fonteProjecao:vacation?'folha de férias da competência anterior':'salário vigente',feriasAnterior:vacation};
-    }).sort(function(a,b){return b.custo-a.custo;});
+    var pct=Number(($('rh-plan-adjust')||{}).value)||0,mult=1+pct/100,r=rates();return planPeople().map(function(p){var prov=(Number(p.proventos)||Number(p.salario)||0)*mult,disc=Number(p.descontos)||0,liq=Math.max(0,prov-disc),base=Number(p.base_inss)||prov,fgts=(Number(p.valor_fgts)||base*.08)*mult,enc=base*mult*(r.inss+r.rat+r.terceiros+r.pis),ben=benefitFor(p),cost=prov+fgts+enc+ben;return {id:p.id,nome:p.nome||'—',departamento:departmentName(p.departamento),proventos:prov,descontos:disc,liquido:liq,encargos:fgts+enc,beneficios:ben,custo:cost};}).sort(function(a,b){return b.custo-a.custo;});
   }
   function sumRows(rows,key){return rows.reduce(function(a,x){return a+(Number(x[key])||0);},0);}
   function kpi(label,value,small,cls){return '<div class="kpi '+(cls||'')+'"><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong><small>'+esc(small||'')+'</small></div>';}
