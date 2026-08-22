@@ -67,7 +67,9 @@
     table.style.setProperty('table-layout','fixed','important');
     table.style.setProperty('border-collapse','collapse','important');
     if(n>=5)table.style.setProperty('min-width',Math.max(900,n*150)+'px','important');else table.style.removeProperty('min-width');
-    arr(table.querySelectorAll('colgroup.rh-v20-cols')).forEach(function(x){x.remove();});
+    /* Um único colgroup é soberano. Manter o colgroup original junto do
+       normalizado duplica as colunas lógicas e comprime a tabela à metade. */
+    arr(table.querySelectorAll('colgroup')).forEach(function(x){x.remove();});
     var cg=document.createElement('colgroup');cg.className='rh-v20-cols';
     widths.forEach(function(w){var col=document.createElement('col');col.style.width=w+'%';cg.appendChild(col);});
     table.insertBefore(cg,table.firstChild);
