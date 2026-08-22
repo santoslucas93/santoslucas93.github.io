@@ -127,6 +127,8 @@ assert(!popupGrid20.includes("var n=heads.length,widths=widthsFor(n)"), 'v20 vol
 assert(popupGrid20.includes('function stripCostCenterTable(table)'), 'tabelas de pop-up não aplicam a regra global de remoção do CC');
 assert(popupGrid20.includes('function stripCostCenterGrid(grid)'), 'grades de pop-up não aplicam a regra global de remoção do CC');
 assert(popupGrid20.includes("[role=\"dialog\"] table"), 'regra de remoção do CC não cobre todos os diálogos');
+assert(popupGrid20.includes("table.querySelectorAll('colgroup')"), 'dimensionamento pode manter dois colgroups e comprimir a tabela do pop-up');
+assert(!popupGrid20.includes("table.querySelectorAll('colgroup.rh-v20-cols')"), 'colgroup original ainda pode coexistir com o normalizado');
 
 /* Todos os cards operacionais usam a mesma base da composição e do rateio. */
 for (const symbol of ['rhInterBindOverviewAndPayroll','rhInterBindChargeCards','rhInterBindMovementCards','rhInterBindCostCards','rhInterOpenAverageMetric','rhInterCostCenter','COMPOSIÇÃO E RATEIO']) {
