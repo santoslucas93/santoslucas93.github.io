@@ -277,9 +277,43 @@ function stableTable47(headers,rows,footer,widths){
   function cls(v,i){return i>0&&(/R\$\s|%$/.test(String(v||'')))?' class="money"':''}
   return '<div class="rh47-popup-scroll"><table class="rh47-popup-table"><colgroup>'+widths.map(function(w){return '<col style="width:'+w+'%">'}).join('')+'</colgroup><thead><tr>'+headers.map(function(h){return '<th>'+esc47(h)+'</th>'}).join('')+'</tr></thead><tbody>'+rows.map(function(r){return '<tr>'+r.map(function(v,i){return '<td'+cls(v,i)+'>'+esc47(v==null?'—':v)+'</td>'}).join('')+'</tr>'}).join('')+'</tbody>'+(footer?'<tfoot><tr>'+footer.map(function(v,i){return '<td'+cls(v,i)+'><b>'+esc47(v==null?'':v)+'</b></td>'}).join('')+'</tr></tfoot>':'')+'</table></div>'
 }
+function closeStable47(){
+  var modal=E47('rh47-forecast-modal');if(!modal)return;
+  modal.remove();document.body.style.overflow=modal.dataset.prevOverflow||''
+}
+function ensureStableModalStyles47(){
+  if(E47('_rh47_forecast_modal'))return;
+  var style=document.createElement('style');style.id='_rh47_forecast_modal';style.textContent=
+    '#rh47-forecast-modal{position:fixed;inset:0;z-index:12000;display:grid;place-items:center;padding:24px;background:rgba(2,10,19,.76);backdrop-filter:blur(9px);box-sizing:border-box}'+
+    '#rh47-forecast-modal .rh47f-card{position:relative;width:min(var(--rh47f-width),calc(100vw - 48px));max-width:calc(100vw - 48px);max-height:calc(100vh - 48px);display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--text);box-shadow:0 28px 80px rgba(0,0,0,.5)}'+
+    '#rh47-forecast-modal .rh47f-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex:0 0 auto;padding:22px 22px 18px;border-bottom:1px solid var(--line-soft)}'+
+    '#rh47-forecast-modal .rh47f-kicker{display:block;margin:0 0 7px;color:var(--gold-2);font-size:9px;font-weight:900;letter-spacing:.15em;text-transform:uppercase}'+
+    '#rh47-forecast-modal .rh47f-head h2{margin:0 0 8px;font-size:26px;line-height:1.08;letter-spacing:-.035em}'+
+    '#rh47-forecast-modal .rh47f-ref{display:inline-flex;align-items:center;min-height:24px;padding:4px 10px;border:1px solid var(--line-soft);border-radius:999px;background:var(--surface-2);color:var(--muted);font-size:10px;font-weight:800}'+
+    '#rh47-forecast-modal .rh47f-close{flex:0 0 auto;width:38px;height:38px;display:grid;place-items:center;padding:0;border:1px solid var(--line-soft);border-radius:11px;background:var(--surface-2);color:var(--text);font-size:22px;line-height:1;cursor:pointer}'+
+    '#rh47-forecast-modal .rh47f-body{min-width:0;min-height:0;flex:0 1 auto;overflow:auto;padding:0 10px 8px}'+
+    '#rh47-forecast-modal .rh47-popup-sub{margin:0 -10px 0;padding:10px;border-bottom:1px solid var(--line-soft);font-size:11px}'+
+    '#rh47-forecast-modal .rh47-popup-scroll{width:100%!important;max-width:100%!important;overflow-x:auto!important;overflow-y:visible!important}'+
+    '#rh47-forecast-modal .rh47-popup-table{width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;table-layout:fixed!important}'+
+    '#rh47-forecast-modal .rh47-popup-table th,#rh47-forecast-modal .rh47-popup-table td{padding:10px 10px!important;font-size:11px!important;line-height:1.35!important}'+
+    '#rh47-forecast-modal .rh47-popup-table th{font-size:9px!important}'+
+    '#rh47-forecast-modal .rh47-popup-table tfoot td{border-top:2px solid var(--gold)!important;font-size:13px!important}'+
+    '#rh47-forecast-modal .rh47f-count{padding:2px 10px 4px;color:var(--muted);font-size:10px;text-align:right}'+
+    '@media(max-width:760px){#rh47-forecast-modal{padding:8px}#rh47-forecast-modal .rh47f-card{width:calc(100vw - 16px);max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);border-radius:15px}#rh47-forecast-modal .rh47f-head{padding:17px}#rh47-forecast-modal .rh47f-head h2{font-size:22px}#rh47-forecast-modal .rh47f-body{padding-inline:6px}#rh47-forecast-modal .rh47-popup-table{min-width:620px!important}}';
+  document.head.appendChild(style)
+}
 function openStable47(title,kicker,headers,rows,footer,subtitle,widths){
-  var html=(subtitle?'<p class="rh47-popup-sub">'+esc47(subtitle)+'</p>':'')+stableTable47(headers,rows,footer,widths);
-  if(typeof openGenericDetail==='function')openGenericDetail(title,kicker,html)
+  closeStable47();ensureStableModalStyles47();
+  var cols=headers.length,width=cols<=3?760:cols===4?900:cols===5?1060:cols===6?1200:1320;
+  var unit=/^colaborador$/i.test(String(headers[0]||''))?(rows.length===1?' colaborador':' colaboradores'):(rows.length===1?' item':' itens');
+  var table=(subtitle?'<p class="rh47-popup-sub">'+esc47(subtitle)+'</p>':'')+stableTable47(headers,rows,footer,widths);
+  var html='<div id="rh47-forecast-modal" role="dialog" aria-modal="true" aria-labelledby="rh47f-title"><section class="rh47f-card" style="--rh47f-width:'+width+'px"><header class="rh47f-head"><div><span class="rh47f-kicker">'+esc47(kicker||'PRÓXIMA FOLHA · COMPOSIÇÃO')+'</span><h2 id="rh47f-title">'+esc47(title||'Composição')+'</h2><span class="rh47f-ref">Referência: Consolidado</span></div><button type="button" class="rh47f-close" aria-label="Fechar">×</button></header><div class="rh47f-body">'+table+'<div class="rh47f-count">'+rows.length+unit+'</div></div></section></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+  var modal=E47('rh47-forecast-modal');if(!modal)return;
+  modal.dataset.prevOverflow=document.body.style.overflow||'';document.body.style.overflow='hidden';
+  modal.querySelector('.rh47f-close').onclick=closeStable47;
+  modal.addEventListener('click',function(e){if(e.target===modal)closeStable47()});
+  if(!window._rh47StableEsc){window._rh47StableEsc=true;document.addEventListener('keydown',function(e){if(e.key==='Escape')closeStable47()},true)}
 }
 function openTax47(title,items,total){
   openStable47(title,'COMPOSIÇÃO DE IMPOSTOS / ENCARGOS',['Item','Base','Alíquota','Valor','Tratamento'],items.map(function(x){return[x.label,money47(x.base),pct47(x.rate),money47(x.value),x.nature]}),['TOTAL','','',money47(total),''],null,[28,18,13,18,23])
