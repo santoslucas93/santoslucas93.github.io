@@ -252,7 +252,7 @@ function summaryCard47(label,value,sub,key,featured){
 }
 function taxRowsScreen47(items,title){
   return '<article class="rh47-tax-panel"><div class="rh47-tax-head"><b>'+esc47(title)+'</b><span>Base · alíquota · valor</span></div>'+items.map(function(x){
-    return '<button type="button" class="rh47-tax-line" data-rh47-tax="'+esc47(x.key)+'"><span><b>'+esc47(x.label)+'</b><small>'+esc47(x.nature)+'</small></span><span>'+money47(x.base)+'</span><span>'+pct47(x.rate)+'</span><strong>'+money47(x.value)+'</strong></button>'
+    return '<button type="button" class="rh47-tax-line" data-rh47-tax="'+esc47(x.key)+'" title="Abrir composição por colaborador" aria-label="Abrir composição por colaborador de '+esc47(x.label)+'"><span><b>'+esc47(x.label)+'</b><small>'+esc47(x.nature)+'</small></span><span>'+money47(x.base)+'</span><span>'+pct47(x.rate)+'</span><strong>'+money47(x.value)+'</strong></button>'
   }).join('')+'</article>'
 }
 function installForecastSummary47(t){
@@ -320,6 +320,26 @@ function openStable47(title,kicker,headers,rows,footer,subtitle,widths){
 }
 function openTax47(title,items,total){
   openStable47(title,'COMPOSIÇÃO DE IMPOSTOS / ENCARGOS',['Item','Base','Alíquota','Valor','Tratamento'],items.map(function(x){return[x.label,money47(x.base),pct47(x.rate),money47(x.value),x.nature]}),['TOTAL','','',money47(total),''],null,[28,18,13,18,23])
+}
+function taxPersonFields47(r,key){
+  var map={
+    INSS_EMP:['baseInss','inssSeg'],
+    IRRF:['baseIrrf','irrf'],
+    INSS_PAT:['baseEmployer','inssPat'],
+    RAT:['baseEmployer','rat'],
+    TERC:['baseEmployer','terceiros'],
+    PIS:['baseEmployer','pis'],
+    FGTS:['baseFgts','fgts']
+  },fields=map[key];
+  if(!fields)return null;
+  var base=r247(r[fields[0]]),value=r247(r[fields[1]]);
+  return{nome:r.nome,departamento:r.departamento,base:base,value:value,rate:base?value/base:0}
+}
+function openTaxPeople47(t,item){
+  if(!t||!item)return;
+  var rows=t.rows.map(function(r){return taxPersonFields47(r,item.key)}).filter(Boolean).sort(function(a,b){return String(a.nome).localeCompare(String(b.nome),'pt-BR',{sensitivity:'base'})});
+  var totalBase=r247(sum47(rows,'base')),totalValue=r247(sum47(rows,'value')),effective=totalBase?totalValue/totalBase:0;
+  openStable47(item.label,'PRÓXIMA FOLHA · COMPOSIÇÃO POR COLABORADOR',['Colaborador','Departamento','Base individual','Alíquota efetiva','Valor','% do total'],rows.map(function(r){return[r.nome,r.departamento,money47(r.base),pct47(r.rate),money47(r.value),totalValue?pct47(r.value/totalValue):'—']}),['TOTAL',rows.length+' pessoas',money47(totalBase),pct47(effective),money47(totalValue),totalValue?'100,00%':'—'],item.nature+' · A soma das linhas é exatamente o valor exibido no painel.',[32,18,16,12,14,8])
 }
 function benefitCategoryTotals47(t){
   var out={seg:0,med:0,vr:0,vt:0,total:0};
@@ -415,7 +435,7 @@ function installCapture47(){
     var btn=e.target&&e.target.closest?e.target.closest('#rh42-plan-pdf'):null;
     if(btn&&activePlan47()==='folha'){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();if(btn.dataset.rh47Busy==='1')return;btn.dataset.rh47Busy='1';var old=btn.textContent;btn.disabled=true;btn.textContent='Gerando PDF auditado...';Promise.resolve().then(exportForecastPdf47).catch(function(err){warn47(err&&err.message?err.message:String(err))}).finally(function(){btn.disabled=false;btn.textContent=old;delete btn.dataset.rh47Busy});return}
     var tax=e.target&&e.target.closest?e.target.closest('.rh47-tax-line'):null;
-    if(tax){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();var t=auditedForecast47(),all=retainedItems47(t).concat(companyItems47(t)),x=all.find(function(q){return q.key===tax.dataset.rh47Tax});if(x)openTax47(x.label,[x],x.value);return}
+    if(tax){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();var t=V47.snapshot||auditedForecast47(),all=retainedItems47(t).concat(companyItems47(t)),x=all.find(function(q){return q.key===tax.dataset.rh47Tax});if(x)openTaxPeople47(t,x);return}
     var card=e.target&&e.target.closest?e.target.closest('#page-planejamento [data-plan-pane="folha"] .rh47-summary-card,#page-planejamento [data-plan-pane="folha"] #rh-plan-folha-kpis .kpi'):null;
     if(card){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();handleForecastCard47(card)}
   },true)
@@ -425,7 +445,7 @@ function installCapture47(){
 function styles47(){
   if(E47('_rh47'))return;var s=document.createElement('style');s.id='_rh47';s.textContent=
   '#page-planejamento [data-plan-pane="folha"] #rh-plan-folha-kpis{display:none!important}#rh47-forecast-summary,#rh47-forecast-summary *{animation:none!important}#rh47-forecast-summary .rh47-summary-card{transition:none!important}.rh47-summary{margin:0 0 18px}.rh47-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}.rh47-summary-card{min-width:0;min-height:126px;height:126px;box-sizing:border-box;padding:14px 15px;border:1px solid var(--line-soft);border-radius:14px;background:var(--surface);color:var(--text);text-align:left;cursor:pointer}.rh47-summary-card.featured{border-color:var(--line);background:linear-gradient(145deg,rgba(232,185,60,.11),rgba(31,196,141,.09)),var(--surface)}.rh47-summary-card span,.rh47-summary-card small{display:block;color:var(--muted)}.rh47-summary-card span{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}.rh47-summary-card strong{display:block;margin:7px 0 5px;font-size:28px!important;line-height:32px!important;letter-spacing:-.02em!important;white-space:nowrap!important;font-variant-numeric:tabular-nums!important}.rh47-summary-card small{font-size:9.5px;line-height:1.3}'+
-  '.rh47-tax-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.rh47-tax-panel{overflow:hidden;border:1px solid var(--line-soft);border-radius:14px;background:var(--surface)}.rh47-tax-head{display:flex;justify-content:space-between;gap:10px;padding:11px 13px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)}.rh47-tax-head b{font-size:10px;color:var(--gold-2);letter-spacing:.08em}.rh47-tax-head span{font-size:9px;color:var(--muted)}.rh47-tax-line{display:grid;grid-template-columns:minmax(170px,1.5fr) minmax(105px,.8fr) 82px minmax(110px,.8fr);gap:10px;align-items:center;width:100%;padding:10px 13px;border:0;border-bottom:1px solid var(--line-soft);background:transparent;color:var(--text);text-align:left;cursor:pointer}.rh47-tax-line:last-child{border-bottom:0}.rh47-tax-line>span:nth-child(n+2),.rh47-tax-line>strong{text-align:right;font-variant-numeric:tabular-nums}.rh47-tax-line span b,.rh47-tax-line span small{display:block}.rh47-tax-line span small{color:var(--muted);font-size:9px;margin-top:2px}.rh47-tax-line>span:nth-child(n+2){color:var(--muted);font-size:10px}.rh47-tax-line>strong{font-size:11px}'+
+  '.rh47-tax-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.rh47-tax-panel{overflow:hidden;border:1px solid var(--line-soft);border-radius:14px;background:var(--surface)}.rh47-tax-head{display:flex;justify-content:space-between;gap:10px;padding:11px 13px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)}.rh47-tax-head b{font-size:10px;color:var(--gold-2);letter-spacing:.08em}.rh47-tax-head span{font-size:9px;color:var(--muted)}.rh47-tax-line{display:grid;grid-template-columns:minmax(170px,1.5fr) minmax(105px,.8fr) 82px minmax(110px,.8fr);gap:10px;align-items:center;width:100%;padding:10px 13px;border:0;border-bottom:1px solid var(--line-soft);background:transparent;color:var(--text);text-align:left;cursor:pointer}.rh47-tax-line:hover,.rh47-tax-line:focus-visible{background:color-mix(in srgb,var(--gold) 7%,transparent);outline:0}.rh47-tax-line:last-child{border-bottom:0}.rh47-tax-line>span:nth-child(n+2),.rh47-tax-line>strong{text-align:right;font-variant-numeric:tabular-nums}.rh47-tax-line span b,.rh47-tax-line span small{display:block}.rh47-tax-line span small{color:var(--muted);font-size:9px;margin-top:2px}.rh47-tax-line>span:nth-child(n+2){color:var(--muted);font-size:10px}.rh47-tax-line>strong{font-size:11px}'+
   '.rh47-audit{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding:10px 12px;border:1px solid var(--line-soft);border-radius:12px;background:var(--surface-2);font-size:10px}.rh47-audit b{margin-right:4px}.rh47-audit span{padding:5px 8px;border:1px solid var(--line-soft);border-radius:999px;color:var(--muted)}.rh47-audit .ok{color:var(--emerald)}.rh47-audit .warn{color:var(--orange)}'+
   '.rh47-popup-sub{margin:0 0 10px;color:var(--muted);font-size:.76rem;line-height:1.5}.rh47-popup-scroll{width:100%;overflow:auto}.rh47-popup-table{width:100%!important;min-width:720px!important;table-layout:fixed!important;border-collapse:collapse!important}.rh47-popup-table th,.rh47-popup-table td{padding:10px 11px!important;border-bottom:1px solid var(--line-soft)!important;vertical-align:top!important;overflow-wrap:anywhere!important;word-break:normal!important;transition:none!important;animation:none!important}.rh47-popup-table th{background:var(--surface-2)!important;color:var(--muted)!important;font-size:.66rem!important;text-transform:uppercase!important;letter-spacing:.06em!important}.rh47-popup-table td{font-size:.74rem!important}.rh47-popup-table .money{text-align:right!important;white-space:nowrap!important;font-variant-numeric:tabular-nums!important}.rh47-popup-table tfoot td{background:color-mix(in srgb,var(--surface-2) 82%,var(--gold) 8%)!important;border-top:2px solid var(--line)!important}'+
   '.rh47-table-total td{background:color-mix(in srgb,var(--surface-2) 82%,var(--gold) 8%)!important;border-top:2px solid var(--line)!important;font-weight:900!important}'+
