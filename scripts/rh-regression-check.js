@@ -121,6 +121,10 @@ assert(planningForecast.includes('snapshot:null'), 'Próxima Folha não preserva
 assert(planningForecast.includes('var t=V47.snapshot||auditedForecast47()'), 'pop-up da Próxima Folha voltou a recalcular um total diferente no clique');
 assert(planningForecast.includes('data-rh47-value='), 'cards da Próxima Folha não registram o valor exato do fechamento');
 assert(planningForecast.includes("prov:r247(sum47(rows,'proventos'))"), 'Próxima Folha não fecha os totalizadores na precisão monetária das linhas');
+assert(planningForecast.includes('function activeForecastSource47()'), 'Próxima Folha não reconcilia a tabela com o quadro ativo');
+assert(planningForecast.includes('activePeople47(),raw=rawForecastRows47()'), 'quadro ativo precisa ser resolvido antes dos totais da projeção');
+assert(planningForecast.includes('reconciled.set(k,Object.assign({},r,{person:p,_activeKey:k}))'), 'linhas históricas/duplicadas não são eliminadas antes da soma');
+assert(planningForecast.includes('Array.from(body.rows||[]).forEach(function(tr){if(!retained.has(tr))tr.remove()})'), 'tabela visível ainda conserva pessoas fora do quadro ativo');
 
 /* Impostos: composição estritamente derivada dos números já renderizados. */
 for (const symbol of ['RH_TAX_COMPOSITION_READONLY_V46B','readDisplayedTotals46b','allocateCents46b','forecastPeople46b','reconciledRows46b']) {

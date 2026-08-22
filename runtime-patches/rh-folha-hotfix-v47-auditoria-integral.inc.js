@@ -182,16 +182,30 @@ function activePeople47(){
   if(typeof window.rhRosterFilter==='function')return window.rhRosterFilter(src);
   return src.filter(function(p){return !/demit|deslig|rescind|inativ|transferid/.test(norm47(p.situacao_snapshot||p.situacao||''))})
 }
+function activeForecastSource47(){
+  var active=activePeople47(),raw=rawForecastRows47();
+  if(!active.length)return{active:active,rows:raw};
+  var byName=new Map();
+  active.forEach(function(p){var k=norm47(p&&p.nome);if(k&&!byName.has(k))byName.set(k,p)});
+  var reconciled=new Map();
+  raw.forEach(function(r){
+    var k=norm47(r.nome),p=byName.get(k);if(!p)return;
+    /* A projeção considera cada pessoa do quadro atual uma única vez.
+       Registros históricos permanecem no histórico, nunca nos totalizadores. */
+    reconciled.set(k,Object.assign({},r,{person:p,_activeKey:k}))
+  });
+  return{active:active,rows:Array.from(reconciled.values())}
+}
 function auditedForecast47(){
-  var raw=rawForecastRows47(),seen=new Set(raw.map(function(r){return norm47(r.nome)}));
-  activePeople47().forEach(function(p){
+  var source=activeForecastSource47(),raw=source.rows,seen=new Set(raw.map(function(r){return norm47(r.nome)}));
+  source.active.forEach(function(p){
     var k=norm47(p.nome);if(!k||seen.has(k))return;seen.add(k);
     var prov=n47(p.proventos)||n47(p.salario),disc=n47(p.descontos),dep;
     try{dep=departmentName(p.departamento)}catch(e){dep=p.departamento||'—'}
-    raw.push({tr:null,nome:p.nome||'—',departamento:dep,proventos:prov,descontos:disc,liquido:Math.max(0,prov-disc),_recomposta:true})
+    raw.push({tr:null,nome:p.nome||'—',departamento:dep,proventos:prov,descontos:disc,liquido:Math.max(0,prov-disc),person:p,_activeKey:k,_recomposta:true})
   });
   var rates=rates47(),rows=raw.map(function(r){
-    var p=personByName47(r.nome),ratio=p&&n47(p.proventos)>0?r.proventos/n47(p.proventos):1;if(!isFinite(ratio)||ratio<=0)ratio=1;
+    var p=r.person||personByName47(r.nome),ratio=p&&n47(p.proventos)>0?r.proventos/n47(p.proventos):1;if(!isFinite(ratio)||ratio<=0)ratio=1;
     var baseInss=p?n47(p.base_inss)*ratio:0,baseFgts=p?n47(p.base_fgts)*ratio:0,baseIrrf=p?Math.max(0,n47(p.base_irrf)*ratio):0;
     var baseEmployer=baseFgts;
     var inssSeg=inssEmployee47(baseInss),irrf=irrf47(baseIrrf,r.proventos);
@@ -206,7 +220,7 @@ function auditedForecast47(){
   };
   t.company=r247(t.inssPat+t.rat+t.terceiros+t.pis+t.fgts);t.retained=r247(t.inssSeg+t.irrf);t.otherDiscounts=r247(Math.max(0,t.disc-t.retained));t.taxTotal=r247(t.retained+t.company);t.cost=r247(t.prov+t.company+t.ben);
   var meta=typeof window.rhRosterMeta==='function'?window.rhRosterMeta():window.RH_CURRENT_ACTIVE_META;
-  t.expectedActive=n47(meta&&meta.ativos)||activePeople47().length;t.countOk=!t.expectedActive||t.rows.length===t.expectedActive;
+  t.expectedActive=n47(meta&&meta.ativos)||source.active.length;t.countOk=!t.expectedActive||t.rows.length===t.expectedActive;
   t.balanceDiff=r247(t.prov-t.disc-t.liq);t.balanceOk=Math.abs(t.balanceDiff)<=.02;
   return t
 }
@@ -230,6 +244,8 @@ function syncForecastTable47(t){
   var pane=forecastPane47(),table=pane&&pane.querySelector('table');if(!table)return;
   var head=table.querySelector('thead tr');if(head)head.innerHTML='<th>Colaborador</th><th>Departamento</th><th class="money">Proventos previstos</th><th class="money">Descontos previstos</th><th class="money">Líquido previsto</th><th class="money">Encargos empresa</th><th class="money">Benefícios confirmados</th><th class="money">Custo previsto</th>';
   var body=table.tBodies&&table.tBodies[0]||table.createTBody();
+  var retained=new Set(t.rows.map(function(r){return r.tr}).filter(Boolean));
+  Array.from(body.rows||[]).forEach(function(tr){if(!retained.has(tr))tr.remove()});
   t.rows.forEach(function(r){
     if(!r.tr){r.tr=body.insertRow();for(var z=0;z<8;z++)r.tr.insertCell();r.tr.cells[0].innerHTML='<b>'+esc47(r.nome)+'</b>';r.tr.cells[1].textContent=r.departamento;r.tr.cells[2].textContent=money47(r.proventos);r.tr.cells[3].textContent=money47(r.descontos);r.tr.cells[4].textContent=money47(r.liquido)}
     var c=r.tr&&r.tr.cells;if(!c||c.length<8)return;c[5].textContent=money47(r.encargos);c[6].textContent=money47(r.beneficios);c[7].innerHTML='<b>'+money47(r.custo)+'</b>'
