@@ -56,6 +56,7 @@ function rawFields46b(row,key){
 }
 function reconciledRows46b(button){
   var shown=readDisplayedTotals46b(button),source=forecastPeople46b(),rows=source.map(function(r){var f=rawFields46b(r,shown.key);return{name:r.name,dep:r.dep,matched:r.matched,forecastProv:r.forecastProv,rawBase:f.base,rawValue:f.value}});
+  var contributors=rows.filter(function(r){return r.rawBase>0||r.rawValue>0});if(contributors.length)rows=contributors;
   /* Se a folha ainda estiver terminando de carregar, nunca inventa rateio igual: usa
      proventos apenas para as linhas sem vínculo, preservando as bases reais já obtidas. */
   var hasIndividualBase=rows.some(function(r){return r.matched&&r.rawBase>0});
