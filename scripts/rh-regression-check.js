@@ -1,5 +1,6 @@
 const fs = require('fs');
 
+// Release v46b: a composição tributária lê o painel; o cálculo permanece soberano e intocado.
 // Invariantes desta release: card/composição compartilham o fechamento; pop-ups não exibem CC e usam um único colgroup.
 function read(path) { return fs.readFileSync(path, 'utf8'); }
 function assert(ok, msg) { if (!ok) throw new Error(`RH regression: ${msg}`); }
