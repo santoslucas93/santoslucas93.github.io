@@ -9,6 +9,8 @@ const ui = read('runtime-patches/rh-folha-hotfix-v38-planejamento-ativos-ui.inc.
 const reports = read('runtime-patches/rh-folha-hotfix-v40-relatorios-executivos.inc.js');
 const stability40 = read('runtime-patches/rh-folha-hotfix-v40a-runtime-stability.inc.js');
 const stability41 = read('runtime-patches/rh-folha-hotfix-v41a-report-center-stability.inc.js');
+const planningForecast = read('runtime-patches/rh-folha-hotfix-v47-auditoria-integral.inc.js');
+const planningDetails = read('runtime-patches/rh-folha-hotfix-v48-estabilidade-popups.inc.js');
 
 const orderBaseline = workflow.indexOf('rh-folha-stability-baseline.inc.js');
 const orderUi = workflow.indexOf('rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
@@ -66,5 +68,26 @@ assert(stability41.includes('valor_irrf_folha||e.valor_irrf_mensal'), 'IRRF mens
 assert(stability41.includes('Selecione um único mês'), 'guias não podem somar vários meses como se fossem uma competência');
 assert(stability41.includes('ResizeObserver'), 'card fit v42 deve reagir a redimensionamento');
 assert(!/new\s+MutationObserver\s*\(/.test(stability41), 'v42 não pode criar novo MutationObserver');
+
+for (const retired of [
+  'rh-folha-hotfix-v49-cards-estaveis.inc.js',
+  'rh-folha-hotfix-v50-fonte-fixa-popup.inc.js',
+  'rh-folha-hotfix-v51-planejamento-layout.inc.js',
+  'rh-folha-hotfix-v55-planejamento-consolidado.inc.js',
+  'rh-folha-hotfix-v56-proxima-folha-popups.inc.js'
+]) {
+  assert(!workflow.includes(retired), `camada concorrente de cards/pop-ups ainda ativa: ${retired}`);
+}
+assert(planningForecast.includes('rh47-forecast-modal'), 'Próxima Folha precisa usar o modal estrutural próprio');
+assert(planningForecast.includes('min-height:126px;height:126px'), 'cards da Próxima Folha perderam altura estável');
+assert(planningForecast.includes('font-size:28px!important;line-height:32px'), 'cards da Próxima Folha perderam tipografia fixa');
+assert(!planningForecast.includes("if(typeof openGenericDetail==='function')openGenericDetail(title,kicker,html)"), 'Próxima Folha voltou a depender do modal genérico');
+assert(planningDetails.includes('--rh48-modal-w'), '13º, Férias e Rescisões precisam dimensionar o modal pelo conteúdo');
+assert(planningDetails.includes('.rh48-count{'), 'rodapé dos pop-ups precisa informar a quantidade de registros');
+assert(!planningDetails.includes("['Colaborador','Departamento','CC','Saldo atual']"), 'CC não pode voltar ao pop-up de saldo provisionado');
+assert(!planningDetails.includes("['Colaborador','Departamento','CC','Provisão do mês']"), 'CC não pode voltar ao pop-up de provisão do mês');
+assert(planningDetails.includes('#page-planejamento .kpi strong'), 'regra de cards precisa permanecer restrita ao Planejamento');
+assert(!planningDetails.includes("'.kpi strong,.rh40-guide-card"), 'Planejamento não pode alterar cards de outras abas');
+assert(planningDetails.includes('width:100%!important;max-width:100%!important;min-width:0!important'), 'tabelas dos pop-ups precisam ocupar toda a caixa');
 
 console.log('RH regression baseline: OK');
