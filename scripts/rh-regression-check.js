@@ -16,6 +16,7 @@ const fit41 = read('runtime-patches/rh-folha-hotfix-v41a-report-center-stability
 const fit42 = read('runtime-patches/rh-folha-hotfix-v42-relatorios-ajustes.inc.js');
 const fit43 = read('runtime-patches/rh-folha-hotfix-v43-correcoes.inc.js');
 const stable46 = read('runtime-patches/rh-folha-hotfix-v46-estabilizacao.inc.js');
+const taxComposition46b = read('runtime-patches/rh-folha-hotfix-v46b-impostos-composicao.inc.js');
 const planningForecast = read('runtime-patches/rh-folha-hotfix-v47-auditoria-integral.inc.js');
 const planningDetails = read('runtime-patches/rh-folha-hotfix-v48-estabilidade-popups.inc.js');
 const sourceCards = read('runtime-patches/rh-folha-hotfix-v8.inc.js');
@@ -27,10 +28,13 @@ const orderBaseline = workflow.indexOf('rh-folha-stability-baseline.inc.js');
 const orderUi = workflow.indexOf('rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
 const orderV40 = workflow.indexOf('rh-folha-hotfix-v40-relatorios-executivos.inc.js');
 const orderV40a = workflow.indexOf('rh-folha-hotfix-v40a-runtime-stability.inc.js');
+const orderTax46b = workflow.indexOf('rh-folha-hotfix-v46b-impostos-composicao.inc.js');
+const orderV47 = workflow.indexOf('rh-folha-hotfix-v47-auditoria-integral.inc.js');
 assert(orderBaseline >= 0, 'baseline de estabilidade não está no release candidate');
 assert(orderUi > orderBaseline, 'baseline precisa ser carregado antes da camada visual v38');
 assert(orderV40 > orderUi, 'v40 precisa ser carregado depois da camada visual para assumir o card fit e os relatórios');
 assert(orderV40a > orderV40, 'v40a precisa ser carregado após o v40');
+assert(orderTax46b > orderV40a && orderTax46b < orderV47, 'composição tributária somente leitura precisa capturar o clique antes do v47');
 assert(workflow.includes('rh-folha-hotfix-v41a-report-center-stability.inc.js'), 'v41a/v42 precisa estar no release candidate');
 assert(!workflow.includes('rh-folha-hotfix-v37-ativos-cards-provisoes.inc.js'), 'v37 obsoleto ainda está sendo carregado');
 assert(!workflow.includes('rh-folha-hotfix-v30-planejamento-tabelas.inc.js'), 'v30 obsoleto não pode voltar ao release');
@@ -116,6 +120,21 @@ assert(planningForecast.includes('snapshot:null'), 'Próxima Folha não preserva
 assert(planningForecast.includes('var t=V47.snapshot||auditedForecast47()'), 'pop-up da Próxima Folha voltou a recalcular um total diferente no clique');
 assert(planningForecast.includes('data-rh47-value='), 'cards da Próxima Folha não registram o valor exato do fechamento');
 assert(planningForecast.includes("prov:r247(sum47(rows,'proventos'))"), 'Próxima Folha não fecha os totalizadores na precisão monetária das linhas');
+
+/* Impostos: composição estritamente derivada dos números já renderizados. */
+for (const symbol of ['RH_TAX_COMPOSITION_READONLY_V46B','readDisplayedTotals46b','allocateCents46b','forecastPeople46b','reconciledRows46b']) {
+  assert(taxComposition46b.includes(symbol), `composição tributária somente leitura sem ${symbol}`);
+}
+for (const key of ['INSS_EMP','IRRF','INSS_PAT','RAT','TERC','PIS','FGTS']) {
+  assert(taxComposition46b.includes(key), `composição por colaborador ausente para ${key}`);
+}
+assert(taxComposition46b.includes('e.stopImmediatePropagation'), 'clique no imposto ainda pode alcançar o recálculo do v47');
+assert(taxComposition46b.includes('readDisplayedTotals46b(button)'), 'pop-up não usa o valor visível como fonte autoritativa');
+assert(taxComposition46b.includes('data-rh-authoritative-total="1"'), 'total visível do imposto não está protegido como fechamento autoritativo');
+assert(taxComposition46b.includes('<th>Colaborador</th><th>Departamento</th>'), 'composição tributária perdeu colaborador/departamento');
+assert(!taxComposition46b.includes('Centro de custo') && !taxComposition46b.includes('>CC<'), 'CC voltou ao pop-up dos impostos');
+assert(!taxComposition46b.includes('MutationObserver'), 'composição tributária não pode observar ou re-renderizar o painel');
+assert(!taxComposition46b.includes("button.querySelector('strong').textContent=") && !taxComposition46b.includes('S.competencia='), 'composição tributária não pode substituir valores existentes do painel');
 
 /* Composições: o rodapé contábil explícito é soberano. */
 assert(popupTotals13.includes("tfoot tr:not(.rh-auto-total):not(.rh-v20-total)"), 'v13 ainda pode substituir um total contábil explícito');
