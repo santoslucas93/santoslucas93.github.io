@@ -8,6 +8,7 @@ const baseline = read('runtime-patches/rh-folha-stability-baseline.inc.js');
 const ui = read('runtime-patches/rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
 const reports = read('runtime-patches/rh-folha-hotfix-v40-relatorios-executivos.inc.js');
 const stability40 = read('runtime-patches/rh-folha-hotfix-v40a-runtime-stability.inc.js');
+const stability41 = read('runtime-patches/rh-folha-hotfix-v41a-report-center-stability.inc.js');
 
 const orderBaseline = workflow.indexOf('rh-folha-stability-baseline.inc.js');
 const orderUi = workflow.indexOf('rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
@@ -17,6 +18,7 @@ assert(orderBaseline >= 0, 'baseline de estabilidade não está no release candi
 assert(orderUi > orderBaseline, 'baseline precisa ser carregado antes da camada visual v38');
 assert(orderV40 > orderUi, 'v40 precisa ser carregado depois da camada visual para assumir o card fit e os relatórios');
 assert(orderV40a > orderV40, 'v40a precisa ser carregado após o v40');
+assert(workflow.includes('rh-folha-hotfix-v41a-report-center-stability.inc.js'), 'v41a/v42 precisa estar no release candidate');
 assert(!workflow.includes('rh-folha-hotfix-v37-ativos-cards-provisoes.inc.js'), 'v37 obsoleto ainda está sendo carregado');
 assert(!workflow.includes('rh-folha-hotfix-v30-planejamento-tabelas.inc.js'), 'v30 obsoleto não pode voltar ao release');
 assert(!workflow.includes('rh-folha-hotfix-v16-card-fit-canvas.inc.js'), 'card fit v16 com MutationObserver não pode coexistir com o v40');
@@ -26,12 +28,12 @@ for (const symbol of ['rhRosterLoad','rhRosterActiveIds','rhRosterIsActive','rhR
 }
 assert(!baseline.includes('MutationObserver'), 'baseline de dados não deve observar/re-renderizar DOM');
 assert(baseline.includes('transition:none!important'), 'proteção anti-tremedeira dos cards ausente');
-assert(baseline.includes("situacao_snapshot"), 'quadro atual não está ancorado no snapshot da competência mais recente');
+assert(baseline.includes('situacao_snapshot'), 'quadro atual não está ancorado no snapshot da competência mais recente');
 
 assert(ui.includes('rhProvisionRefresh'), 'camada visual não recalcula provisões após o filtro de ativos');
 assert(ui.includes('rhRosterActiveIds'), 'camada visual não usa a fonte única do quadro atual');
 assert(ui.includes('rhBaselineCheck'), 'camada visual não executa verificação do baseline');
-assert(ui.includes("centro de custo"), 'regra de remoção do resumo por centro de custo ausente');
+assert(ui.includes('centro de custo'), 'regra de remoção do resumo por centro de custo ausente');
 assert(ui.includes('rh38-name-list'), 'lista simples de colaboradores não está protegida');
 assert((ui.match(/new MutationObserver/g) || []).length === 1, 'deve existir somente um observer visual no planejamento');
 assert(ui.includes('V.obs.disconnect()'), 'observer visual precisa ser desconectado durante a própria atualização');
@@ -56,5 +58,13 @@ assert(stability40.includes('RH_V40A_STABILITY'), 'v40a sem marcador de estabili
 assert(stability40.includes('selectCompetence'), 'seletor executivo precisa carregar a competência escolhida');
 assert(stability40.includes('rhFitAllCardValues'), 'interações precisam reaplicar o encaixe dos cards');
 assert(!stability40.includes("busy(this,'Carregando...'"), 'select não pode ser tratado como botão e perder suas opções');
+
+for (const symbol of ['RH_REPORT_FIXES_V42','rhV42FitCards','rhV42ExportForecastPdf','rhV42ExportForecastExcel','rhV42ExportGuide','Próxima folha (estimativa)','Como chegamos ao líquido','Total de proventos','Total de descontos']) {
+  assert(stability41.includes(symbol), `v42 sem recurso obrigatório: ${symbol}`);
+}
+assert(stability41.includes('valor_irrf_folha||e.valor_irrf_mensal'), 'IRRF mensal deve priorizar valor de folha e excluir RPA quando disponível');
+assert(stability41.includes('Selecione um único mês'), 'guias não podem somar vários meses como se fossem uma competência');
+assert(stability41.includes('ResizeObserver'), 'card fit v42 deve reagir a redimensionamento');
+assert(!/new\s+MutationObserver\s*\(/.test(stability41), 'v42 não pode criar novo MutationObserver');
 
 console.log('RH regression baseline: OK');
