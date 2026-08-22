@@ -69,6 +69,7 @@ jobs:
             runtime-patches/rh-folha-hotfix-v45-rescisao-relatorio-cards.inc.js \
             runtime-patches/rh-folha-hotfix-v46-estabilizacao.inc.js \
             runtime-patches/rh-folha-hotfix-v46a-interatividade.inc.js \
+            runtime-patches/rh-folha-hotfix-v47-auditoria-integral.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
@@ -85,7 +86,8 @@ jobs:
             'RH_CORRECOES_V43', 'rhV43ExportTerminationPdf', 'rhV43DeduplicateForecast',
             'RH_CORRECOES_V44', 'patchRhRosterActiveIds', 'patchRhRosterLoad',
             'RH_CORRECOES_V45', 'rhV45ExportTerminationPdf', 'rhV45FitAll',
-            'RH_STABILITY_V46', 'rhV46ExportForecastPdf', 'rhV46InstallFloatingAI', 'rh46-payroll-totalizer', 'RH_STABILITY_V46A']) {
+            'RH_STABILITY_V46', 'rhV46ExportForecastPdf', 'rhV46InstallFloatingAI', 'rh46-payroll-totalizer', 'RH_STABILITY_V46A',
+            'RH_AUDIT_V47', 'rhV47ExportForecastPdf', 'rh47-forecast-summary', 'rh47-ai-resize']) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);
           }
           const effective = source.slice(0, index)
