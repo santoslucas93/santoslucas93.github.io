@@ -15,3 +15,12 @@ Este arquivo é o índice humano das mudanças. O detalhamento funcional e os cr
 - Pente-fino de consistência documentado na Release Candidate.
 
 Nenhuma alteração desta versão foi promovida para a branch `principal`.
+
+## Staging — v62 (24/08/2026)
+
+- Corrigido o erro `V57 is not defined` nos fluxos de cadastro e situação.
+- Colaboradores agora representa o quadro cadastrado, incluindo admissões ainda sem folha.
+- Popup funcional ao clicar no nome ou status, com admissão, desligamento e alteração auditada de situação.
+- Datas históricas de desligamento inferidas pela ausência na folha seguinte.
+- Holerites individuais e em lote concentrados em Colaboradores.
+- Regra e limitações dos alertas de férias explicadas na própria tela.
