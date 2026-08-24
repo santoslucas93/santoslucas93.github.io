@@ -139,6 +139,14 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 - [ ] Persistir os snapshots mensais de benefícios (a tabela histórica ainda está vazia); sem isso, benefícios retroativos do Custo Real não podem ser considerados fechados.
 - [ ] Revisar manualmente cadastros sem correspondência única entre os módulos e preencher datas de desligamento históricas ausentes.
 
+## Correções funcionais — v62
+- [x] Removida a dependência indevida do escopo privado do v57 que causava `V57 is not defined` e impedia o cadastro.
+- [x] Novo colaborador passa a aparecer imediatamente em Colaboradores, mesmo antes da primeira folha.
+- [x] Clique no nome ou na situação abre o cadastro funcional com admissão, desligamento, última folha e seletor de situação.
+- [x] Data automática de desligamento definida como o primeiro dia da competência seguinte à última folha em que o colaborador apareceu; alterações manuais posteriores permanecem soberanas.
+- [x] Holerite individual disponível em cada colaborador com folha na competência e geração em lote no cabeçalho de Colaboradores.
+- [x] Alerta de férias recalculado ao abrir Colaboradores: atenção a 90 dias e vermelho após o limite, ainda identificado como estimativa até existir um livro de férias efetivamente gozadas.
+
 ## Pendências para fechar a Fase 1
 - [ ] Rodada final de regressão em tema claro/escuro, filtros, drill-downs, permissões e login.
 - [ ] Reconciliar `staging` com os 11 commits exclusivos da `principal` antes da promoção.
