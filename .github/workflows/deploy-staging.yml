@@ -73,10 +73,12 @@ jobs:
             runtime-patches/rh-folha-hotfix-v47-auditoria-integral.inc.js \
             runtime-patches/rh-folha-hotfix-v48-estabilidade-popups.inc.js \
             runtime-patches/rh-folha-hotfix-v54-provisoes-seguras.inc.js \
+            runtime-patches/rh-folha-hotfix-v57-base-editavel-proxima-folha.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
           node scripts/rh-regression-check.js
+          node scripts/rh-v57-calculation-test.js
 
           node <<'NODE'
           const fs = require('fs');
@@ -98,6 +100,7 @@ jobs:
             
             
             'RH_PROVISION_SAFE_V54',
+            'RH_FORECAST_V57', 'rhV57HandleCapture', 'rhV57Refresh', 'rh57-salary-edit', 'rh_atualizar_salario_folha', 'Tabela tributária',
             
             ]) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);

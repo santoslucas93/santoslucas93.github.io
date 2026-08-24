@@ -428,6 +428,7 @@ function activePlan47(){var p=Array.from(document.querySelectorAll('#page-planej
 function installCapture47(){
   if(window._rh47Capture)return;window._rh47Capture=true;
   window.addEventListener('click',function(e){
+    if(window.RH_FORECAST_V57&&typeof window.rhV57HandleCapture==='function'&&window.rhV57HandleCapture(e))return;
     var btn=e.target&&e.target.closest?e.target.closest('#rh42-plan-pdf'):null;
     if(btn&&activePlan47()==='folha'){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();if(btn.dataset.rh47Busy==='1')return;btn.dataset.rh47Busy='1';var old=btn.textContent;btn.disabled=true;btn.textContent='Gerando PDF auditado...';Promise.resolve().then(exportForecastPdf47).catch(function(err){warn47(err&&err.message?err.message:String(err))}).finally(function(){btn.disabled=false;btn.textContent=old;delete btn.dataset.rh47Busy});return}
     var tax=e.target&&e.target.closest?e.target.closest('.rh47-tax-line'):null;
@@ -452,6 +453,7 @@ function styles47(){
 
 function schedule47(ms){clearTimeout(V47.refreshTimer);V47.refreshTimer=setTimeout(function(){refresh47().catch(function(){})},ms==null?100:ms)}
 async function refresh47(){
+  if(window.RH_FORECAST_V57){installAiResize47();return}
   styles47();patchParser47();normalizeAll47();installEmployerCharges47();await loadBenefits47(false);
   var pane=forecastPane47();if(pane&&getComputedStyle(pane).display!=='none'){
     var t=auditedForecast47();if(t.rows.length){V47.snapshot=t;syncForecastTable47(t);installForecastSummary47(t)}

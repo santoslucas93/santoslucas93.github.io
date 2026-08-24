@@ -20,6 +20,7 @@ const stable46 = read('runtime-patches/rh-folha-hotfix-v46-estabilizacao.inc.js'
 const taxComposition46b = read('runtime-patches/rh-folha-hotfix-v46b-impostos-composicao.inc.js');
 const planningForecast = read('runtime-patches/rh-folha-hotfix-v47-auditoria-integral.inc.js');
 const planningDetails = read('runtime-patches/rh-folha-hotfix-v48-estabilidade-popups.inc.js');
+const forecast57 = read('runtime-patches/rh-folha-hotfix-v57-base-editavel-proxima-folha.inc.js');
 const sourceCards = read('runtime-patches/rh-folha-hotfix-v8.inc.js');
 const popupTotals13 = read('runtime-patches/rh-folha-hotfix-v13-cards-popup-totais.inc.js');
 const popupGrid20 = read('runtime-patches/rh-folha-hotfix-v20-popup-totals-grid.inc.js');
@@ -183,5 +184,23 @@ assert(!planningForecast.includes("'Centro de custo','Valor','% do card'"), 'CC 
 assert(planningForecast.includes("'Colaborador','Departamento','Valor','% do card'"), 'Próxima Folha perdeu a composição por colaborador e departamento');
 assert(planningDetails.includes('data-rh-authoritative-total'), 'provisões não marcam o total contábil como autoritativo');
 assert(planningDetails.includes("function moneyCell(i)"), 'provisões não alinham cabeçalho e células pela mesma regra');
+
+/* Próxima Folha v57: camada separada, editável e auditável. */
+assert(workflow.includes('rh-folha-hotfix-v57-base-editavel-proxima-folha.inc.js'), 'v57 não está no release candidate');
+assert(workflow.indexOf('rh-folha-hotfix-v57-base-editavel-proxima-folha.inc.js') > workflow.indexOf('rh-folha-hotfix-v54-provisoes-seguras.inc.js'), 'v57 precisa ser a última camada do RH');
+for (const symbol of ['RH_FORECAST_V57','rhV57HandleCapture','rhV57Refresh','rh57-salary-edit','rh_atualizar_salario_folha','rh_atualizar_status_colaborador','rh_salvar_parametros_projecao','TAX57','simplificado:607.20','dependente:189.59']) {
+  assert(forecast57.includes(symbol), `v57 sem recurso obrigatório: ${symbol}`);
+}
+assert(forecast57.includes('[[1621,.075],[2902.84,.09],[4354.27,.12],[8475.55,.14]]'), 'v57 sem tabela progressiva INSS 2026');
+assert(forecast57.includes('[[2428.80,0,0],[2826.65,.075,182.16],[3751.05,.15,394.16],[4664.68,.225,675.49],[Infinity,.275,908.73]]'), 'v57 sem tabela mensal IRRF 2026');
+assert(forecast57.includes("if(gross<=5000)reduction=tax;else if(gross<=7350)"), 'v57 sem redução mensal do IRRF 2026');
+assert(forecast57.includes('var deduction=Math.max(TAX57.simplificado,legal)'), 'v57 não escolhe a dedução de IRRF mais vantajosa');
+assert(forecast57.includes('ctx.latestLaunches.some(isVacation57)'), 'v57 não detecta férias na competência-base');
+assert(forecast57.includes("/FERIAS|13 |13O|13º|DECIMO|RESCISAO|AVISO|ABONO|ADIANTAMENTO|DIAS NORMAIS|BOLSA AUXILIO/"), 'v57 pode repetir verbas não recorrentes');
+assert(forecast57.includes('proventos:gross') && forecast57.includes('descontos:discounts') && forecast57.includes('liquido:net'), 'v57 não fecha a projeção por colaborador');
+assert(planningForecast.includes('if(window.RH_FORECAST_V57){installAiResize47();return}'), 'v47 ainda pode sobrescrever a projeção v57');
+assert(forecast57.includes('vacationGross+cashGross-vacationInss-vacationIrrf.value'), 'v57 sem adiantamento líquido de férias');
+assert(forecast57.includes('employerBase=hasInss?contributionBase:0'), 'v57 inclui abono indevidamente na base patronal');
+assert(forecast57.includes("'retained',t.retained") && forecast57.includes("'taxTotal',t.taxTotal"), 'pop-ups tributários v57 não conciliam com os cards');
 
 console.log('RH regression baseline: OK');
