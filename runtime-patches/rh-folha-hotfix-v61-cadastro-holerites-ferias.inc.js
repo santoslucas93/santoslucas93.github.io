@@ -15,6 +15,15 @@ function isoSafe61(v){return v?String(v).slice(0,10):null}
 function alert61(m){try{warning57(m)}catch(e){alert(m)}}
 function ok61(m){try{ok57(m)}catch(e){}}
 
+// O cadastro atual é soberano para o filtro depois de uma alteração manual;
+// o snapshot continua disponível para o histórico da competência.
+rhSituacaoCategory=function(p){
+  var v=cleanSearch((p&&p.situacao)||((p&&p.situacao_snapshot)||''));
+  if(/demit|deslig|rescis|rescind|inativ|transferid/.test(v))return 'desligado';
+  if(/afast|licenca|ferias/.test(v))return 'afastado';
+  return 'trabalhando';
+};
+
 function style61(){
   if(e61('rh61-style'))return;var s=document.createElement('style');s.id='rh61-style';s.textContent=
     '#employee-rows .status[data-rh61-status]{cursor:pointer;box-shadow:0 0 0 1px currentColor inset}'+
