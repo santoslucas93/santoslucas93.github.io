@@ -113,6 +113,16 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 - [x] Todos os popups fecham com `Esc`.
 - [x] Totais nas composições.
 
+## Conciliação (motor de conferência)
+- [x] Motor de folha (`LNBPayroll`) reconstruído do zero a partir do extrato real, batendo centavo a centavo com INSS, IRRF, FGTS e encargos patronais.
+- [x] Painel somente leitura na aba Conciliação: recalcula a competência carregada e compara com o que veio do PDF importado.
+- [x] Zero escrita no banco, zero alteração de rubrica importada, zero alteração de patch existente — carregado via `worker.js` depois do release candidate, com try/catch (se faltar ou falhar, o RH segue funcionando normalmente).
+- [ ] Rodar ao vivo por um mês antes de decidir se vira fonte de verdade.
+
+## Correções visuais
+- [x] v58 — espaçamento entre rótulo, etiqueta e valor nos popups de "Custo para a empresa" e detalhamento de INSS (`.ep-row`/`.ep-tag` não tinham nenhuma regra de CSS, e o texto ficava colado: "FGTSexato", "INSS patronal20% base patronal").
+- [ ] Varredura do restante do sistema atrás do mesmo tipo de problema (encontrados ~35 outros pontos candidatos que ainda precisam de verificação visual antes de mexer).
+
 ## Pendências para fechar a Fase 1
 - [ ] Rodada final de regressão em tema claro/escuro, filtros, drill-downs, permissões e login.
 - [ ] Reconciliar `staging` com os 11 commits exclusivos da `principal` antes da promoção.
