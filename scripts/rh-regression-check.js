@@ -25,6 +25,9 @@ const sourceCards = read('runtime-patches/rh-folha-hotfix-v8.inc.js');
 const popupTotals13 = read('runtime-patches/rh-folha-hotfix-v13-cards-popup-totais.inc.js');
 const popupGrid20 = read('runtime-patches/rh-folha-hotfix-v20-popup-totals-grid.inc.js');
 const interactivity = read('runtime-patches/rh-folha-rc-interactivity.inc.js');
+const dp61 = read('runtime-patches/rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js');
+const spacing61 = read('runtime-patches/system-text-spacing.js');
+const worker = read('worker.js');
 
 const orderBaseline = workflow.indexOf('rh-folha-stability-baseline.inc.js');
 const orderUi = workflow.indexOf('rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
@@ -37,6 +40,7 @@ assert(orderUi > orderBaseline, 'baseline precisa ser carregado antes da camada 
 assert(orderV40 > orderUi, 'v40 precisa ser carregado depois da camada visual para assumir o card fit e os relatórios');
 assert(orderV40a > orderV40, 'v40a precisa ser carregado após o v40');
 assert(orderTax46b > orderV40a && orderTax46b < orderV47, 'composição tributária somente leitura precisa capturar o clique antes do v47');
+assert(workflow.indexOf('rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js') > workflow.indexOf('rh-folha-hotfix-v60-status-cor-desligado.inc.js'), 'v61 precisa ser carregado depois da correção de status v60');
 assert(workflow.includes('rh-folha-hotfix-v41a-report-center-stability.inc.js'), 'v41a/v42 precisa estar no release candidate');
 assert(!workflow.includes('rh-folha-hotfix-v37-ativos-cards-provisoes.inc.js'), 'v37 obsoleto ainda está sendo carregado');
 assert(!workflow.includes('rh-folha-hotfix-v30-planejamento-tabelas.inc.js'), 'v30 obsoleto não pode voltar ao release');
@@ -108,6 +112,15 @@ assert(!planningDetails.includes("'.kpi strong,.rh40-guide-card"), 'Planejamento
 assert(planningDetails.includes('width:100%!important;max-width:100%!important;min-width:0!important'), 'tabelas dos pop-ups precisam ocupar toda a caixa');
 assert(fit42.includes('openGuideCard'), 'cards das guias gerenciais não possuem composição própria');
 assert(fit42.includes('bindGuideCards'), 'cards das guias gerenciais não estão vinculados à composição');
+
+for (const symbol of ['RH_DP_V61','rh_criar_colaborador','rh_sincronizar_cadastros_beneficios','rh61-payslips','data-rh61-status','vacationRows61']) {
+  assert(dp61.includes(symbol), `v61 sem recurso obrigatório: ${symbol}`);
+}
+assert(dp61.includes('Optou por Vale Transporte'), 'cadastro v61 não pergunta a opção de Vale Transporte');
+assert(dp61.includes('Documento de conferência'), 'holerite v61 não informa seu caráter de conferência');
+assert(dp61.includes('estimados pela data de admissão'), 'alerta de férias v61 precisa declarar a limitação da estimativa');
+assert(spacing61.includes('MutationObserver') && spacing61.includes('document.createTextNode'), 'correção global de palavras coladas ausente');
+assert(worker.includes('injectSystemTextSpacing') && worker.includes("url.pathname === '/rh/'"), 'Worker não aplica a correção de espaçamento no sistema/RH');
 
 for (const [name, source] of [['v40',fit40],['v41',fit41],['v42',fit42],['v43',fit43]]) {
   assert(source.includes("closest('#page-planejamento')"), `${name} ainda permite auto-fit em Planejamento`);
