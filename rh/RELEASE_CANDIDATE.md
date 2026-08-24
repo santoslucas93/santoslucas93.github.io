@@ -121,12 +121,23 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 
 ## Correções visuais
 - [x] v58 — espaçamento entre rótulo, etiqueta e valor nos popups de "Custo para a empresa" e detalhamento de INSS (`.ep-row`/`.ep-tag` não tinham nenhuma regra de CSS, e o texto ficava colado: "FGTSexato", "INSS patronal20% base patronal").
-- [ ] Varredura do restante do sistema atrás do mesmo tipo de problema (encontrados ~35 outros pontos candidatos que ainda precisam de verificação visual antes de mexer).
+- [x] v61 — correção defensiva em todo o sistema para separar elementos inline adjacentes sem espaço, inclusive conteúdo criado dinamicamente.
 
 ## Filtros e navegação
 - [x] v59 — filtro global de Status (Trabalhando/Afastado/Desligado) em Colaboradores, Folha Mensal, Custo Real e demais telas, no mesmo padrão dos filtros de Departamento/Vínculo já existentes. Abre priorizando "Trabalhando".
 - [x] v59 — período padrão ao abrir o sistema passa a ser a última folha importada, em vez de consolidar todos os anos.
-- [ ] Clique para alterar status (Trabalhando/Desligado/Afastado) direto no Quadro atual, com sincronização automática com a última folha.
+- [x] v61 — clique direto no status em Colaboradores para definir Trabalhando, Férias, Afastado ou Desligado, com motivo e auditoria.
+- [x] v61 — sincronização com a última folha salva automaticamente e preserva uma alteração manual feita depois da importação; uma folha mais nova volta a ser a fonte automática.
+
+## Administração de Pessoal — v61
+- [x] Cadastro de colaborador com matrícula, admissão, vínculo, cargo, departamento, centro de custo, gestor, contato, salário-base, jornada e observações.
+- [x] Opções explícitas de Vale Transporte, VR/VA, Plano de Saúde e Seguro de Vida.
+- [x] Sincronização segura com cadastros de Benefícios e Mobilidade somente quando há correspondência única por nome normalizado; casos ambíguos ficam pendentes de revisão.
+- [x] Geração de holerites em PDF por competência, respeitando os filtros atuais.
+- [x] Alertas preventivos de férias vencidas e próximas de 90 dias, claramente marcados como estimativa a conferir com recibos e períodos gozados.
+- [x] Pente-fino financeiro: última folha mensal confere em proventos, descontos, líquido e FGTS entre total oficial e soma individual.
+- [ ] Persistir os snapshots mensais de benefícios (a tabela histórica ainda está vazia); sem isso, benefícios retroativos do Custo Real não podem ser considerados fechados.
+- [ ] Revisar manualmente cadastros sem correspondência única entre os módulos e preencher datas de desligamento históricas ausentes.
 
 ## Pendências para fechar a Fase 1
 - [ ] Rodada final de regressão em tema claro/escuro, filtros, drill-downs, permissões e login.
