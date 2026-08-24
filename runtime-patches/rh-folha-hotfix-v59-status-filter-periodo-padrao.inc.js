@@ -25,7 +25,7 @@ function rhSituacaoOptionsHtml(){
   return '<option value="">Todos os status</option><option value="trabalhando">Trabalhando</option><option value="afastado">Afastado</option><option value="desligado">Desligado</option>';
 }
 
-var _rhV59BaseSyncScopeControls=rhSyncScopeControls
+var _rhV59BaseSyncScopeControls=rhSyncScopeControls;
 rhSyncScopeControls=function(){
   _rhV59BaseSyncScopeControls();
   var ms=$('filter-situacao');if(ms)ms.value=RH_SCOPE.situacao;
