@@ -123,6 +123,11 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 - [x] v58 — espaçamento entre rótulo, etiqueta e valor nos popups de "Custo para a empresa" e detalhamento de INSS (`.ep-row`/`.ep-tag` não tinham nenhuma regra de CSS, e o texto ficava colado: "FGTSexato", "INSS patronal20% base patronal").
 - [ ] Varredura do restante do sistema atrás do mesmo tipo de problema (encontrados ~35 outros pontos candidatos que ainda precisam de verificação visual antes de mexer).
 
+## Filtros e navegação
+- [x] v59 — filtro global de Status (Trabalhando/Afastado/Desligado) em Colaboradores, Folha Mensal, Custo Real e demais telas, no mesmo padrão dos filtros de Departamento/Vínculo já existentes. Abre priorizando "Trabalhando".
+- [x] v59 — período padrão ao abrir o sistema passa a ser a última folha importada, em vez de consolidar todos os anos.
+- [ ] Clique para alterar status (Trabalhando/Desligado/Afastado) direto no Quadro atual, com sincronização automática com a última folha.
+
 ## Pendências para fechar a Fase 1
 - [ ] Rodada final de regressão em tema claro/escuro, filtros, drill-downs, permissões e login.
 - [ ] Reconciliar `staging` com os 11 commits exclusivos da `principal` antes da promoção.
