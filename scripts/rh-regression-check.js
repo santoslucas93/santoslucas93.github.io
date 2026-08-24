@@ -26,6 +26,7 @@ const popupTotals13 = read('runtime-patches/rh-folha-hotfix-v13-cards-popup-tota
 const popupGrid20 = read('runtime-patches/rh-folha-hotfix-v20-popup-totals-grid.inc.js');
 const interactivity = read('runtime-patches/rh-folha-rc-interactivity.inc.js');
 const dp61 = read('runtime-patches/rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js');
+const dp62 = read('runtime-patches/rh-folha-hotfix-v62-fluxos-independentes.inc.js');
 const spacing61 = read('runtime-patches/system-text-spacing.js');
 const worker = read('worker.js');
 
@@ -41,6 +42,7 @@ assert(orderV40 > orderUi, 'v40 precisa ser carregado depois da camada visual pa
 assert(orderV40a > orderV40, 'v40a precisa ser carregado após o v40');
 assert(orderTax46b > orderV40a && orderTax46b < orderV47, 'composição tributária somente leitura precisa capturar o clique antes do v47');
 assert(workflow.indexOf('rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js') > workflow.indexOf('rh-folha-hotfix-v60-status-cor-desligado.inc.js'), 'v61 precisa ser carregado depois da correção de status v60');
+assert(workflow.indexOf('rh-folha-hotfix-v62-fluxos-independentes.inc.js') > workflow.indexOf('rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js'), 'v62 precisa neutralizar o v61 depois de seu carregamento');
 assert(workflow.includes('rh-folha-hotfix-v41a-report-center-stability.inc.js'), 'v41a/v42 precisa estar no release candidate');
 assert(!workflow.includes('rh-folha-hotfix-v37-ativos-cards-provisoes.inc.js'), 'v37 obsoleto ainda está sendo carregado');
 assert(!workflow.includes('rh-folha-hotfix-v30-planejamento-tabelas.inc.js'), 'v30 obsoleto não pode voltar ao release');
@@ -121,6 +123,14 @@ assert(dp61.includes('Documento de conferência'), 'holerite v61 não informa se
 assert(dp61.includes('estimados pela data de admissão'), 'alerta de férias v61 precisa declarar a limitação da estimativa');
 assert(spacing61.includes('MutationObserver') && spacing61.includes('document.createTextNode'), 'correção global de palavras coladas ausente');
 assert(worker.includes('injectSystemTextSpacing') && worker.includes("url.pathname === '/rh/'"), 'Worker não aplica a correção de espaçamento no sistema/RH');
+for (const symbol of ['RH_DP_V62','renderCollaborators62','openEmployee62','saveStatus62','generatePayslips62','rh62-new-form','rh62-status-form']) {
+  assert(dp62.includes(symbol), `v62 sem recurso obrigatório: ${symbol}`);
+}
+for (const privateV57 of ['V57.','openModal57','closeModal57','statusModal57','ensurePdf57','money57','parseBr57','esc57']) {
+  assert(!dp62.includes(privateV57), `v62 voltou a depender do escopo privado do v57: ${privateV57}`);
+}
+assert(dp62.includes('data-rh62-slip') && dp62.includes('Holerites em lote'), 'v62 não oferece holerite individual e em lote em Colaboradores');
+assert(dp62.includes("desligamento_origem==='ultima_folha'"), 'v62 não identifica data de desligamento inferida pela folha');
 
 for (const [name, source] of [['v40',fit40],['v41',fit41],['v42',fit42],['v43',fit43]]) {
   assert(source.includes("closest('#page-planejamento')"), `${name} ainda permite auto-fit em Planejamento`);
