@@ -2,6 +2,16 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v63 (24/08/2026)
+
+- Holerite redesenhado conforme o modelo da LNB: duas vias por página, identificação funcional, eventos, totais, bases e assinatura.
+- Geração individual e em lote em Colaboradores, respeitando competência e filtros atuais.
+- Envio individual e em lote por e-mail, com validação de destinatários, autorização no servidor e histórico auditável.
+- Central de pendências de DP com Livro de Férias, alertas de limite concessivo, checklists de admissão/desligamento, experiência e documentos/exames com vencimento.
+- Histórico de holerites enviados e confirmação manual de recebimento.
+- Nova infraestrutura de dados protegida por RLS e RPCs administrativas auditadas.
+- O disparo externo permanece desativado até a configuração segura do remetente e do provedor no Worker.
+
 ## Staging — v61 (24/08/2026)
 
 - Status Desligado em vermelho e filtros por situação priorizando Trabalhando.

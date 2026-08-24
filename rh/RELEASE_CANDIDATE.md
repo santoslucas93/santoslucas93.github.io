@@ -3,6 +3,18 @@
 ## Objetivo
 Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qualquer publicação na branch `principal`.
 
+## Incremento v63 — Holerites e controles de DP
+
+- [x] Holerite no modelo operacional fornecido pela LNB, com duas vias por A4.
+- [x] PDF individual e em lote na tela de Colaboradores.
+- [x] Disparo individual e em lote por e-mail, com autorização no Worker e histórico.
+- [x] Separação prévia entre destinatários prontos e colaboradores sem e-mail.
+- [x] Livro de Férias com período aquisitivo, limite concessivo, programação e status.
+- [x] Checklists de admissão e desligamento.
+- [x] Alertas de experiência, ASO/documentos e vencimentos configuráveis.
+- [x] Histórico de envio e confirmação de recebimento de holerites.
+- [ ] Ativar o provedor de e-mail no ambiente após cadastrar remetente e credencial secreta.
+
 ## Estrutura e estabilidade
 - [x] Login único e validação de permissões funcionando no módulo.
 - [x] Staging separado de produção.

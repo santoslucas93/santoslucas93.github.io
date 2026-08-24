@@ -27,6 +27,7 @@ const popupGrid20 = read('runtime-patches/rh-folha-hotfix-v20-popup-totals-grid.
 const interactivity = read('runtime-patches/rh-folha-rc-interactivity.inc.js');
 const dp61 = read('runtime-patches/rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js');
 const dp62 = read('runtime-patches/rh-folha-hotfix-v62-fluxos-independentes.inc.js');
+const dp63 = read('runtime-patches/rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js');
 const spacing61 = read('runtime-patches/system-text-spacing.js');
 const worker = read('worker.js');
 
@@ -43,6 +44,7 @@ assert(orderV40a > orderV40, 'v40a precisa ser carregado após o v40');
 assert(orderTax46b > orderV40a && orderTax46b < orderV47, 'composição tributária somente leitura precisa capturar o clique antes do v47');
 assert(workflow.indexOf('rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js') > workflow.indexOf('rh-folha-hotfix-v60-status-cor-desligado.inc.js'), 'v61 precisa ser carregado depois da correção de status v60');
 assert(workflow.indexOf('rh-folha-hotfix-v62-fluxos-independentes.inc.js') > workflow.indexOf('rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js'), 'v62 precisa neutralizar o v61 depois de seu carregamento');
+assert(workflow.indexOf('rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js') > workflow.indexOf('rh-folha-hotfix-v62-fluxos-independentes.inc.js'), 'v63 precisa assumir holerites e controles depois do v62');
 assert(workflow.includes('rh-folha-hotfix-v41a-report-center-stability.inc.js'), 'v41a/v42 precisa estar no release candidate');
 assert(!workflow.includes('rh-folha-hotfix-v37-ativos-cards-provisoes.inc.js'), 'v37 obsoleto ainda está sendo carregado');
 assert(!workflow.includes('rh-folha-hotfix-v30-planejamento-tabelas.inc.js'), 'v30 obsoleto não pode voltar ao release');
@@ -131,6 +133,13 @@ for (const privateV57 of ['V57.','openModal57','closeModal57','statusModal57','e
 }
 assert(dp62.includes('data-rh62-slip') && dp62.includes('Holerites em lote'), 'v62 não oferece holerite individual e em lote em Colaboradores');
 assert(dp62.includes("desligamento_origem==='ultima_folha'"), 'v62 não identifica data de desligamento inferida pela folha');
+for (const symbol of ['RH_DP_V63','voucher63','postEmail63','batchModal63','dashboard63','employeeDp63','rh_dp_painel','rh_inicializar_controles_colaborador']) {
+  assert(dp63.includes(symbol), `v63 sem recurso obrigatório: ${symbol}`);
+}
+assert(dp63.includes('LIGA NACIONAL DE BASQUETE') && dp63.includes('Total de Vencimentos') && dp63.includes('Assinatura do Funcionário'), 'v63 não reproduz a estrutura do modelo de holerite');
+assert(dp63.includes('/api/rh/holerite-email') && worker.includes("url.pathname === '/api/rh/holerite-email'"), 'envio de holerite não está conectado ao Worker');
+assert(worker.includes('rh_pode_enviar_holerite') && worker.includes('rh_registrar_envio_holerite'), 'Worker não valida permissão ou não registra o envio');
+assert(worker.includes('RH_EMAIL_CONFIGURED') && !worker.includes('RESEND_API_KEY:'), 'configuração de e-mail deve expor somente o estado, nunca a chave');
 
 for (const [name, source] of [['v40',fit40],['v41',fit41],['v42',fit42],['v43',fit43]]) {
   assert(source.includes("closest('#page-planejamento')"), `${name} ainda permite auto-fit em Planejamento`);

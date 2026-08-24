@@ -79,6 +79,7 @@ jobs:
             runtime-patches/rh-folha-hotfix-v60-status-cor-desligado.inc.js \
             runtime-patches/rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js \
             runtime-patches/rh-folha-hotfix-v62-fluxos-independentes.inc.js \
+            runtime-patches/rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
