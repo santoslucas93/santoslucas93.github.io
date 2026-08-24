@@ -58,15 +58,33 @@ async function handleRhAppPatch(request, env) {
     const rcResponse = await env.ASSETS.fetch(new Request(rcUrl, { method: 'GET' }));
     if (!rcResponse.ok) throw new Error('Release candidate do RH indisponivel.');
     const rc = await rcResponse.text();
+
+    // Motor de conferencia (somente leitura) — carregado DEPOIS do release
+    // candidate. Se o arquivo faltar, o RH segue funcionando sem o painel.
+    let motor = '';
+    let motorStatus = 'ausente';
+    try {
+      const motorUrl = new URL('/runtime-patches/rh-folha-conciliacao-motor.inc.js', request.url);
+      const motorResponse = await env.ASSETS.fetch(new Request(motorUrl, { method: 'GET' }));
+      if (motorResponse.ok) {
+        motor = '\n/* LNB RH — MOTOR DE CONFERENCIA (somente leitura) */\n' + (await motorResponse.text()) + '\n';
+        motorStatus = 'ativo';
+      }
+    } catch (motorError) {
+      console.error('Falha ao carregar o motor de conferencia do RH:', motorError);
+      motorStatus = 'erro';
+    }
+
     const bootMarker = "if(document.readyState==='loading')";
     const index = source.lastIndexOf(bootMarker);
     if (index < 0) throw new Error('Marcador de inicializacao do RH nao encontrado.');
-    const injected = source.slice(0, index) + '\n/* LNB RH RELEASE CANDIDATE */\n' + rc + '\n' + source.slice(index);
+    const injected = source.slice(0, index) + '\n/* LNB RH RELEASE CANDIDATE */\n' + rc + '\n' + motor + source.slice(index);
     const headers = new Headers(asset.headers);
     headers.delete('content-length');
     headers.set('content-type', 'application/javascript; charset=utf-8');
     headers.set('cache-control', 'no-store');
     headers.set('x-lnb-rh-patch', 'release-candidate-1');
+    headers.set('x-lnb-rh-motor', motorStatus);
     return new Response(injected, { status: asset.status, headers });
   } catch (error) {
     console.error('Falha ao carregar release candidate do RH:', error);
