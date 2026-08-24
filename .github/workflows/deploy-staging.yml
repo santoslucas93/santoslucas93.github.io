@@ -75,6 +75,7 @@ jobs:
             runtime-patches/rh-folha-hotfix-v54-provisoes-seguras.inc.js \
             runtime-patches/rh-folha-hotfix-v57-base-editavel-proxima-folha.inc.js \
             runtime-patches/rh-folha-hotfix-v58-correcoes-visuais.inc.js \
+            runtime-patches/rh-folha-hotfix-v59-status-filter-periodo-padrao.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
