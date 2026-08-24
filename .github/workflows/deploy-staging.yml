@@ -77,6 +77,7 @@ jobs:
             runtime-patches/rh-folha-hotfix-v58-correcoes-visuais.inc.js \
             runtime-patches/rh-folha-hotfix-v59-status-filter-periodo-padrao.inc.js \
             runtime-patches/rh-folha-hotfix-v60-status-cor-desligado.inc.js \
+            runtime-patches/rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
@@ -104,6 +105,7 @@ jobs:
             
             'RH_PROVISION_SAFE_V54',
             'RH_FORECAST_V57', 'rhV57HandleCapture', 'rhV57Refresh', 'rh57-salary-edit', 'rh_atualizar_salario_folha', 'Tabela tributária',
+            'RH_DP_V61', 'rh_criar_colaborador', 'rh_sincronizar_cadastros_beneficios', 'Gerar holerites PDF', 'Alertas de férias',
             
             ]) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);
