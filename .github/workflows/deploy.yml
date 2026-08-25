@@ -47,7 +47,7 @@ jobs:
             runtime-patches/rh-folha-hotfix-v24-planejamento-provisoes.inc.js \
             runtime-patches/rh-folha-hotfix-v25-planejamento-entry.inc.js \
             runtime-patches/rh-folha-hotfix-v26-planejamento-modelos-contabeis.inc.js \
-            runtime-patches/rh-folha-hotfix-v27-kwt-refresh.inc.js \
+            runtime-patches/rh-folha-hotfix-v27-jwt-refresh.inc.js \
             runtime-patches/rh-folha-hotfix-v28-planejamento-periodo-compat.inc.js \
             runtime-patches/rh-folha-hotfix-v29-rpa-integridade.inc.js \
             runtime-patches/rh-folha-hotfix-v31-rescisao-calibrada.inc.js \
