@@ -233,6 +233,8 @@ assert(exportBranding67.includes("fetch('/rh/lnb-logo.png'") && exportBranding67
 assert(worker.includes('injectSystemExportBranding') && worker.includes('system-export-branding.js?v=67'), 'o Worker não injeta a identidade LNB nos módulos');
 assert(wrangler.includes('"/revisao-ids"') && wrangler.includes('"/revisao-ids.html"'), 'a ferramenta de revisão não passa pela identidade global de exportação');
 assert(exports66.includes('RECIBO DE VERBAS RESCISÓRIAS') && exports66.includes('AVISO E RECIBO DE FÉRIAS') && exports66.includes('Assinatura do colaborador'), 'v66 não oferece documentos individuais assináveis de rescisão e férias');
+assert(exports66.includes("document.querySelector('[data-plan-pane=\"rescisao\"] .rh41-export-bar')||document.querySelector('[data-plan-pane=\"rescisao\"] #rh26-result .panel-head')"), 'recibo de rescisão não possui fallback para o cabeçalho do resultado atual');
+assert(exports66.includes("document.querySelector('[data-plan-pane=\"ferias\"] .rh41-export-bar')||document.querySelector('[data-plan-pane=\"ferias\"] article.table-panel .panel-head')"), 'recibo de férias não possui fallback para o cabeçalho do painel atual');
 assert(dp63.includes('data-rh66-vac-doc') && exports66.includes('rhV57CalculateVacationReceipt'), 'o cadastro individual não oferece o documento oficial de férias');
 for (const employerOnly of ['x.patInss','x.patRat','x.patTerc','x.patPis','x.multa','x.fgm','x.fg13','x.fgav']) assert(!exports66.includes(employerOnly), `recibo do colaborador inclui encargo patronal: ${employerOnly}`);
 assert(planningDetails.includes('data-rh-authoritative-total'), 'provisões não marcam o total contábil como autoritativo');

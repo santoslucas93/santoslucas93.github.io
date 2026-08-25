@@ -3,6 +3,13 @@
 ## Objetivo
 Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qualquer publicação na branch `principal`.
 
+## Recibo de rescisão no layout atual — v69
+
+- [x] Botão **Recibo para assinatura** exibido ao lado de **Gerar PDF** após calcular a rescisão.
+- [x] Documento exclusivo do colaborador, sem encargos patronais.
+- [x] Exportação não altera status, não grava rescisão e não efetiva desligamento.
+- [x] Botão **Recibos para assinatura** também preservado e visível no layout atual de Férias.
+
 ## Simulador de salário e custo de contratação — v68
 
 - [x] Simulador separado do quadro real e da Próxima Folha.

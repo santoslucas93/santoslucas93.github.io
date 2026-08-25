@@ -2,6 +2,14 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v69 (25/08/2026)
+
+- Corrigida a ausência do botão **Recibo para assinatura** no layout atual de Rescisões.
+- O botão passa a aparecer ao lado de **Gerar PDF** depois da geração do relatório analítico.
+- Aplicado o mesmo fallback visual à aba **Férias**, com **Recibos para assinatura** no cabeçalho do painel atual.
+- O recibo continua sendo apenas uma exportação em PDF: não altera o status, não salva a rescisão e não efetiva o desligamento.
+- Alteração restrita ao staging; produção permanece intacta.
+
 ## Staging — v68 (24/08/2026)
 
 - Novo **Simulador de salário e custo LNB** em Planejamento & Provisões, isolado do quadro real e da Próxima Folha.
