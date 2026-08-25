@@ -3,14 +3,15 @@
 ## Objetivo
 Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qualquer publicação na branch `principal`.
 
-## Alinhamento do relatório da Próxima Folha — v66
+## Identidade, documentos individuais e Próxima Folha — v67
 
 - [x] Uma única grade fixa para cabeçalho, corpo e rodapé de totais.
-- [x] Nove larguras explícitas, totalizando a largura útil de 281 mm da página A4 em paisagem.
+- [x] Oito larguras explícitas, totalizando a largura útil de 281 mm da página A4 em paisagem.
 - [x] Colunas financeiras alinhadas à direita em todas as seções da tabela.
 - [x] Nomes e departamentos preservados à esquerda, sem deslocar os campos numéricos.
-- [x] Logo oficial da LNB garantido em todos os PDFs e em todas as planilhas Excel exportadas.
-- [x] Recibo de férias com proventos, descontos, líquido, assinatura e data.
+- [x] Benefícios removidos dos cards, cálculo do custo, tabela, PDF e Excel da Próxima Folha.
+- [x] Logo oficial da LNB garantido nos PDFs e planilhas Excel exportados por todos os módulos do painel.
+- [x] Documento individual de férias no cadastro do colaborador, com período, proventos, descontos, líquido, assinatura e data.
 - [x] Recibo de verbas rescisórias com proventos, descontos, líquido, assinatura e data.
 - [x] Encargos exclusivos do empregador excluídos dos recibos entregues ao colaborador.
 

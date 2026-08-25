@@ -9,6 +9,7 @@ export default {
     if (request.method === 'GET' && (url.pathname === '/orcado/' || url.pathname === '/orcado/index.html')) return handleOrcadoComPermissoes(request, env);
     if (request.method === 'GET' && (url.pathname === '/beneficios/' || url.pathname === '/beneficios/index.html')) return handleBeneficiosComRastreabilidade(request, env);
     if (request.method === 'GET' && (url.pathname === '/rh/' || url.pathname === '/rh/index.html')) return handleRhHtml(request, env);
+    if (request.method === 'GET' && url.pathname === '/revisao-ids.html') return handleGenericHtml(request, env);
     if (request.method === 'GET' && url.pathname === '/rh/app.js') return handleRhAppPatch(request, env);
     return env.ASSETS.fetch(request);
   }
@@ -25,36 +26,42 @@ async function handleHubBranding(request, env) {
   let out = html;
   if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
   if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;
-  return responsePatchedHtml(asset, injectSystemTextSpacing(out), 'x-lnb-hub-branding', 'v1');
+  return responsePatchedHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(out)), 'x-lnb-hub-branding', 'v1');
 }
 
 async function handleOrcadoComPermissoes(request, env) {
   const asset = await env.ASSETS.fetch(request);
   if (!asset.ok) return asset;
   const html = await asset.text();
-  if (html.includes('const LNB_ORCAMENTO_RECURSOS=')) return responseHtml(asset, injectSystemTextSpacing(injectIaTraceability(html, 'orcado')), 'incorporado');
+  if (html.includes('const LNB_ORCAMENTO_RECURSOS=')) return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'orcado'))), 'incorporado');
   const patchUrl = new URL('/runtime-patches/orcado-permissions.patch', request.url);
   const patchResponse = await env.ASSETS.fetch(new Request(patchUrl, { method: 'GET' }));
-  if (!patchResponse.ok) return responseHtml(asset, injectSystemTextSpacing(injectIaTraceability(html, 'orcado')), 'indisponivel');
+  if (!patchResponse.ok) return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'orcado'))), 'indisponivel');
   try {
     const patched = applyUnifiedPatch(html, await patchResponse.text(), 'orcado/index.html');
-    return responseHtml(asset, injectSystemTextSpacing(injectIaTraceability(patched, 'orcado')), 'staging-v1');
+    return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(patched, 'orcado'))), 'staging-v1');
   } catch (error) {
     console.error('Falha ao aplicar patch de permissoes do Orcado:', error);
-    return responseHtml(asset, injectSystemTextSpacing(injectIaTraceability(html, 'orcado')), 'erro');
+    return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'orcado'))), 'erro');
   }
 }
 
 async function handleBeneficiosComRastreabilidade(request, env) {
   const asset = await env.ASSETS.fetch(request);
   if (!asset.ok) return asset;
-  return responseHtml(asset, injectSystemTextSpacing(injectIaTraceability(await asset.text(), 'beneficios')), 'nao-aplicavel');
+  return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(await asset.text(), 'beneficios'))), 'nao-aplicavel');
 }
 
 async function handleRhHtml(request, env) {
   const asset = await env.ASSETS.fetch(request);
   if (!asset.ok) return asset;
-  return responsePatchedHtml(asset, injectSystemTextSpacing(await asset.text()), 'x-lnb-system-spacing', 'v61');
+  return responsePatchedHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(await asset.text())), 'x-lnb-system-spacing', 'v67');
+}
+
+async function handleGenericHtml(request, env) {
+  const asset = await env.ASSETS.fetch(request);
+  if (!asset.ok) return asset;
+  return responsePatchedHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(await asset.text())), 'x-lnb-export-branding', 'v67');
 }
 
 async function handleRhAppPatch(request, env) {
@@ -118,6 +125,13 @@ function injectSystemTextSpacing(html) {
   const marker = 'data-lnb-system-spacing="v61"';
   if (html.includes(marker)) return html;
   const script = '<script src="/runtime-patches/system-text-spacing.js?v=61" '+marker+'></' + 'script>';
+  return html.includes('</body>') ? html.replace('</body>', script + '\n</body>') : html + '\n' + script;
+}
+
+function injectSystemExportBranding(html) {
+  const marker = 'data-lnb-export-branding="v67"';
+  if (html.includes(marker)) return html;
+  const script = '<script src="/runtime-patches/system-export-branding.js?v=67" '+marker+'></' + 'script>';
   return html.includes('</body>') ? html.replace('</body>', script + '\n</body>') : html + '\n' + script;
 }
 

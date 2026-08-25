@@ -29,6 +29,7 @@ const dp61 = read('runtime-patches/rh-folha-hotfix-v61-cadastro-holerites-ferias
 const dp62 = read('runtime-patches/rh-folha-hotfix-v62-fluxos-independentes.inc.js');
 const dp63 = read('runtime-patches/rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js');
 const exports66 = read('runtime-patches/rh-folha-hotfix-v66-alinhamento-identidade-recibos.inc.js');
+const exportBranding67 = read('runtime-patches/system-export-branding.js');
 const spacing61 = read('runtime-patches/system-text-spacing.js');
 const worker = read('worker.js');
 const styles = read('rh/styles.css');
@@ -225,10 +226,12 @@ assert(sourceCards.includes("var legacy=$('painel-filters');if(legacy)legacy.rem
 assert(planningForecast.includes("function numeric(i)"), 'Próxima Folha não alinha cabeçalho e células pela mesma regra');
 assert(!planningForecast.includes("'Centro de custo','Valor','% do card'"), 'CC voltou ao pop-up da Próxima Folha');
 assert(planningForecast.includes("'Colaborador','Departamento','Valor','% do card'"), 'Próxima Folha perdeu a composição por colaborador e departamento');
-assert(forecast57.includes('tableWidth:281') && forecast57.includes("0:{cellWidth:73}") && forecast57.includes("8:{cellWidth:26,halign:'right'}"), 'PDF da Próxima Folha perdeu a grade fixa das nove colunas');
+assert(forecast57.includes('tableWidth:281') && forecast57.includes("0:{cellWidth:76}") && forecast57.includes("7:{cellWidth:33,halign:'right'}"), 'PDF da Próxima Folha perdeu a grade fixa das oito colunas');
 assert(forecast57.includes("if(data.column.index>=2)data.cell.styles.halign='right'"), 'cabeçalho, corpo e total da Próxima Folha não compartilham o alinhamento numérico');
-assert(exports66.includes("fetch('/rh/lnb-logo.png'") && exports66.includes('brandPdf66') && exports66.includes('brandExcel66'), 'v66 não garante o logo oficial em PDF e Excel');
-assert(exports66.includes('RECIBO DE VERBAS RESCISÓRIAS') && exports66.includes('RECIBO DE FÉRIAS') && exports66.includes('Assinatura do colaborador'), 'v66 não oferece recibos assináveis de rescisão e férias');
+assert(exportBranding67.includes("fetch('/rh/lnb-logo.png'") && exportBranding67.includes('hookPdf') && exportBranding67.includes('hookExcel') && exportBranding67.includes('hookSheetJs'), 'a identidade LNB não cobre PDF, ExcelJS e SheetJS no sistema');
+assert(worker.includes('injectSystemExportBranding') && worker.includes('system-export-branding.js?v=67'), 'o Worker não injeta a identidade LNB nos módulos');
+assert(exports66.includes('RECIBO DE VERBAS RESCISÓRIAS') && exports66.includes('AVISO E RECIBO DE FÉRIAS') && exports66.includes('Assinatura do colaborador'), 'v66 não oferece documentos individuais assináveis de rescisão e férias');
+assert(dp63.includes('data-rh66-vac-doc') && exports66.includes('rhV57CalculateVacationReceipt'), 'o cadastro individual não oferece o documento oficial de férias');
 for (const employerOnly of ['x.patInss','x.patRat','x.patTerc','x.patPis','x.multa','x.fgm','x.fg13','x.fgav']) assert(!exports66.includes(employerOnly), `recibo do colaborador inclui encargo patronal: ${employerOnly}`);
 assert(planningDetails.includes('data-rh-authoritative-total'), 'provisões não marcam o total contábil como autoritativo');
 assert(planningDetails.includes("function moneyCell(i)"), 'provisões não alinham cabeçalho e células pela mesma regra');
@@ -246,6 +249,7 @@ assert(forecast57.includes('var deduction=Math.max(TAX57.simplificado,legal)'), 
 assert(forecast57.includes('ctx.latestLaunches.some(isVacation57)'), 'v57 não detecta férias na competência-base');
 assert(forecast57.includes("/FERIAS|13 |13O|13º|DECIMO|RESCISAO|AVISO|ABONO|ADIANTAMENTO|DIAS NORMAIS|BOLSA AUXILIO/"), 'v57 pode repetir verbas não recorrentes');
 assert(forecast57.includes('proventos:gross') && forecast57.includes('descontos:discounts') && forecast57.includes('liquido:net'), 'v57 não fecha a projeção por colaborador');
+assert(!forecast57.includes('benefit57') && !forecast57.includes('beneficios:') && !forecast57.includes("['Benefícios'"), 'Próxima Folha ainda considera Benefícios');
 assert(planningForecast.includes('if(window.RH_FORECAST_V57){installAiResize47();return}'), 'v47 ainda pode sobrescrever a projeção v57');
 assert(forecast57.includes('vacationGross+cashGross-vacationInss-vacationIrrf.value'), 'v57 sem adiantamento líquido de férias');
 assert(forecast57.includes('employerBase=hasInss?contributionBase:0'), 'v57 inclui abono indevidamente na base patronal');

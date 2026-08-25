@@ -2,6 +2,15 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v67 (24/08/2026)
+
+- Identidade institucional da Liga Nacional de Basquete ampliada para as exportações em PDF e Excel de todos os módulos do painel, incluindo arquivos gerados por jsPDF, ExcelJS e SheetJS.
+- Documento individual de férias disponibilizado no Livro de Férias de cada colaborador, com período aquisitivo, gozo, proventos, descontos, líquido e campo para assinatura.
+- Documento individual de rescisão preservado com somente verbas e descontos que alteram o líquido do colaborador; encargos patronais permanecem apenas nos relatórios gerenciais.
+- Benefícios removidos integralmente da Próxima Folha: cards, tabela, total, custo previsto, PDF e Excel.
+- Grade do PDF da Próxima Folha recalibrada para oito colunas, mantendo cabeçalho, corpo e total com as mesmas larguras e alinhamento.
+- Alteração restrita ao staging; produção permanece intacta.
+
 ## Staging — v66 (24/08/2026)
 
 - Corrigida a grade do PDF **Próxima Folha — Composição por colaborador**: cabeçalho, linhas e total agora usam exatamente as mesmas nove colunas.
