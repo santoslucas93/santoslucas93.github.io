@@ -9,12 +9,13 @@
     "directory": ".",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/", "/index.html", "/api/*", "/orcado/*", "/beneficios/*", "/rh/*"]
+    "run_worker_first": ["/", "/index.html", "/api/*", "/orcado/*", "/beneficios/*", "/rh/*", "/revisao-ids", "/revisao-ids.html"]
   },
   "vars": {
     "GSHEET_REALIZADO_ID": "1sY4QvX6enN2Jx6hmVFxuutFvtOyoZc3lQ99mtdh0_WI",
     "GSHEET_ORCADO_ID": "1-4A3QK58fNpT2HiJr30RsQtNNq_sJo2lBG7GCffL8VY",
     "SUPABASE_URL": "https://iiheewndotcwqntppjrw.supabase.co",
-    "SUPABASE_KEY": "sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz"
+    "SUPABASE_KEY": "sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz",
+    "RH_HOLERITE_FROM": "holerites@liganacionaldebasquete.com.br"
   }
 }

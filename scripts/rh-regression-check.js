@@ -20,10 +20,21 @@ const stable46 = read('runtime-patches/rh-folha-hotfix-v46-estabilizacao.inc.js'
 const taxComposition46b = read('runtime-patches/rh-folha-hotfix-v46b-impostos-composicao.inc.js');
 const planningForecast = read('runtime-patches/rh-folha-hotfix-v47-auditoria-integral.inc.js');
 const planningDetails = read('runtime-patches/rh-folha-hotfix-v48-estabilidade-popups.inc.js');
+const forecast57 = read('runtime-patches/rh-folha-hotfix-v57-base-editavel-proxima-folha.inc.js');
 const sourceCards = read('runtime-patches/rh-folha-hotfix-v8.inc.js');
 const popupTotals13 = read('runtime-patches/rh-folha-hotfix-v13-cards-popup-totais.inc.js');
 const popupGrid20 = read('runtime-patches/rh-folha-hotfix-v20-popup-totals-grid.inc.js');
 const interactivity = read('runtime-patches/rh-folha-rc-interactivity.inc.js');
+const dp61 = read('runtime-patches/rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js');
+const dp62 = read('runtime-patches/rh-folha-hotfix-v62-fluxos-independentes.inc.js');
+const dp63 = read('runtime-patches/rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js');
+const exports66 = read('runtime-patches/rh-folha-hotfix-v66-alinhamento-identidade-recibos.inc.js');
+const simulator68 = read('runtime-patches/rh-folha-hotfix-v68-simulador-salario.inc.js');
+const exportBranding67 = read('runtime-patches/system-export-branding.js');
+const spacing61 = read('runtime-patches/system-text-spacing.js');
+const worker = read('worker.js');
+const styles = read('rh/styles.css');
+const wrangler = read('wrangler.jsonc');
 
 const orderBaseline = workflow.indexOf('rh-folha-stability-baseline.inc.js');
 const orderUi = workflow.indexOf('rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
@@ -36,6 +47,9 @@ assert(orderUi > orderBaseline, 'baseline precisa ser carregado antes da camada 
 assert(orderV40 > orderUi, 'v40 precisa ser carregado depois da camada visual para assumir o card fit e os relatórios');
 assert(orderV40a > orderV40, 'v40a precisa ser carregado após o v40');
 assert(orderTax46b > orderV40a && orderTax46b < orderV47, 'composição tributária somente leitura precisa capturar o clique antes do v47');
+assert(workflow.indexOf('rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js') > workflow.indexOf('rh-folha-hotfix-v60-status-cor-desligado.inc.js'), 'v61 precisa ser carregado depois da correção de status v60');
+assert(workflow.indexOf('rh-folha-hotfix-v62-fluxos-independentes.inc.js') > workflow.indexOf('rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js'), 'v62 precisa neutralizar o v61 depois de seu carregamento');
+assert(workflow.indexOf('rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js') > workflow.indexOf('rh-folha-hotfix-v62-fluxos-independentes.inc.js'), 'v63 precisa assumir holerites e controles depois do v62');
 assert(workflow.includes('rh-folha-hotfix-v41a-report-center-stability.inc.js'), 'v41a/v42 precisa estar no release candidate');
 assert(!workflow.includes('rh-folha-hotfix-v37-ativos-cards-provisoes.inc.js'), 'v37 obsoleto ainda está sendo carregado');
 assert(!workflow.includes('rh-folha-hotfix-v30-planejamento-tabelas.inc.js'), 'v30 obsoleto não pode voltar ao release');
@@ -107,6 +121,38 @@ assert(!planningDetails.includes("'.kpi strong,.rh40-guide-card"), 'Planejamento
 assert(planningDetails.includes('width:100%!important;max-width:100%!important;min-width:0!important'), 'tabelas dos pop-ups precisam ocupar toda a caixa');
 assert(fit42.includes('openGuideCard'), 'cards das guias gerenciais não possuem composição própria');
 assert(fit42.includes('bindGuideCards'), 'cards das guias gerenciais não estão vinculados à composição');
+
+for (const symbol of ['RH_DP_V61','rh_criar_colaborador','rh_sincronizar_cadastros_beneficios','rh61-payslips','data-rh61-status','vacationRows61']) {
+  assert(dp61.includes(symbol), `v61 sem recurso obrigatório: ${symbol}`);
+}
+assert(dp61.includes('Optou por Vale Transporte'), 'cadastro v61 não pergunta a opção de Vale Transporte');
+assert(dp61.includes('Documento de conferência'), 'holerite v61 não informa seu caráter de conferência');
+assert(dp61.includes('estimados pela data de admissão'), 'alerta de férias v61 precisa declarar a limitação da estimativa');
+assert(spacing61.includes('MutationObserver') && spacing61.includes('document.createTextNode'), 'correção global de palavras coladas ausente');
+assert(worker.includes('injectSystemTextSpacing') && worker.includes("url.pathname === '/rh/'"), 'Worker não aplica a correção de espaçamento no sistema/RH');
+for (const symbol of ['RH_DP_V62','renderCollaborators62','openEmployee62','saveStatus62','generatePayslips62','rh62-new-form','rh62-status-form']) {
+  assert(dp62.includes(symbol), `v62 sem recurso obrigatório: ${symbol}`);
+}
+for (const privateV57 of ['V57.','openModal57','closeModal57','statusModal57','ensurePdf57','money57','parseBr57','esc57']) {
+  assert(!dp62.includes(privateV57), `v62 voltou a depender do escopo privado do v57: ${privateV57}`);
+}
+assert(dp62.includes('data-rh62-slip') && dp62.includes('Holerites em lote'), 'v62 não oferece holerite individual e em lote em Colaboradores');
+assert(dp62.includes("desligamento_origem==='ultima_folha'"), 'v62 não identifica data de desligamento inferida pela folha');
+assert(dp62.includes('Baixar holerite individual') && dp62.includes('data-rh63-email') && dp62.includes('data-rh63-dp-person'), 'ações individuais não estão concentradas no pop-up do colaborador');
+for (const symbol of ['RH_DP_V63','voucher63','postEmail63','batchModal63','dashboard63','employeeDp63','rh_dp_painel','rh_inicializar_controles_colaborador']) {
+  assert(dp63.includes(symbol), `v63 sem recurso obrigatório: ${symbol}`);
+}
+assert(dp63.includes('LIGA NACIONAL DE BASQUETE') && dp63.includes('HOLERITE | RECIBO DE PAGAMENTO') && dp63.includes('Assinatura do colaborador'), 'v65 não reproduz a estrutura executiva do holerite');
+assert(dp63.includes("fetch('/rh/lnb-logo.png'") && dp63.includes("doc.addImage(V63.logo,'PNG'"), 'v65 não incorpora o logo oficial da LNB no PDF');
+assert(dp63.includes('VIA DO COLABORADOR') && dp63.includes('VIA DA EMPRESA') && dp63.includes('LINHA DE CORTE'), 'v65 não gera as duas vias na mesma folha');
+assert(dp63.includes('maxRows=22') && dp63.includes('Math.ceil(all.length/maxRows)') && dp63.includes("'Página '+pageNo+'/'+pageCount"), 'v65 não pagina holerites com muitas rubricas');
+assert(dp63.includes('rh63-filter-card') && dp63.includes('Cadastro e quadro') && dp63.includes('Holerites e controles'), 'v65 não distribui filtros e funções em grupos visuais');
+assert(dp63.includes("querySelectorAll('.rh62-row-slip,.rh63-row-actions')"), 'atalhos individuais ainda podem quebrar as linhas de Colaboradores');
+assert(styles.includes('overflow-y:auto') && styles.includes('@media(max-height:850px)'), 'menu lateral não garante acesso em telas com pouca altura');
+assert(wrangler.includes('holerites@liganacionaldebasquete.com.br'), 'remetente de holerites não usa o domínio institucional confirmado');
+assert(dp63.includes('/api/rh/holerite-email') && worker.includes("url.pathname === '/api/rh/holerite-email'"), 'envio de holerite não está conectado ao Worker');
+assert(worker.includes('rh_pode_enviar_holerite') && worker.includes('rh_registrar_envio_holerite'), 'Worker não valida permissão ou não registra o envio');
+assert(worker.includes('RH_EMAIL_CONFIGURED') && !worker.includes('RESEND_API_KEY:'), 'configuração de e-mail deve expor somente o estado, nunca a chave');
 
 for (const [name, source] of [['v40',fit40],['v41',fit41],['v42',fit42],['v43',fit43]]) {
   assert(source.includes("closest('#page-planejamento')"), `${name} ainda permite auto-fit em Planejamento`);
@@ -181,7 +227,49 @@ assert(sourceCards.includes("var legacy=$('painel-filters');if(legacy)legacy.rem
 assert(planningForecast.includes("function numeric(i)"), 'Próxima Folha não alinha cabeçalho e células pela mesma regra');
 assert(!planningForecast.includes("'Centro de custo','Valor','% do card'"), 'CC voltou ao pop-up da Próxima Folha');
 assert(planningForecast.includes("'Colaborador','Departamento','Valor','% do card'"), 'Próxima Folha perdeu a composição por colaborador e departamento');
+assert(forecast57.includes('tableWidth:281') && forecast57.includes("0:{cellWidth:76}") && forecast57.includes("7:{cellWidth:33,halign:'right'}"), 'PDF da Próxima Folha perdeu a grade fixa das oito colunas');
+assert(forecast57.includes("if(data.column.index>=2)data.cell.styles.halign='right'"), 'cabeçalho, corpo e total da Próxima Folha não compartilham o alinhamento numérico');
+assert(exportBranding67.includes("fetch('/rh/lnb-logo.png'") && exportBranding67.includes('hookPdf') && exportBranding67.includes('hookExcel') && exportBranding67.includes('hookSheetJs'), 'a identidade LNB não cobre PDF, ExcelJS e SheetJS no sistema');
+assert(worker.includes('injectSystemExportBranding') && worker.includes('system-export-branding.js?v=67'), 'o Worker não injeta a identidade LNB nos módulos');
+assert(wrangler.includes('"/revisao-ids"') && wrangler.includes('"/revisao-ids.html"'), 'a ferramenta de revisão não passa pela identidade global de exportação');
+assert(exports66.includes('RECIBO DE VERBAS RESCISÓRIAS') && exports66.includes('AVISO E RECIBO DE FÉRIAS') && exports66.includes('Assinatura do colaborador'), 'v66 não oferece documentos individuais assináveis de rescisão e férias');
+assert(exports66.includes("document.querySelector('[data-plan-pane=\"rescisao\"] .rh41-export-bar')||document.querySelector('[data-plan-pane=\"rescisao\"] #rh26-result .panel-head')"), 'recibo de rescisão não possui fallback para o cabeçalho do resultado atual');
+assert(exports66.includes("document.querySelector('[data-plan-pane=\"ferias\"] .rh41-export-bar')||document.querySelector('[data-plan-pane=\"ferias\"] article.table-panel .panel-head')"), 'recibo de férias não possui fallback para o cabeçalho do painel atual');
+assert(dp63.includes('data-rh66-vac-doc') && exports66.includes('rhV57CalculateVacationReceipt'), 'o cadastro individual não oferece o documento oficial de férias');
+for (const employerOnly of ['x.patInss','x.patRat','x.patTerc','x.patPis','x.multa','x.fgm','x.fg13','x.fgav']) assert(!exports66.includes(employerOnly), `recibo do colaborador inclui encargo patronal: ${employerOnly}`);
 assert(planningDetails.includes('data-rh-authoritative-total'), 'provisões não marcam o total contábil como autoritativo');
 assert(planningDetails.includes("function moneyCell(i)"), 'provisões não alinham cabeçalho e células pela mesma regra');
+
+/* Próxima Folha v57: camada separada, editável e auditável. */
+assert(workflow.includes('rh-folha-hotfix-v57-base-editavel-proxima-folha.inc.js'), 'v57 não está no release candidate');
+assert(workflow.indexOf('rh-folha-hotfix-v57-base-editavel-proxima-folha.inc.js') > workflow.indexOf('rh-folha-hotfix-v54-provisoes-seguras.inc.js'), 'v57 precisa ser a última camada do RH');
+for (const symbol of ['RH_FORECAST_V57','rhV57HandleCapture','rhV57Refresh','rh57-salary-edit','rh_atualizar_salario_folha','rh_atualizar_status_colaborador','rh_salvar_parametros_projecao','TAX57','simplificado:607.20','dependente:189.59']) {
+  assert(forecast57.includes(symbol), `v57 sem recurso obrigatório: ${symbol}`);
+}
+assert(forecast57.includes('[[1621,.075],[2902.84,.09],[4354.27,.12],[8475.55,.14]]'), 'v57 sem tabela progressiva INSS 2026');
+assert(forecast57.includes('[[2428.80,0,0],[2826.65,.075,182.16],[3751.05,.15,394.16],[4664.68,.225,675.49],[Infinity,.275,908.73]]'), 'v57 sem tabela mensal IRRF 2026');
+assert(forecast57.includes("if(gross<=5000)reduction=tax;else if(gross<=7350)"), 'v57 sem redução mensal do IRRF 2026');
+assert(forecast57.includes('var deduction=Math.max(TAX57.simplificado,legal)'), 'v57 não escolhe a dedução de IRRF mais vantajosa');
+assert(forecast57.includes('ctx.latestLaunches.some(isVacation57)'), 'v57 não detecta férias na competência-base');
+assert(forecast57.includes("/FERIAS|13 |13O|13º|DECIMO|RESCISAO|AVISO|ABONO|ADIANTAMENTO|DIAS NORMAIS|BOLSA AUXILIO/"), 'v57 pode repetir verbas não recorrentes');
+assert(forecast57.includes('proventos:gross') && forecast57.includes('descontos:discounts') && forecast57.includes('liquido:net'), 'v57 não fecha a projeção por colaborador');
+assert(!forecast57.includes('benefit57') && !forecast57.includes('beneficios:') && !forecast57.includes("['Benefícios'"), 'Próxima Folha ainda considera Benefícios');
+assert(planningForecast.includes('if(window.RH_FORECAST_V57){installAiResize47();return}'), 'v47 ainda pode sobrescrever a projeção v57');
+assert(forecast57.includes('vacationGross+cashGross-vacationInss-vacationIrrf.value'), 'v57 sem adiantamento líquido de férias');
+assert(forecast57.includes('employerBase=hasInss?contributionBase:0'), 'v57 inclui abono indevidamente na base patronal');
+assert(forecast57.includes("'retained',t.retained") && forecast57.includes("'taxTotal',t.taxTotal"), 'pop-ups tributários v57 não conciliam com os cards');
+
+/* Simulador de salário v68: candidato separado do quadro e custo integral auditável. */
+assert(workflow.includes('rh-folha-hotfix-v68-simulador-salario.inc.js'), 'v68 não está no release candidate');
+assert(workflow.indexOf('rh-folha-hotfix-v68-simulador-salario.inc.js') > workflow.indexOf('rh-folha-hotfix-v66-alinhamento-identidade-recibos.inc.js'), 'v68 precisa carregar depois dos documentos v66');
+for (const marker of ['RH_SALARY_SIMULATOR_V68','rhV68CalculateSalary','Simulador de salário','Custo mensal provisionado','Custo anual estimado','Exportar PDF','Exportar Excel']) assert(simulator68.includes(marker), `simulador v68 sem recurso: ${marker}`);
+assert(simulator68.includes('[[1621,.075],[2902.84,.09],[4354.27,.12],[8475.55,.14]]'), 'simulador sem tabela progressiva INSS 2026');
+assert(simulator68.includes('[[2428.80,0,0],[2826.65,.075,182.16],[3751.05,.15,394.16],[4664.68,.225,675.49],[Infinity,.275,908.73]]'), 'simulador sem tabela mensal IRRF 2026');
+assert(simulator68.includes("gross<=7350") && simulator68.includes('978.62-.133145*gross'), 'simulador sem redução mensal IRRF 2026');
+assert(simulator68.includes('familyLimit:1980.38') && simulator68.includes('familyQuota:67.54'), 'simulador sem salário-família 2026');
+assert(simulator68.includes('gross+familySalary-employeeDeductions') && !simulator68.includes('cashCost=r68(gross+familySalary'), 'salário-família precisa aumentar o líquido sem virar custo patronal');
+assert(simulator68.includes('Math.min(vtTotal,r68(salary*.06))'), 'simulador não limita o desconto de VT a 6%');
+assert(simulator68.includes("type==='aprendiz'?.02:(type==='clt'?.08:0)"), 'simulador não diferencia FGTS de CLT e aprendiz');
+for (const cost of ['patInss','rat','third','pis','fgts','employerBenefits','thirteenth','vacation','vacationThird','provisionCharges','loadedCost','annual']) assert(simulator68.includes(cost), `simulador sem componente de custo: ${cost}`);
 
 console.log('RH regression baseline: OK');

@@ -5,10 +5,13 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/api/gemini' && request.method === 'POST') return handleGemini(request, env);
+    if (url.pathname === '/api/rh/holerite-email' && request.method === 'POST') return handleHoleriteEmail(request, env);
     if (url.pathname === '/api/config' && request.method === 'GET') return handleConfig(env);
     if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) return handleHubBranding(request, env);
     if (request.method === 'GET' && (url.pathname === '/orcado/' || url.pathname === '/orcado/index.html')) return handleOrcadoComPermissoes(request, env);
     if (request.method === 'GET' && (url.pathname === '/beneficios/' || url.pathname === '/beneficios/index.html')) return handleBeneficiosComRastreabilidade(request, env);
+    if (request.method === 'GET' && (url.pathname === '/rh/' || url.pathname === '/rh/index.html')) return handleRhHtml(request, env);
+    if (request.method === 'GET' && (url.pathname === '/revisao-ids' || url.pathname === '/revisao-ids.html')) return handleGenericHtml(request, env);
     if (request.method === 'GET' && url.pathname === '/rh/app.js') return handleRhAppPatch(request, env);
     return env.ASSETS.fetch(request);
   }
@@ -25,30 +28,42 @@ async function handleHubBranding(request, env) {
   let out = html;
   if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
   if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;
-  return responsePatchedHtml(asset, out, 'x-lnb-hub-branding', 'v1');
+  return responsePatchedHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(out)), 'x-lnb-hub-branding', 'v1');
 }
 
 async function handleOrcadoComPermissoes(request, env) {
   const asset = await env.ASSETS.fetch(request);
   if (!asset.ok) return asset;
   const html = await asset.text();
-  if (html.includes('const LNB_ORCAMENTO_RECURSOS=')) return responseHtml(asset, injectIaTraceability(html, 'orcado'), 'incorporado');
+  if (html.includes('const LNB_ORCAMENTO_RECURSOS=')) return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'orcado'))), 'incorporado');
   const patchUrl = new URL('/runtime-patches/orcado-permissions.patch', request.url);
   const patchResponse = await env.ASSETS.fetch(new Request(patchUrl, { method: 'GET' }));
-  if (!patchResponse.ok) return responseHtml(asset, injectIaTraceability(html, 'orcado'), 'indisponivel');
+  if (!patchResponse.ok) return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'orcado'))), 'indisponivel');
   try {
     const patched = applyUnifiedPatch(html, await patchResponse.text(), 'orcado/index.html');
-    return responseHtml(asset, injectIaTraceability(patched, 'orcado'), 'staging-v1');
+    return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(patched, 'orcado'))), 'staging-v1');
   } catch (error) {
     console.error('Falha ao aplicar patch de permissoes do Orcado:', error);
-    return responseHtml(asset, injectIaTraceability(html, 'orcado'), 'erro');
+    return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'orcado'))), 'erro');
   }
 }
 
 async function handleBeneficiosComRastreabilidade(request, env) {
   const asset = await env.ASSETS.fetch(request);
   if (!asset.ok) return asset;
-  return responseHtml(asset, injectIaTraceability(await asset.text(), 'beneficios'), 'nao-aplicavel');
+  return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(await asset.text(), 'beneficios'))), 'nao-aplicavel');
+}
+
+async function handleRhHtml(request, env) {
+  const asset = await env.ASSETS.fetch(request);
+  if (!asset.ok) return asset;
+  return responsePatchedHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(await asset.text())), 'x-lnb-system-spacing', 'v67');
+}
+
+async function handleGenericHtml(request, env) {
+  const asset = await env.ASSETS.fetch(request);
+  if (!asset.ok) return asset;
+  return responsePatchedHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(await asset.text())), 'x-lnb-export-branding', 'v67');
 }
 
 async function handleRhAppPatch(request, env) {
@@ -63,15 +78,33 @@ async function handleRhAppPatch(request, env) {
       if (!rcResponse.ok) throw new Error('Release candidate do RH indisponivel.');
       rc = await rcResponse.text();
     }
+
+    // Motor de conferencia (somente leitura) — carregado DEPOIS do release
+    // candidate. Se o arquivo faltar, o RH segue funcionando sem o painel.
+    let motor = '';
+    let motorStatus = 'ausente';
+    try {
+      const motorUrl = new URL('/runtime-patches/rh-folha-conciliacao-motor.inc.js', request.url);
+      const motorResponse = await env.ASSETS.fetch(new Request(motorUrl, { method: 'GET' }));
+      if (motorResponse.ok) {
+        motor = '\n/* LNB RH — MOTOR DE CONFERENCIA (somente leitura) */\n' + (await motorResponse.text()) + '\n';
+        motorStatus = 'ativo';
+      }
+    } catch (motorError) {
+      console.error('Falha ao carregar o motor de conferencia do RH:', motorError);
+      motorStatus = 'erro';
+    }
+
     const bootMarker = "if(document.readyState==='loading')";
     const index = source.lastIndexOf(bootMarker);
     if (index < 0) throw new Error('Marcador de inicializacao do RH nao encontrado.');
-    const injected = source.slice(0, index) + '\n/* LNB RH RELEASE CANDIDATE */\n' + rc + '\n' + source.slice(index);
+    const injected = source.slice(0, index) + '\n/* LNB RH RELEASE CANDIDATE */\n' + rc + '\n' + motor + source.slice(index);
     const headers = new Headers(asset.headers);
     headers.delete('content-length');
     headers.set('content-type', 'application/javascript; charset=utf-8');
     headers.set('cache-control', 'no-store');
     headers.set('x-lnb-rh-patch', 'release-candidate-1');
+    headers.set('x-lnb-rh-motor', motorStatus);
     return new Response(injected, { status: asset.status, headers });
   } catch (error) {
     console.error('Falha ao carregar release candidate do RH:', error);
@@ -91,6 +124,20 @@ function injectIaTraceability(html, moduleName) {
   if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
   if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;
   return out;
+}
+
+function injectSystemTextSpacing(html) {
+  const marker = 'data-lnb-system-spacing="v61"';
+  if (html.includes(marker)) return html;
+  const script = '<script src="/runtime-patches/system-text-spacing.js?v=61" '+marker+'></' + 'script>';
+  return html.includes('</body>') ? html.replace('</body>', script + '\n</body>') : html + '\n' + script;
+}
+
+function injectSystemExportBranding(html) {
+  const marker = 'data-lnb-export-branding="v67"';
+  if (html.includes(marker)) return html;
+  const script = '<script src="/runtime-patches/system-export-branding.js?v=67" '+marker+'></' + 'script>';
+  return html.includes('</body>') ? html.replace('</body>', script + '\n</body>') : html + '\n' + script;
 }
 
 function responsePatchedHtml(original, body, headerName, headerValue) {
@@ -175,8 +222,92 @@ async function handleGemini(request, env) {
 }
 
 function handleConfig(env) {
-  const cfg = { GSHEET_REALIZADO_ID: env.GSHEET_REALIZADO_ID || null, GSHEET_ORCADO_ID: env.GSHEET_ORCADO_ID || null, SUPABASE_URL: env.SUPABASE_URL || null, SUPABASE_KEY: env.SUPABASE_KEY || null };
+  const cfg = { GSHEET_REALIZADO_ID: env.GSHEET_REALIZADO_ID || null, GSHEET_ORCADO_ID: env.GSHEET_ORCADO_ID || null, SUPABASE_URL: env.SUPABASE_URL || null, SUPABASE_KEY: env.SUPABASE_KEY || null, RH_EMAIL_CONFIGURED: !!(env.RH_HOLERITE_FROM && (env.EMAIL || env.RESEND_API_KEY)), RH_EMAIL_PROVIDER: env.EMAIL ? 'cloudflare' : (env.RESEND_API_KEY ? 'resend' : null) };
   return new Response(JSON.stringify(cfg), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+}
+
+async function handleHoleriteEmail(request, env) {
+  const token = String(request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  if (!token) return jsonError('Sessão não informada.', 401);
+  if (!env.SUPABASE_URL || !env.SUPABASE_KEY) return jsonError('Integração de acesso não configurada.', 500);
+  if (!env.RH_HOLERITE_FROM || (!env.EMAIL && !env.RESEND_API_KEY)) {
+    return jsonError('Envio de holerites ainda não configurado. Defina o remetente e o provedor seguro no Worker.', 503);
+  }
+
+  let body;
+  try { body = await request.json(); } catch (e) { return jsonError('Corpo da requisição inválido.', 400); }
+  const competenciaId = String(body && body.competencia_id || '');
+  const colaboradorId = String(body && body.colaborador_id || '');
+  const to = String(body && body.to || '').trim().toLowerCase();
+  const employeeName = String(body && body.employee_name || 'Colaborador').trim().slice(0, 160);
+  const competence = String(body && body.competence || '').trim().slice(0, 30);
+  const pdfBase64 = String(body && body.pdf_base64 || '').replace(/^data:application\/pdf;base64,/, '');
+  const filename = safeAttachmentName(body && body.filename || 'Holerite.pdf');
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuid.test(competenciaId) || !uuid.test(colaboradorId)) return jsonError('Competência ou colaborador inválido.', 400);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to) || to.length > 254) return jsonError('E-mail do colaborador inválido.', 400);
+  if (!pdfBase64 || pdfBase64.length > 5 * 1024 * 1024 || !/^[A-Za-z0-9+/=\r\n]+$/.test(pdfBase64)) return jsonError('PDF ausente, inválido ou acima do limite de 5 MiB.', 413);
+
+  const authHeaders = { 'apikey': env.SUPABASE_KEY, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+  const permitted = await fetch(env.SUPABASE_URL + '/rest/v1/rpc/rh_pode_enviar_holerite', { method: 'POST', headers: authHeaders, body: '{}' });
+  if (!permitted.ok) return jsonError('Não foi possível validar a permissão de envio.', permitted.status === 401 ? 401 : 403);
+  if ((await permitted.text()).trim() !== 'true') return jsonError('Seu perfil não possui permissão para enviar holerites.', 403);
+
+  const subject = 'Holerite ' + competence + ' — Liga Nacional de Basquete';
+  const html = '<div style="font-family:Arial,sans-serif;color:#152333;line-height:1.5">' +
+    '<p>Olá, ' + escapeEmailHtml(employeeName) + '.</p>' +
+    '<p>Segue em anexo o seu holerite referente à competência <strong>' + escapeEmailHtml(competence) + '</strong>.</p>' +
+    '<p>Em caso de dúvida, responda a esta mensagem e fale com o RH.</p>' +
+    '<p>Atenciosamente,<br><strong>Liga Nacional de Basquete — RH</strong></p></div>';
+  const text = 'Olá, ' + employeeName + '.\n\nSegue em anexo o seu holerite referente à competência ' + competence + '.\n\nLiga Nacional de Basquete — RH';
+  let provider = env.EMAIL ? 'cloudflare' : 'resend';
+  let providerId = null;
+  try {
+    if (env.EMAIL) {
+      const sent = await env.EMAIL.send({
+        to, from: env.RH_HOLERITE_FROM, replyTo: env.RH_HOLERITE_REPLY_TO || undefined,
+        subject, html, text,
+        attachments: [{ content: pdfBase64, filename, type: 'application/pdf', disposition: 'attachment' }]
+      });
+      providerId = sent && (sent.messageId || sent.id) || null;
+    } else {
+      const resend = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json', 'Idempotency-Key': ('rh-' + competenciaId + '-' + colaboradorId).slice(0, 256) },
+        body: JSON.stringify({ from: env.RH_HOLERITE_FROM, to: [to], reply_to: env.RH_HOLERITE_REPLY_TO || undefined, subject, html, text, attachments: [{ content: pdfBase64, filename }] })
+      });
+      const sent = await resend.json().catch(() => ({}));
+      if (!resend.ok) throw new Error(sent && (sent.message || sent.error && sent.error.message) || 'Falha no provedor de e-mail.');
+      providerId = sent && sent.id || null;
+    }
+  } catch (error) {
+    await registerHoleriteDelivery(env, authHeaders, { competenciaId, colaboradorId, to, status: 'erro', provider, providerId, detail: String(error && error.message || error).slice(0, 500) });
+    return jsonError('O provedor recusou o envio: ' + String(error && error.message || error), 502);
+  }
+
+  const registered = await registerHoleriteDelivery(env, authHeaders, { competenciaId, colaboradorId, to, status: 'enviado', provider, providerId, detail: null });
+  return new Response(JSON.stringify({ ok: true, provider, message_id: providerId, registered }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+}
+
+async function registerHoleriteDelivery(env, headers, item) {
+  try {
+    const response = await fetch(env.SUPABASE_URL + '/rest/v1/rpc/rh_registrar_envio_holerite', {
+      method: 'POST', headers,
+      body: JSON.stringify({ p_competencia_id: item.competenciaId, p_colaborador_id: item.colaboradorId,
+        p_destinatario_email: item.to, p_status: item.status, p_provedor: item.provider,
+        p_provedor_id: item.providerId, p_detalhe: item.detail })
+    });
+    return response.ok;
+  } catch (e) { return false; }
+}
+
+function safeAttachmentName(value) {
+  const name = String(value || 'Holerite.pdf').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').slice(0, 180);
+  return /\.pdf$/i.test(name) ? name : name + '.pdf';
+}
+
+function escapeEmailHtml(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
 
 function jsonError(message, status) {

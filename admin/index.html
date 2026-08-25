@@ -26,6 +26,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .btn:hover:not(:disabled){background:#f7f9fc}
 .btn-esm{background:var(--ok);color:#fff;font-weight:600}
 .btn-ouro{background:var(--gold);color:#20160a;font-weight:600}
+.btn-perigo{background:var(--bad);color:#fff;font-weight:600}
 .btn-peq{padding:6px 11px;font-size:12.5px}
 input,select{font:inherit;background:#fff;color:var(--tx);border:1px solid var(--line);
              border-radius:8px;padding:8px 10px;outline:none;max-width:100%}
@@ -103,6 +104,25 @@ tbody tr:hover{background:#f8fafc}
 .matriz td.est{white-space:nowrap}
 .matriz th.acao{text-align:center}
 .matriz td.cel{text-align:center;width:118px}
+.perm-passos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.perm-passo{background:#fff;border:1px solid var(--line);border-radius:11px;padding:12px 14px;display:flex;gap:10px;align-items:center;min-width:0}
+.perm-passo .num{width:28px;height:28px;flex:0 0 28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#eaf0fb;color:#28518f;font-weight:800}
+.perm-passo b{display:block;font-size:12.5px}.perm-passo span{display:block;color:var(--tx2);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.perm-passo.on{border-color:var(--ok-bd);background:var(--ok-bg)}.perm-passo.on .num{background:var(--ok);color:#fff}
+.perm-seletor{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.perm-seletor .rotulo{font-size:12px;color:var(--tx2);font-weight:700}.perm-seletor select{min-width:280px;font-weight:700}
+.perm-modulo{background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:14px;overflow:hidden}
+.perm-modulo-topo{padding:14px 16px;background:linear-gradient(90deg,#f8fafc,#fff);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.perm-modulo-topo h3{margin:0;font-size:14px;color:var(--tx);text-transform:none;letter-spacing:0}.perm-modulo-topo .contagem{font-size:11.5px;color:var(--tx2)}
+.perm-modulo-topo .acoes{margin-left:auto;display:flex;gap:7px;flex-wrap:wrap}
+.perm-modulo .matriz{border:0;border-radius:0;max-height:none}.perm-modulo .matriz th{top:0}
+.perm-coluna{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:104px}
+.perm-coluna button{padding:4px 8px;font-size:10.5px;white-space:nowrap}
+.perm-check{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:96px;border-radius:8px;padding:6px 9px;border:1px solid var(--bad-bd);background:var(--bad-bg);color:var(--bad);font-size:11.5px;font-weight:700;cursor:pointer}
+.perm-check.on{border-color:var(--ok-bd);background:var(--ok-bg);color:var(--ok)}
+.perm-check .box{width:15px;height:15px;border:1.5px solid currentColor;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;background:#fff}
+.perm-todas{min-width:72px}.perm-ajuda{background:#f8fafc;border:1px dashed #cfd8e7;border-radius:10px;padding:11px 13px;margin-bottom:14px;color:var(--tx2);font-size:12.5px}
+.perm-alteracoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}.perm-alteracoes .chave{margin:0;text-align:center}.perm-alteracoes .chave b{font-size:22px}
 
 .pill{display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;
       border:1px solid transparent;cursor:pointer;user-select:none;min-width:86px;text-align:center}
@@ -162,6 +182,22 @@ tbody tr:hover{background:#f8fafc}
 #capa a{text-decoration:none}
 .msg{margin-top:12px;font-size:12.5px;min-height:18px;color:#9FB0C7}
 .msg.ruim{color:#f08f92}
+.modal-fundo{position:fixed;inset:0;z-index:300;background:rgba(6,17,32,.72);display:flex;
+             align-items:center;justify-content:center;padding:20px}
+.modal-caixa{width:min(680px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:14px;
+             box-shadow:0 24px 80px rgba(4,13,27,.35);border:1px solid var(--line)}
+.modal-topo{display:flex;align-items:flex-start;gap:14px;padding:18px 20px;border-bottom:1px solid var(--line)}
+.modal-topo h2{font-size:18px;margin:0}.modal-topo p{font-size:12.5px;color:var(--tx2);margin:3px 0 0}
+.modal-fechar{margin-left:auto;background:transparent;color:var(--tx2);font-size:20px;padding:0 6px}
+.modal-corpo{padding:20px}.modal-acoes{display:flex;justify-content:flex-end;gap:10px;padding:15px 20px;
+              border-top:1px solid var(--line);background:#f8fafc;border-radius:0 0 14px 14px}
+.form-grade{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.form-grade .largo{grid-column:1/-1}
+textarea{font:inherit;background:#fff;color:var(--tx);border:1px solid var(--line);border-radius:8px;
+         padding:8px 10px;outline:none;max-width:100%;resize:vertical}
+textarea:focus{border-color:var(--ok)}
+@media (max-width:680px){.form-grade{grid-template-columns:1fr}.form-grade .largo{grid-column:auto}}
+@media (max-width:900px){.perm-passos{grid-template-columns:1fr}.perm-passo span{white-space:normal}.perm-seletor select{min-width:0;width:100%}}
 </style>
 </head>
 <body>
@@ -241,10 +277,11 @@ tbody tr:hover{background:#f8fafc}
 var CFG=null, SES=null, ACESSO=null, MODO=null;
 var D = { usuarios:[], perfis:[], recursos:[], acoes:[], vinculos:[],
           departamentos:[], grupos:[], linhas:[], escopos:[], excecoes:[], logs:[] };
-var TELA='visao', SUBABA='matriz', PERFIL=null;
-var MODO_PERM='pessoa', PESSOA=null;
-var PERM={}, ESC={}, SUJO=false;
-var FILTRO={ modulo:'', depto:'', grupo:'', linha:'' };
+var TELA='visao', SUBABA='telas', PERFIL=null;
+var MODO_PERM='cracha', PESSOA=null;
+var NOVO_PERFIL_PARA=null;
+var PERM={}, ESC={}, PERM_ORIGINAL={}, ESC_ORIGINAL={}, HIST_PERM=[], SUJO=false;
+var FILTRO={ modulo:'', moduloTela:'', depto:'', grupo:'', linha:'' };
 var ABERTO={};
 
 var CHAVES_SESSAO=['lnb_auth_session_v1','lnb_auth_session_beneficios_v1'];
@@ -309,6 +346,60 @@ async function trocarSenhaDeUsuario(uid,senha){
   let body={};try{body=await r.json();}catch(e){}
   if(!r.ok||!body.ok) throw new Error(body.erro||body.message||'A troca foi recusada.');
   return body;
+}
+async function gerenciarUsuario(acao,dados){
+  if(!CFG||!SES||!SES.access_token) throw new Error('Sessão administrativa indisponível.');
+  const r=await fetch(CFG.SUPABASE_URL+'/functions/v1/gerenciar-usuario',{
+    method:'POST',
+    headers:{'apikey':CFG.SUPABASE_KEY,'Authorization':'Bearer '+SES.access_token,'Content-Type':'application/json'},
+    body:JSON.stringify(Object.assign({acao:acao},dados||{}))
+  });
+  let body={}; try{body=await r.json();}catch(e){}
+  if(!r.ok||!body.ok) throw new Error(body.erro||body.message||'A operação foi recusada.');
+  return body;
+}
+function abrirModal(tituloModal,subtitulo,corpo,acoes){
+  fecharModal();
+  var fundo=document.createElement('div');
+  fundo.id='modal-admin'; fundo.className='modal-fundo';
+  fundo.setAttribute('role','dialog'); fundo.setAttribute('aria-modal','true');
+  fundo.innerHTML='<div class="modal-caixa"><div class="modal-topo"><div><h2>'+esc(tituloModal)+'</h2>'
+    +(subtitulo?'<p>'+esc(subtitulo)+'</p>':'')+'</div><button class="modal-fechar" data-fechar-modal aria-label="Fechar">×</button></div>'
+    +'<div class="modal-corpo">'+corpo+'</div><div class="modal-acoes">'+acoes+'</div></div>';
+  fundo.addEventListener('click',function(e){if(e.target===fundo)fecharModal();});
+  document.body.appendChild(fundo);
+  var primeiro=fundo.querySelector('input,select,textarea,button'); if(primeiro) primeiro.focus();
+}
+function fecharModal(){var m=$('modal-admin');if(m)m.remove();}
+function opcoesPerfis(selecionado){
+  return '<option value="">Sem perfil inicial</option>'+D.perfis.filter(function(p){return p.ativo;}).map(function(p){
+    return '<option value="'+esc(p.id)+'"'+(p.id===selecionado?' selected':'')+'>'+esc(p.nome)+(p.acesso_total?' — acesso total':'')+'</option>';
+  }).join('');
+}
+function modalNovoUsuario(){
+  abrirModal('Novo usuário','Cria a conta de acesso e pode conceder um perfil inicial.',
+    '<div class="form-grade">'
+    +'<div class="campo largo"><label>Nome completo</label><input id="nu-nome" autocomplete="name" maxlength="160"></div>'
+    +'<div class="campo"><label>E-mail</label><input id="nu-email" type="email" autocomplete="email" maxlength="254"></div>'
+    +'<div class="campo"><label>Senha temporária (mínimo 8 caracteres)</label><input id="nu-senha" type="password" autocomplete="new-password" minlength="8"></div>'
+    +'<div class="campo"><label>Perfil inicial</label><select id="nu-perfil">'+opcoesPerfis('')+'</select></div>'
+    +'<div class="campo"><label>Perfil válido até (opcional)</label><input id="nu-validade" type="date"></div>'
+    +'<div class="aviso largo" style="margin:0"><b>Segurança:</b> a senha não é registrada em logs. Oriente a pessoa a trocá-la no primeiro acesso.</div>'
+    +'</div>',
+    '<button class="btn" data-fechar-modal>Cancelar</button><button class="btn-esm" id="bt-criar-usuario">Criar usuário</button>');
+}
+function modalPerfil(pid){
+  var p=pid?perfil(pid):null, novo=!p;
+  abrirModal(novo?'Novo perfil':'Editar perfil',novo?'Crie um crachá reutilizável de permissões.':'Altere a identificação e a disponibilidade do perfil.',
+    '<div class="form-grade">'
+    +'<div class="campo"><label>Nome do perfil</label><input id="pf-nome" maxlength="100" value="'+esc(p?p.nome:'')+'"></div>'
+    +'<div class="campo"><label>Identificador</label><input id="pf-id" maxlength="80" value="'+esc(p?p.id:'')+'"'+(novo?'':' disabled')+'></div>'
+    +'<div class="campo largo"><label>Descrição</label><textarea id="pf-desc" rows="3" maxlength="500">'+esc(p&&p.descricao||'')+'</textarea></div>'
+    +(novo?'':'<label class="linha largo" style="gap:7px"><input type="checkbox" id="pf-ativo"'+(p.ativo?' checked':'')+'> Perfil ativo</label>')
+    +(novo&&NOVO_PERFIL_PARA?'<div class="aviso bom largo" style="margin:0"><b>Vínculo automático:</b> este perfil será concedido à pessoa selecionada.</div>':'')
+    +(p&&p.sistema?'<div class="aviso largo" style="margin:0"><b>Perfil do sistema:</b> pode ser editado, mas não pode ser excluído.</div>':'')
+    +'</div>',
+    '<button class="btn" data-fechar-modal>Cancelar</button><button class="btn-esm" data-salvar-perfil="'+esc(pid||'novo')+'">Salvar perfil</button>');
 }
 function comErro(p,oque){ return p.catch(function(e){ banner('<b>Não deu certo:</b> '+esc(oque)+'.<br>'+esc(e.message),'erro'); throw e; }); }
 
@@ -491,20 +582,71 @@ function limparSubarvore(no,acao){
   });
 }
 function alternarNo(no,acao){
+  registrarHistorico();
   var atual=estadoNo(no,acao);
   var novo = (atual==='p') ? false : true;   /* limitado e bloqueado viram permitido */
   ESC[chaveEsc(no.tipo,no.valor,acao)] = novo;
   limparSubarvore(no,acao);
-  SUJO=true;
+  recalcularSujo();
   desenhar();
 }
 
 /* ---------- telas do modulo (perfil_permissoes) ---------- */
 function chavePerm(rid,acao){ return rid+'|'+acao; }
 function alternarTela(rid,acaoTela){
+  registrarHistorico();
   var k=chavePerm(rid,acaoTela);
   if(PERM[k]) delete PERM[k]; else PERM[k]=true;
-  SUJO=true; desenhar();
+  recalcularSujo(); desenhar();
+}
+function copiarMapa(m){var o={};Object.keys(m||{}).forEach(function(k){o[k]=m[k];});return o;}
+function mapasIguais(a,b){
+  var ka=Object.keys(a||{}),kb=Object.keys(b||{}); if(ka.length!==kb.length)return false;
+  return ka.every(function(k){return Object.prototype.hasOwnProperty.call(b,k)&&a[k]===b[k];});
+}
+function recalcularSujo(){SUJO=!mapasIguais(PERM,PERM_ORIGINAL)||!mapasIguais(ESC,ESC_ORIGINAL);}
+function registrarHistorico(){
+  HIST_PERM.push({perm:copiarMapa(PERM),esc:copiarMapa(ESC)});
+  if(HIST_PERM.length>20)HIST_PERM.shift();
+}
+function desfazerPermissoes(){
+  var anterior=HIST_PERM.pop(); if(!anterior)return;
+  PERM=anterior.perm;ESC=anterior.esc;recalcularSujo();desenhar();
+}
+function recursosDoModulo(mid){return D.recursos.filter(function(r){return r.id===mid||r.pai_id===mid;});}
+function entradasDoModulo(mid,acao){
+  var out=[];
+  recursosDoModulo(mid).forEach(function(r){
+    var disponiveis=acoesDe(r.id);
+    var escolhidas=acao?[acao]:disponiveis;
+    escolhidas.forEach(function(a){if(disponiveis.indexOf(a)>=0)out.push({rid:r.id,acao:a});});
+  });
+  return out;
+}
+function todasPermitidas(entradas){return !!entradas.length&&entradas.every(function(e){return !!PERM[chavePerm(e.rid,e.acao)];});}
+function definirEntradas(entradas,permitir){
+  registrarHistorico();
+  entradas.forEach(function(e){var k=chavePerm(e.rid,e.acao);if(permitir)PERM[k]=true;else delete PERM[k];});
+  recalcularSujo();desenhar();
+}
+function definirModulo(mid,permitir){definirEntradas(entradasDoModulo(mid),permitir);}
+function definirColunaModulo(mid,acao,permitir){definirEntradas(entradasDoModulo(mid,acao),permitir);}
+function definirLinhaPermissoes(rid,permitir){
+  var disp=acoesDe(rid),entradas=COLUNAS_TELAS.filter(function(c){return disp.indexOf(c.tela)>=0;})
+    .map(function(c){return {rid:rid,acao:c.tela};});
+  definirEntradas(entradas,permitir);
+}
+function contarAlteracoes(){
+  var ad=0,rm=0;
+  Object.keys(PERM).forEach(function(k){if(!PERM_ORIGINAL[k])ad++;});
+  Object.keys(PERM_ORIGINAL).forEach(function(k){if(!PERM[k])rm++;});
+  Object.keys(ESC).forEach(function(k){
+    if(!Object.prototype.hasOwnProperty.call(ESC_ORIGINAL,k)||ESC[k]!==ESC_ORIGINAL[k]){if(ESC[k])ad++;else rm++;}
+  });
+  Object.keys(ESC_ORIGINAL).forEach(function(k){
+    if(!Object.prototype.hasOwnProperty.call(ESC,k)){if(ESC_ORIGINAL[k])rm++;else ad++;}
+  });
+  return {adicionadas:ad,removidas:rm,total:ad+rm};
 }
 
 /* ===========================================================================
@@ -536,9 +678,8 @@ function telaVisao(){
       +  'vêm do próprio módulo Orçado x Realizado. Vá em <b>Configurações → Sincronizar estrutura</b> antes de '
       +  'montar as permissões por linha.</div>';
   }
-  h += '<div class="aviso"><b>As regras desta tela ainda não bloqueiam nada.</b> A configuração é guardada, mas o '
-    +  'Orçado e a Gestão de Benefícios ainda não a consultam. Marcar aqui não impede ninguém de ver nada — '
-    +  'o cumprimento é o passo seguinte, feito um módulo por vez.</div>';
+  h += '<div class="aviso bom"><b>Permissões efetivas.</b> Depois de salvar, as novas regras passam a valer no próximo '
+    +  'carregamento da Central e dos módulos. Use a revisão final para conferir o crachá e os usuários impactados.</div>';
 
   var cont=[
     ['Pessoas com acesso', D.usuarios.length, D.usuarios.filter(function(u){return u.ativo&&!u.bloqueado;}).length+' ativas'],
@@ -569,7 +710,8 @@ function telaVisao(){
 
 /* ---------- Usuarios ---------- */
 function telaUsuarios(){
-  var h = titulo('👥','Usuários','Quem tem acesso ao Painel LNB, com quais perfis e até quando.');
+  var h = titulo('👥','Usuários','Quem tem acesso ao Painel LNB, com quais perfis e até quando.',
+                 '<button class="btn-esm btn-peq" id="bt-novo-usuario">＋ Novo usuário</button>');
   h += '<div class="card"><div class="linha" style="margin-bottom:12px">'
     +  '<input id="busca-user" placeholder="Buscar por nome ou e-mail" style="min-width:260px" value="'+esc(window.__busca||'')+'">'
     +  '<label class="linha" style="gap:6px;color:var(--tx2);font-size:12.5px">'
@@ -624,11 +766,15 @@ function abrirEditor(uid){
         + '<button class="btn btn-peq" data-revogar="'+esc(uid)+'|'+esc(v.perfil_id)+'">Revogar</button></div>';
     });
   }
-  h+='<div class="linha" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">'
+  h+='<div class="form-grade" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">'
+    +'<div class="campo"><label>Nome</label><input id="un-'+uid+'" maxlength="160" value="'+esc(u.nome||'')+'"></div>'
+    +'<div class="campo"><label>E-mail de acesso</label><input id="ue-'+uid+'" type="email" maxlength="254" value="'+esc(u.email||'')+'"></div>'
+    +'<div class="linha largo">'
     +'<label class="linha" style="gap:6px"><input type="checkbox" id="ua-'+uid+'"'+(u.ativo?' checked':'')+'> ativo</label>'
     +'<label class="linha" style="gap:6px"><input type="checkbox" id="ub-'+uid+'"'+(u.bloqueado?' checked':'')+'> bloqueado</label>'
     +'<div class="campo" style="margin:0"><label>Acesso válido até</label><input type="date" id="uv-'+uid+'" value="'+esc(u.valido_ate||'')+'"></div>'
-    +'<button class="btn-esm btn-peq" data-salvar-user="'+esc(uid)+'">Salvar</button></div>';
+    +'<button class="btn-esm btn-peq" data-salvar-user="'+esc(uid)+'">Salvar usuário</button>'
+    +'<button class="btn-perigo btn-peq" data-excluir-user="'+esc(uid)+'">Excluir acesso</button></div></div>';
   if(MODO==='mestre'){
     h+='<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line)">'
       +'<div style="font-size:12.5px;color:var(--tx2);margin-bottom:8px"><b>Definir nova senha</b> — a senha não é exibida nem registrada no painel.</div>'
@@ -693,7 +839,9 @@ function telaPerfis(){
       +  '<td>'+(quem?quem+' pessoa(s)':'<span style="color:var(--tx3)">sem titular</span>')+'</td>'
       +  '<td>'+alc+'</td>'
       +  '<td>'+(p.ativo?'<span class="tag tag-ok">ativo</span>':'<span class="tag tag-off">inativo</span>')+'</td>'
-      +  '<td><button class="btn btn-peq" data-abrir-perm="'+esc(p.id)+'">Abrir permissões</button></td></tr>';
+      +  '<td style="white-space:nowrap"><button class="btn btn-peq" data-editar-perfil="'+esc(p.id)+'">Editar</button> '
+      +  '<button class="btn btn-peq" data-abrir-perm="'+esc(p.id)+'">Permissões</button> '
+      +  '<button class="btn btn-peq" data-excluir-perfil="'+esc(p.id)+'"'+((p.sistema||p.acesso_total||quem)?' disabled':'')+'>Excluir</button></td></tr>';
   });
   return h+'</tbody></table></div>';
 }
@@ -751,8 +899,10 @@ function blocoSemCracha(u){
 }
 
 function telaPermissoes(){
-  var alternador = '<button class="btn btn-peq" data-modo-perm="pessoa"'+(MODO_PERM==='pessoa'?' style="border-color:var(--ok);color:var(--ok);font-weight:600"':'')+'>Por pessoa</button>'
-                 + '<button class="btn btn-peq" data-modo-perm="cracha"'+(MODO_PERM==='cracha'?' style="border-color:var(--ok);color:var(--ok);font-weight:600"':'')+'>Por crachá</button>';
+  var alternador = '<button class="btn btn-peq" data-modo-perm="cracha"'+(MODO_PERM==='cracha'?' style="border-color:var(--ok);color:var(--ok);font-weight:600"':'')+'>🛡️ Definir por crachá</button>'
+                 + '<button class="btn btn-peq" data-modo-perm="pessoa"'+(MODO_PERM==='pessoa'?' style="border-color:var(--ok);color:var(--ok);font-weight:600"':'')+'>👤 Conferir por usuário</button>'
+                 + '<button class="btn-esm btn-peq" id="bt-novo-usuario">＋ Novo usuário</button>'
+                 + '<button class="btn btn-peq" id="bt-novo-perfil2">＋ Novo perfil</button>';
 
   if(MODO_PERM==='pessoa' && !PESSOA){
     return titulo('🔒','Gestão de Permissões','Comece pela pessoa: escolha quem você quer ajustar.', alternador)
@@ -772,16 +922,21 @@ function telaPermissoes(){
 
   if(!PERFIL) PERFIL = (D.perfis[0]||{}).id;
   var p = perfil(PERFIL) || {};
-  var sel = MODO_PERM==='cracha'
-    ? '<label style="font-size:12.5px">Crachá:</label> <select id="sel-perfil">'
-      + D.perfis.map(function(x){ return '<option value="'+esc(x.id)+'"'+(x.id===PERFIL?' selected':'')+'>'+esc(x.nome)+'</option>'; }).join('')
-      + '</select>'
-    : '<button class="btn btn-peq" id="bt-trocar-pessoa">Trocar de pessoa</button>';
   var h = titulo('🔒','Gestão de Permissões',
         MODO_PERM==='pessoa'
           ? 'Ajustando o acesso de <b>'+esc(u.nome||u.email)+'</b>.'
-          : 'Defina o nível de acesso de cada crachá para cada módulo, departamento, grupo e linha.',
-        alternador + ' ' + sel);
+          : 'Escolha um crachá, marque os acessos e revise antes de salvar.',
+        alternador);
+
+  h += '<div class="perm-seletor"><span class="num" style="width:28px;height:28px;border-radius:50%;background:var(--ok);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800">1</span>'
+    + '<div><div class="rotulo">'+(MODO_PERM==='cracha'?'ESCOLHA O CRACHÁ':'USUÁRIO E CRACHÁ EM EDIÇÃO')+'</div>'
+    + (MODO_PERM==='cracha'
+       ? '<select id="sel-perfil">'+D.perfis.map(function(x){ return '<option value="'+esc(x.id)+'"'+(x.id===PERFIL?' selected':'')+'>'+esc(x.nome)+(x.acesso_total?' — acesso total':'')+'</option>'; }).join('')+'</select>'
+       : '<b>'+esc(u.nome||u.email)+' · '+esc(nomePerfil(PERFIL))+'</b>')+'</div>'
+    + (MODO_PERM==='pessoa'?'<button class="btn btn-peq espaco" id="bt-trocar-pessoa">Trocar de usuário</button>':'')
+    + '<span class="espaco tag '+(p.ativo?'tag-ok':'tag-off')+'">'+(p.ativo?'crachá ativo':'crachá inativo')+'</span></div>';
+
+  h += blocoPassosPermissoes(p);
 
   if(MODO_PERM==='pessoa' && u){
     var vs2 = crachasDe(u.id);
@@ -804,7 +959,7 @@ function telaPermissoes(){
   }
 
   h += '<div class="abas">'
-    +  ['matriz|Matriz de Permissões','telas|Telas do Módulo','globais|Regras Globais','pessoas|Pessoas com este perfil']
+    +  ['telas|Acessos por Módulo','matriz|Escopo do Orçado','globais|Permissões Especiais','pessoas|Usuários deste Crachá']
        .map(function(a){ var q=a.split('|');
          return '<button data-subaba="'+q[0]+'"'+(SUBABA===q[0]?' class="on"':'')+'>'+q[1]+'</button>'; }).join('')
     +  '</div>';
@@ -823,9 +978,19 @@ function telaPermissoes(){
 
   h += '<div class="rodape">'
     +  '<button class="btn" id="bt-cancelar">Cancelar</button>'
-    +  '<button class="btn" id="bt-limpar">Limpar alterações</button>'
-    +  '<button class="btn-esm" id="bt-salvar"'+(SUJO?'':' disabled')+'>🔒 Salvar permissões</button></div>';
+    +  '<button class="btn" id="bt-desfazer"'+(HIST_PERM.length?'':' disabled')+'>↶ Desfazer última ação</button>'
+    +  '<button class="btn" id="bt-limpar"'+(SUJO?'':' disabled')+'>Descartar alterações</button>'
+    +  '<button class="btn-esm" id="bt-salvar"'+(SUJO?'':' disabled')+'>Revisar e salvar →</button></div>';
   return h;
+}
+
+function blocoPassosPermissoes(p){
+  var mud=contarAlteracoes();
+  return '<div class="perm-passos">'
+    +'<div class="perm-passo on"><span class="num">✓</span><div><b>1. Crachá escolhido</b><span>'+esc(p.nome||'Selecione um crachá')+'</span></div></div>'
+    +'<div class="perm-passo '+(SUJO?'on':'')+'"><span class="num">2</span><div><b>2. Defina os acessos</b><span>'+(SUJO?mud.total+' alteração(ões) preparada(s)':'Clique nas opções ou use a seleção em massa')+'</span></div></div>'
+    +'<div class="perm-passo"><span class="num">3</span><div><b>3. Revise e salve</b><span>Nada é aplicado antes da sua confirmação</span></div></div>'
+    +'</div>';
 }
 
 function blocoMatriz(){
@@ -899,32 +1064,45 @@ function linhaMatriz(no, nivel, qtdFilhos, aberto, ico){
 }
 
 function blocoTelas(){
-  var h='<div class="card"><h3>Telas do módulo Orçado x Realizado</h3>'
-    +  '<div style="font-size:12.5px;color:var(--tx2);margin-bottom:12px">Onde a pessoa pode entrar. '
-    +  'Uma tela sem a ação marcada não aparece para o perfil. O traço significa que a tela não tem essa ação.</div>'
-    +  '<div class="matriz"><table><thead><tr><th>Tela</th>'
-    +  COLUNAS_TELAS.map(function(c){ return '<th class="acao">'+c.ico+' '+c.rot+'</th>'; }).join('')+'</tr></thead><tbody>';
-  modulos().forEach(function(m){
-    var telas=telasDoModulo(m.id);
-    h += '<tr class="no0"><td class="est">'+(m.icone||'')+' '+esc(m.nome)+'</td>'
-      +  COLUNAS_TELAS.map(function(c){
-           var k=chavePerm(m.id,c.tela);
-           var tem=acoesDe(m.id).indexOf(c.tela)>=0;
-           if(!tem) return '<td class="cel"><span class="pill n">—</span></td>';
-           var st=PERM[k]?'p':'b';
-           return '<td class="cel"><span class="pill '+st+'" data-tela="'+esc(m.id)+'|'+c.tela+'">'+(st==='p'?'Permitido':'Bloqueado')+'</span></td>';
-         }).join('')+'</tr>';
-    telas.forEach(function(t){
-      h += '<tr class="no1"><td class="est">'+(t.icone||'·')+' '+esc(t.nome)+'</td>'
-        +  COLUNAS_TELAS.map(function(c){
-             var tem=acoesDe(t.id).indexOf(c.tela)>=0;
-             if(!tem) return '<td class="cel"><span class="pill n">—</span></td>';
-             var st=PERM[chavePerm(t.id,c.tela)]?'p':'b';
-             return '<td class="cel"><span class="pill '+st+'" data-tela="'+esc(t.id)+'|'+c.tela+'">'+(st==='p'?'Permitido':'Bloqueado')+'</span></td>';
-           }).join('')+'</tr>';
+  var mods=modulos().filter(function(m){return !FILTRO.moduloTela||m.id===FILTRO.moduloTela;});
+  var h='<div class="perm-ajuda"><b>Como usar:</b> clique em uma permissão para marcar individualmente. '
+    +'Nos cabeçalhos, use <b>Liberar coluna</b> para marcar a mesma ação em todas as telas daquele módulo. '
+    +'Use <b>Liberar módulo inteiro</b> para conceder todas as ações disponíveis, inclusive as permissões especiais daquele módulo.</div>'
+    +'<div class="perm-seletor" style="margin-bottom:14px"><div class="campo" style="min-width:260px"><label>MÓDULO PARA CONFIGURAR</label><select id="f-tela-modulo">'
+    +'<option value="">Todos os módulos</option>'+modulos().map(function(m){return '<option value="'+esc(m.id)+'"'+(FILTRO.moduloTela===m.id?' selected':'')+'>'+esc(m.nome)+'</option>';}).join('')
+    +'</select></div><span style="color:var(--tx2);font-size:12px">Mostrando '+mods.length+' de '+modulos().length+' módulo(s)</span></div>';
+
+  mods.forEach(function(m){
+    var entradas=entradasDoModulo(m.id),liberadas=entradas.filter(function(e){return !!PERM[chavePerm(e.rid,e.acao)];}).length;
+    var tudo=todasPermitidas(entradas),telas=[m].concat(telasDoModulo(m.id));
+    h+='<section class="perm-modulo"><div class="perm-modulo-topo"><h3>'+(m.icone||'▣')+' '+esc(m.nome)+'</h3>'
+      +'<span class="contagem"><b>'+liberadas+'</b> de '+entradas.length+' permissões liberadas</span><div class="acoes">'
+      +'<button class="btn-esm btn-peq" data-modulo-perm="'+esc(m.id)+'|1"'+(tudo?' disabled':'')+'>✓ Liberar módulo inteiro</button>'
+      +'<button class="btn btn-peq" data-modulo-perm="'+esc(m.id)+'|0"'+(!liberadas?' disabled':'')+'>✕ Bloquear módulo</button></div></div>'
+      +'<div class="matriz"><table><thead><tr><th>Tela ou função</th>';
+    COLUNAS_TELAS.forEach(function(c){
+      var col=entradasDoModulo(m.id,c.tela),colTudo=todasPermitidas(col),colLigadas=col.filter(function(e){return !!PERM[chavePerm(e.rid,e.acao)];}).length;
+      h+='<th class="acao"><div class="perm-coluna"><span>'+c.ico+' '+esc(c.rot)+'</span>'
+        +'<button class="btn" data-coluna-perm="'+esc(m.id)+'|'+esc(c.tela)+'|'+(colTudo?'0':'1')+'"'+(col.length?'':' disabled')+'>'
+        +(colTudo?'Bloquear coluna':'Liberar coluna')+'</button><small>'+colLigadas+'/'+col.length+'</small></div></th>';
     });
+    h+='<th class="acao">Todas da linha</th></tr></thead><tbody>';
+    telas.forEach(function(t,idx){
+      var disp=acoesDe(t.id),linha=COLUNAS_TELAS.filter(function(c){return disp.indexOf(c.tela)>=0;}).map(function(c){return {rid:t.id,acao:c.tela};});
+      var linhaTudo=todasPermitidas(linha);
+      h+='<tr class="no'+(idx?1:0)+'"><td class="est">'+(t.icone||(idx?'·':'▣'))+' '+esc(t.nome)+(idx?'':' <span class="tag tag-perfil">entrada do módulo</span>')+'</td>';
+      COLUNAS_TELAS.forEach(function(c){
+        if(disp.indexOf(c.tela)<0){h+='<td class="cel"><span class="pill n">—</span></td>';return;}
+        var on=!!PERM[chavePerm(t.id,c.tela)];
+        h+='<td class="cel"><button class="perm-check'+(on?' on':'')+'" data-tela="'+esc(t.id)+'|'+esc(c.tela)+'" aria-pressed="'+(on?'true':'false')+'">'
+          +'<span class="box">'+(on?'✓':'')+'</span>'+(on?'Permitido':'Bloqueado')+'</button></td>';
+      });
+      h+='<td class="cel"><button class="btn btn-peq perm-todas" data-linha-perm="'+esc(t.id)+'|'+(linhaTudo?'0':'1')+'"'+(linha.length?'':' disabled')+'>'
+        +(linhaTudo?'Bloquear':'Liberar todas')+'</button></td></tr>';
+    });
+    h+='</tbody></table></div></section>';
   });
-  return h+'</tbody></table></div></div>';
+  return h;
 }
 
 function blocoGlobais(){
@@ -944,8 +1122,15 @@ function blocoGlobais(){
 
 function blocoPessoas(){
   var quem=D.vinculos.filter(function(v){return v.perfil_id===PERFIL;});
-  var h='<div class="card"><h3>Quem tem este crachá</h3>';
-  if(!quem.length) return h+'<div class="vazio">Ninguém ainda. Conceda em Usuários → Editar.</div></div>';
+  var ids={};quem.forEach(function(v){ids[v.usuario_id]=1;});
+  var disp=D.usuarios.filter(function(u){return u.ativo&&!u.bloqueado&&!ids[u.id];});
+  var h='<div class="card"><h3>Atribuir este crachá a um usuário</h3>'
+    +'<div class="linha" style="align-items:flex-end"><div class="campo" style="min-width:280px"><label>USUÁRIO</label><select id="sel-novo-titular">'
+    +(disp.length?disp.map(function(u){return '<option value="'+esc(u.id)+'">'+esc(u.nome||u.email)+' · '+esc(u.email)+'</option>';}).join(''):'<option value="">Nenhum usuário disponível</option>')
+    +'</select></div><div class="campo"><label>VÁLIDO ATÉ (OPCIONAL)</label><input type="date" id="novo-titular-validade"></div>'
+    +'<button class="btn-esm btn-peq" data-atribuir-perfil="'+esc(PERFIL)+'"'+(disp.length?'':' disabled')+'>Atribuir crachá</button></div></div>'
+    +'<div class="card"><h3>Usuários que já têm este crachá</h3>';
+  if(!quem.length) return h+'<div class="vazio">Ninguém ainda. Use o seletor acima para atribuir.</div></div>';
   h+='<table><thead><tr><th>Pessoa</th><th>E-mail</th><th>Até</th></tr></thead><tbody>';
   quem.forEach(function(v){
     var u=D.usuarios.filter(function(x){return x.id===v.usuario_id;})[0]||{};
@@ -967,6 +1152,7 @@ function blocoResumo(){
   var telasOK=D.recursos.filter(function(r){ return PERM[chavePerm(r.id,'visualizar')]; }).length;
 
   var u = PESSOA ? D.usuarios.filter(function(x){ return x.id===PESSOA; })[0] : null;
+  var mud=contarAlteracoes();
   var h='<div class="card"><h3>👤 '+(u?'Resumo de '+esc((u.nome||u.email).split(' ')[0]):'Resumo do crachá')+'</h3>'
    +(u?'<div class="chave"><b>'+esc(u.nome||u.email)+'</b><span>'+esc(u.email)+'</span></div>':'')
    +'<div class="chave"><b>'+esc(p.nome||'—')+'</b><span>'+esc(p.descricao||'crachá em edição')+'</span></div>'
@@ -974,7 +1160,8 @@ function blocoResumo(){
    +'<div class="resumo"><span>Departamentos</span><b>'+conta(deps)+' / '+deps.length+'</b></div>'
    +'<div class="resumo"><span>Grupos</span><b>'+conta(gs)+' / '+gs.length+'</b></div>'
    +'<div class="resumo"><span>Linhas</span><b>'+conta(ls)+' / '+ls.length+'</b></div>'
-   +(SUJO?'<div class="aviso" style="margin:12px 0 0">Há alterações não salvas.</div>':'')
+   +(SUJO?'<div class="aviso" style="margin:12px 0 0"><b>'+mud.total+' alteração(ões) pendente(s)</b><br>'
+      +mud.adicionadas+' liberação(ões) · '+mud.removidas+' bloqueio(s)</div>':'')
    +'</div>';
   return h;
 }
@@ -1068,15 +1255,41 @@ function telaConfig(){
    GRAVACAO
    =========================================================================== */
 function carregarPerfil(pid){
-  PERFIL=pid; PERM={}; ESC={}; SUJO=false;
+  PERFIL=pid; PERM={}; ESC={}; PERM_ORIGINAL={}; ESC_ORIGINAL={}; HIST_PERM=[]; SUJO=false;
   return Promise.all([
     api('perfil_permissoes?select=recurso_id,acao,permitido&perfil_id=eq.'+encodeURIComponent(pid)),
     api('perfil_escopos?select=tipo,valor,acao,permitido&perfil_id=eq.'+encodeURIComponent(pid))
   ]).then(function(r){
     r[0].forEach(function(x){ if(x.permitido) PERM[chavePerm(x.recurso_id,x.acao)]=true; });
     r[1].forEach(function(x){ ESC[chaveEsc(x.tipo,x.valor,x.acao)] = !!x.permitido; });
+    PERM_ORIGINAL=copiarMapa(PERM); ESC_ORIGINAL=copiarMapa(ESC);
     desenhar();
   });
+}
+
+function modalRevisarPermissoes(){
+  var p=perfil(PERFIL)||{},mud=contarAlteracoes(),pessoas=pessoasDoPerfil(PERFIL);
+  if(!mud.total){banner('<b>Nenhuma alteração para salvar.</b>','bom');return;}
+  var detalhes=[];
+  Object.keys(PERM).forEach(function(k){if(!PERM_ORIGINAL[k])detalhes.push({tipo:'liberar',chave:k});});
+  Object.keys(PERM_ORIGINAL).forEach(function(k){if(!PERM[k])detalhes.push({tipo:'bloquear',chave:k});});
+  Object.keys(ESC).forEach(function(k){if(!Object.prototype.hasOwnProperty.call(ESC_ORIGINAL,k)||ESC[k]!==ESC_ORIGINAL[k])detalhes.push({tipo:ESC[k]?'liberar':'bloquear',chave:k});});
+  Object.keys(ESC_ORIGINAL).forEach(function(k){if(!Object.prototype.hasOwnProperty.call(ESC,k))detalhes.push({tipo:ESC_ORIGINAL[k]?'bloquear':'liberar',chave:k});});
+  var lista=detalhes.slice(0,12).map(function(d){
+    var q=d.chave.split('|'),r=D.recursos.filter(function(x){return x.id===q[0];})[0];
+    return '<div class="resumo"><span><b style="color:'+(d.tipo==='liberar'?'var(--ok)':'var(--bad)')+'">'+(d.tipo==='liberar'?'Liberar':'Bloquear')+'</b> '
+      +esc(r?r.nome:q[1]||q[0])+'</span><code>'+esc(q[q.length-1])+'</code></div>';
+  }).join('');
+  abrirModal('Revisar permissões','Confira o impacto antes de aplicar ao crachá.',
+    '<div class="chave"><b>'+esc(p.nome||PERFIL)+'</b><span>Crachá em alteração</span></div>'
+    +'<div class="perm-alteracoes"><div class="chave"><b style="color:var(--ok)">'+mud.adicionadas+'</b><span>permissões liberadas</span></div>'
+    +'<div class="chave"><b style="color:var(--bad)">'+mud.removidas+'</b><span>permissões bloqueadas</span></div></div>'
+    +'<div class="aviso '+(pessoas.length?'':'bom')+'" style="margin:0"><b>Impacto:</b> estas alterações valerão para '
+    +(pessoas.length?pessoas.length+' usuário(s): '+pessoas.map(function(u){return esc(u.nome||u.email);}).join(', '):'os próximos usuários que receberem este crachá')+'.</div>'
+    +'<div style="margin-top:14px"><b style="font-size:12.5px">Alterações preparadas</b>'+lista
+    +(detalhes.length>12?'<div style="font-size:11.5px;color:var(--tx2);margin-top:6px">…e mais '+(detalhes.length-12)+' alteração(ões).</div>':'')+'</div>'
+    +'<div style="margin-top:12px;font-size:12.5px;color:var(--tx2)">Nada será aplicado a outros crachás. Você ainda pode cancelar e continuar editando.</div>',
+    '<button class="btn" data-fechar-modal>Voltar e revisar</button><button class="btn-esm" id="bt-confirmar-salvar">Confirmar e salvar</button>');
 }
 
 function salvar(){
@@ -1102,6 +1315,7 @@ function salvar(){
       .then(function(){ return escNovas.length ? api('perfil_escopos',{method:'POST',body:escNovas,prefer:'return=minimal'}) : null; })
       .then(function(){
         SUJO=false;
+        PERM_ORIGINAL=copiarMapa(PERM);ESC_ORIGINAL=copiarMapa(ESC);HIST_PERM=[];
         banner('<b>Permissões salvas.</b> '+permNovas.length+' liberação(ões) de tela e '+escNovas.length
              + ' marcação(ões) na estrutura. O acesso passa a valer no próximo carregamento da Central e dos módulos.','bom');
         return recarregar();
@@ -1202,7 +1416,7 @@ function recarregar(){
    =========================================================================== */
 document.addEventListener('click', function(ev){
   var t=ev.target;
-  var pill = t.closest ? t.closest('.pill,.switch,.setinha') : null;
+  var pill = t.closest ? t.closest('.pill,.switch,.setinha,.perm-check') : null;
 
   if(pill && pill.classList.contains('setinha') && pill.dataset.abrir){
     var k=pill.dataset.abrir;
@@ -1227,6 +1441,55 @@ document.addEventListener('click', function(ev){
   }
 
   if(t.tagName!=='BUTTON') return;
+  if(t.dataset.fecharModal!==undefined){fecharModal();return;}
+  if(t.dataset.moduloPerm){var mp=t.dataset.moduloPerm.split('|');definirModulo(mp[0],mp[1]==='1');return;}
+  if(t.dataset.colunaPerm){var cp=t.dataset.colunaPerm.split('|');definirColunaModulo(cp[0],cp[1],cp[2]==='1');return;}
+  if(t.dataset.linhaPerm){var lp=t.dataset.linhaPerm.split('|');definirLinhaPermissoes(lp[0],lp[1]==='1');return;}
+  if(t.dataset.atribuirPerfil){
+    var novoTit=$('sel-novo-titular').value;if(!novoTit)return;
+    comErro(api('usuario_perfis',{method:'POST',body:[{usuario_id:novoTit,perfil_id:t.dataset.atribuirPerfil,valido_ate:$('novo-titular-validade').value||null}],prefer:'return=minimal'})
+      .then(recarregar).then(function(){banner('<b>Crachá atribuído ao usuário.</b>','bom');}),'atribuir o crachá').then(null,function(){});return;
+  }
+  if(t.id==='bt-confirmar-salvar'){t.disabled=true;fecharModal();salvar();return;}
+  if(t.id==='bt-novo-usuario'){modalNovoUsuario();return;}
+  if(t.id==='bt-criar-usuario'){
+    var nomeN=$('nu-nome').value.trim(),emailN=$('nu-email').value.trim().toLowerCase(),senhaN=$('nu-senha').value;
+    if(!nomeN){alert('Informe o nome do usuário.');return;}
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailN)){alert('Informe um e-mail válido.');return;}
+    if(senhaN.length<8){alert('A senha temporária precisa ter ao menos 8 caracteres.');return;}
+    t.disabled=true;
+    comErro(gerenciarUsuario('criar',{nome:nomeN,email:emailN,senha:senhaN,perfil_id:$('nu-perfil').value||null,valido_ate:$('nu-validade').value||null})
+      .then(function(){fecharModal();return recarregar();})
+      .then(function(){banner('<b>Usuário criado.</b> A conta já pode receber os acessos definidos.','bom');}),
+      'criar o usuário').then(function(){t.disabled=false;},function(){t.disabled=false;});
+    return;
+  }
+  if(t.dataset.editarPerfil){modalPerfil(t.dataset.editarPerfil);return;}
+  if(t.dataset.salvarPerfil){
+    var ref=t.dataset.salvarPerfil,nomeP=$('pf-nome').value.trim(),novoP=ref==='novo';
+    var idP=novoP?$('pf-id').value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''):ref;
+    if(!nomeP||!idP){alert('Informe um nome e um identificador válidos.');return;}
+    var corpoP={nome:nomeP,descricao:$('pf-desc').value.trim()||null};
+    if(!novoP)corpoP.ativo=$('pf-ativo').checked;
+    t.disabled=true;
+    var paraQuemP=novoP?NOVO_PERFIL_PARA:null;
+    var reqP=novoP?api('perfis',{method:'POST',body:[Object.assign({id:idP},corpoP)],prefer:'return=minimal'})
+                    :api('perfis?id=eq.'+encodeURIComponent(idP),{method:'PATCH',body:corpoP,prefer:'return=minimal'});
+    comErro(reqP.then(function(){return paraQuemP?api('usuario_perfis',{method:'POST',body:[{usuario_id:paraQuemP,perfil_id:idP,valido_ate:null}],prefer:'return=minimal'}):null;})
+      .then(function(){NOVO_PERFIL_PARA=null;fecharModal();return recarregar();})
+      .then(function(){banner('<b>Perfil '+(novoP?'criado':'atualizado')+'.</b>','bom');}),
+      novoP?'criar o perfil':'editar o perfil').then(function(){t.disabled=false;},function(){t.disabled=false;});
+    return;
+  }
+  if(t.dataset.excluirPerfil){
+    var pidX=t.dataset.excluirPerfil,pX=perfil(pidX),qtdX=D.vinculos.filter(function(v){return v.perfil_id===pidX;}).length;
+    if(!pX)return;
+    if(pX.sistema||pX.acesso_total||qtdX){alert('Este perfil não pode ser excluído. Remova os usuários vinculados e preserve os perfis do sistema ou de acesso total.');return;}
+    if(!confirm('Excluir permanentemente o perfil "'+pX.nome+'"? As permissões desse perfil também serão removidas.'))return;
+    comErro(api('perfis?id=eq.'+encodeURIComponent(pidX),{method:'DELETE',prefer:'return=minimal'})
+      .then(recarregar).then(function(){banner('<b>Perfil excluído.</b>','bom');}),'excluir o perfil').then(null,function(){});
+    return;
+  }
 
   if(t.dataset.tela){ /* menu lateral */
     if(SUJO && !confirm('Há alterações não salvas. Sair mesmo assim?')) return;
@@ -1238,14 +1501,15 @@ document.addEventListener('click', function(ev){
     desenhar(); return;
   }
   if(t.dataset.subaba){ SUBABA=t.dataset.subaba; desenhar(); return; }
-  if(t.dataset.abrirPerm){ TELA='permissoes'; SUBABA='matriz'; MODO_PERM='cracha'; PESSOA=null; carregarPerfil(t.dataset.abrirPerm); return; }
+  if(t.dataset.abrirPerm){ TELA='permissoes'; SUBABA='telas'; MODO_PERM='cracha'; PESSOA=null; carregarPerfil(t.dataset.abrirPerm); return; }
 
   if(t.dataset.modoPerm){
     if(SUJO && !confirm('Há alterações não salvas. Trocar mesmo assim?')) return;
-    MODO_PERM=t.dataset.modoPerm; PESSOA=null; SUJO=false; desenhar(); return;
+    MODO_PERM=t.dataset.modoPerm; PESSOA=null; SUBABA='telas';
+    if(PERFIL)return void carregarPerfil(PERFIL);SUJO=false;desenhar();return;
   }
   if(t.dataset.pessoa){
-    PESSOA=t.dataset.pessoa; SUBABA='matriz';
+    PESSOA=t.dataset.pessoa; SUBABA='telas';
     var vsp=crachasDe(PESSOA);
     if(vsp.length) return void carregarPerfil(vsp[0].perfil_id);
     desenhar(); return;
@@ -1299,9 +1563,21 @@ document.addEventListener('click', function(ev){
   }
   if(t.dataset.salvarUser){
     var u3=t.dataset.salvarUser;
-    comErro(api('profiles?id=eq.'+u3,{method:'PATCH',prefer:'return=minimal',
-      body:{ ativo:$('ua-'+u3).checked, bloqueado:$('ub-'+u3).checked, valido_ate:$('uv-'+u3).value||null }})
+    var nomeU=$('un-'+u3).value.trim(),emailU=$('ue-'+u3).value.trim().toLowerCase();
+    if(!nomeU||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailU)){alert('Revise o nome e o e-mail.');return;}
+    comErro(gerenciarUsuario('editar',{usuario_id:u3,nome:nomeU,email:emailU,
+      ativo:$('ua-'+u3).checked,bloqueado:$('ub-'+u3).checked,valido_ate:$('uv-'+u3).value||null})
       .then(recarregar).then(function(){ banner('<b>Usuário atualizado.</b>','bom'); }),'salvar o usuário').then(null,function(){});
+    return;
+  }
+  if(t.dataset.excluirUser){
+    var uidX=t.dataset.excluirUser,uX=D.usuarios.filter(function(x){return x.id===uidX;})[0]; if(!uX)return;
+    if(uidX===SES.user_id||uidX===(SES.user&&SES.user.id)){alert('Você não pode excluir o próprio acesso enquanto está conectado.');return;}
+    var confirma=prompt('Para excluir o acesso de '+(uX.nome||uX.email)+', digite o e-mail completo:\n'+uX.email);
+    if(String(confirma||'').trim().toLowerCase()!==String(uX.email||'').trim().toLowerCase()){if(confirma!==null)alert('O e-mail não confere.');return;}
+    comErro(gerenciarUsuario('excluir',{usuario_id:uidX,confirmacao_email:confirma})
+      .then(recarregar).then(function(){banner('<b>Acesso excluído.</b> A ação foi registrada para auditoria.','bom');}),
+      'excluir o usuário').then(null,function(){});
     return;
   }
   if(t.dataset.salvarEscopo){
@@ -1322,7 +1598,8 @@ document.addEventListener('click', function(ev){
     return;
   }
 
-  if(t.id==='bt-salvar'){ salvar(); return; }
+  if(t.id==='bt-salvar'){ modalRevisarPermissoes(); return; }
+  if(t.id==='bt-desfazer'){desfazerPermissoes();return;}
   if(t.id==='bt-cancelar' || t.id==='bt-limpar'){ carregarPerfil(PERFIL); return; }
   if(t.id==='bt-sair'){ sair(); return; }
   if(t.id==='bt-sync'){ t.disabled=true; sincronizarEstrutura().then(function(){ t.disabled=false; }); return; }
@@ -1334,7 +1611,7 @@ document.addEventListener('click', function(ev){
   }
   if(t.id==='bt-zerar'){
     if(!confirm('Voltar tudo para bloqueado neste perfil? Só vale depois de Salvar.')) return;
-    PERM={}; ESC={}; SUJO=true; desenhar(); return;
+    registrarHistorico();PERM={};ESC={};recalcularSujo();desenhar();return;
   }
   if(t.id==='bt-clonar'){
     var destino=prompt('Copiar as permissões de "'+nomePerfil(PERFIL)+'" para qual perfil? Digite o identificador.\n\n'
@@ -1352,26 +1629,19 @@ document.addEventListener('click', function(ev){
     return;
   }
   if(t.id==='bt-novo-perfil' || t.id==='bt-novo-perfil2' || t.id==='bt-novo-perfil3'){
-    var nome=prompt('Nome do novo perfil (o crachá)');
-    if(!nome) return;
-    var id=nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-    if(!id){ alert('Nome inválido.'); return; }
-    var paraQuem = (MODO_PERM==='pessoa' && PESSOA) ? PESSOA : null;
-    comErro(api('perfis',{method:'POST',body:[{id:id,nome:nome}],prefer:'return=minimal'})
-      .then(function(){ return paraQuem
-        ? api('usuario_perfis',{method:'POST',body:[{usuario_id:paraQuem,perfil_id:id,valido_ate:null}],prefer:'return=minimal'})
-        : null; })
-      .then(recarregar).then(function(){ TELA='permissoes'; return carregarPerfil(id); })
-      .then(function(){ banner('<b>Crachá criado'+(paraQuem?' e entregue':'')+'.</b> Nada liberado ainda — marque e salve.','bom'); }),
-      'criar o perfil').then(null,function(){});
-    return;
+    NOVO_PERFIL_PARA=(t.id==='bt-novo-perfil3'&&MODO_PERM==='pessoa')?PESSOA:null;
+    modalPerfil(null); return;
   }
 });
 
 document.addEventListener('change', function(ev){
   var t=ev.target;
-  if(t.id==='sel-perfil'){ carregarPerfil(t.value); return; }
+  if(t.id==='sel-perfil'){
+    if(SUJO&&!confirm('Há alterações não salvas neste crachá. Trocar e descartá-las?')){desenhar();return;}
+    carregarPerfil(t.value);return;
+  }
   if(t.id==='f-modulo'){ FILTRO.modulo=t.value; desenhar(); return; }
+  if(t.id==='f-tela-modulo'){ FILTRO.moduloTela=t.value; desenhar(); return; }
   if(t.id==='f-depto'){ FILTRO.depto=t.value; FILTRO.grupo=''; FILTRO.linha=''; desenhar(); return; }
   if(t.id==='f-grupo'){ FILTRO.grupo=t.value; FILTRO.linha=''; desenhar(); return; }
   if(t.id==='f-linha'){ FILTRO.linha=t.value; desenhar(); return; }

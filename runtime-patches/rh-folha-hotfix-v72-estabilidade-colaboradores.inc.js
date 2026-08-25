@@ -1,0 +1,34 @@
+/* RH v72 — estabilidade dos simuladores, quadro elegível e salário atual em Colaboradores. */
+(function(){
+'use strict';
+var V72={timer:0,salaryCompetence:'',salaryMap:new Map(),salaryLoading:null,emailChecked:false};
+window.RH_PEOPLE_STABILITY_V72=true;
+function E72(id){return document.getElementById(id)}
+function n72(v){var x=Number(v);return isFinite(x)?x:0}
+function esc72(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function norm72(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim()}
+function key72(p){return String(p&&p.colaborador_id||p&&p.id||'')}
+function state72(){try{return typeof S!=='undefined'&&S?S:(window.S||{})}catch(e){return window.S||{}}}
+function money72(v){try{return fmt(n72(v))}catch(e){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n72(v))}}
+function working72(p){var raw=String(p&&p.situacao||p&&p.situacao_snapshot||''),v=norm72(raw);if(/afast|ferias|licenca|demit|deslig|rescind|inativ|transferid/.test(v))return false;if(/trabalh|ativo/.test(v))return true;try{if(typeof window.rhRosterIsActive==='function')return!!window.rhRosterIsActive(p)}catch(e){}return!raw}
+window.rhV72IsWorking=working72;
+function catalog72(){var st=state72(),by={};(st.pessoas||[]).forEach(function(p){var k=key72(p);if(k)by[k]=Object.assign({},by[k]||{},p)});(st.colaboradores||[]).forEach(function(p){var k=key72(p);if(k)by[k]=Object.assign({},by[k]||{},p)});return by}
+function filterSelect72(id){var sel=E72(id);if(!sel)return 0;var by=catalog72(),removed=0,current=String(sel.value||'');Array.from(sel.options||[]).forEach(function(o){var k=String(o.value||'');if(!k)return;var p=by[k]||{id:k,colaborador_id:k,nome:String(o.textContent||'')};if(!working72(p)){o.remove();removed++}});if(current&&!Array.from(sel.options||[]).some(function(o){return String(o.value)===current})){sel.value='';sel.dispatchEvent(new Event('change',{bubbles:true}))}sel.title='Somente colaboradores com situação Trabalhando';return removed}
+function filterPlanning72(){filterSelect72('rh26-person');filterSelect72('rh70-person')}
+window.rhV72FilterPlanningPeople=filterPlanning72;
+function latest72(){var st=state72(),rows=(st.competencias||[]).filter(function(c){return !c.tipo_calculo||/folha mensal/i.test(String(c.tipo_calculo))}).slice().sort(function(a,b){return String(b.competencia||'').localeCompare(String(a.competencia||''))});return rows[0]||st.competencia||null}
+function payrollFallback72(id){return (state72().pessoas||[]).find(function(p){return String(p.colaborador_id||'')===String(id)})||null}
+async function salaries72(){var comp=latest72(),cid=String(comp&&comp.id||'');if(!cid)return V72.salaryMap;if(V72.salaryCompetence===cid&&V72.salaryMap.size)return V72.salaryMap;if(V72.salaryLoading)return V72.salaryLoading;V72.salaryLoading=(async function(){var rows=await api('rh_folha_colaboradores?competencia_id=eq.'+encodeURIComponent(cid)+'&select=colaborador_id,salario'),map=new Map();(rows||[]).forEach(function(r){map.set(String(r.colaborador_id),n72(r.salario))});V72.salaryMap=map;V72.salaryCompetence=cid;return map})().catch(function(e){console.warn('RH v72 salário atual:',e);return V72.salaryMap}).finally(function(){V72.salaryLoading=null});return V72.salaryLoading}
+function header72(table){var row=table&&table.querySelector('thead tr');if(!row)return;var labels=['Colaborador','Matrícula','Vínculo','Departamento','Situação','Salário atual','Bruto no período','Encargos no período','Líquido no período'];if(row.cells.length!==labels.length||String(row.cells[5]&&row.cells[5].textContent||'').trim()!=='Salário atual')row.innerHTML=labels.map(function(x,i){return'<th'+(i>=5?' class="money"':'')+(i===5?' title="Salário bruto mensal da última folha importada"':'')+'>'+esc72(x)+'</th>'}).join('');Array.from(table.querySelectorAll('#employee-rows td[colspan]')).forEach(function(td){td.colSpan=labels.length})}
+function rows72(table){var by=catalog72();Array.from(table.querySelectorAll('#employee-rows tr')).forEach(function(tr){var marker=tr.querySelector('[data-rh62-employee]'),id=String(marker&&marker.dataset.rh62Employee||'');if(!id)return;var cell=tr.querySelector('[data-rh72-current-salary]');if(!cell){cell=document.createElement('td');cell.className='money rh72-current-salary';cell.dataset.rh72CurrentSalary=id;var before=tr.cells[5]||null;tr.insertBefore(cell,before)}var p=by[id]||payrollFallback72(id)||{},value=V72.salaryMap.has(id)?V72.salaryMap.get(id):n72(p.salario_atual||p.salario_base||(payrollFallback72(id)||{}).salario);var txt=value?money72(value):'—';if(cell.textContent!==txt)cell.textContent=txt;var comp=latest72();cell.title='Salário bruto mensal'+(comp&&comp.competencia?' · última folha '+String(comp.competencia).slice(5,7)+'/'+String(comp.competencia).slice(0,4):'')})}
+async function enhancePeople72(){var body=E72('employee-rows'),table=body&&body.closest('table');if(!table)return;header72(table);rows72(table);await salaries72();rows72(table)}
+window.rhV72EnhancePeople=enhancePeople72;
+async function emailStatus72(){if(V72.emailChecked)return;var b=E72('rh63-email-batch');if(!b)return;V72.emailChecked=true;try{var r=await fetch('/api/config',{cache:'no-store'}),cfg=await r.json();b.dataset.rh72Email=cfg.RH_EMAIL_CONFIGURED?'ready':'pending';b.title=cfg.RH_EMAIL_CONFIGURED?'Envio automático configurado via '+String(cfg.RH_EMAIL_PROVIDER||'provedor seguro'):'Geração pronta; provedor de envio ainda não configurado no Worker'}catch(e){V72.emailChecked=false}}
+function style72(){if(E72('_rh72'))return;var s=document.createElement('style');s.id='_rh72';s.textContent='#employee-rows{font-variant-numeric:tabular-nums}#employee-rows tr td.rh72-current-salary{font-weight:800;color:var(--gold-2);white-space:nowrap}#page-colaboradores .table-wrap>table{min-width:1120px}#page-colaboradores .table-wrap{overflow-x:auto}#page-colaboradores th.money,#page-colaboradores td.money{white-space:nowrap}#rh63-email-batch[data-rh72-email="pending"]{border-style:dashed}@media(max-width:1250px){#page-colaboradores .table-wrap>table{min-width:1080px}}';document.head.appendChild(s)}
+function install72(){style72();filterPlanning72();enhancePeople72();emailStatus72()}
+function schedule72(){clearTimeout(V72.timer);V72.timer=setTimeout(install72,70)}
+try{var base72=renderPeople;renderPeople=function(){var r=base72.apply(this,arguments);schedule72();return r}}catch(e){}
+var mo72=new MutationObserver(schedule72);
+function init72(){install72();[250,800,1600].forEach(function(ms){setTimeout(install72,ms)});mo72.observe(document.body,{childList:true,subtree:true})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init72);else init72();
+})();
