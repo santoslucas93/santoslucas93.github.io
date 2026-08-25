@@ -6,7 +6,7 @@
     "directory": ".",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/", "/index.html", "/api/*", "/orcado/*", "/beneficios/*", "/rh/*"]
+    "run_worker_first": ["/", "/index.html", "/api/*", "/orcado/*", "/beneficios/*", "/rh/*", "/revisao-ids", "/revisao-ids.html"]
   },
   "vars": {
     "GSHEET_REALIZADO_ID": "1sY4QvX6enN2Jx6hmVFxuutFvtOyoZc3lQ99mtdh0_WI",
