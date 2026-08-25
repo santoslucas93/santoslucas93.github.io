@@ -108,7 +108,7 @@ jobs:
             'RH_PROVISION_SAFE_V54',
             'RH_FORECAST_V57', 'rhV57HandleCapture', 'rhV57Refresh', 'rh57-salary-edit', 'rh_atualizar_salario_folha', 'Tabela tributária',
             'RH_DP_V61', 'rh_criar_colaborador', 'rh_sincronizar_cadastros_beneficios', 'Gerar holerites PDF', 'Alertas de férias',
-            'RH_DP_V62', 'rh62-new-form', 'rh62-status-form', 'Holerites em lote', 'Gerar holerite individual',
+            'RH_DP_V62', 'rh62-new-form', 'rh62-status-form', 'Holerites em lote', 'Baixar holerite individual',
             
             ]) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);
