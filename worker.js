@@ -72,6 +72,8 @@ async function handleRhAppPatch(request, env) {
   const source = await asset.text();
   try {
     let rc = RH_RELEASE_CANDIDATE_INLINE;
+    const lnbDiagWasInline = rc !== RH_INLINE_MARKER;
+    const lnbDiagInlineLen = lnbDiagWasInline ? rc.length : 0;
     if (rc === RH_INLINE_MARKER) {
       const rcUrl = new URL('/runtime-patches/rh-folha-rc.inc.js', request.url);
       const rcResponse = await env.ASSETS.fetch(new Request(rcUrl, { method: 'GET' }));
@@ -105,6 +107,7 @@ async function handleRhAppPatch(request, env) {
     headers.set('cache-control', 'no-store');
     headers.set('x-lnb-rh-patch', 'release-candidate-1');
     headers.set('x-lnb-rh-motor', motorStatus);
+    headers.set('x-lnb-rh-diag', (lnbDiagWasInline ? ('inline:' + lnbDiagInlineLen) : 'fallback-asset') + ':fetched:' + rc.length);
     return new Response(injected, { status: asset.status, headers });
   } catch (error) {
     console.error('Falha ao carregar release candidate do RH:', error);
