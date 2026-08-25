@@ -2,6 +2,16 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v73 (25/08/2026)
+
+- Gestão de **Usuários** ampliada com criação de conta, edição de nome/e-mail/status/validade, concessão de perfil inicial e exclusão confirmada pelo e-mail.
+- Gestão de **Perfis de Acesso** ampliada com formulário uniforme para criar e editar, ativar/inativar e excluir perfis sem titulares.
+- Perfis do sistema, perfis de acesso total e perfis ainda vinculados a usuários são protegidos contra exclusão acidental.
+- Exclusão do próprio usuário conectado bloqueada na interface e no servidor; a proteção existente impede remover o último Administrador Mestre ativo.
+- Operações sobre contas do Supabase executadas exclusivamente por função de servidor com JWT obrigatório; a chave de serviço não é exposta no navegador.
+- Criação, edição e exclusão de usuários registradas no log de atividades sem armazenar senhas.
+- Alteração restrita à interface da branch `staging`; produção permanece sem a nova tela.
+
 ## Staging — v72 (25/08/2026)
 
 - Eliminada a reentrada que reiniciava continuamente o carregamento da remuneração ao selecionar um colaborador no simulador de férias.

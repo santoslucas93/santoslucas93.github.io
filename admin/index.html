@@ -26,6 +26,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .btn:hover:not(:disabled){background:#f7f9fc}
 .btn-esm{background:var(--ok);color:#fff;font-weight:600}
 .btn-ouro{background:var(--gold);color:#20160a;font-weight:600}
+.btn-perigo{background:var(--bad);color:#fff;font-weight:600}
 .btn-peq{padding:6px 11px;font-size:12.5px}
 input,select{font:inherit;background:#fff;color:var(--tx);border:1px solid var(--line);
              border-radius:8px;padding:8px 10px;outline:none;max-width:100%}
@@ -162,6 +163,21 @@ tbody tr:hover{background:#f8fafc}
 #capa a{text-decoration:none}
 .msg{margin-top:12px;font-size:12.5px;min-height:18px;color:#9FB0C7}
 .msg.ruim{color:#f08f92}
+.modal-fundo{position:fixed;inset:0;z-index:300;background:rgba(6,17,32,.72);display:flex;
+             align-items:center;justify-content:center;padding:20px}
+.modal-caixa{width:min(680px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:14px;
+             box-shadow:0 24px 80px rgba(4,13,27,.35);border:1px solid var(--line)}
+.modal-topo{display:flex;align-items:flex-start;gap:14px;padding:18px 20px;border-bottom:1px solid var(--line)}
+.modal-topo h2{font-size:18px;margin:0}.modal-topo p{font-size:12.5px;color:var(--tx2);margin:3px 0 0}
+.modal-fechar{margin-left:auto;background:transparent;color:var(--tx2);font-size:20px;padding:0 6px}
+.modal-corpo{padding:20px}.modal-acoes{display:flex;justify-content:flex-end;gap:10px;padding:15px 20px;
+              border-top:1px solid var(--line);background:#f8fafc;border-radius:0 0 14px 14px}
+.form-grade{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.form-grade .largo{grid-column:1/-1}
+textarea{font:inherit;background:#fff;color:var(--tx);border:1px solid var(--line);border-radius:8px;
+         padding:8px 10px;outline:none;max-width:100%;resize:vertical}
+textarea:focus{border-color:var(--ok)}
+@media (max-width:680px){.form-grade{grid-template-columns:1fr}.form-grade .largo{grid-column:auto}}
 </style>
 </head>
 <body>
@@ -243,6 +259,7 @@ var D = { usuarios:[], perfis:[], recursos:[], acoes:[], vinculos:[],
           departamentos:[], grupos:[], linhas:[], escopos:[], excecoes:[], logs:[] };
 var TELA='visao', SUBABA='matriz', PERFIL=null;
 var MODO_PERM='pessoa', PESSOA=null;
+var NOVO_PERFIL_PARA=null;
 var PERM={}, ESC={}, SUJO=false;
 var FILTRO={ modulo:'', depto:'', grupo:'', linha:'' };
 var ABERTO={};
@@ -309,6 +326,60 @@ async function trocarSenhaDeUsuario(uid,senha){
   let body={};try{body=await r.json();}catch(e){}
   if(!r.ok||!body.ok) throw new Error(body.erro||body.message||'A troca foi recusada.');
   return body;
+}
+async function gerenciarUsuario(acao,dados){
+  if(!CFG||!SES||!SES.access_token) throw new Error('Sessão administrativa indisponível.');
+  const r=await fetch(CFG.SUPABASE_URL+'/functions/v1/gerenciar-usuario',{
+    method:'POST',
+    headers:{'apikey':CFG.SUPABASE_KEY,'Authorization':'Bearer '+SES.access_token,'Content-Type':'application/json'},
+    body:JSON.stringify(Object.assign({acao:acao},dados||{}))
+  });
+  let body={}; try{body=await r.json();}catch(e){}
+  if(!r.ok||!body.ok) throw new Error(body.erro||body.message||'A operação foi recusada.');
+  return body;
+}
+function abrirModal(tituloModal,subtitulo,corpo,acoes){
+  fecharModal();
+  var fundo=document.createElement('div');
+  fundo.id='modal-admin'; fundo.className='modal-fundo';
+  fundo.setAttribute('role','dialog'); fundo.setAttribute('aria-modal','true');
+  fundo.innerHTML='<div class="modal-caixa"><div class="modal-topo"><div><h2>'+esc(tituloModal)+'</h2>'
+    +(subtitulo?'<p>'+esc(subtitulo)+'</p>':'')+'</div><button class="modal-fechar" data-fechar-modal aria-label="Fechar">×</button></div>'
+    +'<div class="modal-corpo">'+corpo+'</div><div class="modal-acoes">'+acoes+'</div></div>';
+  fundo.addEventListener('click',function(e){if(e.target===fundo)fecharModal();});
+  document.body.appendChild(fundo);
+  var primeiro=fundo.querySelector('input,select,textarea,button'); if(primeiro) primeiro.focus();
+}
+function fecharModal(){var m=$('modal-admin');if(m)m.remove();}
+function opcoesPerfis(selecionado){
+  return '<option value="">Sem perfil inicial</option>'+D.perfis.filter(function(p){return p.ativo;}).map(function(p){
+    return '<option value="'+esc(p.id)+'"'+(p.id===selecionado?' selected':'')+'>'+esc(p.nome)+(p.acesso_total?' — acesso total':'')+'</option>';
+  }).join('');
+}
+function modalNovoUsuario(){
+  abrirModal('Novo usuário','Cria a conta de acesso e pode conceder um perfil inicial.',
+    '<div class="form-grade">'
+    +'<div class="campo largo"><label>Nome completo</label><input id="nu-nome" autocomplete="name" maxlength="160"></div>'
+    +'<div class="campo"><label>E-mail</label><input id="nu-email" type="email" autocomplete="email" maxlength="254"></div>'
+    +'<div class="campo"><label>Senha temporária (mínimo 8 caracteres)</label><input id="nu-senha" type="password" autocomplete="new-password" minlength="8"></div>'
+    +'<div class="campo"><label>Perfil inicial</label><select id="nu-perfil">'+opcoesPerfis('')+'</select></div>'
+    +'<div class="campo"><label>Perfil válido até (opcional)</label><input id="nu-validade" type="date"></div>'
+    +'<div class="aviso largo" style="margin:0"><b>Segurança:</b> a senha não é registrada em logs. Oriente a pessoa a trocá-la no primeiro acesso.</div>'
+    +'</div>',
+    '<button class="btn" data-fechar-modal>Cancelar</button><button class="btn-esm" id="bt-criar-usuario">Criar usuário</button>');
+}
+function modalPerfil(pid){
+  var p=pid?perfil(pid):null, novo=!p;
+  abrirModal(novo?'Novo perfil':'Editar perfil',novo?'Crie um crachá reutilizável de permissões.':'Altere a identificação e a disponibilidade do perfil.',
+    '<div class="form-grade">'
+    +'<div class="campo"><label>Nome do perfil</label><input id="pf-nome" maxlength="100" value="'+esc(p?p.nome:'')+'"></div>'
+    +'<div class="campo"><label>Identificador</label><input id="pf-id" maxlength="80" value="'+esc(p?p.id:'')+'"'+(novo?'':' disabled')+'></div>'
+    +'<div class="campo largo"><label>Descrição</label><textarea id="pf-desc" rows="3" maxlength="500">'+esc(p&&p.descricao||'')+'</textarea></div>'
+    +(novo?'':'<label class="linha largo" style="gap:7px"><input type="checkbox" id="pf-ativo"'+(p.ativo?' checked':'')+'> Perfil ativo</label>')
+    +(novo&&NOVO_PERFIL_PARA?'<div class="aviso bom largo" style="margin:0"><b>Vínculo automático:</b> este perfil será concedido à pessoa selecionada.</div>':'')
+    +(p&&p.sistema?'<div class="aviso largo" style="margin:0"><b>Perfil do sistema:</b> pode ser editado, mas não pode ser excluído.</div>':'')
+    +'</div>',
+    '<button class="btn" data-fechar-modal>Cancelar</button><button class="btn-esm" data-salvar-perfil="'+esc(pid||'novo')+'">Salvar perfil</button>');
 }
 function comErro(p,oque){ return p.catch(function(e){ banner('<b>Não deu certo:</b> '+esc(oque)+'.<br>'+esc(e.message),'erro'); throw e; }); }
 
@@ -569,7 +640,8 @@ function telaVisao(){
 
 /* ---------- Usuarios ---------- */
 function telaUsuarios(){
-  var h = titulo('👥','Usuários','Quem tem acesso ao Painel LNB, com quais perfis e até quando.');
+  var h = titulo('👥','Usuários','Quem tem acesso ao Painel LNB, com quais perfis e até quando.',
+                 '<button class="btn-esm btn-peq" id="bt-novo-usuario">＋ Novo usuário</button>');
   h += '<div class="card"><div class="linha" style="margin-bottom:12px">'
     +  '<input id="busca-user" placeholder="Buscar por nome ou e-mail" style="min-width:260px" value="'+esc(window.__busca||'')+'">'
     +  '<label class="linha" style="gap:6px;color:var(--tx2);font-size:12.5px">'
@@ -624,11 +696,15 @@ function abrirEditor(uid){
         + '<button class="btn btn-peq" data-revogar="'+esc(uid)+'|'+esc(v.perfil_id)+'">Revogar</button></div>';
     });
   }
-  h+='<div class="linha" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">'
+  h+='<div class="form-grade" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">'
+    +'<div class="campo"><label>Nome</label><input id="un-'+uid+'" maxlength="160" value="'+esc(u.nome||'')+'"></div>'
+    +'<div class="campo"><label>E-mail de acesso</label><input id="ue-'+uid+'" type="email" maxlength="254" value="'+esc(u.email||'')+'"></div>'
+    +'<div class="linha largo">'
     +'<label class="linha" style="gap:6px"><input type="checkbox" id="ua-'+uid+'"'+(u.ativo?' checked':'')+'> ativo</label>'
     +'<label class="linha" style="gap:6px"><input type="checkbox" id="ub-'+uid+'"'+(u.bloqueado?' checked':'')+'> bloqueado</label>'
     +'<div class="campo" style="margin:0"><label>Acesso válido até</label><input type="date" id="uv-'+uid+'" value="'+esc(u.valido_ate||'')+'"></div>'
-    +'<button class="btn-esm btn-peq" data-salvar-user="'+esc(uid)+'">Salvar</button></div>';
+    +'<button class="btn-esm btn-peq" data-salvar-user="'+esc(uid)+'">Salvar usuário</button>'
+    +'<button class="btn-perigo btn-peq" data-excluir-user="'+esc(uid)+'">Excluir acesso</button></div></div>';
   if(MODO==='mestre'){
     h+='<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line)">'
       +'<div style="font-size:12.5px;color:var(--tx2);margin-bottom:8px"><b>Definir nova senha</b> — a senha não é exibida nem registrada no painel.</div>'
@@ -693,7 +769,9 @@ function telaPerfis(){
       +  '<td>'+(quem?quem+' pessoa(s)':'<span style="color:var(--tx3)">sem titular</span>')+'</td>'
       +  '<td>'+alc+'</td>'
       +  '<td>'+(p.ativo?'<span class="tag tag-ok">ativo</span>':'<span class="tag tag-off">inativo</span>')+'</td>'
-      +  '<td><button class="btn btn-peq" data-abrir-perm="'+esc(p.id)+'">Abrir permissões</button></td></tr>';
+      +  '<td style="white-space:nowrap"><button class="btn btn-peq" data-editar-perfil="'+esc(p.id)+'">Editar</button> '
+      +  '<button class="btn btn-peq" data-abrir-perm="'+esc(p.id)+'">Permissões</button> '
+      +  '<button class="btn btn-peq" data-excluir-perfil="'+esc(p.id)+'"'+((p.sistema||p.acesso_total||quem)?' disabled':'')+'>Excluir</button></td></tr>';
   });
   return h+'</tbody></table></div>';
 }
@@ -752,7 +830,9 @@ function blocoSemCracha(u){
 
 function telaPermissoes(){
   var alternador = '<button class="btn btn-peq" data-modo-perm="pessoa"'+(MODO_PERM==='pessoa'?' style="border-color:var(--ok);color:var(--ok);font-weight:600"':'')+'>Por pessoa</button>'
-                 + '<button class="btn btn-peq" data-modo-perm="cracha"'+(MODO_PERM==='cracha'?' style="border-color:var(--ok);color:var(--ok);font-weight:600"':'')+'>Por crachá</button>';
+                 + '<button class="btn btn-peq" data-modo-perm="cracha"'+(MODO_PERM==='cracha'?' style="border-color:var(--ok);color:var(--ok);font-weight:600"':'')+'>Por crachá</button>'
+                 + '<button class="btn-esm btn-peq" id="bt-novo-usuario">＋ Novo usuário</button>'
+                 + '<button class="btn btn-peq" id="bt-novo-perfil2">＋ Novo perfil</button>';
 
   if(MODO_PERM==='pessoa' && !PESSOA){
     return titulo('🔒','Gestão de Permissões','Comece pela pessoa: escolha quem você quer ajustar.', alternador)
@@ -1227,6 +1307,46 @@ document.addEventListener('click', function(ev){
   }
 
   if(t.tagName!=='BUTTON') return;
+  if(t.dataset.fecharModal!==undefined){fecharModal();return;}
+  if(t.id==='bt-novo-usuario'){modalNovoUsuario();return;}
+  if(t.id==='bt-criar-usuario'){
+    var nomeN=$('nu-nome').value.trim(),emailN=$('nu-email').value.trim().toLowerCase(),senhaN=$('nu-senha').value;
+    if(!nomeN){alert('Informe o nome do usuário.');return;}
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailN)){alert('Informe um e-mail válido.');return;}
+    if(senhaN.length<8){alert('A senha temporária precisa ter ao menos 8 caracteres.');return;}
+    t.disabled=true;
+    comErro(gerenciarUsuario('criar',{nome:nomeN,email:emailN,senha:senhaN,perfil_id:$('nu-perfil').value||null,valido_ate:$('nu-validade').value||null})
+      .then(function(){fecharModal();return recarregar();})
+      .then(function(){banner('<b>Usuário criado.</b> A conta já pode receber os acessos definidos.','bom');}),
+      'criar o usuário').then(function(){t.disabled=false;},function(){t.disabled=false;});
+    return;
+  }
+  if(t.dataset.editarPerfil){modalPerfil(t.dataset.editarPerfil);return;}
+  if(t.dataset.salvarPerfil){
+    var ref=t.dataset.salvarPerfil,nomeP=$('pf-nome').value.trim(),novoP=ref==='novo';
+    var idP=novoP?$('pf-id').value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''):ref;
+    if(!nomeP||!idP){alert('Informe um nome e um identificador válidos.');return;}
+    var corpoP={nome:nomeP,descricao:$('pf-desc').value.trim()||null};
+    if(!novoP)corpoP.ativo=$('pf-ativo').checked;
+    t.disabled=true;
+    var paraQuemP=novoP?NOVO_PERFIL_PARA:null;
+    var reqP=novoP?api('perfis',{method:'POST',body:[Object.assign({id:idP},corpoP)],prefer:'return=minimal'})
+                    :api('perfis?id=eq.'+encodeURIComponent(idP),{method:'PATCH',body:corpoP,prefer:'return=minimal'});
+    comErro(reqP.then(function(){return paraQuemP?api('usuario_perfis',{method:'POST',body:[{usuario_id:paraQuemP,perfil_id:idP,valido_ate:null}],prefer:'return=minimal'}):null;})
+      .then(function(){NOVO_PERFIL_PARA=null;fecharModal();return recarregar();})
+      .then(function(){banner('<b>Perfil '+(novoP?'criado':'atualizado')+'.</b>','bom');}),
+      novoP?'criar o perfil':'editar o perfil').then(function(){t.disabled=false;},function(){t.disabled=false;});
+    return;
+  }
+  if(t.dataset.excluirPerfil){
+    var pidX=t.dataset.excluirPerfil,pX=perfil(pidX),qtdX=D.vinculos.filter(function(v){return v.perfil_id===pidX;}).length;
+    if(!pX)return;
+    if(pX.sistema||pX.acesso_total||qtdX){alert('Este perfil não pode ser excluído. Remova os usuários vinculados e preserve os perfis do sistema ou de acesso total.');return;}
+    if(!confirm('Excluir permanentemente o perfil "'+pX.nome+'"? As permissões desse perfil também serão removidas.'))return;
+    comErro(api('perfis?id=eq.'+encodeURIComponent(pidX),{method:'DELETE',prefer:'return=minimal'})
+      .then(recarregar).then(function(){banner('<b>Perfil excluído.</b>','bom');}),'excluir o perfil').then(null,function(){});
+    return;
+  }
 
   if(t.dataset.tela){ /* menu lateral */
     if(SUJO && !confirm('Há alterações não salvas. Sair mesmo assim?')) return;
@@ -1299,9 +1419,21 @@ document.addEventListener('click', function(ev){
   }
   if(t.dataset.salvarUser){
     var u3=t.dataset.salvarUser;
-    comErro(api('profiles?id=eq.'+u3,{method:'PATCH',prefer:'return=minimal',
-      body:{ ativo:$('ua-'+u3).checked, bloqueado:$('ub-'+u3).checked, valido_ate:$('uv-'+u3).value||null }})
+    var nomeU=$('un-'+u3).value.trim(),emailU=$('ue-'+u3).value.trim().toLowerCase();
+    if(!nomeU||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailU)){alert('Revise o nome e o e-mail.');return;}
+    comErro(gerenciarUsuario('editar',{usuario_id:u3,nome:nomeU,email:emailU,
+      ativo:$('ua-'+u3).checked,bloqueado:$('ub-'+u3).checked,valido_ate:$('uv-'+u3).value||null})
       .then(recarregar).then(function(){ banner('<b>Usuário atualizado.</b>','bom'); }),'salvar o usuário').then(null,function(){});
+    return;
+  }
+  if(t.dataset.excluirUser){
+    var uidX=t.dataset.excluirUser,uX=D.usuarios.filter(function(x){return x.id===uidX;})[0]; if(!uX)return;
+    if(uidX===SES.user_id||uidX===(SES.user&&SES.user.id)){alert('Você não pode excluir o próprio acesso enquanto está conectado.');return;}
+    var confirma=prompt('Para excluir o acesso de '+(uX.nome||uX.email)+', digite o e-mail completo:\n'+uX.email);
+    if(String(confirma||'').trim().toLowerCase()!==String(uX.email||'').trim().toLowerCase()){if(confirma!==null)alert('O e-mail não confere.');return;}
+    comErro(gerenciarUsuario('excluir',{usuario_id:uidX,confirmacao_email:confirma})
+      .then(recarregar).then(function(){banner('<b>Acesso excluído.</b> A ação foi registrada para auditoria.','bom');}),
+      'excluir o usuário').then(null,function(){});
     return;
   }
   if(t.dataset.salvarEscopo){
@@ -1352,19 +1484,8 @@ document.addEventListener('click', function(ev){
     return;
   }
   if(t.id==='bt-novo-perfil' || t.id==='bt-novo-perfil2' || t.id==='bt-novo-perfil3'){
-    var nome=prompt('Nome do novo perfil (o crachá)');
-    if(!nome) return;
-    var id=nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-    if(!id){ alert('Nome inválido.'); return; }
-    var paraQuem = (MODO_PERM==='pessoa' && PESSOA) ? PESSOA : null;
-    comErro(api('perfis',{method:'POST',body:[{id:id,nome:nome}],prefer:'return=minimal'})
-      .then(function(){ return paraQuem
-        ? api('usuario_perfis',{method:'POST',body:[{usuario_id:paraQuem,perfil_id:id,valido_ate:null}],prefer:'return=minimal'})
-        : null; })
-      .then(recarregar).then(function(){ TELA='permissoes'; return carregarPerfil(id); })
-      .then(function(){ banner('<b>Crachá criado'+(paraQuem?' e entregue':'')+'.</b> Nada liberado ainda — marque e salve.','bom'); }),
-      'criar o perfil').then(null,function(){});
-    return;
+    NOVO_PERFIL_PARA=(t.id==='bt-novo-perfil3'&&MODO_PERM==='pessoa')?PESSOA:null;
+    modalPerfil(null); return;
   }
 });
 
