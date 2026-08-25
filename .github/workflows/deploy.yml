@@ -114,7 +114,15 @@ jobs:
             
             
             'RH_PROVISION_SAFE_V54',
-            
+            'RH_FORECAST_V57', 'rhV57HandleCapture', 'rhV57Refresh', 'rh57-salary-edit', 'rh_atualizar_salario_folha', 'Tabela tributária',
+            'RH_DP_V61', 'rh_criar_colaborador', 'rh_sincronizar_cadastros_beneficios', 'Gerar holerites PDF', 'Alertas de férias',
+            'RH_DP_V62', 'rh62-new-form', 'rh62-status-form', 'Holerites em lote', 'Baixar holerite individual',
+            'RH_DP_V65', 'VIA DO COLABORADOR', 'VIA DA EMPRESA', 'Assinatura do colaborador', 'Holerites e controles',
+            'RH_EXPORTS_V66', 'rhV66BrandPdf', 'rhV66BrandExcel', 'RECIBO DE VERBAS RESCISÓRIAS', 'RECIBO DE FÉRIAS',
+            'RH_SALARY_SIMULATOR_V68', 'rhV68CalculateSalary', 'Simulador de salário', 'Custo mensal provisionado',
+            'RH_DOCUMENT_PACKAGES_V70', 'rhV70CalculateVacation', 'rhV70SyncPeople', 'Pacote completo LNB', 'AVISO DE FÉRIAS', 'TERMO DE RESCISÃO DO CONTRATO DE TRABALHO',
+            'RH_VACATION_REMUNERATION_V71', 'rhV71ComposeRemuneration', 'Base carregada automaticamente', 'Histórico reversível desta sessão',
+            'RH_PEOPLE_STABILITY_V72', 'rhV72IsWorking', 'Salário atual', 'Bruto no período',
             ]) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);
           }
@@ -134,11 +142,11 @@ jobs:
             workerMarker,
             'const RH_RELEASE_CANDIDATE_INLINE = ' + JSON.stringify(rc) + ';'
           );
-          fs.writeFileSync('worker-production.js', workerEffective);
+          fs.writeFileSync('worker.js', workerEffective);
           NODE
 
           node --check /tmp/rh-app-effective.js
-          node --check worker-production.js
+          node --check worker.js
 
       - name: Deploy to Cloudflare Workers
         id: publish
@@ -147,7 +155,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4"
-          command: deploy worker-production.js
+          command: deploy
 
       - name: Fixar 100% do tráfego na versão publicada
         shell: bash
