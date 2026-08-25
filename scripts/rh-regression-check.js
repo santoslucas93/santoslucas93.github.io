@@ -30,6 +30,8 @@ const dp62 = read('runtime-patches/rh-folha-hotfix-v62-fluxos-independentes.inc.
 const dp63 = read('runtime-patches/rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js');
 const spacing61 = read('runtime-patches/system-text-spacing.js');
 const worker = read('worker.js');
+const styles = read('rh/styles.css');
+const wrangler = read('wrangler.jsonc');
 
 const orderBaseline = workflow.indexOf('rh-folha-stability-baseline.inc.js');
 const orderUi = workflow.indexOf('rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
@@ -133,10 +135,16 @@ for (const privateV57 of ['V57.','openModal57','closeModal57','statusModal57','e
 }
 assert(dp62.includes('data-rh62-slip') && dp62.includes('Holerites em lote'), 'v62 não oferece holerite individual e em lote em Colaboradores');
 assert(dp62.includes("desligamento_origem==='ultima_folha'"), 'v62 não identifica data de desligamento inferida pela folha');
+assert(dp62.includes('Baixar holerite individual') && dp62.includes('data-rh63-email') && dp62.includes('data-rh63-dp-person'), 'ações individuais não estão concentradas no pop-up do colaborador');
 for (const symbol of ['RH_DP_V63','voucher63','postEmail63','batchModal63','dashboard63','employeeDp63','rh_dp_painel','rh_inicializar_controles_colaborador']) {
   assert(dp63.includes(symbol), `v63 sem recurso obrigatório: ${symbol}`);
 }
 assert(dp63.includes('LIGA NACIONAL DE BASQUETE') && dp63.includes('Total de Vencimentos') && dp63.includes('Assinatura do Funcionário'), 'v63 não reproduz a estrutura do modelo de holerite');
+assert(dp63.includes('w=169,sw=27') && dp63.includes('sx+12,y+20,sx+12,y+102'), 'faixa lateral do holerite não reserva espaço separado para declaração e assinatura');
+assert(dp63.includes("['rh62-new','rh62-sync','rh63-download','rh63-email-batch','rh63-dp','rh57-workforce']"), 'barra de ações de Colaboradores perdeu a ordem uniforme');
+assert(dp63.includes("querySelectorAll('.rh62-row-slip,.rh63-row-actions')"), 'atalhos individuais ainda podem quebrar as linhas de Colaboradores');
+assert(styles.includes('overflow-y:auto') && styles.includes('@media(max-height:850px)'), 'menu lateral não garante acesso em telas com pouca altura');
+assert(wrangler.includes('holerites@liganacionaldebasquete.com.br'), 'remetente de holerites não usa o domínio institucional confirmado');
 assert(dp63.includes('/api/rh/holerite-email') && worker.includes("url.pathname === '/api/rh/holerite-email'"), 'envio de holerite não está conectado ao Worker');
 assert(worker.includes('rh_pode_enviar_holerite') && worker.includes('rh_registrar_envio_holerite'), 'Worker não valida permissão ou não registra o envio');
 assert(worker.includes('RH_EMAIL_CONFIGURED') && !worker.includes('RESEND_API_KEY:'), 'configuração de e-mail deve expor somente o estado, nunca a chave');

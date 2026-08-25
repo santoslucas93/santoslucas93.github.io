@@ -2,6 +2,15 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v64 (24/08/2026)
+
+- Holerite ajustado para reservar uma faixa lateral mais larga: a declaração não invade mais a coluna de descontos e a assinatura ganhou área útil maior.
+- Ações individuais de PDF, e-mail e Controles de DP removidas das linhas da tabela e concentradas no pop-up do colaborador.
+- Barra de ações de Colaboradores organizada uniformemente em uma grade responsiva de seis funções, sempre na mesma ordem.
+- Geração e envio em lote preservados na barra principal.
+- Menu lateral compactado e com rolagem interna de segurança, permitindo acessar Relatórios & Documentos, Custo Real e Configurações sem F11.
+- Remetente de staging preparado como `holerites@liganacionaldebasquete.com.br`; disparo continua bloqueado até a ativação do Email Sending e do binding `EMAIL` na Cloudflare.
+
 ## Staging — v63 (24/08/2026)
 
 - Holerite redesenhado conforme o modelo da LNB: duas vias por página, identificação funcional, eventos, totais, bases e assinatura.

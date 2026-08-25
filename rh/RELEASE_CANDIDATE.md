@@ -3,6 +3,17 @@
 ## Objetivo
 Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qualquer publicação na branch `principal`.
 
+## Incremento v64 — Holerite e organização da tela
+
+- [x] Declaração de recebimento isolada da coluna de descontos no PDF.
+- [x] Área lateral de assinatura ampliada e campo de data reorganizado.
+- [x] Ações individuais de holerite, e-mail e DP disponíveis somente no pop-up do colaborador.
+- [x] Ações em lote preservadas no cabeçalho de Colaboradores.
+- [x] Seis ações principais ordenadas em grade uniforme e responsiva.
+- [x] Navegação lateral compacta e rolável, sem depender de F11.
+- [x] Remetente preparado no domínio `liganacionaldebasquete.com.br`.
+- [ ] Ativar o Email Sending da Cloudflare, concluir os registros SPF/DKIM/DMARC e adicionar o binding `EMAIL` ao Worker.
+
 ## Incremento v63 — Holerites e controles de DP
 
 - [x] Holerite no modelo operacional fornecido pela LNB, com duas vias por A4.
