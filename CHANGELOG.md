@@ -2,6 +2,17 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v76 (25/08/2026)
+
+- Pop-ups individuais da Próxima Folha passam a exibir **base de cálculo, alíquota aplicada/efetiva, regra e valor** para INSS dos segurados, IRRF, INSS patronal, RAT, Terceiros, PIS e FGTS.
+- IRRF detalha também a dedução utilizada e a redução mensal de 2026; FGTS identifica a regra individual de 8% ou 2% para aprendiz.
+- Cards consolidados de Impostos Retidos, Encargos da Empresa e Tributos/Recolhimentos recebem memória tributária completa por colaborador e imposto.
+- PDF Executivo inclui base e alíquota no resumo das obrigações e uma nova seção de memória tributária individual.
+- Excel Executivo inclui bases diretamente na aba de colaboradores, resumo tributário consolidado e a nova aba **Bases por Imposto**.
+- Totais continuam originados do mesmo motor remuneratório aprovado; nenhuma fórmula da Próxima Folha foi alterada.
+- Testes de regressão ampliados para impedir a remoção das bases individuais nos pop-ups e relatórios.
+- Alteração restrita ao staging; produção permanece intacta.
+
 ## Staging — v75 (25/08/2026)
 
 - A Central agora abre com um carregamento neutro e imediato enquanto valida ou renova a sessão já existente.

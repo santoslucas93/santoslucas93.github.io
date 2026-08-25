@@ -1,5 +1,18 @@
 # RH & Folha — Release Candidate da Fase 1
 
+## Memória tributária individual — v76
+
+- [x] Base de cálculo individual exibida em todos os impostos da Próxima Folha.
+- [x] Alíquota aplicada ou efetiva exibida ao lado da base e do valor.
+- [x] INSS dos segurados identificado como progressivo e conciliado por colaborador.
+- [x] IRRF apresenta base após deduções, dedução utilizada e redução mensal de 2026.
+- [x] INSS patronal, RAT, Terceiros e PIS apresentam a base patronal individual.
+- [x] FGTS apresenta base própria e alíquota individual de 8% ou 2% para aprendiz.
+- [x] Cards consolidados abrem memória detalhada por colaborador e por imposto.
+- [x] PDF Executivo contém resumo de bases e memória tributária individual completa.
+- [x] Excel Executivo contém bases na composição e aba exclusiva **Bases por Imposto**.
+- [x] Motor de cálculo, arredondamentos e totais anteriores preservados.
+
 ## Estabilidade, elegibilidade e leitura salarial — v72
 
 - [x] Seleção de colaborador em Férias protegida contra carregamentos recursivos.

@@ -257,7 +257,8 @@ assert(!forecast57.includes('benefit57') && !forecast57.includes('beneficios:') 
 assert(planningForecast.includes('if(window.RH_FORECAST_V57){installAiResize47();return}'), 'v47 ainda pode sobrescrever a projeção v57');
 assert(forecast57.includes('vacationGross+cashGross-vacationInss-vacationIrrf.value'), 'v57 sem adiantamento líquido de férias');
 assert(forecast57.includes('employerBase=hasInss?contributionBase:0'), 'v57 inclui abono indevidamente na base patronal');
-assert(forecast57.includes("'retained',t.retained") && forecast57.includes("'taxTotal',t.taxTotal"), 'pop-ups tributários v57 não conciliam com os cards');
+assert(forecast57.includes("taxGroupModal57('Impostos retidos',['INSS_EMP','IRRF'],t.retained") && forecast57.includes("taxGroupModal57('Tributos / recolhimentos',TAX_KEYS57,t.taxTotal"), 'pop-ups tributários v57 não conciliam com os cards');
+assert(forecast57.includes('taxDetail57') && forecast57.includes('Base de cálculo') && forecast57.includes('Memória tributária individual') && forecast57.includes('Bases por Imposto'), 'v57 não expõe a memória de base individual nos pop-ups e relatórios');
 
 /* Simulador de salário v68: candidato separado do quadro e custo integral auditável. */
 assert(workflow.includes('rh-folha-hotfix-v68-simulador-salario.inc.js'), 'v68 não está no release candidate');

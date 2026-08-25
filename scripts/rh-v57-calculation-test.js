@@ -42,6 +42,11 @@ assert.equal(irrf(6000, inss(6000)), 385.11, 'IRRF combinado com a tabela vigent
 assert.equal(inss(8146.80), 942.05, 'INSS da remuneração recorrente de controle');
 assert.equal(irrf(8146.80, inss(8146.80), 1), 1020.44, 'IRRF da remuneração recorrente de controle');
 
+const source = require('fs').readFileSync('runtime-patches/rh-folha-hotfix-v57-base-editavel-proxima-folha.inc.js', 'utf8');
+for (const required of ['taxDetail57', 'Base de cálculo', 'Alíquota efetiva/aplicada', 'Memória tributária individual', 'Bases por Imposto', 'irrfDeduction', 'fgtsBase']) {
+  assert(source.includes(required), `memória tributária individual ausente: ${required}`);
+}
+
 const salary = 3545;
 const vacationDays = 10;
 const normalPay = salary * (30 - vacationDays) / 30;
