@@ -82,12 +82,14 @@ jobs:
             runtime-patches/rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js \
             runtime-patches/rh-folha-hotfix-v66-alinhamento-identidade-recibos.inc.js \
             runtime-patches/rh-folha-hotfix-v68-simulador-salario.inc.js \
+            runtime-patches/rh-folha-hotfix-v70-pacotes-ferias-rescisao.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
           node scripts/rh-regression-check.js
           node scripts/rh-v57-calculation-test.js
           node scripts/rh-v68-salary-simulator-test.js
+          node scripts/rh-v70-vacation-simulator-test.js
 
           node <<'NODE'
           const fs = require('fs');
@@ -115,6 +117,7 @@ jobs:
             'RH_DP_V65', 'VIA DO COLABORADOR', 'VIA DA EMPRESA', 'Assinatura do colaborador', 'Holerites e controles',
             'RH_EXPORTS_V66', 'rhV66BrandPdf', 'rhV66BrandExcel', 'RECIBO DE VERBAS RESCISÓRIAS', 'RECIBO DE FÉRIAS',
             'RH_SALARY_SIMULATOR_V68', 'rhV68CalculateSalary', 'Simulador de salário', 'Custo mensal provisionado',
+            'RH_DOCUMENT_PACKAGES_V70', 'rhV70CalculateVacation', 'Pacote completo LNB', 'AVISO DE FÉRIAS', 'TERMO DE RESCISÃO DO CONTRATO DE TRABALHO',
             
             ]) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);

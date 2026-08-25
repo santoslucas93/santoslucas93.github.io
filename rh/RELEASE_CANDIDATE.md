@@ -1,5 +1,17 @@
 # RH & Folha — Release Candidate da Fase 1
 
+## Pacotes documentais e simulador de férias — v70
+
+- [x] Simulador de férias tão detalhado quanto o simulador de rescisão.
+- [x] Período aquisitivo, gozo, retorno e data de pagamento calculados e exibidos.
+- [x] Opções de abono pecuniário, adiantamento de 13º, médias, dependentes, pensão, créditos e descontos.
+- [x] Proventos, descontos, líquido, incidências e custo patronal apresentados separadamente.
+- [x] Pacote de férias com Aviso, Demonstrativo Analítico e Recibo para assinatura.
+- [x] Pacote de rescisão com Resumo, Memória Analítica, TRCT e Recibo para assinatura.
+- [x] Logo oficial da LNB em todas as páginas dos dois pacotes.
+- [x] Encargos patronais excluídos dos recibos entregues ao colaborador.
+- [x] Simulações e exportações não salvam nem efetivam movimentações.
+
 ## Objetivo
 Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qualquer publicação na branch `principal`.
 

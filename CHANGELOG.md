@@ -93,3 +93,12 @@ Nenhuma alteração desta versão foi promovida para a branch `principal`.
 - Datas históricas de desligamento inferidas pela ausência na folha seguinte.
 - Holerites individuais e em lote concentrados em Colaboradores.
 - Regra e limitações dos alertas de férias explicadas na própria tela.
+## Staging — v70 (25/08/2026)
+
+- Simulador individual de férias com salário-base, adicionais fixos, médias variáveis, período aquisitivo, gozo, abono pecuniário, adiantamento da primeira parcela do 13º, dependentes, pensão, deduções legais, créditos e descontos.
+- Cálculo detalhado de proventos, INSS, IRRF, líquido, FGTS, encargos patronais e custo total estimado para a Liga.
+- Pacote LNB de férias em três partes: Aviso de Férias, Demonstrativo Analítico e Recibo para Assinatura.
+- Pacote LNB de rescisão em quatro partes: Resumo Executivo, Memória Analítica, TRCT detalhado e Recibo/Assinaturas.
+- Todos os documentos recebem a identidade e o logo oficial da Liga Nacional de Basquete.
+- Geração integralmente reversível: não salva férias, não efetiva rescisão e não altera o status do colaborador.
+- Alteração restrita ao staging; produção permanece intacta.
