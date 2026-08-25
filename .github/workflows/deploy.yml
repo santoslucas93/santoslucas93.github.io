@@ -34,9 +34,65 @@ jobs:
             runtime-patches/rh-folha-rc-chart-modes.inc.js \
             runtime-patches/rh-folha-rc-ranking-table-fix.inc.js \
             runtime-patches/rh-folha-rc-cost-breakdown.inc.js \
+            runtime-patches/rh-folha-hotfix-v11-import.inc.js \
+            runtime-patches/rh-folha-hotfix-v12-periodo-consolidado.inc.js \
+            runtime-patches/rh-folha-hotfix-v13-cards-popup-totais.inc.js \
+            runtime-patches/rh-folha-hotfix-v14-periodo-ux-analitico.inc.js \
+            runtime-patches/rh-folha-hotfix-v16-importacao-lote-pdf.inc.js \
+            runtime-patches/rh-folha-hotfix-v18-todos-anos.inc.js \
+            runtime-patches/rh-folha-hotfix-v19-popup-columns.inc.js \
+            runtime-patches/rh-folha-hotfix-v20-popup-totals-grid.inc.js \
+            runtime-patches/rh-folha-hotfix-v21-popup-period-reference.inc.js \
+            runtime-patches/rh-folha-hotfix-v23-competencia-popup.inc.js \
+            runtime-patches/rh-folha-hotfix-v24-planejamento-provisoes.inc.js \
+            runtime-patches/rh-folha-hotfix-v25-planejamento-entry.inc.js \
+            runtime-patches/rh-folha-hotfix-v26-planejamento-modelos-contabeis.inc.js \
+            runtime-patches/rh-folha-hotfix-v27-jwt-refresh.inc.js \
+            runtime-patches/rh-folha-hotfix-v28-planejamento-periodo-compat.inc.js \
+            runtime-patches/rh-folha-hotfix-v29-rpa-integridade.inc.js \
+            runtime-patches/rh-folha-hotfix-v31-rescisao-calibrada.inc.js \
+            runtime-patches/rh-folha-hotfix-v32-rescisao-avos.inc.js \
+            runtime-patches/rh-folha-hotfix-v33-rescisao-render-sync.inc.js \
+            runtime-patches/rh-folha-hotfix-v34-motor-remuneratorio.inc.js \
+            runtime-patches/rh-folha-stability-baseline.inc.js \
+            runtime-patches/rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js \
+            runtime-patches/rh-folha-hotfix-v39-provisao-memory-router.inc.js \
+            runtime-patches/rh-folha-hotfix-v40-relatorios-executivos.inc.js \
+            runtime-patches/rh-folha-hotfix-v40a-runtime-stability.inc.js \
+            runtime-patches/rh-folha-hotfix-v41-central-relatorios.inc.js \
+            runtime-patches/rh-folha-hotfix-v41a-report-center-stability.inc.js \
+            runtime-patches/rh-folha-hotfix-v42-relatorios-ajustes.inc.js \
+            runtime-patches/rh-folha-hotfix-v43-correcoes.inc.js \
+            runtime-patches/rh-folha-hotfix-v44-correcoes2.inc.js \
+            runtime-patches/rh-folha-hotfix-v45-rescisao-relatorio-cards.inc.js \
+            runtime-patches/rh-folha-hotfix-v46-estabilizacao.inc.js \
+            runtime-patches/rh-folha-hotfix-v46a-interatividade.inc.js \
+            runtime-patches/rh-folha-hotfix-v46b-impostos-composicao.inc.js \
+            runtime-patches/rh-folha-hotfix-v47-auditoria-integral.inc.js \
+            runtime-patches/rh-folha-hotfix-v48-estabilidade-popups.inc.js \
+            runtime-patches/rh-folha-hotfix-v54-provisoes-seguras.inc.js \
+            runtime-patches/rh-folha-hotfix-v57-base-editavel-proxima-folha.inc.js \
+            runtime-patches/rh-folha-hotfix-v58-correcoes-visuais.inc.js \
+            runtime-patches/rh-folha-hotfix-v59-status-filter-periodo-padrao.inc.js \
+            runtime-patches/rh-folha-hotfix-v60-status-cor-desligado.inc.js \
+            runtime-patches/rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js \
+            runtime-patches/rh-folha-hotfix-v62-fluxos-independentes.inc.js \
+            runtime-patches/rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js \
+            runtime-patches/rh-folha-hotfix-v66-alinhamento-identidade-recibos.inc.js \
+            runtime-patches/rh-folha-hotfix-v68-simulador-salario.inc.js \
+            runtime-patches/rh-folha-hotfix-v70-pacotes-ferias-rescisao.inc.js \
+            runtime-patches/rh-folha-hotfix-v71-remuneracao-ferias.inc.js \
+            runtime-patches/rh-folha-hotfix-v72-estabilidade-colaboradores.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
+          node scripts/rh-regression-check.js
+          node scripts/rh-v57-calculation-test.js
+          node scripts/rh-v68-salary-simulator-test.js
+          node scripts/rh-v70-vacation-simulator-test.js
+          node scripts/rh-v71-remuneration-test.js
+          node scripts/rh-v72-people-stability-test.js
+          node scripts/hub-auth-transition-test.js
 
           node <<'NODE'
           const fs = require('fs');

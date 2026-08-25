@@ -2,6 +2,14 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v75 (25/08/2026)
+
+- A Central agora abre com um carregamento neutro e imediato enquanto valida ou renova a sessão já existente.
+- O formulário de entrada permanece oculto durante essa validação, eliminando a impressão de logout ao voltar de qualquer módulo.
+- A interface autenticada só é revelada depois da conferência de acesso; o login só aparece quando realmente não há uma sessão válida.
+- Incluído teste de regressão específico para a transição de autenticação e acessibilidade do carregamento.
+- O fluxo da branch principal foi alinhado ao staging para reconstruir e validar todo o release atual do RH antes do deploy, evitando regressão na promoção.
+
 ## Staging — v74 (25/08/2026)
 
 - Permissões passa a abrir por **crachá**, com fluxo didático em três etapas: escolher, definir e revisar antes de salvar.

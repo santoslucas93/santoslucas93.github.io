@@ -94,6 +94,7 @@ jobs:
           node scripts/rh-v70-vacation-simulator-test.js
           node scripts/rh-v71-remuneration-test.js
           node scripts/rh-v72-people-stability-test.js
+          node scripts/hub-auth-transition-test.js
 
           node <<'NODE'
           const fs = require('fs');
