@@ -3,6 +3,20 @@
 ## Objetivo
 Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qualquer publicação na branch `principal`.
 
+## Simulador de salário e custo de contratação — v68
+
+- [x] Simulador separado do quadro real e da Próxima Folha.
+- [x] Cenários para CLT, aprendiz e estagiário.
+- [x] Tabelas progressivas de INSS e IRRF vigentes em 2026.
+- [x] Melhor dedução de IRRF entre a legal e a simplificada, com redução mensal de 2026.
+- [x] Salário-família de 2026 tratado como provento compensável, sem ampliar o custo patronal.
+- [x] INSS patronal, RAT, terceiros, PIS e FGTS detalhados.
+- [x] Vale-Transporte limitado a 6% do salário-base e demais benefícios configuráveis.
+- [x] Provisões de 13º, férias/recesso, 1/3 e encargos associados.
+- [x] Líquido, custo da competência, custo mensal provisionado e custo anual conciliados.
+- [x] Exportações PDF e Excel com identidade visual da LNB.
+- [x] Taxas patronais editáveis para conferência com o enquadramento contábil da Liga.
+
 ## Identidade, documentos individuais e Próxima Folha — v67
 
 - [x] Uma única grade fixa para cabeçalho, corpo e rodapé de totais.

@@ -2,6 +2,19 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v68 (24/08/2026)
+
+- Novo **Simulador de salário e custo LNB** em Planejamento & Provisões, isolado do quadro real e da Próxima Folha.
+- Cenários para CLT, aprendiz e estagiário, com salário-base, proventos adicionais, dependentes, deduções e descontos.
+- INSS e IRRF calculados pelas tabelas oficiais de 2026, incluindo desconto simplificado, dependentes e redução mensal do imposto.
+- Salário-família de 2026 incluído no líquido quando elegível, identificado como provento compensável e sem inflar o custo LNB.
+- Encargos patronais detalhados: INSS, RAT, terceiros, PIS e FGTS de 8% ou 2% para aprendiz.
+- Benefícios configuráveis: Vale-Transporte com limite de 6%, VR/VA/cesta, assistência médica, seguro de vida e outros.
+- Provisões mensais de 13º, férias/recesso, 1/3 constitucional e respectivos encargos.
+- Resultados de líquido estimado, custo da competência, custo mensal provisionado e custo anual, com exportação PDF e Excel identificada pelo logo da LNB.
+- Alíquotas patronais editáveis e sugeridas a partir da última competência quando a base estiver disponível.
+- Alteração restrita ao staging; produção permanece intacta.
+
 ## Staging — v67 (24/08/2026)
 
 - Identidade institucional da Liga Nacional de Basquete ampliada para as exportações em PDF e Excel de todos os módulos do painel, incluindo arquivos gerados por jsPDF, ExcelJS e SheetJS.

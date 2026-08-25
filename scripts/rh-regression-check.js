@@ -29,6 +29,7 @@ const dp61 = read('runtime-patches/rh-folha-hotfix-v61-cadastro-holerites-ferias
 const dp62 = read('runtime-patches/rh-folha-hotfix-v62-fluxos-independentes.inc.js');
 const dp63 = read('runtime-patches/rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js');
 const exports66 = read('runtime-patches/rh-folha-hotfix-v66-alinhamento-identidade-recibos.inc.js');
+const simulator68 = read('runtime-patches/rh-folha-hotfix-v68-simulador-salario.inc.js');
 const exportBranding67 = read('runtime-patches/system-export-branding.js');
 const spacing61 = read('runtime-patches/system-text-spacing.js');
 const worker = read('worker.js');
@@ -255,5 +256,18 @@ assert(planningForecast.includes('if(window.RH_FORECAST_V57){installAiResize47()
 assert(forecast57.includes('vacationGross+cashGross-vacationInss-vacationIrrf.value'), 'v57 sem adiantamento líquido de férias');
 assert(forecast57.includes('employerBase=hasInss?contributionBase:0'), 'v57 inclui abono indevidamente na base patronal');
 assert(forecast57.includes("'retained',t.retained") && forecast57.includes("'taxTotal',t.taxTotal"), 'pop-ups tributários v57 não conciliam com os cards');
+
+/* Simulador de salário v68: candidato separado do quadro e custo integral auditável. */
+assert(workflow.includes('rh-folha-hotfix-v68-simulador-salario.inc.js'), 'v68 não está no release candidate');
+assert(workflow.indexOf('rh-folha-hotfix-v68-simulador-salario.inc.js') > workflow.indexOf('rh-folha-hotfix-v66-alinhamento-identidade-recibos.inc.js'), 'v68 precisa carregar depois dos documentos v66');
+for (const marker of ['RH_SALARY_SIMULATOR_V68','rhV68CalculateSalary','Simulador de salário','Custo mensal provisionado','Custo anual estimado','Exportar PDF','Exportar Excel']) assert(simulator68.includes(marker), `simulador v68 sem recurso: ${marker}`);
+assert(simulator68.includes('[[1621,.075],[2902.84,.09],[4354.27,.12],[8475.55,.14]]'), 'simulador sem tabela progressiva INSS 2026');
+assert(simulator68.includes('[[2428.80,0,0],[2826.65,.075,182.16],[3751.05,.15,394.16],[4664.68,.225,675.49],[Infinity,.275,908.73]]'), 'simulador sem tabela mensal IRRF 2026');
+assert(simulator68.includes("gross<=7350") && simulator68.includes('978.62-.133145*gross'), 'simulador sem redução mensal IRRF 2026');
+assert(simulator68.includes('familyLimit:1980.38') && simulator68.includes('familyQuota:67.54'), 'simulador sem salário-família 2026');
+assert(simulator68.includes('gross+familySalary-employeeDeductions') && !simulator68.includes('cashCost=r68(gross+familySalary'), 'salário-família precisa aumentar o líquido sem virar custo patronal');
+assert(simulator68.includes('Math.min(vtTotal,r68(salary*.06))'), 'simulador não limita o desconto de VT a 6%');
+assert(simulator68.includes("type==='aprendiz'?.02:(type==='clt'?.08:0)"), 'simulador não diferencia FGTS de CLT e aprendiz');
+for (const cost of ['patInss','rat','third','pis','fgts','employerBenefits','thirteenth','vacation','vacationThird','provisionCharges','loadedCost','annual']) assert(simulator68.includes(cost), `simulador sem componente de custo: ${cost}`);
 
 console.log('RH regression baseline: OK');

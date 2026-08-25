@@ -81,11 +81,13 @@ jobs:
             runtime-patches/rh-folha-hotfix-v62-fluxos-independentes.inc.js \
             runtime-patches/rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js \
             runtime-patches/rh-folha-hotfix-v66-alinhamento-identidade-recibos.inc.js \
+            runtime-patches/rh-folha-hotfix-v68-simulador-salario.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
           node scripts/rh-regression-check.js
           node scripts/rh-v57-calculation-test.js
+          node scripts/rh-v68-salary-simulator-test.js
 
           node <<'NODE'
           const fs = require('fs');
@@ -112,6 +114,7 @@ jobs:
             'RH_DP_V62', 'rh62-new-form', 'rh62-status-form', 'Holerites em lote', 'Baixar holerite individual',
             'RH_DP_V65', 'VIA DO COLABORADOR', 'VIA DA EMPRESA', 'Assinatura do colaborador', 'Holerites e controles',
             'RH_EXPORTS_V66', 'rhV66BrandPdf', 'rhV66BrandExcel', 'RECIBO DE VERBAS RESCISÓRIAS', 'RECIBO DE FÉRIAS',
+            'RH_SALARY_SIMULATOR_V68', 'rhV68CalculateSalary', 'Simulador de salário', 'Custo mensal provisionado',
             
             ]) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);
