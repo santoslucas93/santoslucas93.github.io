@@ -1,0 +1,60 @@
+/* RH v66 — grade fixa, identidade LNB universal e recibos do colaborador. */
+(function(){
+'use strict';
+var V66={logo:null,logoPromise:null,pdfHook:false,excelHook:false};
+window.RH_EXPORTS_V66=true;
+function E66(id){return document.getElementById(id)}
+function n66(v){var x=Number(v);return isFinite(x)?x:0}
+function m66(v){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n66(v))}
+function d66(v){if(!v)return'—';var d=v instanceof Date?v:new Date(String(v).slice(0,10)+'T12:00:00');return isNaN(d.getTime())?'—':String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()}
+function slug66(v){return String(v||'documento').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'')}
+function can66(){try{return!!(canAdmin()||can('exportar'))}catch(e){return false}}
+function notice66(msg,bad){try{toast(msg,!!bad)}catch(e){if(bad)alert(msg)}}
+function logo66(){
+  if(V66.logo)return Promise.resolve(V66.logo);if(V66.logoPromise)return V66.logoPromise;
+  V66.logoPromise=fetch('/rh/lnb-logo.png',{cache:'force-cache'}).then(function(r){if(!r.ok)throw new Error('O logo oficial da LNB não pôde ser carregado.');return r.blob()}).then(function(blob){return new Promise(function(resolve,reject){var f=new FileReader();f.onload=function(){V66.logo=f.result;resolve(V66.logo)};f.onerror=function(){reject(new Error('O logo oficial da LNB não pôde ser processado.'))};f.readAsDataURL(blob)})});return V66.logoPromise
+}
+function brandPdf66(doc){
+  if(!doc||doc.__rhBrandApplied||!V66.logo)return doc;var pages=doc.internal.getNumberOfPages(),current=1;try{current=doc.internal.getCurrentPageInfo().pageNumber}catch(e){}
+  for(var i=1;i<=pages;i++){doc.setPage(i);var w=doc.internal.pageSize.getWidth();try{doc.addImage(V66.logo,'PNG',w-38,4,30,13.7,undefined,'FAST')}catch(e){}}
+  doc.setPage(Math.min(current,pages));doc.__rhBrandApplied=true;return doc
+}
+function installPdf66(){
+  var api=window.jspdf&&window.jspdf.jsPDF&&window.jspdf.jsPDF.API;if(!api||api.__rhV66)return;api.__rhV66=true;var save=api.save,out=api.output;
+  if(typeof save==='function')api.save=function(){brandPdf66(this);return save.apply(this,arguments)};
+  if(typeof out==='function')api.output=function(){brandPdf66(this);return out.apply(this,arguments)};V66.pdfHook=true
+}
+function brandExcel66(wb){
+  if(!wb||wb.__rhBrandApplied||!V66.logo)return;var imageId=wb.addImage({base64:V66.logo,extension:'png'});wb.eachSheet(function(ws){var col=Math.max(2,ws.actualColumnCount||ws.columnCount||1)+.2;ws.addImage(imageId,{tl:{col:col,row:.15},ext:{width:120,height:55},editAs:'oneCell'})});wb.creator=wb.creator||'Liga Nacional de Basquete';wb.company='Liga Nacional de Basquete';wb.__rhBrandApplied=true
+}
+function prepareWorkbook66(wb){
+  if(!wb||wb.__rhWriteHook||!wb.xlsx||typeof wb.xlsx.writeBuffer!=='function')return;wb.__rhWriteHook=true;var write=wb.xlsx.writeBuffer;wb.xlsx.writeBuffer=function(){brandExcel66(wb);return write.apply(this,arguments)}
+}
+function installExcel66(){
+  var P=window.ExcelJS&&window.ExcelJS.Workbook&&window.ExcelJS.Workbook.prototype;if(!P||P.__rhV66)return;P.__rhV66=true;var add=P.addWorksheet;P.addWorksheet=function(){prepareWorkbook66(this);return add.apply(this,arguments)};V66.excelHook=true
+}
+var baseLoad66=window.loadLibrary;
+if(typeof baseLoad66==='function')window.loadLibrary=async function(){await logo66();var r=await baseLoad66.apply(this,arguments);installPdf66();installExcel66();return r};
+async function ensurePdf66(){
+  await logo66();if(!LIBRARIES.jspdf)LIBRARIES.jspdf={url:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',ready:function(){return!!(window.jspdf&&window.jspdf.jsPDF)}};if(!LIBRARIES.autotable)LIBRARIES.autotable={url:'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js',ready:function(){return!!(window.jspdf&&window.jspdf.jsPDF&&window.jspdf.jsPDF.API.autoTable)}};await loadLibrary('jspdf');await loadLibrary('autotable');installPdf66()
+}
+function receiptHead66(doc,title,sub){var w=doc.internal.pageSize.getWidth();doc.setFillColor(7,26,44);doc.rect(0,0,w,31,'F');doc.addImage(V66.logo,'PNG',12,5,30,13.7,undefined,'FAST');doc.__rhBrandApplied=true;doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(15);doc.text(title,47,12);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text(sub||'',47,19,{maxWidth:w-59});doc.setTextColor(242,201,76);doc.setFont('helvetica','bold');doc.text('LIGA NACIONAL DE BASQUETE · CNPJ 10.435.803/0001-22',47,26)}
+function receiptTable66(doc,rows,gross,deductions){
+  doc.autoTable({startY:43,margin:{left:12,right:12},head:[['Descrição','Proventos','Descontos']],body:rows,foot:[['TOTAL',m66(gross),m66(deductions)]],theme:'grid',styles:{fontSize:8.2,cellPadding:2.5,textColor:[7,26,44]},headStyles:{fillColor:[13,43,66],textColor:[255,255,255],fontStyle:'bold'},footStyles:{fillColor:[234,242,246],textColor:[7,26,44],fontStyle:'bold'},columnStyles:{0:{cellWidth:112},1:{cellWidth:37,halign:'right'},2:{cellWidth:37,halign:'right'}},didParseCell:function(c){if(c.column.index>0)c.cell.styles.halign='right'}});return doc.lastAutoTable.finalY
+}
+function receiptClose66(doc,y,net,text){var w=doc.internal.pageSize.getWidth();if(y>225){doc.addPage();receiptHead66(doc,'RECIBO PARA O COLABORADOR','Continuação');y=43}doc.setFillColor(7,26,44);doc.roundedRect(12,y+8,w-24,18,3,3,'F');doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('VALOR LÍQUIDO A RECEBER',17,y+15);doc.setTextColor(242,201,76);doc.setFontSize(13);doc.text(m66(net),w-17,y+20,{align:'right'});doc.setTextColor(55,70,84);doc.setFont('helvetica','normal');doc.setFontSize(7.3);doc.text(doc.splitTextToSize(text,w-30),15,y+35);doc.setDrawColor(95,112,128);doc.line(30,y+57,139,y+57);doc.line(153,y+57,195,y+57);doc.setFontSize(6.5);doc.text('Assinatura do colaborador',84.5,y+62,{align:'center'});doc.text('Data',174,y+62,{align:'center'})}
+function employeeRows66(earnings,deductions){var rows=[];earnings.forEach(function(x){if(Math.abs(n66(x[1]))>.004)rows.push([x[0],m66(x[1]),''])});deductions.forEach(function(x){if(Math.abs(n66(x[1]))>.004)rows.push([x[0],'',m66(x[1])])});return rows}
+async function terminationReceipt66(){
+  if(!can66())throw new Error('Seu perfil não possui permissão para exportar relatórios.');var x=window.rhV34TerminationResult||window.rhV31TerminationResult;if(!x&&typeof window.rhV34CalcTermination==='function')x=await window.rhV34CalcTermination();if(!x||!x.p)throw new Error('Calcule a rescisão antes de gerar o recibo.');await ensurePdf66();var name=String(x.p.nome||'Colaborador'),date=d66(x.date),kind=String(x.type||'').toLowerCase().indexOf('empregador')>=0?'Dispensa sem justa causa':'Pedido de demissão';var earnings=[['Saldo de salário '+n66(x.days)+' dias',x.saldo],['13º proporcional '+n66(x.a13)+'/12',x.v13],['13º sobre aviso',x.v13Aviso==null?x.av13:x.v13Aviso],['Férias proporcionais '+n66(x.avf)+'/12',x.vf],['Férias sobre aviso',x.vfAviso==null?x.avfut:x.vfAviso],['Férias adquiridas e não gozadas',x.feriasAdq==null?x.ven:x.feriasAdq],['1/3 constitucional',x.ter],['Adicional de férias',x.dobroExtra],['Aviso-prévio indenizado',x.aviso],['Indenização / CCT',x.cct],['Outros créditos',x.cred]],deductions=[['INSS mensal',x.inss],['INSS sobre 13º',x.inss13],['IRRF mensal',x.irrf],['IRRF sobre 13º',x.irrf13],['Descontos operacionais / benefícios',x.operational],['Aviso-prévio descontado',x.noticeDisc],['Outros descontos',x.od]];var doc=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});receiptHead66(doc,'RECIBO DE VERBAS RESCISÓRIAS',name+' · '+kind+' · Desligamento '+date);var y=receiptTable66(doc,employeeRows66(earnings,deductions),x.bruto,x.ded);receiptClose66(doc,y,x.liq,'Declaro ter recebido a importância líquida discriminada neste recibo de verbas rescisórias. Este documento apresenta somente verbas e descontos que influenciam o valor do colaborador.');doc.save('LNB_Recibo_Rescisao_'+slug66(name)+'_'+date.replace(/\//g,'-')+'.pdf')
+}
+async function vacationReceipts66(){
+  if(!can66())throw new Error('Seu perfil não possui permissão para exportar relatórios.');if(typeof window.rhV57Refresh!=='function'||typeof window.rhV57Snapshot!=='function')throw new Error('O cálculo da Próxima Folha ainda não está disponível.');await window.rhV57Refresh(true);var snap=window.rhV57Snapshot(),people=(snap&&snap.rows||[]).filter(function(r){return n66(r.vacDays)>0});if(!people.length)throw new Error('Informe os dias de férias nos parâmetros da Próxima Folha antes de gerar os recibos.');await ensurePdf66();var doc=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});people.forEach(function(r,i){if(i)doc.addPage();var cash=n66(r.cashGross),earnings=[['Férias — '+n66(r.vacDays)+' dias',r.vacationPay],['1/3 constitucional de férias',r.vacationThird],['Abono pecuniário — '+n66(r.cashDays)+' dias',cash*.75],['1/3 sobre abono pecuniário',cash*.25]],deductions=[['INSS sobre férias',r.vacationInss],['IRRF sobre férias',r.vacationIrrf]],gross=n66(r.vacationGross)+cash,discount=n66(r.vacationInss)+n66(r.vacationIrrf),net=gross-discount;receiptHead66(doc,'RECIBO DE FÉRIAS',r.nome+' · Competência '+String(snap.target||'').slice(0,7).split('-').reverse().join('/'));var y=receiptTable66(doc,employeeRows66(earnings,deductions),gross,discount);receiptClose66(doc,y,net,'Declaro ter recebido a importância líquida discriminada neste recibo de férias. O documento não inclui encargos e impostos de responsabilidade exclusiva do empregador.')});doc.save('LNB_Recibos_Ferias_'+slug66(snap.target)+'.pdf')
+}
+function addBtn66(container,id,label){if(!container||E66(id))return;var b=document.createElement('button');b.type='button';b.id=id;b.className='button secondary export-only';b.textContent=label;container.appendChild(b)}
+function installUi66(){var rp=document.querySelector('[data-plan-pane="rescisao"] .rh41-export-bar'),vp=document.querySelector('[data-plan-pane="ferias"] .rh41-export-bar');addBtn66(rp,'rh66-res-receipt','Recibo para assinatura');addBtn66(vp,'rh66-vac-receipt','Recibos para assinatura');document.querySelectorAll('#page-relatorios .rh41-report-card').forEach(function(card){var t=String((card.querySelector('h3')||{}).textContent||'').toLowerCase(),actions=card.querySelector('.rh41-card-actions');if(t==='rescisão')addBtn66(actions,'rh66-res-receipt-center','Recibo para assinatura');if(t==='provisão de férias')addBtn66(actions,'rh66-vac-receipt-center','Recibos para assinatura')})}
+function busy66(btn,fn){var old=btn.textContent;btn.disabled=true;btn.textContent='Gerando...';Promise.resolve().then(fn).then(function(){notice66('Documento gerado com o logo oficial da LNB.')}).catch(function(e){notice66(e.message||String(e),true)}).finally(function(){btn.disabled=false;btn.textContent=old})}
+document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('#rh66-res-receipt,#rh66-res-receipt-center,#rh66-vac-receipt,#rh66-vac-receipt-center');if(!b)return;e.preventDefault();e.stopImmediatePropagation();busy66(b,b.id.indexOf('vac')>=0?vacationReceipts66:terminationReceipt66)},true);
+function init66(){logo66().then(function(){installPdf66();installExcel66()}).catch(function(){});installUi66();[200,700,1500].forEach(function(ms){setTimeout(installUi66,ms)});var mo=new MutationObserver(function(){installUi66()});mo.observe(document.body,{childList:true,subtree:true})}
+window.rhV66BrandPdf=brandPdf66;window.rhV66BrandExcel=brandExcel66;window.rhV66TerminationReceipt=terminationReceipt66;window.rhV66VacationReceipts=vacationReceipts66;
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init66);else init66();
+})();

@@ -28,6 +28,7 @@ const interactivity = read('runtime-patches/rh-folha-rc-interactivity.inc.js');
 const dp61 = read('runtime-patches/rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js');
 const dp62 = read('runtime-patches/rh-folha-hotfix-v62-fluxos-independentes.inc.js');
 const dp63 = read('runtime-patches/rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js');
+const exports66 = read('runtime-patches/rh-folha-hotfix-v66-alinhamento-identidade-recibos.inc.js');
 const spacing61 = read('runtime-patches/system-text-spacing.js');
 const worker = read('worker.js');
 const styles = read('rh/styles.css');
@@ -224,6 +225,11 @@ assert(sourceCards.includes("var legacy=$('painel-filters');if(legacy)legacy.rem
 assert(planningForecast.includes("function numeric(i)"), 'Próxima Folha não alinha cabeçalho e células pela mesma regra');
 assert(!planningForecast.includes("'Centro de custo','Valor','% do card'"), 'CC voltou ao pop-up da Próxima Folha');
 assert(planningForecast.includes("'Colaborador','Departamento','Valor','% do card'"), 'Próxima Folha perdeu a composição por colaborador e departamento');
+assert(forecast57.includes('tableWidth:281') && forecast57.includes("0:{cellWidth:73}") && forecast57.includes("8:{cellWidth:26,halign:'right'}"), 'PDF da Próxima Folha perdeu a grade fixa das nove colunas');
+assert(forecast57.includes("if(data.column.index>=2)data.cell.styles.halign='right'"), 'cabeçalho, corpo e total da Próxima Folha não compartilham o alinhamento numérico');
+assert(exports66.includes("fetch('/rh/lnb-logo.png'") && exports66.includes('brandPdf66') && exports66.includes('brandExcel66'), 'v66 não garante o logo oficial em PDF e Excel');
+assert(exports66.includes('RECIBO DE VERBAS RESCISÓRIAS') && exports66.includes('RECIBO DE FÉRIAS') && exports66.includes('Assinatura do colaborador'), 'v66 não oferece recibos assináveis de rescisão e férias');
+for (const employerOnly of ['x.patInss','x.patRat','x.patTerc','x.patPis','x.multa','x.fgm','x.fg13','x.fgav']) assert(!exports66.includes(employerOnly), `recibo do colaborador inclui encargo patronal: ${employerOnly}`);
 assert(planningDetails.includes('data-rh-authoritative-total'), 'provisões não marcam o total contábil como autoritativo');
 assert(planningDetails.includes("function moneyCell(i)"), 'provisões não alinham cabeçalho e células pela mesma regra');
 

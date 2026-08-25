@@ -2,6 +2,16 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v66 (24/08/2026)
+
+- Corrigida a grade do PDF **Próxima Folha — Composição por colaborador**: cabeçalho, linhas e total agora usam exatamente as mesmas nove colunas.
+- Larguras fixas somando 281 mm eliminam variações automáticas entre nomes, departamentos e valores.
+- Títulos e valores financeiros compartilham alinhamento à direita, mantendo a leitura vertical perfeita.
+- Logo oficial da LNB aplicado automaticamente a todas as exportações em PDF e a todas as planilhas Excel do RH & Folha.
+- Novos recibos de férias e rescisão para assinatura do colaborador, sem FGTS, multa rescisória, INSS patronal, RAT, terceiros ou PIS patronal.
+- Relatórios gerenciais completos foram preservados separadamente dos recibos destinados ao colaborador.
+- Alteração restrita ao staging; produção permanece intacta.
+
 ## Staging — v65 (24/08/2026)
 
 - Holerite executivo em duas vias na mesma folha A4: **Via do Colaborador** e **Via da Empresa**, com linha de corte.
