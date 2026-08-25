@@ -162,6 +162,16 @@ Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qu
 - [ ] Persistir os snapshots mensais de benefícios (a tabela histórica ainda está vazia); sem isso, benefícios retroativos do Custo Real não podem ser considerados fechados.
 - [ ] Revisar manualmente cadastros sem correspondência única entre os módulos e preencher datas de desligamento históricas ausentes.
 
+## Holerites e organização de Colaboradores — v65
+
+- [x] Duas vias completas por folha A4, identificadas como Via do Colaborador e Via da Empresa.
+- [x] Logo oficial da LNB incorporado no cabeçalho de ambas as vias.
+- [x] Declaração, assinatura e data em rodapé horizontal independente dos lançamentos e totais.
+- [x] Até 22 rubricas por página e paginação automática para competências com volume superior.
+- [x] Valores, bases, competência e dados funcionais preservados nas páginas de continuação.
+- [x] Filtros agrupados separadamente das ações operacionais.
+- [x] Ações divididas entre Cadastro e quadro e Holerites e controles, sem excluir permissões ou funcionalidades.
+
 ## Correções funcionais — v62
 - [x] Removida a dependência indevida do escopo privado do v57 que causava `V57 is not defined` e impedia o cadastro.
 - [x] Novo colaborador passa a aparecer imediatamente em Colaboradores, mesmo antes da primeira folha.

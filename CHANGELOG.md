@@ -2,6 +2,16 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v65 (24/08/2026)
+
+- Holerite executivo em duas vias na mesma folha A4: **Via do Colaborador** e **Via da Empresa**, com linha de corte.
+- Logo oficial da Liga Nacional de Basquete carregado do ativo institucional `/rh/lnb-logo.png` e incorporado nas duas vias.
+- Declaração, assinatura e data reorganizadas em rodapé horizontal, sem coluna lateral ou texto rotacionado.
+- Tabela compacta comporta até 22 rubricas por página; acima disso, o sistema cria automaticamente páginas de continuação sem omitir lançamentos.
+- Tela Colaboradores distribuída em três áreas: **Filtros e consulta**, **Cadastro e quadro** e **Holerites e controles**.
+- Todas as funções anteriores foram preservadas; somente a hierarquia e a distribuição visual foram alteradas.
+- Alteração restrita ao staging; produção permanece intacta.
+
 ## Staging — v64 (24/08/2026)
 
 - Holerite ajustado para reservar uma faixa lateral mais larga: a declaração não invade mais a coluna de descontos e a assinatura ganhou área útil maior.

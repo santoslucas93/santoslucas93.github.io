@@ -139,9 +139,11 @@ assert(dp62.includes('Baixar holerite individual') && dp62.includes('data-rh63-e
 for (const symbol of ['RH_DP_V63','voucher63','postEmail63','batchModal63','dashboard63','employeeDp63','rh_dp_painel','rh_inicializar_controles_colaborador']) {
   assert(dp63.includes(symbol), `v63 sem recurso obrigatório: ${symbol}`);
 }
-assert(dp63.includes('LIGA NACIONAL DE BASQUETE') && dp63.includes('Total de Vencimentos') && dp63.includes('Assinatura do Funcionário'), 'v63 não reproduz a estrutura do modelo de holerite');
-assert(dp63.includes('w=169,sw=27') && dp63.includes('sx+12,y+20,sx+12,y+102'), 'faixa lateral do holerite não reserva espaço separado para declaração e assinatura');
-assert(dp63.includes("['rh62-new','rh62-sync','rh63-download','rh63-email-batch','rh63-dp','rh57-workforce']"), 'barra de ações de Colaboradores perdeu a ordem uniforme');
+assert(dp63.includes('LIGA NACIONAL DE BASQUETE') && dp63.includes('HOLERITE | RECIBO DE PAGAMENTO') && dp63.includes('Assinatura do colaborador'), 'v65 não reproduz a estrutura executiva do holerite');
+assert(dp63.includes("fetch('/rh/lnb-logo.png'") && dp63.includes("doc.addImage(V63.logo,'PNG'"), 'v65 não incorpora o logo oficial da LNB no PDF');
+assert(dp63.includes('VIA DO COLABORADOR') && dp63.includes('VIA DA EMPRESA') && dp63.includes('LINHA DE CORTE'), 'v65 não gera as duas vias na mesma folha');
+assert(dp63.includes('maxRows=22') && dp63.includes('Math.ceil(all.length/maxRows)') && dp63.includes("'Página '+pageNo+'/'+pageCount"), 'v65 não pagina holerites com muitas rubricas');
+assert(dp63.includes('rh63-filter-card') && dp63.includes('Cadastro e quadro') && dp63.includes('Holerites e controles'), 'v65 não distribui filtros e funções em grupos visuais');
 assert(dp63.includes("querySelectorAll('.rh62-row-slip,.rh63-row-actions')"), 'atalhos individuais ainda podem quebrar as linhas de Colaboradores');
 assert(styles.includes('overflow-y:auto') && styles.includes('@media(max-height:850px)'), 'menu lateral não garante acesso em telas com pouca altura');
 assert(wrangler.includes('holerites@liganacionaldebasquete.com.br'), 'remetente de holerites não usa o domínio institucional confirmado');
