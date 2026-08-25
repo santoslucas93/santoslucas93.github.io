@@ -101,4 +101,5 @@ Nenhuma alteração desta versão foi promovida para a branch `principal`.
 - Pacote LNB de rescisão em quatro partes: Resumo Executivo, Memória Analítica, TRCT detalhado e Recibo/Assinaturas.
 - Todos os documentos recebem a identidade e o logo oficial da Liga Nacional de Basquete.
 - Geração integralmente reversível: não salva férias, não efetiva rescisão e não altera o status do colaborador.
+- Correção do seletor do simulador de férias para acompanhar o carregamento assíncrono da base e repopular automaticamente a lista de colaboradores.
 - Alteração restrita ao staging; produção permanece intacta.

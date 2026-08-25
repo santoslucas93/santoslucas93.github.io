@@ -11,6 +11,7 @@
 - [x] Logo oficial da LNB em todas as páginas dos dois pacotes.
 - [x] Encargos patronais excluídos dos recibos entregues ao colaborador.
 - [x] Simulações e exportações não salvam nem efetivam movimentações.
+- [x] Seletor do simulador de férias repopulado automaticamente quando os colaboradores terminam de carregar.
 
 ## Objetivo
 Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qualquer publicação na branch `principal`.
