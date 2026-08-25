@@ -9,7 +9,7 @@ export default {
     if (request.method === 'GET' && (url.pathname === '/orcado/' || url.pathname === '/orcado/index.html')) return handleOrcadoComPermissoes(request, env);
     if (request.method === 'GET' && (url.pathname === '/beneficios/' || url.pathname === '/beneficios/index.html')) return handleBeneficiosComRastreabilidade(request, env);
     if (request.method === 'GET' && (url.pathname === '/rh/' || url.pathname === '/rh/index.html')) return handleRhHtml(request, env);
-    if (request.method === 'GET' && url.pathname === '/revisao-ids.html') return handleGenericHtml(request, env);
+    if (request.method === 'GET' && (url.pathname === '/revisao-ids' || url.pathname === '/revisao-ids.html')) return handleGenericHtml(request, env);
     if (request.method === 'GET' && url.pathname === '/rh/app.js') return handleRhAppPatch(request, env);
     return env.ASSETS.fetch(request);
   }
