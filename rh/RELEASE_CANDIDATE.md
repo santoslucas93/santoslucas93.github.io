@@ -12,6 +12,7 @@
 - [x] Encargos patronais excluídos dos recibos entregues ao colaborador.
 - [x] Simulações e exportações não salvam nem efetivam movimentações.
 - [x] Seletor do simulador de férias repopulado automaticamente quando os colaboradores terminam de carregar.
+- [x] Lista de colaboradores lida diretamente do estado interno do módulo, sem dependência de variável global inexistente.
 
 ## Objetivo
 Consolidar a Fase 1 de Folha e Administração de Pessoal no staging antes de qualquer publicação na branch `principal`.

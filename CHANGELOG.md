@@ -102,4 +102,5 @@ Nenhuma alteração desta versão foi promovida para a branch `principal`.
 - Todos os documentos recebem a identidade e o logo oficial da Liga Nacional de Basquete.
 - Geração integralmente reversível: não salva férias, não efetiva rescisão e não altera o status do colaborador.
 - Correção do seletor do simulador de férias para acompanhar o carregamento assíncrono da base e repopular automaticamente a lista de colaboradores.
+- Ajuste da leitura do estado interno do RH: o simulador deixa de depender de `window.S`, que não existe no bundle isolado do módulo.
 - Alteração restrita ao staging; produção permanece intacta.
