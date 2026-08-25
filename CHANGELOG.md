@@ -2,6 +2,19 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v74 (25/08/2026)
+
+- Permissões passa a abrir por **crachá**, com fluxo didático em três etapas: escolher, definir e revisar antes de salvar.
+- **Acessos por Módulo** torna-se a tela principal; escopo do Orçado, permissões especiais e usuários do crachá permanecem como áreas complementares.
+- Cada permissão pode ser marcada individualmente com estado visual de checkbox, sem perder a indicação Permitido/Bloqueado.
+- Inclusão de comandos para liberar ou bloquear uma **coluna inteira**, uma **linha inteira** ou **todas as permissões do módulo**, incluindo permissões especiais quando o módulo inteiro é liberado.
+- Filtro por módulo e contadores em tempo real mostram quantas permissões estão liberadas em cada módulo e coluna.
+- Nova ação **Desfazer última ação** recupera uma seleção individual ou em massa; a troca de crachá avisa sobre alterações não salvas.
+- Antes da gravação, uma revisão informa liberações, bloqueios, detalhes e todos os usuários impactados pelo crachá.
+- O próprio crachá pode ser atribuído a um usuário na aba **Usuários deste Crachá**, com validade opcional.
+- Testes automatizados cobrem seleção por módulo, coluna, linha, desfazer, revisão e preservação do CRUD de usuários e perfis.
+- Alteração restrita à branch `staging`; produção permanece sem esta nova interface.
+
 ## Staging — v73 (25/08/2026)
 
 - Gestão de **Usuários** ampliada com criação de conta, edição de nome/e-mail/status/validade, concessão de perfil inicial e exclusão confirmada pelo e-mail.
