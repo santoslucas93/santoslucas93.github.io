@@ -104,3 +104,13 @@ Nenhuma alteração desta versão foi promovida para a branch `principal`.
 - Correção do seletor do simulador de férias para acompanhar o carregamento assíncrono da base e repopular automaticamente a lista de colaboradores.
 - Ajuste da leitura do estado interno do RH: o simulador deixa de depender de `window.S`, que não existe no bundle isolado do módulo.
 - Alteração restrita ao staging; produção permanece intacta.
+## Staging — v71 (25/08/2026)
+
+- Composição automática da base de férias a partir do salário vigente, adicionais salariais recorrentes e médias variáveis detectadas no histórico.
+- Rubricas de dupla função, adicional de função, gratificação de função, insalubridade e periculosidade incorporadas automaticamente quando presentes na última folha.
+- Origem e competência de cada base remuneratória exibidas na tela e no pacote PDF.
+- Conferência entre valores importados e valores utilizados, com destaque para ajustes manuais.
+- Checklist de dados obrigatórios e documentais antes da emissão do pacote completo.
+- Histórico reversível das prévias na sessão, com estados Rascunho e Conferida, sem efetivar férias ou alterar cadastros.
+- Teste específico confirma que o adicional de dupla função de 20% integra a base de férias.
+- Alteração restrita ao staging; produção permanece intacta.

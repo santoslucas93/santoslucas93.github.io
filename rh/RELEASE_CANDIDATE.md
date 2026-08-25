@@ -1,5 +1,16 @@
 # RH & Folha — Release Candidate da Fase 1
 
+## Remuneração automática das férias — v71
+
+- [x] Salário-base vigente carregado da última folha importada.
+- [x] Adicional de dupla função de 20% e demais adicionais recorrentes incorporados automaticamente.
+- [x] Médias variáveis dos meses disponíveis incluídas na base de férias.
+- [x] Origem, competência e composição da remuneração exibidas para conferência.
+- [x] Ajustes manuais permitidos e destacados como divergência.
+- [x] Checklist documental antes da geração do pacote.
+- [x] Histórico reversível da sessão com estados Rascunho e Conferida.
+- [x] Pacote PDF registra salário, adicionais, média e origem da base.
+
 ## Pacotes documentais e simulador de férias — v70
 
 - [x] Simulador de férias tão detalhado quanto o simulador de rescisão.

@@ -1,0 +1,17 @@
+'use strict';
+const fs=require('fs');
+const vm=require('vm');
+const assert=require('assert');
+const source=fs.readFileSync('runtime-patches/rh-folha-hotfix-v71-remuneracao-ferias.inc.js','utf8');
+const document={readyState:'loading',body:{},head:{appendChild(){}},addEventListener(){},getElementById(){return null},querySelector(){return null},createElement(){return{}}};
+const sessionStorage={getItem(){return null},setItem(){}};
+const context={window:{},document,sessionStorage,MutationObserver:function(){this.observe=function(){}},setTimeout(){},Intl,Date,Number,Math,String,Array,Object,Promise,console};
+vm.createContext(context);vm.runInContext(source,context,{filename:'rh-v71.js'});
+assert.strictEqual(context.window.RH_VACATION_REMUNERATION_V71,true);
+assert.strictEqual(typeof context.window.rhV71ComposeRemuneration,'function');
+const lucas={id:'lucas',nome:'LUCAS SOUZA DOS SANTOS',salario:6789};
+let x=context.window.rhV71ComposeRemuneration(lucas,{latest:{id:'folha',salario:6789,_comp:'2026-07-01'},recurring:[{codigo:'2001',nome:'ADICIONAL DUPLA FUNÇÃO 20%',valor:1357.8}],variableAvg:0,last:'2026-07-01'});
+assert.deepStrictEqual({salary:x.salary,fixed:x.fixed,average:x.average,base:x.base,competence:x.competence},{salary:6789,fixed:1357.8,average:0,base:8146.8,competence:'2026-07'});
+x=context.window.rhV71ComposeRemuneration(lucas,{latestLaunches:[{tipo:'P',rubrica_nome:'ADICIONAL DUPLA FUNÇÃO 20%',valor:1357.8}]});
+assert.strictEqual(x.fixed,1357.8,'fallback deve reconhecer dupla função');
+console.log('RH v71 remuneration: OK');
