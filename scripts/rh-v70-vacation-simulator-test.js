@@ -13,6 +13,9 @@ assert.strictEqual(typeof context.window.rhV70SyncPeople,'function','sincroniza�
 context.S.pessoas=[{id:'1',nome:'COLABORADOR TESTE'}];
 assert.strictEqual(context.window.S,undefined,'o teste deve manter o estado fora de window');
 assert.strictEqual(context.window.rhV70People().length,1,'colaborador do escopo interno não foi localizado');
+context.S.pessoas=[{id:'1',nome:'ATIVO NO PERÍODO',situacao:'Trabalhando'},{id:'2',nome:'DESLIGADO NO PERÍODO',situacao:'Trabalhando'},{id:'3',nome:'AFASTADO',situacao:'Afastado'}];
+context.S.colaboradores=[{id:'1',nome:'ATIVO ATUAL',situacao:'Trabalhando'},{id:'2',nome:'DESLIGADO ATUAL',situacao:'Desligado'},{id:'3',nome:'AFASTADO',situacao:'Afastado'}];
+assert.strictEqual(context.window.rhV70People().map(p=>p.nome).join('|'),'ATIVO ATUAL','férias deve listar somente a situação atual Trabalhando');
 let x=context.window.rhV70CalculateVacation({salary:6000,days:30,cashDays:0});
 assert.deepStrictEqual({base:x.base,gross:x.gross,inss:x.inss,irrf:x.irrf,net:x.net,employer:x.employer,cost:x.cost},{base:6000,gross:8000,inss:921.51,irrf:1037.85,net:6040.64,employer:2864,cost:10864});
 x=context.window.rhV70CalculateVacation({salary:3000,days:20,cashDays:10,advance13:true});

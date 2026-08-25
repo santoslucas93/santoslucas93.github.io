@@ -1,5 +1,17 @@
 # RH & Folha — Release Candidate da Fase 1
 
+## Estabilidade, elegibilidade e leitura salarial — v72
+
+- [x] Seleção de colaborador em Férias protegida contra carregamentos recursivos.
+- [x] Férias mostra somente colaboradores com situação Trabalhando.
+- [x] Rescisões mostra somente colaboradores com situação Trabalhando.
+- [x] Coluna Salário atual usa a última folha mensal importada.
+- [x] Consulta de salários atuais é única por competência e reutilizada por cache.
+- [x] Bruto, Encargos e Líquido deixam claro que se referem ao período filtrado.
+- [x] Tabela permanece utilizável em larguras menores por meio de rolagem horizontal controlada.
+- [x] Estado do provedor de holerites é consultado no Worker e exposto na ação de envio.
+- [ ] Ativar provedor/binding de e-mail para liberar o disparo externo dos holerites.
+
 ## Remuneração automática das férias — v71
 
 - [x] Salário-base vigente carregado da última folha importada.

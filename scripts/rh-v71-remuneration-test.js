@@ -9,6 +9,7 @@ const context={window:{},document,sessionStorage,MutationObserver:function(){thi
 vm.createContext(context);vm.runInContext(source,context,{filename:'rh-v71.js'});
 assert.strictEqual(context.window.RH_VACATION_REMUNERATION_V71,true);
 assert.strictEqual(typeof context.window.rhV71ComposeRemuneration,'function');
+assert(source.includes("if(V71.loadingId===pid)return")&&source.includes("!V71.loadingId)hydrate71"),'proteção contra reentrada do carregamento não encontrada');
 const lucas={id:'lucas',nome:'LUCAS SOUZA DOS SANTOS',salario:6789};
 let x=context.window.rhV71ComposeRemuneration(lucas,{latest:{id:'folha',salario:6789,_comp:'2026-07-01'},recurring:[{codigo:'2001',nome:'ADICIONAL DUPLA FUNÇÃO 20%',valor:1357.8}],variableAvg:0,last:'2026-07-01'});
 assert.deepStrictEqual({salary:x.salary,fixed:x.fixed,average:x.average,base:x.base,competence:x.competence},{salary:6789,fixed:1357.8,average:0,base:8146.8,competence:'2026-07'});

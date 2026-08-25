@@ -1,0 +1,16 @@
+'use strict';
+const fs=require('fs');
+const vm=require('vm');
+const assert=require('assert');
+const source=fs.readFileSync('runtime-patches/rh-folha-hotfix-v72-estabilidade-colaboradores.inc.js','utf8');
+const document={readyState:'loading',body:{},head:{appendChild(){}},addEventListener(){},getElementById(){return null},createElement(){return{}}};
+const context={window:{},document,MutationObserver:function(){this.observe=function(){}},setTimeout(){},clearTimeout(){},Intl,Date,Number,Math,String,Array,Object,Map,Promise,console,Event:function(){}};
+vm.createContext(context);vm.runInContext(source,context,{filename:'rh-v72.js'});
+assert.strictEqual(context.window.RH_PEOPLE_STABILITY_V72,true,'marcador v72 ausente');
+assert.strictEqual(context.window.rhV72IsWorking({situacao:'Trabalhando'}),true);
+assert.strictEqual(context.window.rhV72IsWorking({situacao:'Desligado'}),false);
+assert.strictEqual(context.window.rhV72IsWorking({situacao:'Afastado'}),false);
+assert.strictEqual(context.window.rhV72IsWorking({situacao:'Férias'}),false);
+assert(source.includes('Salário atual')&&source.includes('Bruto no período'),'novas colunas não foram encontradas');
+assert(source.includes('salaryLoading')&&source.includes('V71.loadingId')===false,'a consulta salarial deve possuir cache próprio');
+console.log('RH v72 people stability: OK');

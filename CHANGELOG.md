@@ -2,6 +2,16 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v72 (25/08/2026)
+
+- Eliminada a reentrada que reiniciava continuamente o carregamento da remuneração ao selecionar um colaborador no simulador de férias.
+- Seletores de Férias e Rescisões limitados à situação funcional **Trabalhando**; desligados, afastados, pessoas em férias e licenças não aparecem.
+- Coluna **Salário atual** adicionada em Colaboradores, baseada na última folha mensal importada e carregada em uma única consulta com cache.
+- Coluna **Bruto** renomeada para **Bruto no período**, com Encargos e Líquido também identificados como valores do período filtrado.
+- Grade de Colaboradores protegida por largura mínima e rolagem horizontal responsiva, evitando compressão ou quebra das informações.
+- Auditoria do ambiente confirmou que a geração de holerites está pronta, mas o envio externo permanece desativado enquanto o Worker não possuir um provedor/binding de e-mail configurado.
+- Alteração restrita ao staging; produção permanece intacta.
+
 ## Staging — v69 (25/08/2026)
 
 - Corrigida a ausência do botão **Recibo para assinatura** no layout atual de Rescisões.
