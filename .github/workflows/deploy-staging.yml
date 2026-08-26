@@ -85,6 +85,7 @@ jobs:
             runtime-patches/rh-folha-hotfix-v70-pacotes-ferias-rescisao.inc.js \
             runtime-patches/rh-folha-hotfix-v71-remuneracao-ferias.inc.js \
             runtime-patches/rh-folha-hotfix-v72-estabilidade-colaboradores.inc.js \
+            runtime-patches/rh-folha-hotfix-v73-edicao-completa-colaboradores.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
@@ -125,7 +126,8 @@ jobs:
             'RH_DOCUMENT_PACKAGES_V70', 'rhV70CalculateVacation', 'rhV70SyncPeople', 'Pacote completo LNB', 'AVISO DE FÉRIAS', 'TERMO DE RESCISÃO DO CONTRATO DE TRABALHO',
             'RH_VACATION_REMUNERATION_V71', 'rhV71ComposeRemuneration', 'Base carregada automaticamente', 'Histórico reversível desta sessão',
             'RH_PEOPLE_STABILITY_V72', 'rhV72IsWorking', 'Salário atual', 'Bruto no período',
-            
+            'RH_EDIT_V73', 'rh_atualizar_colaborador', 'rh73-edit-form', 'Editar cadastro',
+
             ]) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);
           }
