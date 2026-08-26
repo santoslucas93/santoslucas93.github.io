@@ -1,5 +1,35 @@
 # RH & Folha — Release Candidate da Fase 1
 
+## Provisões oficiais e estabilidade — v80
+
+- [x] Férias 07/2026 conciliadas ao Domínio: saldo-base de R$ 170.076,04, encargos de R$ 55.345,02 e custo de R$ 225.421,06.
+- [x] 13º 07/2026 conciliado ao Domínio: saldo-base de R$ 56.678,14, encargos de R$ 17.824,43 e custo de R$ 74.502,57.
+- [x] Provisão regular, ajuste/diferença, provisionado no mês e saldo atual preservados por colaborador.
+- [x] INSS Empresa, RAT, Terceiros, FGTS e PIS discriminados individualmente.
+- [x] Estagiários sem encargos patronais nas provisões oficiais.
+- [x] Desligados históricos de saldo zero preservados na fonte, mas ocultos do quadro atual de planejamento.
+- [x] Pop-ups sem repetição do salário para cada encargo.
+- [x] PDF e Excel priorizam a composição oficial com base e encargos individualizados.
+- [x] Simulador de férias, exportações e recibos preservados na mesma aba.
+- [x] Carregamento oficial evita a consulta legada por colaborador e elimina o padrão N+1 na competência conciliada.
+- [x] Coluna Líquido no período protegida contra renderização tardia.
+- [x] Funções de edição fechadas para `PUBLIC/anon` e mantidas para usuários autenticados autorizados.
+- [ ] Validar visualmente a URL publicada de staging com perfil autorizado antes de qualquer promoção.
+
+## Edição e governança de períodos — v79
+
+- [x] Folha importada editável por colaborador enquanto a competência estiver aberta.
+- [x] Salário, horas, rubricas, bases e valores tributários disponíveis na edição controlada.
+- [x] Proventos, descontos, informativas e líquido recalculados a partir das rubricas.
+- [x] Competência conferida/conciliada retorna para Importado após edição.
+- [x] Competência fechada somente pode ser editada após reabertura justificada.
+- [x] Próxima Folha possui estados Aberto e Encerrado independentes da folha importada.
+- [x] Ajuste geral e parâmetros individuais da Próxima Folha exigem período aberto e justificativa.
+- [x] Permissões separadas para editar cada folha, encerrar e reabrir período.
+- [x] Alterações registram usuário, motivo e estado anterior/novo na auditoria.
+- [x] Migração validada transacionalmente e testes de regressão incluídos nos workflows.
+- [ ] Validar o fluxo completo com um perfil restrito no staging antes da produção.
+
 ## Correção visual da composição tributária — v78
 
 - [x] Colunas de formação da base e alíquota possuem larguras independentes e não se sobrepõem.

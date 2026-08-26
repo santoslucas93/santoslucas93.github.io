@@ -70,6 +70,7 @@ function editModal73(id){
 
 async function saveEdit73(form){
   var id=form.dataset.employee,b=el73('rh73-edit-save');
+  var salaryRaw=value73('rh73-salario');
   var body={
     p_colaborador_id:id,
     p_nome:value73('rh73-nome'),
@@ -83,7 +84,7 @@ async function saveEdit73(form){
     p_data_nascimento:iso73(value73('rh73-nascimento')),
     p_email:value73('rh73-email')||null,
     p_telefone:value73('rh73-telefone')||null,
-    p_salario_base:parseMoney73(value73('rh73-salario'))||null,
+    p_salario_base:salaryRaw===''?null:parseMoney73(salaryRaw),
     p_jornada_horas_semanais:num73(value73('rh73-jornada'))||null,
     p_gestor:value73('rh73-gestor')||null,
     p_opta_vale_transporte:!!(el73('rh73-vt')||{}).checked,
@@ -138,4 +139,3 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'&&el73('rh73-
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){if(S.competencia)addEditButtons73()});
 else if(S.competencia)addEditButtons73();
 })();
-

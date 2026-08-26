@@ -2,6 +2,30 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v80 (26/08/2026)
+
+- Provisões de férias e 13º da competência 07/2026 passam a usar os demonstrativos oficiais do Domínio como saldo de abertura conciliado.
+- Cards exibem saldo provisionado, provisão do mês, encargos sobre saldo e custo total exatamente como nos relatórios contábeis.
+- Composição individual separa base provisionada, INSS Empresa, RAT, Terceiros, FGTS, PIS e custo total; estagiários permanecem sem encargos patronais.
+- Pop-ups mostram provisão regular, ajuste/diferença, provisionado no mês e saldo atual sem repetir o salário em cada imposto.
+- PDF e Excel priorizam a tabela oficial e levam a base e todos os encargos individuais para os relatórios emitidos.
+- Simulador de férias, barra de exportação e recibos são preservados; a camada oficial não substitui mais todo o conteúdo da aba.
+- Planejamento continua limitado ao quadro atual, enquanto os registros históricos permanecem preservados na fonte oficial.
+- Corrigido o agendamento tardio da coluna **Líquido no período**, evitando que ela só apareça após nova renderização.
+- RPCs de edição foram endurecidas contra execução por `PUBLIC/anon`, mantendo acesso somente a usuários autenticados com permissão interna válida.
+- Alteração restrita ao staging; produção permanece intacta.
+
+## Staging — v79 (26/08/2026)
+
+- Folha importada passa a permitir edição individual de salário, horas, rubricas, bases de INSS/FGTS/IRRF e valores de FGTS/IRRF para usuários autorizados.
+- Próxima Folha passa a ter período próprio, com ajuste geral persistido, edição individual auditada e estados **Aberto** e **Encerrado**.
+- Competências conferidas ou conciliadas voltam automaticamente para **Importado** após uma edição e exigem nova conferência.
+- Períodos encerrados ficam bloqueados; a edição somente é liberada após reabertura explícita e justificada.
+- Novas permissões granulares: **Editar folha importada**, **Editar Próxima Folha**, **Encerrar período** e **Reabrir período**.
+- Toda edição, encerramento ou reabertura registra usuário, motivo e informações anteriores/novas na auditoria.
+- Totais da competência importada são recalculados de forma transacional após a edição individual.
+- Alteração restrita ao staging; produção permanece intacta.
+
 ## Staging — v78 (25/08/2026)
 
 - Corrigida a sobreposição entre **Ver composição** e a coluna **Alíquota** nos pop-ups tributários.

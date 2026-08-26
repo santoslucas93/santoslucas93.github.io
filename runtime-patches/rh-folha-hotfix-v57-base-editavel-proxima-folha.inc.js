@@ -4,7 +4,7 @@
 
 var V57={
   loaded:false,loading:null,rendering:false,latest:null,competences:[],contexts:[],params:new Map(),
-  snapshot:null,target:'',timer:0,roster:[]
+  snapshot:null,target:'',timer:0,roster:[],period:{status:'aberto',ajuste_geral_percentual:0}
 };
 var TAX57={
   versao:'2026.1',vigencia:'01/2026',dependente:189.59,simplificado:607.20,
@@ -35,6 +35,9 @@ function isIntern57(p){return /ESTAG/.test(norm57(p&&p.vinculo_snapshot||p&&p.vi
 function isApprentice57(p){return /APRENDIZ/.test(norm57(p&&p.vinculo_snapshot||p&&p.vinculo))}
 function activePlan57(){var p=Array.from(document.querySelectorAll('#page-planejamento [data-plan-pane]')).find(function(x){return !x.hidden&&getComputedStyle(x).display!=='none'});return p&&p.dataset.planPane||''}
 function allowedAdmin57(){try{return canAdmin()}catch(e){return false}}
+function allowedEditImported57(){try{return can('editar_folha_importada')}catch(e){return false}}
+function allowedEditForecast57(){try{return can('editar_proxima_folha')}catch(e){return false}}
+function forecastOpen57(){return String(V57.period&&V57.period.status||'aberto')!=='encerrado'}
 function warning57(msg){try{toast(msg,true)}catch(e){alert(msg)}}
 function ok57(msg){try{toast(msg)}catch(e){}}
 
@@ -56,9 +59,10 @@ async function load57(force){
       api('rh_colaboradores?select=*'),
       api('rh_folha_colaboradores?competencia_id=in.'+inIds+'&select=*'),
       api('rh_lancamentos?competencia_id=in.'+inIds+'&select=*'),
-      api('rh_projecao_parametros?competencia=eq.'+encodeURIComponent(target)+'&select=*').catch(function(){return []})
+      api('rh_projecao_parametros?competencia=eq.'+encodeURIComponent(target)+'&select=*').catch(function(){return []}),
+      rpc('rh_projecao_periodo',{p_competencia:target}).catch(function(){return{competencia:target,status:'aberto',ajuste_geral_percentual:0}})
     ]);
-    var people=responses[0]||[],folhas=responses[1]||[],launches=responses[2]||[],params=responses[3]||[];
+    var people=responses[0]||[],folhas=responses[1]||[],launches=responses[2]||[],params=responses[3]||[],period=responses[4]||{};
     var byPerson={},byComp={},byFolha={},compMap={};
     people.forEach(function(p){byPerson[String(p.id)]=p});comps.forEach(function(c){compMap[String(c.id)]=c});
     launches.forEach(function(l){(byFolha[String(l.folha_colaborador_id)]||(byFolha[String(l.folha_colaborador_id)]=[])).push(l)});
@@ -71,6 +75,7 @@ async function load57(force){
       contexts.push({person:p,latest:f,history:byComp[String(f.colaborador_id)]||[],latestLaunches:f._launches||[]})
     });
     V57.params=new Map();params.forEach(function(p){V57.params.set(String(p.colaborador_id),p)});
+    V57.period=Object.assign({competencia:target,status:'aberto',ajuste_geral_percentual:0},period);var adjust=E57('rh-plan-adjust');if(adjust)adjust.value=n57(V57.period.ajuste_geral_percentual);
     V57.latest=latest;V57.competences=comps;V57.contexts=contexts;V57.target=target;V57.loaded=true
   })().finally(function(){V57.loading=null});
   return V57.loading
@@ -150,7 +155,7 @@ function snapshot57(){
 }
 
 function table57(t){
-  var admin=allowedAdmin57();
+  var admin=allowedEditForecast57()&&forecastOpen57();
   return '<div class="table-wrap"><table class="rh57-table"><thead><tr><th>Colaborador</th><th>Departamento</th><th class="money">Salário-base</th><th class="money">Proventos previstos</th><th class="money">Descontos calculados</th><th class="money">Líquido previsto</th><th class="money">Encargos empresa</th><th class="money">Custo previsto</th></tr></thead><tbody>'+t.rows.map(function(r){return '<tr data-rh57-row="'+esc57(r.id)+'"><td><b>'+esc57(r.nome)+'</b><small class="rh57-row-meta">'+esc57(r.vinculo)+(r.vacPrev?' · férias na base anterior':'')+(r.vacDays?' · '+r.vacDays+' dia(s) de férias projetados':'')+'</small>'+(admin?'<button type="button" class="rh57-mini" data-rh57-adjust="'+esc57(r.id)+'">Ajustar cálculo</button>':'')+'</td><td>'+esc57(r.departamento)+'</td><td class="money">'+money57(r.salary)+'</td><td class="money">'+money57(r.proventos)+'</td><td class="money">'+money57(r.descontos)+'</td><td class="money"><b>'+money57(r.liquido)+'</b></td><td class="money">'+money57(r.encargos)+'</td><td class="money"><b>'+money57(r.custo)+'</b></td></tr>'}).join('')+'</tbody><tfoot><tr><td><b>TOTAL</b></td><td></td><td></td><td class="money"><b>'+money57(t.proventos)+'</b></td><td class="money"><b>'+money57(t.descontos)+'</b></td><td class="money"><b>'+money57(t.liquido)+'</b></td><td class="money"><b>'+money57(t.encargos)+'</b></td><td class="money"><b>'+money57(t.custo)+'</b></td></tr></tfoot></table></div>'
 }
 function summaryCard57(label,value,note,key,featured){return '<button type="button" class="rh47-summary-card rh57-summary-card '+(featured?'featured':'')+'" data-rh57-key="'+key+'" data-rh-authoritative-total="1"><span>'+esc57(label)+'</span><strong>'+money57(value)+'</strong><small>'+esc57(note)+'</small></button>'}
@@ -176,19 +181,19 @@ function installSummary57(t){
       taxLine57('TERC','Terceiros',baseEmp,rr.terceiros,t.terceiros,'Razão da competência-base')+
       taxLine57('PIS','PIS sobre folha',baseEmp,rr.pis,t.pis,'Razão da competência-base')+
       taxLine57('FGTS','FGTS',baseFgts,baseFgts?t.fgts/baseFgts:0,t.fgts,'8% por trabalhador; 2% aprendiz')+
-    '</article></div><div class="rh47-audit"><b>Auditoria da projeção</b><span class="ok">Tabela tributária '+TAX57.versao+' · vigente desde '+TAX57.vigencia+'</span><span class="ok">'+t.count+' pessoas do quadro atual</span><span class="'+(t.vacationCount?'warn':'ok')+'">Férias detectadas na base: '+t.vacationCount+'</span><span class="ok">Salários editáveis com trilha de auditoria</span></div>';
+    '</article></div><div class="rh47-audit"><b>Auditoria da projeção</b><span class="ok">Tabela tributária '+TAX57.versao+' · vigente desde '+TAX57.vigencia+'</span><span class="ok">'+t.count+' pessoas do quadro atual</span><span class="'+(t.vacationCount?'warn':'ok')+'">Férias detectadas na base: '+t.vacationCount+'</span><span class="'+(forecastOpen57()?'ok':'warn')+'">Período '+(forecastOpen57()?'aberto para edição':'encerrado e protegido')+'</span></div>';
   k.insertAdjacentElement('afterend',box)
 }
 function renderTable57(t){var pane=document.querySelector('[data-plan-pane="folha"]'),host=E57('rh-plan-folha-table');if(!pane||!host)return;var title=E57('rh-plan-next-title');if(title)title.textContent='Previsão da folha · '+comp57(t.target);var badge=pane.querySelector('.source-badge');if(badge)badge.textContent='Salário vigente · impostos 2026 · base '+comp57(V57.latest&&V57.latest.competencia);host.innerHTML=table57(t)}
 
 async function refresh57(force){
   if(V57.rendering)return;V57.rendering=true;
-  try{await load57(!!force);if(!V57.loaded)return;var pane=document.querySelector('[data-plan-pane="folha"]');if(!pane)return;var t=snapshot57();V57.snapshot=t;renderTable57(t);installSummary57(t);enhancePayroll57();ensureWorkforceButton57()}catch(e){warning57('Não foi possível recalcular a próxima folha: '+(e.message||e))}finally{V57.rendering=false}
+  try{await load57(!!force);if(!V57.loaded)return;var pane=document.querySelector('[data-plan-pane="folha"]');if(!pane)return;var t=snapshot57();V57.snapshot=t;renderTable57(t);installSummary57(t);enhancePayroll57();ensureWorkforceButton57();document.dispatchEvent(new CustomEvent('rh:v57:rendered',{detail:{target:V57.target,period:V57.period}}))}catch(e){warning57('Não foi possível recalcular a próxima folha: '+(e.message||e))}finally{V57.rendering=false}
 }
 function schedule57(ms,force){clearTimeout(V57.timer);V57.timer=setTimeout(function(){refresh57(force)},ms==null?80:ms)}
 
 function enhancePayroll57(){
-  if(!allowedAdmin57())return;var body=E57('payroll-rows');if(!body)return;Array.from(body.rows||[]).forEach(function(tr,i){var p=(S.pessoas||[])[i],cell=tr.cells&&tr.cells[1];if(!p||!cell||cell.querySelector('.rh57-salary-edit'))return;var b=document.createElement('button');b.type='button';b.className='rh57-salary-edit';b.dataset.rh57Salary=String(p.id||'');b.dataset.rh57Person=personKey57(p);b.dataset.rh57Name=p.nome||'';b.dataset.rh57Value=String(n57(p.salario));b.title='Editar salário bruto desta competência';b.innerHTML='<span>'+money57(p.salario)+'</span><small>Editar salário bruto</small>';cell.textContent='';cell.appendChild(b)})
+  if(!allowedEditImported57()||/FECHADO|ARQUIVADO/.test(norm57(S.competencia&&S.competencia.status)))return;var body=E57('payroll-rows');if(!body)return;Array.from(body.rows||[]).forEach(function(tr,i){var p=(S.pessoas||[])[i],cell=tr.cells&&tr.cells[1];if(!p||!cell||cell.querySelector('.rh57-salary-edit'))return;var b=document.createElement('button');b.type='button';b.className='rh57-salary-edit';b.dataset.rh57Salary=String(p.id||'');b.dataset.rh57Person=personKey57(p);b.dataset.rh57Name=p.nome||'';b.dataset.rh57Value=String(n57(p.salario));b.title='Editar salário bruto desta competência';b.innerHTML='<span>'+money57(p.salario)+'</span><small>Editar salário bruto</small>';cell.textContent='';cell.appendChild(b)})
 }
 function ensureWorkforceButton57(){
   if(!allowedAdmin57())return;var page=E57('page-colaboradores'),head=page&&page.querySelector('.page-head');if(!head||E57('rh57-workforce'))return;var actions=head.querySelector('.head-actions');if(!actions){actions=document.createElement('div');actions.className='head-actions';head.appendChild(actions)}var b=document.createElement('button');b.type='button';b.id='rh57-workforce';b.className='button secondary admin-only';b.textContent='Gerenciar quadro atual';actions.appendChild(b)
@@ -289,12 +294,12 @@ async function saveSalary57(b){
 }
 function parameterModal57(id){
   var r=V57.snapshot&&V57.snapshot.rows.find(function(x){return x.id===String(id)});if(!r)return;var p=r.param||{};
-  openModal57('Parâmetros da próxima folha',r.nome,'<div class="rh57-form grid"><label>Dependentes para IRRF<input id="rh57-p-deps" type="number" min="0" max="20" value="'+esc57(p.dependentes_irrf==null?r.inferredDependents:p.dependentes_irrf)+'"></label><label>Dias de férias em '+esc57(comp57(V57.target))+'<input id="rh57-p-vac" type="number" min="0" max="30" value="'+esc57(n57(p.dias_ferias_proxima))+'"></label><label>Dias de abono pecuniário<input id="rh57-p-cash" type="number" min="0" max="10" value="'+esc57(n57(p.dias_abono_proxima))+'"></label><label>Pensão alimentícia<input id="rh57-p-pension" inputmode="decimal" value="'+esc57(n57(p.pensao_alimenticia).toFixed(2).replace('.',','))+'"></label><label>Outras deduções legais do IRRF<input id="rh57-p-deduct" inputmode="decimal" value="'+esc57(n57(p.outras_deducoes_irrf).toFixed(2).replace('.',','))+'"></label><label>Outros descontos da folha<input id="rh57-p-other" inputmode="decimal" value="'+esc57(n57(p.outros_descontos).toFixed(2).replace('.',','))+'"></label><label>Observação<input id="rh57-p-note" maxlength="220" value="'+esc57(p.observacao||'')+'" placeholder="Opcional"></label><div class="rh57-form-note">Salário-base: <b>'+money57(r.salary)+'</b>. Férias projetadas geram dias de férias, 1/3, adiantamento e impostos; o abono fica fora das bases de INSS, FGTS e IRRF. '+(r.vacPrev?'As rubricas da competência-base não são repetidas automaticamente.':'Nenhuma rubrica regular de férias foi detectada na competência-base.')+'</div><button type="button" class="button primary" id="rh57-param-save" data-person="'+esc57(r.id)+'">Salvar parâmetros e recalcular</button></div>',720)
+  openModal57('Parâmetros da próxima folha',r.nome,'<div class="rh57-form grid"><label>Dependentes para IRRF<input id="rh57-p-deps" type="number" min="0" max="20" value="'+esc57(p.dependentes_irrf==null?r.inferredDependents:p.dependentes_irrf)+'"></label><label>Dias de férias em '+esc57(comp57(V57.target))+'<input id="rh57-p-vac" type="number" min="0" max="30" value="'+esc57(n57(p.dias_ferias_proxima))+'"></label><label>Dias de abono pecuniário<input id="rh57-p-cash" type="number" min="0" max="10" value="'+esc57(n57(p.dias_abono_proxima))+'"></label><label>Pensão alimentícia<input id="rh57-p-pension" inputmode="decimal" value="'+esc57(n57(p.pensao_alimenticia).toFixed(2).replace('.',','))+'"></label><label>Outras deduções legais do IRRF<input id="rh57-p-deduct" inputmode="decimal" value="'+esc57(n57(p.outras_deducoes_irrf).toFixed(2).replace('.',','))+'"></label><label>Outros descontos da folha<input id="rh57-p-other" inputmode="decimal" value="'+esc57(n57(p.outros_descontos).toFixed(2).replace('.',','))+'"></label><label>Observação<input id="rh57-p-note" maxlength="220" value="'+esc57(p.observacao||'')+'" placeholder="Opcional"></label><label>Motivo da alteração<input id="rh57-p-reason" maxlength="220" placeholder="Obrigatório para auditoria"></label><div class="rh57-form-note">Salário-base: <b>'+money57(r.salary)+'</b>. Férias projetadas geram dias de férias, 1/3, adiantamento e impostos; o abono fica fora das bases de INSS, FGTS e IRRF. '+(r.vacPrev?'As rubricas da competência-base não são repetidas automaticamente.':'Nenhuma rubrica regular de férias foi detectada na competência-base.')+'</div><button type="button" class="button primary" id="rh57-param-save" data-person="'+esc57(r.id)+'">Salvar parâmetros e recalcular</button></div>',720)
 }
 async function saveParams57(b){
-  var body={p_colaborador_id:b.dataset.person,p_competencia:V57.target,p_dependentes_irrf:n57((E57('rh57-p-deps')||{}).value),p_pensao_alimenticia:parseBr57((E57('rh57-p-pension')||{}).value),p_outras_deducoes_irrf:parseBr57((E57('rh57-p-deduct')||{}).value),p_outros_descontos:parseBr57((E57('rh57-p-other')||{}).value),p_dias_ferias_proxima:n57((E57('rh57-p-vac')||{}).value),p_dias_abono_proxima:n57((E57('rh57-p-cash')||{}).value),p_observacao:String((E57('rh57-p-note')||{}).value||'').trim()||null};
+  var body={p_colaborador_id:b.dataset.person,p_competencia:V57.target,p_dependentes_irrf:n57((E57('rh57-p-deps')||{}).value),p_pensao_alimenticia:parseBr57((E57('rh57-p-pension')||{}).value),p_outras_deducoes_irrf:parseBr57((E57('rh57-p-deduct')||{}).value),p_outros_descontos:parseBr57((E57('rh57-p-other')||{}).value),p_dias_ferias_proxima:n57((E57('rh57-p-vac')||{}).value),p_dias_abono_proxima:n57((E57('rh57-p-cash')||{}).value),p_observacao:String((E57('rh57-p-note')||{}).value||'').trim()||null,p_motivo:String((E57('rh57-p-reason')||{}).value||'').trim()};
   if(body.p_dependentes_irrf<0||body.p_dependentes_irrf>20||body.p_dias_ferias_proxima<0||body.p_dias_ferias_proxima>30||body.p_dias_abono_proxima<0||body.p_dias_abono_proxima>10)return warning57('Revise os parâmetros informados.');
-  b.disabled=true;try{await rpc('rh_salvar_parametros_projecao',body);closeModal57();ok57('Parâmetros salvos.');V57.loaded=false;await refresh57(true)}catch(e){warning57(e.message||String(e))}finally{b.disabled=false}
+  if(!body.p_motivo)return warning57('Informe o motivo da alteração.');b.disabled=true;try{await rpc('rh_salvar_parametros_projecao_v2',body);closeModal57();ok57('Parâmetros salvos e auditados.');V57.loaded=false;await refresh57(true)}catch(e){warning57(e.message||String(e))}finally{b.disabled=false}
 }
 
 async function rosterModal57(){

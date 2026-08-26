@@ -29,6 +29,6 @@ function install72(){if(V72.installing)return;V72.installing=true;try{style72();
 function schedule72(){if(V72.installing)return;clearTimeout(V72.timer);V72.timer=setTimeout(install72,70)}
 try{var base72=renderPeople;renderPeople=function(){var r=base72.apply(this,arguments);try{var body=E72('employee-rows'),table=body&&body.closest('table');if(table){header72(table);rows72(table)}}catch(e){}schedule72();return r}}catch(e){}
 var mo72=new MutationObserver(schedule72);
-function init72(){install72();[250,800,1600].forEach(function(ms){setTimeout(install72,70)});mo72.observe(document.body,{childList:true,subtree:true})}
+function init72(){install72();[250,800,1600].forEach(function(ms){setTimeout(install72,ms)});mo72.observe(document.body,{childList:true,subtree:true})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init72);else init72();
 })();

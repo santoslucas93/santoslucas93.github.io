@@ -9,6 +9,7 @@ const workflow = read('.github/workflows/deploy-staging.yml');
 const baseline = read('runtime-patches/rh-folha-stability-baseline.inc.js');
 const ui = read('runtime-patches/rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
 const reports = read('runtime-patches/rh-folha-hotfix-v40-relatorios-executivos.inc.js');
+const reportCenter = read('runtime-patches/rh-folha-hotfix-v41-central-relatorios.inc.js');
 const stability40 = read('runtime-patches/rh-folha-hotfix-v40a-runtime-stability.inc.js');
 const stability41 = read('runtime-patches/rh-folha-hotfix-v41a-report-center-stability.inc.js');
 
@@ -21,6 +22,8 @@ const taxComposition46b = read('runtime-patches/rh-folha-hotfix-v46b-impostos-co
 const planningForecast = read('runtime-patches/rh-folha-hotfix-v47-auditoria-integral.inc.js');
 const planningDetails = read('runtime-patches/rh-folha-hotfix-v48-estabilidade-popups.inc.js');
 const forecast57 = read('runtime-patches/rh-folha-hotfix-v57-base-editavel-proxima-folha.inc.js');
+const periodEdit79 = read('runtime-patches/rh-folha-hotfix-v79-edicao-periodos.inc.js');
+const officialProvisions80 = read('runtime-patches/rh-folha-hotfix-v80-provisoes-oficiais.inc.js');
 const sourceCards = read('runtime-patches/rh-folha-hotfix-v8.inc.js');
 const popupTotals13 = read('runtime-patches/rh-folha-hotfix-v13-cards-popup-totais.inc.js');
 const popupGrid20 = read('runtime-patches/rh-folha-hotfix-v20-popup-totals-grid.inc.js');
@@ -50,6 +53,11 @@ assert(orderTax46b > orderV40a && orderTax46b < orderV47, 'composição tributá
 assert(workflow.indexOf('rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js') > workflow.indexOf('rh-folha-hotfix-v60-status-cor-desligado.inc.js'), 'v61 precisa ser carregado depois da correção de status v60');
 assert(workflow.indexOf('rh-folha-hotfix-v62-fluxos-independentes.inc.js') > workflow.indexOf('rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js'), 'v62 precisa neutralizar o v61 depois de seu carregamento');
 assert(workflow.indexOf('rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js') > workflow.indexOf('rh-folha-hotfix-v62-fluxos-independentes.inc.js'), 'v63 precisa assumir holerites e controles depois do v62');
+assert(workflow.indexOf('rh-folha-hotfix-v79-edicao-periodos.inc.js') > workflow.indexOf('rh-folha-hotfix-v73-edicao-completa-colaboradores.inc.js'), 'v79 precisa carregar após a edição cadastral v73');
+assert(workflow.indexOf('rh-folha-hotfix-v80-provisoes-oficiais.inc.js') > workflow.indexOf('rh-folha-hotfix-v79-edicao-periodos.inc.js'), 'v80 precisa carregar após o controle de períodos');
+assert(reportCenter.includes("pane.querySelector('table.rh80-table')"), 'relatórios de provisão não priorizam a composição oficial');
+assert(!officialProvisions80.includes('pane.innerHTML=cards80'), 'v80 apaga ferramentas existentes do painel de férias');
+assert(officialProvisions80.includes("child.id==='rh70-vacation-simulator'") && officialProvisions80.includes("child.classList.contains('rh41-export-bar')"), 'v80 não preserva simulador e exportações');
 assert(workflow.includes('rh-folha-hotfix-v41a-report-center-stability.inc.js'), 'v41a/v42 precisa estar no release candidate');
 assert(!workflow.includes('rh-folha-hotfix-v37-ativos-cards-provisoes.inc.js'), 'v37 obsoleto ainda está sendo carregado');
 assert(!workflow.includes('rh-folha-hotfix-v30-planejamento-tabelas.inc.js'), 'v30 obsoleto não pode voltar ao release');
@@ -264,6 +272,10 @@ assert(forecast57.includes('regularIrrfDeduction') && forecast57.includes('vacat
 assert(forecast57.includes('openBaseMemory57') && forecast57.includes('taxCols57') && forecast57.includes('table-layout:fixed'), 'v57 não protege as colunas tributárias contra sobreposição');
 assert(!forecast57.includes('<details class="rh57-base-memory">'), 'v57 voltou a expandir a composição dentro da célula e pode sobrepor a alíquota');
 assert(forecast57.includes('taxBaseGroups57') && forecast57.includes('Uma linha por colaborador') && forecast57.includes('Sem repetição'), 'v57 voltou a repetir a mesma base em várias linhas do mesmo colaborador');
+for (const marker of ['RH_PERIOD_EDIT_V79','editar_folha_importada','editar_proxima_folha','encerrar_periodo','reabrir_periodo','rh_editar_folha_colaborador','rh_reabrir_competencia','rh_atualizar_status_projecao']) assert(periodEdit79.includes(marker), `v79 sem controle obrigatório: ${marker}`);
+assert(!periodEdit79.includes('MutationObserver'), 'v79 não deve observar continuamente o DOM');
+for (const marker of ['RH_OFFICIAL_PROVISIONS_V80','rh_provisoes_oficiais','COMPOSIÇÃO OFICIAL POR COLABORADOR','Conciliado com o Domínio']) assert(officialProvisions80.includes(marker), `v80 sem parâmetro oficial obrigatório: ${marker}`);
+assert(!officialProvisions80.includes('MutationObserver'), 'v80 não deve criar observador contínuo');
 
 /* Simulador de salário v68: candidato separado do quadro e custo integral auditável. */
 assert(workflow.includes('rh-folha-hotfix-v68-simulador-salario.inc.js'), 'v68 não está no release candidate');
