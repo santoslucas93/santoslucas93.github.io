@@ -25,10 +25,10 @@ async function enhancePeople72(){var body=E72('employee-rows'),table=body&&body.
 window.rhV72EnhancePeople=enhancePeople72;
 async function emailStatus72(){if(V72.emailChecked)return;var b=E72('rh63-email-batch');if(!b)return;V72.emailChecked=true;try{var r=await fetch('/api/config',{cache:'no-store'}),cfg=await r.json();b.dataset.rh72Email=cfg.RH_EMAIL_CONFIGURED?'ready':'pending';b.title=cfg.RH_EMAIL_CONFIGURED?'Envio automático configurado via '+String(cfg.RH_EMAIL_PROVIDER||'provedor seguro'):'Geração pronta; provedor de envio ainda não configurado no Worker'}catch(e){V72.emailChecked=false}}
 function style72(){if(E72('_rh72'))return;var s=document.createElement('style');s.id='_rh72';s.textContent='#employee-rows{font-variant-numeric:tabular-nums}#employee-rows tr td.rh72-current-salary{font-weight:800;color:var(--gold-2);white-space:nowrap}#page-colaboradores .table-wrap>table{min-width:1120px}#page-colaboradores .table-wrap{overflow-x:auto}#page-colaboradores th.money,#page-colaboradores td.money{white-space:nowrap}#rh63-email-batch[data-rh72-email="pending"]{border-style:dashed}@media(max-width:1250px){#page-colaboradores .table-wrap>table{min-width:1080px}}';document.head.appendChild(s)}
-function install72(){style72();filterPlanning72();enhancePeople72();emailStatus72()}
-function schedule72(){clearTimeout(V72.timer);V72.timer=setTimeout(install72,70)}
-try{var base72=renderPeople;renderPeople=function(){var r=base72.apply(this,arguments);schedule72();return r}}catch(e){}
+function install72(){if(V72.installing)return;V72.installing=true;try{style72();filterPlanning72();enhancePeople72();emailStatus72()}finally{setTimeout(function(){V72.installing=false},0)}}
+function schedule72(){if(V72.installing)return;clearTimeout(V72.timer);V72.timer=setTimeout(install72,70)}
+try{var base72=renderPeople;renderPeople=function(){var r=base72.apply(this,arguments);try{var body=E72('employee-rows'),table=body&&body.closest('table');if(table){header72(table);rows72(table)}}catch(e){}schedule72();return r}}catch(e){}
 var mo72=new MutationObserver(schedule72);
-function init72(){install72();[250,800,1600].forEach(function(ms){setTimeout(install72,ms)});mo72.observe(document.body,{childList:true,subtree:true})}
+function init72(){install72();[250,800,1600].forEach(function(ms){setTimeout(install72,70)});mo72.observe(document.body,{childList:true,subtree:true})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init72);else init72();
 })();
