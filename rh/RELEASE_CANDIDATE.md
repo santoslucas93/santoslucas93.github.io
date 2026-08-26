@@ -1,5 +1,16 @@
 # RH & Folha — Release Candidate da Fase 1
 
+## Formação auditável das bases — v77
+
+- [x] Cada imposto individual possui memória da formação de sua base, sem recalcular ou substituir o total aprovado.
+- [x] Bases previdenciária, patronal, PIS e FGTS discriminam salário proporcional, adicionais recorrentes, férias e 1/3 incidentes.
+- [x] Base do IRRF separa remuneração regular, férias e as deduções utilizadas em cada apuração.
+- [x] Abono pecuniário e 1/3 do abono são identificados como verbas fora da base quando existentes.
+- [x] Pop-ups individuais e consolidados permitem abrir a composição por colaborador.
+- [x] PDF Executivo registra a formação da base em cada linha da memória tributária.
+- [x] Excel Executivo inclui a coluna **Formação da base** na aba **Bases por Imposto**.
+- [x] Fórmulas, incidências, arredondamentos e totais da Próxima Folha preservados.
+
 ## Memória tributária individual — v76
 
 - [x] Base de cálculo individual exibida em todos os impostos da Próxima Folha.

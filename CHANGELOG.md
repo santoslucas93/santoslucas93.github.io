@@ -2,6 +2,17 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v77 (25/08/2026)
+
+- Cada base tributária individual passa a apresentar sua **formação completa**, sem alterar os valores calculados.
+- INSS dos segurados, INSS patronal, RAT, Terceiros, PIS e FGTS discriminam salário proporcional, verbas salariais recorrentes, férias e 1/3 constitucional incidentes.
+- IRRF separa remuneração regular, férias e as respectivas deduções legais ou simplificadas que formam a base final.
+- Abono pecuniário e 1/3 do abono aparecem expressamente como verbas fora das bases quando existirem.
+- Os pop-ups dos impostos recebem a ação **Ver composição** por colaborador.
+- O PDF Executivo e a aba **Bases por Imposto** do Excel passam a registrar a formação da base e as exclusões individuais.
+- Motor tributário, critérios de incidência, arredondamentos e totais da v76 permanecem inalterados.
+- Alteração restrita ao staging; produção permanece intacta.
+
 ## Staging — v76 (25/08/2026)
 
 - Pop-ups individuais da Próxima Folha passam a exibir **base de cálculo, alíquota aplicada/efetiva, regra e valor** para INSS dos segurados, IRRF, INSS patronal, RAT, Terceiros, PIS e FGTS.
