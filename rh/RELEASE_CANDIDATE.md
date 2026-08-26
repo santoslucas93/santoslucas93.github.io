@@ -1,5 +1,16 @@
 # RH & Folha — Release Candidate da Fase 1
 
+## Correção visual da composição tributária — v78
+
+- [x] Colunas de formação da base e alíquota possuem larguras independentes e não se sobrepõem.
+- [x] Botão **Ver composição** permanece integralmente dentro de sua célula.
+- [x] Cards consolidados exibem uma linha por colaborador e agrupam impostos que compartilham a mesma base.
+- [x] Salário e formação da base não são repetidos em INSS patronal, RAT, Terceiros, PIS e FGTS.
+- [x] Detalhe da base abre em janela própria e não altera a altura das linhas da tabela.
+- [x] Componentes incidentes, exclusões, equação, alíquota e imposto permanecem didáticos e legíveis.
+- [x] Janela fecha pelo botão, clique externo ou tecla `Esc` sem fechar indevidamente o pop-up principal.
+- [x] Motor tributário, totais e exportações da v77 preservados.
+
 ## Formação auditável das bases — v77
 
 - [x] Cada imposto individual possui memória da formação de sua base, sem recalcular ou substituir o total aprovado.

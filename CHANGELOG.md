@@ -2,6 +2,17 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v78 (25/08/2026)
+
+- Corrigida a sobreposição entre **Ver composição** e a coluna **Alíquota** nos pop-ups tributários.
+- Tabelas de impostos passam a usar larguras explícitas e layout fixo, preservando alinhamento em diferentes resoluções.
+- Cards consolidados passam a mostrar **uma única linha por colaborador**, sem repetir salário e formação para cada encargo que utiliza a mesma base.
+- INSS patronal, RAT, Terceiros, PIS e FGTS continuam discriminados dentro da linha, com total individual conciliado ao total do card.
+- A composição deixa de expandir dentro da célula e passa a abrir em uma janela de detalhe própria, sem aumentar ou deformar a linha da tabela.
+- A nova janela separa componentes incidentes, verbas fora da base, equação, alíquota e valor do imposto.
+- Correção exclusivamente visual e de interação; cálculos, totais, PDF e Excel permanecem inalterados.
+- Alteração restrita ao staging; produção permanece intacta.
+
 ## Staging — v77 (25/08/2026)
 
 - Cada base tributária individual passa a apresentar sua **formação completa**, sem alterar os valores calculados.

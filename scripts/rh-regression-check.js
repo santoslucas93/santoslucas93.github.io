@@ -261,6 +261,9 @@ assert(forecast57.includes("taxGroupModal57('Impostos retidos',['INSS_EMP','IRRF
 assert(forecast57.includes('taxDetail57') && forecast57.includes('Base de cálculo') && forecast57.includes('Memória tributária individual') && forecast57.includes('Bases por Imposto'), 'v57 não expõe a memória de base individual nos pop-ups e relatórios');
 assert(forecast57.includes('taxBaseMemory57') && forecast57.includes('taxBaseMemoryHtml57') && forecast57.includes('Formação da base') && forecast57.includes('Ver composição') && forecast57.includes('Fora da base'), 'v57 não explica a formação individual das bases nos pop-ups e relatórios');
 assert(forecast57.includes('regularIrrfDeduction') && forecast57.includes('vacationIrrfDeduction'), 'v57 não separa as deduções da folha e das férias na formação da base do IRRF');
+assert(forecast57.includes('openBaseMemory57') && forecast57.includes('taxCols57') && forecast57.includes('table-layout:fixed'), 'v57 não protege as colunas tributárias contra sobreposição');
+assert(!forecast57.includes('<details class="rh57-base-memory">'), 'v57 voltou a expandir a composição dentro da célula e pode sobrepor a alíquota');
+assert(forecast57.includes('taxBaseGroups57') && forecast57.includes('Uma linha por colaborador') && forecast57.includes('Sem repetição'), 'v57 voltou a repetir a mesma base em várias linhas do mesmo colaborador');
 
 /* Simulador de salário v68: candidato separado do quadro e custo integral auditável. */
 assert(workflow.includes('rh-folha-hotfix-v68-simulador-salario.inc.js'), 'v68 não está no release candidate');
