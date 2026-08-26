@@ -89,6 +89,7 @@ jobs:
             runtime-patches/rh-folha-hotfix-v74-chat-perguntas-prontas.inc.js \
             runtime-patches/rh-folha-hotfix-v79-edicao-periodos.inc.js \
             runtime-patches/rh-folha-hotfix-v80-provisoes-oficiais.inc.js \
+            runtime-patches/rh-folha-hotfix-v81-popup-provisoes-oficiais.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
