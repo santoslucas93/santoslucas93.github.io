@@ -77,5 +77,14 @@ assert(/if\(\/fgts\/\.test\(q\)&&!\/quantos\|quantas\/\.test\(q\)\)/.test(source
 assert(!/fetch\(/.test(source),'v74 não deve fazer chamadas de rede — deve continuar 100% local');
 assert(source.includes('não há Gemini'),'resposta honesta sobre não usar Gemini não encontrada');
 
+/* regressão visual v82: sugestões não podem roubar a área da conversa nem criar rolagem horizontal */
+assert(source.includes("#ai-body{min-width:0;min-height:140px;overflow-x:hidden}"),'área mínima e overflow horizontal do histórico não protegidos');
+assert(source.includes("#rh74-more{display:none"),'painel adicional deve iniciar recolhido');
+assert(source.includes("#rh74-more.open{display:flex}"),'painel adicional deve abrir sob demanda');
+assert(source.includes("overflow-x:hidden"),'proteção contra rolagem horizontal ausente');
+assert(source.includes("▾ Mais perguntas")&&source.includes("▴ Menos perguntas"),'controle expansível das perguntas ausente');
+assert(source.includes("aria-expanded")&&source.includes("aria-controls"),'estado acessível do painel expansível ausente');
+assert(source.includes("repairSavedPanel74")&&source.includes("localStorage.removeItem(key)"),'reparo das dimensões persistidas inválidas ausente');
+
 console.log('RH v74 chat suggestions: OK');
 
