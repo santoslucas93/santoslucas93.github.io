@@ -13,6 +13,7 @@ Este arquivo é o índice humano das mudanças. O detalhamento funcional e os cr
 - Planejamento continua limitado ao quadro atual, enquanto os registros históricos permanecem preservados na fonte oficial.
 - Corrigido o agendamento tardio da coluna **Líquido no período**, evitando que ela só apareça após nova renderização.
 - RPCs de edição foram endurecidas contra execução por `PUBLIC/anon`, mantendo acesso somente a usuários autenticados com permissão interna válida.
+- O workflow de staging reconstrói o bundle e executa a regressão completa antes de publicar a URL de preview.
 - Alteração restrita ao staging; produção permanece intacta.
 
 ## Staging — v79 (26/08/2026)
