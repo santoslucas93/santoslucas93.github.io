@@ -120,29 +120,26 @@ var EXTRA_TUTORIAL74=[
   'Esse chat usa Gemini ou outra IA?'
 ];
 function style74(){
-  if(document.getElementById('_rh74'))return;var s=document.createElement('style');s.id='_rh74';
-  s.textContent='#rh74-more{display:none;flex-wrap:wrap;gap:6px;max-height:170px;overflow-y:auto;padding:10px 12px;border-top:1px solid var(--line-soft)}'
-    +'#rh74-more.open{display:flex}'
-    +'#rh74-more button{flex:none;border:1px solid var(--line-soft);border-radius:999px;background:var(--surface);color:var(--muted);font-size:10px;padding:7px 9px;cursor:pointer}'
-    +'#rh74-more .rh74-cat{flex-basis:100%;margin:4px 0 0;font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}'
-    +'#ai-suggestions button[data-rh74-toggle]{font-weight:800}';
-  document.head.appendChild(s);
+if(document.getElementById('_rh74'))return;var s=document.createElement('style');s.id='_rh74';
+s.textContent='#ai-suggestions{max-height:280px;overflow-y:auto}'
++'#rh74-more{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px 4px;border-top:1px solid var(--line-soft)}'
++'#rh74-more button{flex:none;border:1px solid var(--line-soft);border-radius:999px;background:var(--surface);color:var(--muted);font-size:10px;padding:7px 9px;cursor:pointer}'
++'#rh74-more .rh74-cat{flex-basis:100%;margin:4px 0 0;font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}';
+document.head.appendChild(s);
 }
+/* v81: perguntas de dados e de tutorial ficam sempre visiveis, sem exigir um clique extra em "Mais perguntas" - o chat responde em qualquer tela do modulo, nao so quando uma funcao especifica esta aberta. */
 function buildMorePanel74(){
-  var panel=document.createElement('div');panel.id='rh74-more';
-  function cat(label){var c=document.createElement('div');c.className='rh74-cat';c.textContent=label;panel.appendChild(c);}
-  function chip(text){var b=document.createElement('button');b.type='button';b.textContent=text;b.onclick=function(){askAI(text);};panel.appendChild(b);}
-  cat('Dados desta competência');EXTRA74.forEach(chip);
-  cat('Como usar o sistema');EXTRA_TUTORIAL74.forEach(chip);
-  return panel;
+var panel=document.createElement('div');panel.id='rh74-more';
+function cat(label){var c=document.createElement('div');c.className='rh74-cat';c.textContent=label;panel.appendChild(c);}
+function chip(text){var b=document.createElement('button');b.type='button';b.textContent=text;b.onclick=function(){askAI(text);};panel.appendChild(b);}
+cat('Mais dados desta competência');EXTRA74.forEach(chip);
+cat('Como usar o sistema (tutorial)');EXTRA_TUTORIAL74.forEach(chip);
+return panel;
 }
 function suggestions74(){
-  var box=document.getElementById('ai-suggestions');if(!box||box.dataset.rh74==='1')return;box.dataset.rh74='1';
-  style74();
-  var panel=buildMorePanel74();box.insertAdjacentElement('afterend',panel);
-  var toggle=document.createElement('button');toggle.type='button';toggle.textContent='▾ Mais perguntas';toggle.dataset.rh74Toggle='1';
-  toggle.onclick=function(){panel.classList.toggle('open');toggle.textContent=panel.classList.contains('open')?'▴ Menos perguntas':'▾ Mais perguntas';};
-  box.appendChild(toggle);
+var box=document.getElementById('ai-suggestions');if(!box||box.dataset.rh74==='1')return;box.dataset.rh74='1';
+style74();
+var panel=buildMorePanel74();box.insertAdjacentElement('afterend',panel);
 }
 function init74(){suggestions74();[300,900,1800].forEach(function(ms){setTimeout(suggestions74,ms);});}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init74);else init74();
