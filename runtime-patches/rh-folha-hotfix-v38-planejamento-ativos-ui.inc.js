@@ -17,7 +17,7 @@ function contextDate(){var a=(window.RH_PERIOD&&RH_PERIOD.active&&RH_PERIOD.acti
 function removeExecutiveSummary(pane){Array.from(pane.querySelectorAll('article.table-panel')).forEach(function(article){var table=article.querySelector('table'),title=norm((article.querySelector('h2')||{}).textContent),kick=norm((article.querySelector('.panel-kicker')||{}).textContent);if((table&&!table.classList.contains('rh26-wide'))||title.indexOf('centro de custo')>=0||kick==='resumo executivo')article.remove()})}
 function makeNameOnly(kind){
   var pane=document.querySelector('[data-plan-pane="'+kind+'"]');if(!pane)return;removeExecutiveSummary(pane);var table=pane.querySelector('table.rh26-wide');if(!table)return;table.classList.add('rh38-name-list');
-  Array.from(table.querySelectorAll('tbody tr')).forEach(function(tr){if(!isActiveRow(tr))tr.remove()});var thead=table.tHead;if(thead){Array.from(thead.querySelectorAll('.rh30-group-head')).forEach(function(x){x.remove()});if(thead.rows[0]&&thead.rows[0].cells[0])setText(thead.rows[0].cells[0],'Colaborador')}
+  Array.from(table.querySelectorAll('tbody tr')).forEach(function(tr){if(tr.dataset.rh91OfficialIndex==null&&!isActiveRow(tr))tr.remove()});var thead=table.tHead;if(thead){Array.from(thead.querySelectorAll('.rh30-group-head')).forEach(function(x){x.remove()});if(thead.rows[0]&&thead.rows[0].cells[0])setText(thead.rows[0].cells[0],'Colaborador')}
   var article=table.closest('article.table-panel');if(article){setText(article.querySelector('.panel-head h2'),kind==='13'?'Colaboradores — provisão de 13º':'Colaboradores — provisão de férias');setText(article.querySelector('.detail-note'),'Clique no colaborador para abrir a memória de cálculo completa.')}
   var wrap=table.closest('.table-wrap');if(wrap){wrap.classList.remove('rh30-scroll');var prev=wrap.previousElementSibling;if(prev&&prev.classList.contains('rh30-scroll-note'))prev.remove()}
   Array.from(table.querySelectorAll('tbody tr')).forEach(function(tr){var first=tr.cells&&tr.cells[0];if(!first)return;Array.from(first.querySelectorAll('small')).forEach(function(s){s.style.display='none'});first.title='Clique para abrir a memória de cálculo'});
@@ -33,6 +33,7 @@ function activeNote(){var page=E('page-planejamento'),m=typeof window.rhRosterMe
 function memLine(label,value,cls){return '<div'+(cls?' class="'+cls+'"':'')+'><span>'+esc(label)+'</span><b>'+esc(value)+'</b></div>'}
 async function rhProvisionOpenMemory(tr){
   if(!tr)return;var kind=tr.dataset.k,id=String(tr.dataset.id||''),p=person(id),c=tr.cells||[];
+  if(kind==='ferias'&&tr.dataset.rh91OfficialIndex!=null&&typeof window.rhV91OpenVacationMemory==='function')return window.rhV91OpenVacationMemory(Number(tr.dataset.rh91OfficialIndex));
   if(typeof window.rhProvisionRefresh==='function')await window.rhProvisionRefresh();
   var ctx=typeof window.rhV34TerminationContext==='function'?await window.rhV34TerminationContext(id,contextDate()):null;
   var salary=Number(ctx&&ctx.latest&&ctx.latest.salario)||Number(p&&p.salario)||0,rec=(ctx&&ctx.recurring||[]),variable=Number(ctx&&ctx.variableAvg)||0,base=salary+rec.reduce(function(s,x){return s+(Number(x.valor)||0)},0)+variable;
