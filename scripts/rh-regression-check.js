@@ -275,6 +275,8 @@ assert(forecast57.includes('taxBaseGroups57') && forecast57.includes('Uma linha 
 for (const marker of ['RH_PERIOD_EDIT_V79','editar_folha_importada','editar_proxima_folha','encerrar_periodo','reabrir_periodo','rh_editar_folha_colaborador','rh_reabrir_competencia','rh_atualizar_status_projecao']) assert(periodEdit79.includes(marker), `v79 sem controle obrigatório: ${marker}`);
 assert(!periodEdit79.includes('MutationObserver'), 'v79 não deve observar continuamente o DOM');
 for (const marker of ['RH_OFFICIAL_PROVISIONS_V80','rh_provisoes_oficiais','COMPOSIÇÃO OFICIAL POR COLABORADOR','Conciliado com o Domínio']) assert(officialProvisions80.includes(marker), `v80 sem parâmetro oficial obrigatório: ${marker}`);
+const vacationOfficial91=fs.readFileSync('runtime-patches/rh-folha-hotfix-v91-ferias-oficiais.inc.js','utf8');
+for (const marker of ['RH_VACATION_OFFICIAL_MEMORY_V91','rhV91OpenVacationMemory','demonstrativo oficial']) assert(vacationOfficial91.includes(marker), `v91 sem parâmetro de férias obrigatório: ${marker}`);
 assert(!officialProvisions80.includes('MutationObserver'), 'v80 não deve criar observador contínuo');
 
 /* Simulador de salário v68: candidato separado do quadro e custo integral auditável. */
