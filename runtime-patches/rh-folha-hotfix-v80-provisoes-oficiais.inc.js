@@ -40,5 +40,6 @@ document.addEventListener('click',function(e){var t=e.target&&e.target.closest&&
 document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.target.closest('[data-plan-tab="13"],[data-plan-tab="ferias"]'))setTimeout(function(){refresh80(false)},180)},true);
 function init80(){style80();[180,520,1200].forEach(function(ms){setTimeout(function(){refresh80(false)},ms)})}
 window.rhV80Refresh=refresh80;
+window.rhV80OpenCard=openCard80;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init80);else init80();
 })();

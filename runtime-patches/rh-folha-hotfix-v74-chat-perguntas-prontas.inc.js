@@ -1,5 +1,5 @@
 /* RH v74 — Chat IA: mais perguntas prontas (dados) e perguntas de tutorial (uso do sistema).
-   Não conecta nenhum provedor de IA externo — continua 100% local, mesmo padrão do robô original. */
+   A camada local permanece deterministica; o modo hibrido com Gemini e instalado depois pela v83. */
 (function(){
 'use strict';
 
@@ -105,7 +105,7 @@ var TUTORIAL74=[
    a:'Em “Configurações” ficam parâmetros administrativos do RH & Folha. Altere somente dados necessários, revise o impacto no cálculo e preserve a rastreabilidade das mudanças.',
    view:'configuracoes',label:'↗ Ir para Configurações'},
   {t:/gemini|voce usa ia|inteligencia artificial de verdade|esse chat usa ia|usa alguma ia/,
-   a:'Não. Este Chat IA do RH & Folha responde localmente por palavras-chave, usando só os dados já carregados na tela — não há Gemini nem nenhum outro modelo de IA conectado aqui, e nada é enviado para fora do navegador.',
+   a:'Sim. O chat do RH & Folha usa modo híbrido: respostas objetivas e cálculos conhecidos continuam locais; perguntas abertas podem ser analisadas pelo Gemini com um resumo estruturado dos dados autorizados. CPF, e-mail, telefone, dados bancários e documentos não são enviados.',
    view:null,label:null}
 ];
 function tutorialAnswer74(q){

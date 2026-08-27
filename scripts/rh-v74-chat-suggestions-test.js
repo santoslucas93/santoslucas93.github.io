@@ -73,9 +73,9 @@ assert.strictEqual(calls.addAnswer,1,'pergunta sem categoria nova deve continuar
 assert(/quanto foi recolhido de fgts|fgts.*!.*quantos.*quantas|!\/quantos\|quantas\//i.test(source)===false||source.includes('quantos|quantas'),'checagem de regressão da colisão de FGTS deve estar presente no código');
 assert(/if\(\/fgts\/\.test\(q\)&&!\/quantos\|quantas\/\.test\(q\)\)/.test(source),'correção da colisão FGTS/headcount não encontrada no código');
 
-/* não conecta nenhum provedor de IA externo: sem fetch, sem gemini API, resposta honesta sobre isso */
+/* a camada v74 continua sem rede; a v83 adiciona o modo híbrido */
 assert(!/fetch\(/.test(source),'v74 não deve fazer chamadas de rede — deve continuar 100% local');
-assert(source.includes('não há Gemini'),'resposta honesta sobre não usar Gemini não encontrada');
+assert(source.includes('modo híbrido'),'resposta sobre o modo híbrido não encontrada');
 
 /* regressão visual v83: expansão nativa e tutoriais não podem roubar a área da conversa */
 assert(source.includes("#ai-body{min-width:0;min-height:140px;overflow-x:hidden}"),'área mínima e overflow horizontal do histórico não protegidos');

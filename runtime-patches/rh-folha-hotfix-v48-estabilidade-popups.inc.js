@@ -145,6 +145,12 @@ function styles48(){
 function cardRoute48(card){
   if(!card)return false;var pane=card.closest('[data-plan-pane]');if(!pane)return false;var kind=String(pane.dataset.planPane||'');
   if(kind==='rescisao'&&card.closest('#rh26-result')){terminationPopup48(card);return true}
+  /* A grade oficial v80 tem uma estrutura diferente da grade estimada legada.
+     Delegar pelo identificador semantico do card evita reler valores por indice
+     de coluna e, consequentemente, evita totais zerados e nomes desalinhados. */
+  if((kind==='13'||kind==='ferias')&&card.dataset.rh80Card&&typeof window.rhV80OpenCard==='function'){
+    window.rhV80OpenCard(kind,card.dataset.rh80Card);return true
+  }
   if((kind==='13'||kind==='ferias')&&card.classList.contains('kpi')){var l=norm48((card.querySelector('span')||{}).textContent||'');if(/saldo provisionado|provisao do mes|encargo|custo provisionado/.test(l)){provisionPopup48(card,kind);return true}}
   return false
 }
