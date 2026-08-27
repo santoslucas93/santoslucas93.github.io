@@ -154,7 +154,7 @@ jobs:
             'rhV80OfficialCompetence', '_periodCompetencias',
             'rh:v80-rendered', 'rh80-compact', 'rhV80EnsureComposition',
             'rh80-person-list', 'rh80-memory-grid', 'rh80Signature',
-            'official26', 'RH_OFFICIAL_PROVISIONS_V80)return',
+            'official26', 'RH_PLANNING_REFERENCE_UI_V90=true', 'RH_OFFICIAL_PROVISIONS_V80&&!window.RH_PLANNING_REFERENCE_UI_V90',
 
             ]) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);
