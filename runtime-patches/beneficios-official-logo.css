@@ -1,0 +1,4 @@
+/* Beneficios v88 - recorte do emblema circular a partir da marca oficial. */
+.app-header>.lnb-official-emblem{width:58px;height:58px;display:block;flex:0 0 58px;overflow:hidden;position:relative;z-index:2}
+.app-header>.lnb-official-emblem img{display:block;height:58px;width:auto;max-width:none;filter:drop-shadow(0 8px 18px rgba(0,0,0,.28))}
+@media(max-width:700px){.app-header>.lnb-official-emblem{width:48px;height:48px;flex-basis:48px}.app-header>.lnb-official-emblem img{height:48px}}
