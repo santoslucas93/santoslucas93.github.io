@@ -97,15 +97,26 @@ function firstCell48(tr){
   return{name:String(name?name.textContent:c&&c.childNodes[0]&&c.childNodes[0].textContent||c&&c.textContent||'—').trim(),dep:String(dep?dep.textContent:'—').trim()}
 }
 function provisionRows48(kind){
+  /* Fonte prioritaria: demonstrativo oficial ja carregado pela v80. Esta rota
+     tambem atende cliques que ainda chegam pelos cards legados/consolidados,
+     sem depender da ordem ou da quantidade de colunas presentes no DOM. */
+  var official=window.RH_V80_LAST&&(kind==='13'?window.RH_V80_LAST.decimo:window.RH_V80_LAST.ferias);
+  if(official&&Array.isArray(official._rows)&&official._rows.length){
+    return official._rows.map(function(x){var s=x.s||[],parts=s.slice(1,6);return{
+      name:x.name,dep:x.dep,cc:x.cc||'—',pm:n48((x.prov||x.pm||[])[0]),saldo:n48(s[0]),
+      inss:n48(parts[0]),rat:n48(parts[1]),terc:n48(parts[2]),fgts:n48(parts[3]),pis:n48(parts[4]),
+      enc:r248(sum48(parts,function(v){return n48(v)})),custo:n48(s[6]),matricula:String(x.m||'')
+    }})
+  }
   var pane=document.querySelector('[data-plan-pane="'+kind+'"]'),table=pane&&pane.querySelector('table.rh26-wide,table');if(!table)return[];
   return Array.from(table.querySelectorAll('tbody tr')).map(function(tr){
     var c=tr.cells||[],id=firstCell48(tr);if(kind==='13'&&c.length>=16){
       var parts=[parse48(c[10].textContent),parse48(c[11].textContent),parse48(c[12].textContent),parse48(c[13].textContent),parse48(c[14].textContent)];
-      return{name:id.name,dep:id.dep,cc:String(c[1].textContent||'—').trim(),pm:parse48(c[5].textContent),saldo:parse48(c[9].textContent),inss:parts[0],rat:parts[1],terc:parts[2],fgts:parts[3],pis:parts[4],enc:sum48(parts),custo:parse48(c[15].textContent)}
+      return{name:id.name,dep:id.dep,cc:String(c[1].textContent||'—').trim(),pm:parse48(c[5].textContent),saldo:parse48(c[9].textContent),inss:parts[0],rat:parts[1],terc:parts[2],fgts:parts[3],pis:parts[4],enc:r248(sum48(parts,function(v){return n48(v)})),custo:parse48(c[15].textContent)}
     }
     if(kind==='ferias'&&c.length>=19){
       var pp=[parse48(c[13].textContent),parse48(c[14].textContent),parse48(c[15].textContent),parse48(c[16].textContent),parse48(c[17].textContent)];
-      return{name:id.name,dep:id.dep,cc:String(c[1].textContent||'—').trim(),pm:parse48(c[6].textContent),saldo:parse48(c[12].textContent),inss:pp[0],rat:pp[1],terc:pp[2],fgts:pp[3],pis:pp[4],enc:sum48(pp),custo:parse48(c[18].textContent)}
+      return{name:id.name,dep:id.dep,cc:String(c[1].textContent||'—').trim(),pm:parse48(c[6].textContent),saldo:parse48(c[12].textContent),inss:pp[0],rat:pp[1],terc:pp[2],fgts:pp[3],pis:pp[4],enc:r248(sum48(pp,function(v){return n48(v)})),custo:parse48(c[18].textContent)}
     }
     return null
   }).filter(Boolean)
@@ -172,6 +183,7 @@ function init48(){
 }
 window.rhV48TerminationModel=terminationModel48;
 window.rhV48SyncTerminationCards=syncTerminationCards48;
+window.rhV48ProvisionRows=provisionRows48;
 window.RH_STABILITY_V48=true;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init48);else init48();
 })();
