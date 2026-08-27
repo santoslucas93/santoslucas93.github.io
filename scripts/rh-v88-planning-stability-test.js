@@ -11,7 +11,9 @@ assert(v80.includes('function signature80('),'composição sem assinatura idempo
 assert(v80.includes("root.dataset.rh80Signature===sig"),'render oficial ainda remonta o DOM sem mudança de dados');
 assert(v80.includes('rh84-integrity rh84-pending'),'espaço da conferência não é reservado no primeiro desenho');
 assert(v80.includes('rh80-person-list')&&v80.includes('rh80-person-button'),'lista clicável de colaboradores ausente');
-assert(v80.includes('filter(function(x){return x.enc>.005})'),'lista não usa a composição oficial com encargos');
+assert(v80.includes('function eligible80(')&&v80.includes('filter(eligible80)'),'lista não preserva empregados com saldo zero');
+assert(v80.includes("!/estagi/.test(v)"),'lista não separa estagiários da composição provisionável');
+assert(v80.includes('inclusive quando o saldo estiver zerado'),'orientação para provisão zerada ausente');
 for(const marker of ['Base provisionada','Provisão regular do mês','Ajuste / diferença','Total de encargos','Custo provisionado'])assert(v80.includes(marker),`memória individual sem ${marker}`);
 assert(v84.includes("banner.dataset.rh84Markup!==markup"),'conferência ainda redesenha conteúdo idêntico');
 assert(v84.includes('tr.dataset.rh80Matricula'),'integridade não identifica a linha pelo colaborador');
