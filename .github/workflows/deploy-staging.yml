@@ -109,6 +109,7 @@ jobs:
           node scripts/rh-v84-integrity-test.js
           node scripts/rh-v85-popup-official-source-test.js
           node scripts/rh-v86-consolidated-official-test.js
+          node scripts/rh-v87-popup-composition-test.js
           node scripts/hub-auth-transition-test.js
 
           node <<'NODE'
@@ -147,6 +148,7 @@ jobs:
             'RH_PROVISION_INTEGRITY_V84', 'rhV84AuditProvision', 'Integridade conferida automaticamente', 'Divergência no demonstrativo oficial',
             'rhV48ProvisionRows', 'Fonte prioritaria: demonstrativo oficial',
             'rhV80OfficialCompetence', '_periodCompetencias',
+            'rh:v80-rendered', 'rh80-compact', 'rhV80EnsureComposition',
 
             ]) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);
