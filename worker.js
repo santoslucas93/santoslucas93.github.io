@@ -49,7 +49,8 @@ async function handleOrcadoComPermissoes(request, env) {
 async function handleBeneficiosComRastreabilidade(request, env) {
   const asset = await env.ASSETS.fetch(request);
   if (!asset.ok) return asset;
-  return responseHtml(asset, injectBenefitsOfficialLogo(injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(await asset.text(), 'beneficios')))), 'nao-aplicavel');
+  const html = injectBenefitsGranularPermissions(await asset.text());
+  return responseHtml(asset, injectBenefitsOfficialLogo(injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'beneficios')))), 'granular-v90');
 }
 
 async function handleRhHtml(request, env) {
@@ -129,6 +130,41 @@ function injectBenefitsOfficialLogo(html) {
   let out = html;
   if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
   if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;
+  return out;
+}
+
+function injectBenefitsGranularPermissions(html) {
+  const marker = '/* LNB BENEFICIOS PERMISSOES GRANULARES V90 */';
+  if (html.includes(marker)) return html;
+  const sessionAnchor = 'let AUTH_SESSION = null;';
+  const readonlyAnchor = "function isReadOnlyUser(){ return !!(AUTH_SESSION && AUTH_SESSION.role && AUTH_SESSION.role!=='admin'); }";
+  const accessAnchor = "    if(!r.ok) return null;\n    return await r.json();\n  }catch(e){ return null; }\n}\nfunction lnbTemModulo(acesso,recurso){";
+  if (!html.includes(sessionAnchor) || !html.includes(readonlyAnchor) || !html.includes(accessAnchor)) {
+    console.error('Marcadores de permissoes do modulo Beneficios nao encontrados.');
+    return html;
+  }
+  const permissionCode = marker + "\n" +
+    "let LNB_ACCESS = null;";
+  const readonlyCode = [
+    'function lnbCanBenefitsAction(action, resource){',
+    '  const acesso=LNB_ACCESS;',
+    "  if(!acesso)return !!(AUTH_SESSION&&AUTH_SESSION.role==='admin');",
+    "  if(acesso.acesso_total||acesso.permissoes==='*')return true;",
+    '  const permissoes=acesso.permissoes||{};',
+    "  const recurso=resource||'beneficios';",
+    '  const direct=Array.isArray(permissoes[recurso])?permissoes[recurso]:[];',
+    '  const parent=Array.isArray(permissoes.beneficios)?permissoes.beneficios:[];',
+    "  return direct.includes(action)||parent.includes(action)||direct.includes('administrar')||parent.includes('administrar');",
+    '}',
+    "function lnbHasFullBenefitsCrud(){ return ['criar','editar','excluir'].every(function(action){return lnbCanBenefitsAction(action,'beneficios');}); }",
+    'function isReadOnlyUser(){',
+    '  if(LNB_ACCESS)return !lnbHasFullBenefitsCrud();',
+    "  return !!(AUTH_SESSION && AUTH_SESSION.role && AUTH_SESSION.role!=='admin');",
+    '}'
+  ].join('\n');
+  let out = html.replace(sessionAnchor, sessionAnchor + '\n' + permissionCode);
+  out = out.replace(readonlyAnchor, readonlyCode);
+  out = out.replace(accessAnchor, "    if(!r.ok) return null;\n    LNB_ACCESS=await r.json();\n    return LNB_ACCESS;\n  }catch(e){ return null; }\n}\nfunction lnbTemModulo(acesso,recurso){");
   return out;
 }
 
