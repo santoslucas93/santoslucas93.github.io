@@ -49,7 +49,7 @@ async function handleOrcadoComPermissoes(request, env) {
 async function handleBeneficiosComRastreabilidade(request, env) {
   const asset = await env.ASSETS.fetch(request);
   if (!asset.ok) return asset;
-  return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(await asset.text(), 'beneficios'))), 'nao-aplicavel');
+  return responseHtml(asset, injectBenefitsOfficialLogo(injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(await asset.text(), 'beneficios')))), 'nao-aplicavel');
 }
 
 async function handleRhHtml(request, env) {
@@ -115,6 +115,17 @@ function injectIaTraceability(html, moduleName) {
   if (html.includes(marker)) return html;
   const style = '<link rel="stylesheet" href="/runtime-patches/ia-traceability.css?v=2" '+marker+'>';
   const script = `<script src="/runtime-patches/ia-traceability-${moduleName}.js?v=2" ${marker}></` + 'script>';
+  let out = html;
+  if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
+  if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;
+  return out;
+}
+
+function injectBenefitsOfficialLogo(html) {
+  const marker = 'data-lnb-benefits-logo="v88"';
+  if (html.includes(marker)) return html;
+  const style = '<link rel="stylesheet" href="/runtime-patches/beneficios-official-logo.css?v=88" '+marker+'>';
+  const script = '<script src="/runtime-patches/beneficios-official-logo.js?v=88" '+marker+'></' + 'script>';
   let out = html;
   if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
   if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;
