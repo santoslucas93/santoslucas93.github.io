@@ -32,6 +32,7 @@ for(const marker of ['RH_OFFICIAL_PROVISIONS_V80','Saldo provisionado','Provisã
 assert(ui.includes('var official=await refresh80(force);if(official)return true;if(typeof baseRefresh80'), 'provisão oficial deve evitar o carregamento legado N+1');
 assert(!ui.includes('pane.innerHTML=cards80'), 'provisão oficial não pode apagar simulador, exportações e recibos');
 assert(ui.includes("child.id==='rh70-vacation-simulator'") && ui.includes("child.classList.contains('rh41-export-bar')"), 'provisão oficial não preserva simulador e barra de documentos');
-assert(ui.includes("filter(function(q){return active80(map[String(q.m)])})"), 'planejamento oficial não filtra desligados do quadro atual');
-assert(ui.includes('#page-planejamento article.rh80-official{display:block!important}'), 'painel oficial pode ser ocultado pela regra legada');
+assert(ui.includes("rows=(r.colaboradores||[]).map(function(q){return row80(q,map)})"), 'planejamento oficial deve preservar todas as matrículas do demonstrativo');
+assert(!ui.includes('function active80('), 'composição oficial não deve depender do status cadastral atual');
+assert(ui.includes('#page-planejamento article.rh80-official{display:block!important')&&ui.includes('visibility:visible!important'), 'painel oficial pode ser ocultado pela regra legada');
 console.log('RH v80 provision tests: OK');
