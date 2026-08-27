@@ -100,6 +100,7 @@ jobs:
           node scripts/rh-v72-people-stability-test.js
           node scripts/rh-v73-collaborator-edit-test.js
           node scripts/rh-v74-chat-suggestions-test.js
+          node scripts/ia-tutorials-test.js
           node scripts/rh-v79-period-edit-test.js
           node scripts/rh-v80-provision-test.js
           node scripts/hub-auth-transition-test.js
