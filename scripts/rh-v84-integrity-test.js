@@ -1,0 +1,12 @@
+'use strict';
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync('runtime-patches/rh-folha-hotfix-v84-integridade-provisoes.inc.js','utf8');
+const document={readyState:'loading',addEventListener(){},getElementById(){return null},querySelector(){return null},head:{appendChild(){}}};
+const context={window:{rhV80Refresh:async()=>true},document,setTimeout(){},Number,Math,String,Array,Set,Promise,console};
+vm.createContext(context);vm.runInContext(source,context);
+const audit=context.window.rhV84AuditProvision;assert.strictEqual(typeof audit,'function');
+const good={competencia:'2026-07-01',colaboradores:[{m:'2',s:[100,20,1,5.8,8,1,135.8],pm:[10,2,.1,.58,.8,.1,13.58],p:[10,2,.1,.58,.8,.1,13.58]}],totais:{saldo:[100,20,1,5.8,8,1,135.8],mes:[10,2,.1,.58,.8,.1,13.58],provisionado:[10,2,.1,.58,.8,.1,13.58]}};
+assert.strictEqual(audit(good).ok,true,'registro conciliado foi marcado como divergente');
+const bad=JSON.parse(JSON.stringify(good));bad.colaboradores[0].s[6]=0;assert.strictEqual(audit(bad).ok,false,'custo zerado indevido não foi detectado');assert(audit(bad).issues.some(x=>x.matricula==='2'),'matrícula divergente não foi destacada');
+assert(source.includes('Integridade conferida automaticamente')&&source.includes('Divergência no demonstrativo oficial'),'estados visuais ausentes');
+console.log('RH v84 provision integrity: OK');

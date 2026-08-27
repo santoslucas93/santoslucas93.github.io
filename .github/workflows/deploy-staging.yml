@@ -90,6 +90,7 @@ jobs:
             runtime-patches/rh-folha-hotfix-v79-edicao-periodos.inc.js \
             runtime-patches/rh-folha-hotfix-v80-provisoes-oficiais.inc.js \
             runtime-patches/rh-folha-hotfix-v83-gemini-hibrido.inc.js \
+            runtime-patches/rh-folha-hotfix-v84-integridade-provisoes.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
@@ -105,6 +106,7 @@ jobs:
           node scripts/rh-v79-period-edit-test.js
           node scripts/rh-v80-provision-test.js
           node scripts/rh-v83-gemini-encargos-test.js
+          node scripts/rh-v84-integrity-test.js
           node scripts/hub-auth-transition-test.js
 
           node <<'NODE'
@@ -140,6 +142,7 @@ jobs:
             'RH_PERIOD_EDIT_V79', 'rh_editar_folha_colaborador', 'editar_folha_importada', 'rh_reabrir_competencia', 'rh_atualizar_status_projecao',
             'RH_OFFICIAL_PROVISIONS_V80', 'rh_provisoes_oficiais', 'COMPOSIÇÃO OFICIAL POR COLABORADOR', 'Conciliado com o Domínio',
             'RH_GEMINI_HYBRID_V83', 'contextScope', 'Automático · local + Gemini', 'rhV80OpenCard',
+            'RH_PROVISION_INTEGRITY_V84', 'rhV84AuditProvision', 'Integridade conferida automaticamente', 'Divergência no demonstrativo oficial',
 
             ]) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);
