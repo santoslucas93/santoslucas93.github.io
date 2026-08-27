@@ -112,6 +112,8 @@ jobs:
           node scripts/rh-v87-popup-composition-test.js
           node scripts/rh-v88-planning-stability-test.js
           node scripts/rh-v89-planning-render-ownership-test.js
+          node scripts/rh-v90-planning-reference-ui-test.js
+          node scripts/beneficios-granular-permissions-test.js
           node scripts/hub-auth-transition-test.js
 
           node <<'NODE'
