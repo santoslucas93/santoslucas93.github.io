@@ -10,6 +10,31 @@
     prud:{base:'prud',history:'prud-historico',consolidated:'prud-consolidado',baseTarget:'tab-prud',historyTarget:'ben-exec-prud',tableTarget:'tab-prud-consolidado'},
     mob:{base:'mob-cadastros',history:'mob',consolidated:'mob-relatorios',baseTarget:'tab-mob-cadastros',historyTarget:'tab-mob',tableTarget:'tab-mob-relatorios'}
   };
+  const tutorials=[
+    {q:'Como usar o módulo VR/VA/Cesta Básica?',re:/como.*(usar|uso|funciona).*(vr|va|cesta)|tutorial.*(vr|va|cesta)/,dest:{type:'navigate',mod:'vr',tab:'colaboradores',target:'tab-colaboradores'},answer:'No módulo VR/VA/Cesta Básica, mantenha primeiro os Colaboradores; depois faça o Cálculo Mensal, confira o Rateio e registre Pedidos Avulsos quando necessário. A Importação alimenta a base, Painel & Histórico acompanha competências, Dossiê gera a leitura executiva, Consolidado reúne os meses e Configurações guarda os parâmetros.'},
+    {q:'Como usar o módulo Vale Transporte?',re:/como.*(usar|uso|funciona).*(vale transporte|\bvt\b)|tutorial.*(vale transporte|\bvt\b)/,dest:{type:'navigate',mod:'vt',tab:'vt',target:'tab-vt'},answer:'No Vale Transporte, revise Colaboradores VT, tarifa, dias e situação ativa; execute o Cálculo VT e confira o Rateio. Use Pedidos Avulsos para exceções, Importação para atualizar a base, Painel & Histórico e Consolidado para análise, Dossiê para relatório e Configurações VT para os parâmetros do benefício.'},
+    {q:'Como usar o módulo Assistência Médica?',re:/como.*(usar|uso|funciona).*(assist[eê]ncia m[eé]dica|sul ?am[eé]rica|sa[uú]de)|tutorial.*(sa[uú]de|sul ?am[eé]rica)/,dest:{type:'navigate',mod:'med',tab:'med',target:'tab-med'},answer:'Na Assistência Médica SulAmérica, mantenha os Colaboradores Saúde e seus valores, incluindo o IOF quando aplicável. Depois use Cálculo Saúde e Rateio, importe as competências, acompanhe Painel & Histórico, gere o Dossiê, confira o Consolidado e ajuste apenas o necessário em Configurações Saúde.'},
+    {q:'Como usar o módulo Seguro de Vida?',re:/como.*(usar|uso|funciona).*(seguro de vida|prudential)|tutorial.*(seguro de vida|prudential)/,dest:{type:'navigate',mod:'prud',tab:'prud',target:'tab-prud'},answer:'No Seguro de Vida Prudential, revise os colaboradores, vínculos, valores e o departamento de Arbitragem quando aplicável. Execute Cálculo Prudential e Rateio, importe as competências, acompanhe Painel & Histórico, gere o Dossiê, confira o Consolidado e mantenha os parâmetros em Configurações Prudential.'},
+    {q:'Como usar o módulo Mobilidade Corporativa?',re:/como.*(usar|uso|funciona).*(mobilidade|uber|99|corridas)|tutorial.*(mobilidade|corridas)/,dest:{type:'navigate',mod:'mob',tab:'mob',target:'tab-mob'},answer:'Em Mobilidade Corporativa, o Painel resume corridas e custos; Colaboradores e Departamentos mantém o cadastro; Importação recebe os arquivos de Uber e 99; Relatórios permite filtros e detalhamento; e Dossiê consolida a leitura executiva. Confira competência, departamento e colaborador antes de fechar o período.'},
+    {q:'Como usar a Gestão de Benefícios?',re:/como.*(usar|uso|funciona).*(gest[aã]o de benef[ií]cios|m[oó]dulo de benef[ií]cios)|tutorial.*benef[ií]cios/,dest:{type:'navigate',mod:'vr',tab:'colaboradores',target:'tab-colaboradores'},answer:'Comece escolhendo o benefício na tela inicial. Em cada módulo, siga a sequência: cadastro dos colaboradores, cálculo mensal, rateio, importação ou pedidos avulsos quando existirem, conferência no histórico, emissão do dossiê e validação no consolidado. As configurações devem ser alteradas somente quando a regra do benefício mudar.'}
+  ];
+  function tutorialFor(q){const nq=iaNormBen(q);return tutorials.find(t=>t.re.test(nq))||null;}
+  function tutorialPanel(){
+    const host=document.getElementById('ia-sug');if(!host||document.getElementById('ia-tutorial-beneficios'))return;
+    const details=document.createElement('details');details.id='ia-tutorial-beneficios';details.className='ia-tutorials';
+    const summary=document.createElement('summary');summary.textContent='Tutorial dos módulos de Benefícios';details.appendChild(summary);
+    const list=document.createElement('div');list.className='ia-tutorial-list';
+    tutorials.forEach(t=>{const b=document.createElement('button');b.type='button';b.textContent=t.q;b.onclick=function(){const input=document.getElementById('ia-q');if(input)input.value=t.q;window.iaSend();};list.appendChild(b);});
+    details.appendChild(list);host.appendChild(details);
+  }
+  function tutorialAnswer(q,t){
+    const inp=document.getElementById('ia-q');if(inp)inp.value='';
+    if(typeof iaBubble!=='function')return false;
+    iaBubble('eu',q);const bubble=iaBubble('ai',t.answer+'\n\n⚡ Tutorial local do sistema');
+    const box=document.createElement('div');box.className='ia-trace-actions';const b=document.createElement('button');b.type='button';b.className='ia-trace-btn';b.textContent='↗ Abrir módulo';
+    b.onclick=function(){navigate({verified:true,origin:t.dest},'origin');};box.appendChild(b);
+    const src=document.createElement('span');src.className='ia-trace-source';src.textContent='Ajuda · uso do sistema';box.appendChild(src);bubble.parentNode.insertBefore(box,bubble.nextSibling);return true;
+  }
   function monthOf(period){return period&&period.tipo==='mes'?(period.valor||''):'';}
   function traceFor(q,composition){
     const nq=iaNormBen(q).replace(/[^\w\s\/\-]/g,' ').replace(/\s+/g,' ').trim();let mod=iaResolverModulo(nq)||iaModuloAtual();
@@ -126,8 +151,16 @@
     if(typeof window.iaSend!=='function'||typeof window.iaFinalizarResposta!=='function')return setTimeout(install,80);
     installTicketFix();
     installCompositionDrilldown();
-    const send=window.iaSend;window.iaSend=function(){lastQuestion=document.getElementById('ia-q')?.value.trim()||'';return send.apply(this,arguments);};
+    const send=window.iaSend;window.iaSend=function(){
+      lastQuestion=document.getElementById('ia-q')?.value.trim()||'';
+      const tutorial=tutorialFor(lastQuestion);if(tutorial&&tutorialAnswer(lastQuestion,tutorial))return Promise.resolve();
+      return send.apply(this,arguments);
+    };
     const finish=window.iaFinalizarResposta;window.iaFinalizarResposta=function(bubble,text,composition,source){finish.apply(this,arguments);const legacy=bubble.nextElementSibling&&/Ver composição/i.test(bubble.nextElementSibling.textContent||'')?bubble.nextElementSibling:null;if(source==='gemini')sourceOnly(bubble);else addActions(bubble,traceFor(lastQuestion,composition),composition,legacy);};
+    if(typeof window.iaRenderSugestoes==='function'){
+      const renderSug=window.iaRenderSugestoes;window.iaRenderSugestoes=function(){const result=renderSug.apply(this,arguments);tutorialPanel();return result;};
+    }
+    tutorialPanel();
   }
   install();
 })();
