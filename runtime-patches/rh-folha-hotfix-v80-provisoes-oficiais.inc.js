@@ -7,7 +7,14 @@ function E80(id){return document.getElementById(id)}
 function x80(v){try{return esc(v==null?'':v)}catch(e){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}}
 function n80(v){var n=Number(v);return isFinite(n)?n:0}
 function m80(v){try{return fmt(n80(v))}catch(e){return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n80(v))}}
-function comp80(){return String(S.competencia&&S.competencia.competencia||'').slice(0,10)}
+function comp80(){
+  var c=S.competencia||{};
+  if(c._periodConsolidated&&Array.isArray(c._periodCompetencias)){
+    var dates=c._periodCompetencias.map(function(x){return String(x&&x.competencia||'').slice(0,10)}).filter(function(x){return /^\d{4}-\d{2}-\d{2}$/.test(x)&&x.slice(5,7)!=='00'}).sort();
+    if(dates.length)return dates[dates.length-1]
+  }
+  return String(c.competencia||'').slice(0,10)
+}
 function label80(){try{return formatCompetence(comp80())}catch(e){return comp80()||'—'}}
 function sum80(a,from,to){a=a||[];var s=0;for(var i=from||0;i<(to==null?a.length:to);i++)s+=n80(a[i]);return Math.round((s+Number.EPSILON)*100)/100}
 function people80(){var m={};(S.colaboradores||[]).forEach(function(p){if(p.matricula)m[String(p.matricula)]=p});return m}
@@ -41,5 +48,6 @@ document.addEventListener('click',function(e){if(e.target&&e.target.closest&&e.t
 function init80(){style80();[180,520,1200].forEach(function(ms){setTimeout(function(){refresh80(false)},ms)})}
 window.rhV80Refresh=refresh80;
 window.rhV80OpenCard=openCard80;
+window.rhV80OfficialCompetence=comp80;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init80);else init80();
 })();

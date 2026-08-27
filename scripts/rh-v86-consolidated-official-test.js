@@ -1,0 +1,10 @@
+'use strict';
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync('runtime-patches/rh-folha-hotfix-v80-provisoes-oficiais.inc.js','utf8');
+const document={readyState:'loading',addEventListener(){},getElementById(){return null},querySelector(){return null}};
+const context={window:{},document,S:{competencia:{competencia:'0000-00-01',_periodConsolidated:true,_periodCompetencias:[{competencia:'2025-04-01'},{competencia:'2026-06-01'},{competencia:'2026-07-01'}]}},Number,Math,String,Array,Object,Promise,Intl,console,setTimeout(){}};
+vm.createContext(context);vm.runInContext(source,context);
+assert.strictEqual(context.window.rhV80OfficialCompetence(),'2026-07-01','consolidado não selecionou a competência oficial mais recente');
+context.S.competencia={competencia:'2026-06-01'};assert.strictEqual(context.window.rhV80OfficialCompetence(),'2026-06-01','competência mensal foi alterada indevidamente');
+assert(source.includes("rh_provisoes_oficiais?competencia=eq.'+encodeURIComponent(k)"),'consulta oficial deixou de usar a competência resolvida');
+console.log('RH v86 consolidated official competence: OK');
