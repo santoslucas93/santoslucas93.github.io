@@ -27,11 +27,12 @@ function esc84(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){ret
 function render84(kind,record){
   var pane=document.querySelector('[data-plan-pane="'+kind+'"]'),root=pane&&pane.querySelector('.rh80-official-root');if(!root||!record)return;
   var result=audit84(record),banner=root.querySelector('.rh84-integrity');if(!banner){banner=document.createElement('div');banner.className='rh84-integrity';var table=root.querySelector('article.rh80-official');root.insertBefore(banner,table||null)}
-  banner.classList.toggle('ok',result.ok);banner.classList.toggle('error',!result.ok);
-  if(result.ok){banner.innerHTML='<div><b>✓ Integridade conferida automaticamente</b><span>'+result.count+' matrículas · competência '+esc84(label84(result.competencia))+'</span></div><small>Custo total = base provisionada + INSS Empresa + RAT + Terceiros + FGTS + PIS.</small>'}
-  else{var mats=Array.from(new Set(result.issues.map(function(x){return x.matricula})));banner.innerHTML='<div><b>⚠ Divergência no demonstrativo oficial</b><span>Competência '+esc84(label84(result.competencia))+' · matrículas: '+esc84(mats.join(', '))+'</span></div><details><summary>Ver conferência</summary><ul>'+result.issues.map(function(x){return '<li><b>'+esc84(x.matricula)+'</b> — '+esc84(x.motivo)+'</li>'}).join('')+'</ul></details>'}
+  banner.classList.remove('rh84-pending');banner.classList.toggle('ok',result.ok);banner.classList.toggle('error',!result.ok);
+  var markup;if(result.ok){markup='<div><b>✓ Integridade conferida automaticamente</b><span>'+result.count+' matrículas · competência '+esc84(label84(result.competencia))+'</span></div><small>Custo total = base provisionada + INSS Empresa + RAT + Terceiros + FGTS + PIS.</small>'}
+  else{var mats=Array.from(new Set(result.issues.map(function(x){return x.matricula})));markup='<div><b>⚠ Divergência no demonstrativo oficial</b><span>Competência '+esc84(label84(result.competencia))+' · matrículas: '+esc84(mats.join(', '))+'</span></div><details><summary>Ver conferência</summary><ul>'+result.issues.map(function(x){return '<li><b>'+esc84(x.matricula)+'</b> — '+esc84(x.motivo)+'</li>'}).join('')+'</ul></details>'}
+  if(banner.dataset.rh84Markup!==markup){banner.dataset.rh84Markup=markup;banner.innerHTML=markup}
   var bad={};result.issues.forEach(function(x){bad[x.matricula]=true});var rows=record._rows||[];
-  Array.from(root.querySelectorAll('.rh80-table tbody tr')).forEach(function(tr,i){var failed=!!(rows[i]&&bad[String(rows[i].m)]);tr.classList.toggle('rh84-divergent',failed);if(failed)tr.title='Divergência automática detectada para a matrícula '+rows[i].m});
+  Array.from(root.querySelectorAll('.rh80-table tbody tr')).forEach(function(tr){var matricula=String(tr.dataset.rh80Matricula||''),failed=!!bad[matricula];tr.classList.toggle('rh84-divergent',failed);if(failed)tr.title='Divergência automática detectada para a matrícula '+matricula});
   var status=root.querySelector('.panel-head .status');if(status){status.classList.toggle('success',result.ok);status.classList.toggle('warn',!result.ok);status.textContent=result.ok?'Conferido automaticamente':'Divergência detectada'}
   root.dataset.rh84Integrity=result.ok?'ok':'error';
 }
