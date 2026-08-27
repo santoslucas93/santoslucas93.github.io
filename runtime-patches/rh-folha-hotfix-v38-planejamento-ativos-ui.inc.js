@@ -1,7 +1,7 @@
 /* RH v38 — Planejamento: UI aprovada + quadro ativo da stability baseline */
 (function(){
 'use strict';
-var V={obs:null,timer:0};
+var V={timer:0};
 function E(id){return document.getElementById(id)}
 function norm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase()}
 function parseMoney(v){return Number(String(v||'').replace(/R\$|\s/g,'').replace(/\./g,'').replace(',','.'))||0}
@@ -49,9 +49,8 @@ async function rhProvisionOpenMemory(tr){
   }
   var old=E('rh26-modal');if(old)old.remove();document.body.insertAdjacentHTML('beforeend','<div class="rh26-modal" id="rh26-modal"><div class="rh26-card"><button id="rh26-close">×</button><span class="eyebrow">MEMÓRIA DE CÁLCULO</span><h2>'+esc(name)+'</h2><p>'+esc(cc)+(dep?' · '+esc(dep):'')+'</p><div class="rh26-memory">'+html+'</div><h3>Encargos</h3><div class="rh26-memory">'+enc+'</div><p class="detail-note">Base remuneratória = salário vigente + verbas salariais recorrentes + médias variáveis aplicáveis. Valores históricos de salário não reduzem a base atual.</p></div></div>');var close=E('rh26-close');if(close)close.onclick=function(){var modal=E('rh26-modal');if(modal)modal.remove()}
 }
-async function enforceNow(){var page=E('page-planejamento');if(!page)return;if(V.obs)V.obs.disconnect();try{if(typeof window.rhProvisionRefresh==='function')await window.rhProvisionRefresh();makeNameOnly('13');makeNameOnly('ferias');filterForecast();filterTerminationSelect();activeNote();if(typeof window.rhFitAllCardValues==='function')window.rhFitAllCardValues();if(typeof window.rhBaselineCheck==='function')window.rhBaselineCheck()}finally{observePage()}}
+async function enforceNow(){var page=E('page-planejamento');if(!page)return;if(typeof window.rhProvisionRefresh==='function')await window.rhProvisionRefresh();makeNameOnly('13');makeNameOnly('ferias');filterForecast();filterTerminationSelect();activeNote();if(typeof window.rhFitAllCardValues==='function')window.rhFitAllCardValues();if(typeof window.rhBaselineCheck==='function')window.rhBaselineCheck()}
 function schedule(delay){clearTimeout(V.timer);V.timer=setTimeout(function(){Promise.resolve(typeof window.rhRosterLoad==='function'?window.rhRosterLoad(false):null).then(enforceNow).catch(function(e){console.warn('RH v38:',e)})},delay==null?35:delay)}
-function observePage(){var page=E('page-planejamento');if(!page)return;if(!V.obs)V.obs=new MutationObserver(function(muts){if(muts.some(function(m){return m.type==='childList'}))schedule(25)});try{V.obs.observe(page,{childList:true,subtree:true})}catch(e){}}
 function styles(){if(E('_rh38'))return;var s=document.createElement('style');s.id='_rh38';s.textContent='\
 #page-planejamento [data-plan-pane="13"] article.table-panel:has(table:not(.rh26-wide)),#page-planejamento [data-plan-pane="ferias"] article.table-panel:has(table:not(.rh26-wide)){display:none!important}\
 #page-planejamento [data-plan-pane="13"] .rh30-scroll-note,#page-planejamento [data-plan-pane="ferias"] .rh30-scroll-note,#page-planejamento [data-plan-pane="13"] .rh30-group-head,#page-planejamento [data-plan-pane="ferias"] .rh30-group-head{display:none!important}\
@@ -66,7 +65,7 @@ function styles(){if(E('_rh38'))return;var s=document.createElement('style');s.i
 #rh26-modal .rh38-base-total{border-color:color-mix(in srgb,var(--gold) 55%,transparent)!important;background:color-mix(in srgb,var(--gold) 7%,transparent)!important}\
 #rh26-modal .rh38-base-total span,#rh26-modal .rh38-base-total b{color:var(--gold)!important}\
 ';document.head.appendChild(s)}
-function init(){styles();schedule(0);document.addEventListener('click',function(e){if(!e.target||!e.target.closest)return;var tr=e.target.closest('#page-planejamento .rh38-name-list tbody tr.rh26-row');if(tr){e.preventDefault();e.stopImmediatePropagation();rhProvisionOpenMemory(tr).catch(function(err){console.warn('RH memória provisão:',err)});return}if(e.target.closest('#page-planejamento [data-plan-tab]')){schedule(0);schedule(80)}},true);var old=window.renderAll;if(typeof old==='function'&&!old._rh38){var wrapped=function(){var r=old.apply(this,arguments);schedule(0);return r};wrapped._rh38=1;window.renderAll=wrapped}setTimeout(observePage,200)}
+function init(){styles();schedule(0);document.addEventListener('click',function(e){if(!e.target||!e.target.closest)return;var tr=e.target.closest('#page-planejamento .rh38-name-list tbody tr.rh26-row');if(tr){e.preventDefault();e.stopImmediatePropagation();rhProvisionOpenMemory(tr).catch(function(err){console.warn('RH memória provisão:',err)});return}if(e.target.closest('#page-planejamento [data-plan-tab]'))schedule(0)},true);var old=window.renderAll;if(typeof old==='function'&&!old._rh38){var wrapped=function(){var r=old.apply(this,arguments);schedule(0);return r};wrapped._rh38=1;window.renderAll=wrapped}}
 window.rhV38LoadRoster=function(){return typeof window.rhRosterLoad==='function'?window.rhRosterLoad(false):Promise.resolve(null)};window.rhV38EnforcePlanningUI=function(){schedule(0)};window.rhProvisionOpenMemory=rhProvisionOpenMemory;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();

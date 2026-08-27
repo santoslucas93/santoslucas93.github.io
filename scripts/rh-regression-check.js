@@ -75,8 +75,8 @@ assert(ui.includes('rhRosterActiveIds'), 'camada visual não usa a fonte única 
 assert(ui.includes('rhBaselineCheck'), 'camada visual não executa verificação do baseline');
 assert(ui.includes('centro de custo'), 'regra de remoção do resumo por centro de custo ausente');
 assert(ui.includes('rh38-name-list'), 'lista simples de colaboradores não está protegida');
-assert((ui.match(/new MutationObserver/g) || []).length === 1, 'deve existir somente um observer visual no planejamento');
-assert(ui.includes('V.obs.disconnect()'), 'observer visual precisa ser desconectado durante a própria atualização');
+assert(!ui.includes('MutationObserver'), 'planejamento não deve observar o DOM continuamente');
+assert(ui.includes("if(e.target.closest('#page-planejamento [data-plan-tab]'))schedule(0)"), 'planejamento precisa atualizar apenas em eventos conhecidos');
 assert(ui.includes('rhProvisionOpenMemory'), 'memória das provisões precisa usar a base remuneratória recalculada');
 assert(ui.includes('rhV34TerminationContext'), 'memória das provisões precisa buscar verbas recorrentes no motor remuneratório');
 assert(ui.includes('Base remuneratória'), 'memória das provisões precisa exibir a base remuneratória');
