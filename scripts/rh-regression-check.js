@@ -25,6 +25,7 @@ const forecast57 = read('runtime-patches/rh-folha-hotfix-v57-base-editavel-proxi
 const periodEdit79 = read('runtime-patches/rh-folha-hotfix-v79-edicao-periodos.inc.js');
 const officialProvisions80 = read('runtime-patches/rh-folha-hotfix-v80-provisoes-oficiais.inc.js');
 const monthlyProvisions92 = read('runtime-patches/rh-folha-hotfix-v92-motor-provisoes.inc.js');
+const vacationCardOwner93 = read('runtime-patches/rh-folha-hotfix-v93-cards-ferias-oficiais.inc.js');
 const sourceCards = read('runtime-patches/rh-folha-hotfix-v8.inc.js');
 const popupTotals13 = read('runtime-patches/rh-folha-hotfix-v13-cards-popup-totais.inc.js');
 const popupGrid20 = read('runtime-patches/rh-folha-hotfix-v20-popup-totals-grid.inc.js');
@@ -57,8 +58,11 @@ assert(workflow.indexOf('rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js'
 assert(workflow.indexOf('rh-folha-hotfix-v79-edicao-periodos.inc.js') > workflow.indexOf('rh-folha-hotfix-v73-edicao-completa-colaboradores.inc.js'), 'v79 precisa carregar após a edição cadastral v73');
 assert(workflow.indexOf('rh-folha-hotfix-v80-provisoes-oficiais.inc.js') > workflow.indexOf('rh-folha-hotfix-v79-edicao-periodos.inc.js'), 'v80 precisa carregar após o controle de períodos');
 assert(workflow.indexOf('rh-folha-hotfix-v92-motor-provisoes.inc.js') > workflow.indexOf('rh-folha-hotfix-v91-ferias-oficiais.inc.js'), 'v92 precisa carregar após a memória oficial v91');
+assert(workflow.indexOf('rh-folha-hotfix-v93-cards-ferias-oficiais.inc.js') > workflow.indexOf('rh-folha-hotfix-v92-motor-provisoes.inc.js'), 'v93 precisa assumir os cards após o motor mensal v92');
 assert(monthlyProvisions92.includes('RH_MONTHLY_PROVISION_ENGINE_V92')&&monthlyProvisions92.includes('rh_reprocessar_provisoes'), 'motor mensal de provisões não está ligado à interface');
 assert(!monthlyProvisions92.includes('MutationObserver')&&!monthlyProvisions92.includes('setInterval'), 'motor mensal reintroduz atualização contínua no planejamento');
+assert(vacationCardOwner93.includes("wrap93('rhProvisionRefresh')")&&vacationCardOwner93.includes("wrap93('rhV80Refresh')"), 'v93 não encerra ambas as rotas de atualização com os totais oficiais');
+assert(!vacationCardOwner93.includes('MutationObserver')&&!vacationCardOwner93.includes('setInterval'), 'v93 reintroduz atualização contínua no planejamento');
 assert(reportCenter.includes("pane.querySelector('table.rh80-table')"), 'relatórios de provisão não priorizam a composição oficial');
 assert(!officialProvisions80.includes('pane.innerHTML=cards80'), 'v80 apaga ferramentas existentes do painel de férias');
 assert(officialProvisions80.includes("child.id==='rh70-vacation-simulator'") && officialProvisions80.includes("child.classList.contains('rh41-export-bar')"), 'v80 não preserva simulador e exportações');
