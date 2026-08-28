@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liga Nacional de Basquete · Central de Gestão de Colaboradores</title>
+<style>
+  :root{ --azul:#1d4ed8; --azul-esc:#1e3a8a; --verde:#16a34a; --vermelho:#dc2626; --cinza-bg:#f3f4f6; --cinza-borda:#e5e7eb; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif; background:var(--cinza-bg); color:#111827; }
+  #lnb-loading, #lnb-negado{ display:flex; align-items:center; justify-content:center; min-height:100vh; font-size:15px; color:#6b7280; }
+  .lnb-hide{ display:none !important; }
+  header.topo{ background:#111827; color:#fff; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
+  header.topo h1{ font-size:16px; margin:0; font-weight:600; }
+  header.topo a{ color:#cbd5e1; font-size:13px; text-decoration:none; }
+  .badge-readonly{ background:#78350f; color:#fde68a; font-size:11px; padding:3px 8px; border-radius:999px; margin-left:10px; }
+  main{ max-width:1400px; margin:20px auto; padding:0 20px 100px; }
+  .barra-filtros{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+  .barra-filtros input, .barra-filtros select{ padding:8px 10px; border:1px solid var(--cinza-borda); border-radius:8px; font-size:13px; }
+  .barra-filtros input[type="text"]{ min-width:220px; }
+  .resumo{ font-size:12px; color:#6b7280; margin-left:auto; }
+  .cartao{ background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); overflow:hidden; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  thead th{ background:#f9fafb; text-align:left; padding:10px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:#6b7280; border-bottom:1px solid var(--cinza-borda); position:sticky; top:0; }
+  tbody td{ padding:9px 12px; border-bottom:1px solid #f3f4f6; }
+  tbody tr:hover{ background:#f9fafb; }
+  tbody tr.selecionada{ background:#eff6ff; }
+  .status-pill{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:600; }
+  .status-ativo{ background:#dcfce7; color:#166534; }
+  .status-desligado{ background:#fee2e2; color:#991b1b; }
+  .origem-pill{ font-size:10px; color:#6b7280; border:1px solid var(--cinza-borda); padding:1px 6px; border-radius:6px; }
+  .cesta-toggle{ position:relative; display:inline-block; width:36px; height:20px; }
+  .cesta-toggle input{ opacity:0; width:0; height:0; }
+  .cesta-slider{ position:absolute; cursor:pointer; inset:0; background:#d1d5db; border-radius:999px; transition:.15s; }
+  .cesta-slider:before{ content:""; position:absolute; height:14px; width:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.15s; }
+  .cesta-toggle input:checked + .cesta-slider{ background:var(--verde); }
+  .cesta-toggle input:checked + .cesta-slider:before{ transform:translateX(16px); }
+  .cesta-toggle input:disabled + .cesta-slider{ opacity:.5; cursor:not-allowed; }
+  .barra-flutuante{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#111827; color:#fff; padding:12px 20px; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.25); display:flex; align-items:center; gap:14px; z-index:50; }
+  .barra-flutuante button{ font-size:13px; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:600; }
+  .btn-editar{ background:var(--azul); color:#fff; }
+  .btn-desligar{ background:var(--vermelho); color:#fff; }
+  .btn-cesta{ background:#0891b2; color:#fff; }
+  .overlay{ position:fixed; inset:0; background:rgba(15,23,42,.5); display:flex; align-items:center; justify-content:center; z-index:100; }
+  .modal{ background:#fff; border-radius:12px; padding:22px; width:380px; max-width:92vw; }
+  .modal h3{ margin:0 0 12px; font-size:15px; }
+  .modal label{ font-size:12px; color:#374151; display:block; margin-bottom:5px; }
+  .modal input, .modal select{ width:100%; padding:8px 10px; border:1px solid var(--cinza-borda); border-radius:8px; font-size:13px; margin-bottom:14px; }
+  .modal .acoes{ display:flex; justify-content:flex-end; gap:8px; }
+  .modal .acoes button{ padding:8px 14px; border-radius:8px; border:none; font-size:13px; cursor:pointer; }
+  .modal .cancelar{ background:#f3f4f6; }
+  .modal .confirmar{ background:var(--azul); color:#fff; }
+  .modal .confirmar.perigo{ background:var(--vermelho); }
+  .toast{ position:fixed; top:16px; left:50%; transform:translateX(-50%); background:#111827; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; z-index:200; }
+</style>
+</head>
+<body>
+
+<div id="lnb-loading">Carregando Central de Gestão…</div>
+
+<div id="lnb-negado" class="lnb-hide">
+  Seu usuário não tem acesso ao módulo de Benefícios/Colaboradores.
+</div>
+
+<div id="lnb-app" class="lnb-hide">
+  <header class="topo">
+    <h1>Central de Gestão de Colaboradores <span id="badge-modo"></span></h1>
+    <a href="/">← Voltar para a Central</a>
+  </header>
+  <main>
+    <div class="barra-filtros">
+      <input type="text" id="f-busca" placeholder="Buscar por nome ou CPF…">
+      <select id="f-status">
+        <option value="">Status: todos</option>
+        <option value="Ativo">Ativo</option>
+        <option value="Desligado">Desligado</option>
+      </select>
+      <select id="f-origem">
+        <option value="">Origem: todas</option>
+        <option value="rh_folha">Só RH-Folha</option>
+        <option value="beneficios_liga_mestre">Só Benefícios (PJ)</option>
+        <option value="ambos">RH-Folha + Benefícios</option>
+        <option value="manual">Cadastro manual</option>
+      </select>
+      <div class="resumo" id="resumo-contagem"></div>
+    </div>
+    <div class="cartao">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px"><input type="checkbox" id="chk-todos"></th>
+            <th>Nome</th>
+            <th>CPF</th>
+            <th>Centro de Custo</th>
+            <th>Departamento</th>
+            <th>Tipo</th>
+            <th>Status</th>
+            <th>Origem</th>
+            <th>Cesta Básica</th>
+          </tr>
+        </thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<div id="barra-flutuante" class="barra-flutuante lnb-hide">
+  <span id="txt-selecionados"></span>
+  <button class="btn-editar" id="btn-editar-lote">Editar Centro de Custo</button>
+  <button class="btn-cesta" id="btn-cesta-lote">Cesta Básica…</button>
+  <button class="btn-desligar" id="btn-desligar-lote">Desligar em Massa</button>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://iiheewndotcwqntppjrw.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz';
+
+let AUTH_SESSION = null;
+let COLABORADORES = [];
+let SELECIONADOS = new Set();
+let PODE_EDITAR = false;
+
+function lnbLoadSession(){
+  try{ const raw = localStorage.getItem('lnb_auth_session_v1'); if (raw) AUTH_SESSION = JSON.parse(raw); }
+  catch(e){ AUTH_SESSION = null; }
+}
+
+async function lnbMeuAcessoCentral(){
+  if (!AUTH_SESSION || !AUTH_SESSION.access_token) return null;
+  try{
+    const r = await fetch(SUPABASE_URL+'/rest/v1/rpc/meu_acesso', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token,'Content-Type':'application/json'},
+      body:'{}'
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
+}
+function lnbTemModulo(acesso, recurso){
+  if (!acesso) return false;
+  if (acesso.acesso_total || acesso.permissoes === '*') return true;
+  const acts = (acesso.permissoes || {})[recurso] || [];
+  if (Array.isArray(acts) && acts.indexOf('visualizar') >= 0) return true;
+  return false;
+}
+
+async function lnbTemPermissaoAsync(recurso, acao){
+  if (!AUTH_SESSION || !AUTH_SESSION.access_token) return false;
+  try{
+    const r = await fetch(SUPABASE_URL+'/rest/v1/rpc/tem_permissao', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token,'Content-Type':'application/json'},
+      body: JSON.stringify({p_recurso:recurso, p_acao:acao})
+    });
+    if (!r.ok) return false;
+    return (await r.json()) === true;
+  }catch(e){ return false; }
+}
+
+function toast(msg){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=> el.remove(), 3200);
+}
+
+async function carregarColaboradoresAsync(){
+  const r = await fetch(SUPABASE_URL+'/rest/v1/colaboradores_master?select=*&order=nome.asc', {
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token}
+  });
+  if (!r.ok) throw new Error('Falha ao carregar colaboradores ('+r.status+')');
+  return await r.json();
+}
+
+function renderTabela(){
+  const busca = document.getElementById('f-busca').value.trim().toLowerCase();
+  const fStatus = document.getElementById('f-status').value;
+  const fOrigem = document.getElementById('f-origem').value;
+  const corpo = document.getElementById('corpo-tabela');
+  corpo.innerHTML = '';
+
+  const filtrados = COLABORADORES.filter(function(c){
+    if (fStatus && c.status !== fStatus) return false;
+    if (fOrigem && c.origem_fonte !== fOrigem) return false;
+    if (busca){
+      const alvo = ((c.nome||'') + ' ' + (c.cpf||'')).toLowerCase();
+      if (alvo.indexOf(busca) === -1) return false;
+    }
+    return true;
+  });
+
+  document.getElementById('resumo-contagem').textContent = filtrados.length + ' de ' + COLABORADORES.length + ' colaboradores';
+
+  filtrados.forEach(function(c){
+    const tr = document.createElement('tr');
+    if (SELECIONADOS.has(c.id)) tr.className = 'selecionada';
+    tr.innerHTML =
+      '<td><input type="checkbox" class="chk-linha" data-id="'+c.id+'" '+(SELECIONADOS.has(c.id)?'checked':'')+'></td>'+
+      '<td>'+escapeHtml(c.nome||'')+'</td>'+
+      '<td>'+escapeHtml(c.cpf||'—')+'</td>'+
+      '<td>'+escapeHtml(c.centro_custo||'—')+'</td>'+
+      '<td>'+escapeHtml(c.departamento||'—')+'</td>'+
+      '<td>'+escapeHtml(c.tipo_contratacao||'—')+'</td>'+
+      '<td><span class="status-pill '+(c.status==='Ativo'?'status-ativo':'status-desligado')+'">'+c.status+'</span></td>'+
+      '<td><span class="origem-pill">'+rotuloOrigem(c.origem_fonte)+'</span></td>'+
+      '<td><label class="cesta-toggle"><input type="checkbox" class="chk-cesta" data-id="'+c.id+'" '+(c.is_cesta_basica_elegivel?'checked':'')+' '+(PODE_EDITAR?'':'disabled')+'><span class="cesta-slider"></span></label></td>';
+    corpo.appendChild(tr);
+  });
+
+  document.querySelectorAll('.chk-linha').forEach(function(chk){
+    chk.addEventListener('change', function(){
+      const id = chk.getAttribute('data-id');
+      if (chk.checked) SELECIONADOS.add(id); else SELECIONADOS.delete(id);
+      renderTabela();
+      atualizarBarraFlutuante();
+    });
+  });
+  document.querySelectorAll('.chk-cesta').forEach(function(chk){
+    chk.addEventListener('change', function(){
+      const id = chk.getAttribute('data-id');
+      atualizarCestaBasicaAsync([id], chk.checked);
+    });
+  });
+}
+
+function rotuloOrigem(origem){
+  return { rh_folha:'RH-Folha', beneficios_liga_mestre:'Benefícios (PJ)', ambos:'RH + Benefícios', manual:'Manual' }[origem] || origem;
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+}
+
+function atualizarBarraFlutuante(){
+  const barra = document.getElementById('barra-flutuante');
+  if (SELECIONADOS.size === 0){ barra.classList.add('lnb-hide'); return; }
+  barra.classList.remove('lnb-hide');
+  document.getElementById('txt-selecionados').textContent = SELECIONADOS.size + (SELECIONADOS.size===1?' selecionado':' selecionados');
+  document.getElementById('btn-editar-lote').style.display = PODE_EDITAR ? '' : 'none';
+  document.getElementById('btn-cesta-lote').style.display = PODE_EDITAR ? '' : 'none';
+  document.getElementById('btn-desligar-lote').style.display = PODE_EDITAR ? '' : 'none';
+}
+
+document.getElementById('chk-todos').addEventListener('change', function(ev){
+  const linhasVisiveis = Array.from(document.querySelectorAll('.chk-linha')).map(function(el){ return el.getAttribute('data-id'); });
+  if (ev.target.checked) linhasVisiveis.forEach(function(id){ SELECIONADOS.add(id); });
+  else linhasVisiveis.forEach(function(id){ SELECIONADOS.delete(id); });
+  renderTabela();
+  atualizarBarraFlutuante();
+});
+
+['f-busca','f-status','f-origem'].forEach(function(id){
+  document.getElementById(id).addEventListener('input', renderTabela);
+  document.getElementById(id).addEventListener('change', renderTabela);
+});
+
+// ---------- Ações em lote ----------
+
+function abrirModal(html){
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = '<div class="modal">'+html+'</div>';
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+document.getElementById('btn-editar-lote').addEventListener('click', function(){
+  const overlay = abrirModal(
+    '<h3>Editar Centro de Custo em lote</h3>'+
+    '<label>Novo centro de custo para '+SELECIONADOS.size+' colaborador(es)</label>'+
+    '<input type="text" id="m-cc" placeholder="Ex.: 200201">'+
+    '<div class="acoes"><button class="cancelar">Cancelar</button><button class="confirmar">Aplicar</button></div>'
+  );
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+  overlay.querySelector('.confirmar').onclick = async function(){
+    const novoCC = document.getElementById('m-cc').value.trim();
+    if (!novoCC){ toast('Informe um centro de custo.'); return; }
+    overlay.remove();
+    await editarAtributoEmLoteAsync('centro_custo', novoCC);
+  };
+});
+
+document.getElementById('btn-cesta-lote').addEventListener('click', function(){
+  const overlay = abrirModal(
+    '<h3>Cesta Básica em lote</h3>'+
+    '<label>Aplicar para '+SELECIONADOS.size+' colaborador(es) selecionado(s)</label>'+
+    '<select id="m-cesta"><option value="true">Elegível (ligar)</option><option value="false">Não elegível (desligar)</option></select>'+
+    '<div class="acoes"><button class="cancelar">Cancelar</button><button class="confirmar">Aplicar</button></div>'
+  );
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+  overlay.querySelector('.confirmar').onclick = async function(){
+    const val = document.getElementById('m-cesta').value === 'true';
+    overlay.remove();
+    await atualizarCestaBasicaAsync(Array.from(SELECIONADOS), val);
+  };
+});
+
+document.getElementById('btn-desligar-lote').addEventListener('click', function(){
+  const overlay = abrirModal(
+    '<h3>Desligar em massa</h3>'+
+    '<p style="font-size:13px;color:#374151;margin-top:0">'+
+    'Isso marca <strong>'+SELECIONADOS.size+' colaborador(es)</strong> como <strong>Desligado</strong> '+
+    '(status = Desligado). Nada é apagado do banco — é possível reverter depois.'+
+    '</p>'+
+    '<div class="acoes"><button class="cancelar">Cancelar</button><button class="confirmar perigo">Desligar</button></div>'
+  );
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+  overlay.querySelector('.confirmar').onclick = async function(){
+    overlay.remove();
+    await desligarEmMassaAsync(Array.from(SELECIONADOS));
+  };
+});
+
+async function patchColaboradores(ids, payload){
+  const filtro = 'id=in.(' + ids.join(',') + ')';
+  const r = await fetch(SUPABASE_URL+'/rest/v1/colaboradores_master?'+filtro, {
+    method:'PATCH',
+    headers:{
+      'apikey':SUPABASE_KEY,
+      'Authorization':'Bearer '+AUTH_SESSION.access_token,
+      'Content-Type':'application/json',
+      'Prefer':'return=minimal'
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!r.ok){
+    const txt = await r.text().catch(function(){ return ''; });
+    throw new Error('Falha ao salvar ('+r.status+'): '+txt);
+  }
+}
+
+async function editarAtributoEmLoteAsync(campo, valor){
+  try{
+    const payload = {}; payload[campo] = valor; payload.updated_by = AUTH_SESSION.uid || null;
+    await patchColaboradores(Array.from(SELECIONADOS), payload);
+    COLABORADORES.forEach(function(c){ if (SELECIONADOS.has(c.id)) c[campo] = valor; });
+    renderTabela();
+    toast('Centro de custo atualizado para '+SELECIONADOS.size+' colaborador(es).');
+  }catch(e){ toast(e.message); }
+}
+
+async function atualizarCestaBasicaAsync(ids, valor){
+  try{
+    await patchColaboradores(ids, { is_cesta_basica_elegivel: valor, updated_by: AUTH_SESSION.uid || null });
+    COLABORADORES.forEach(function(c){ if (ids.indexOf(c.id) >= 0) c.is_cesta_basica_elegivel = valor; });
+    renderTabela();
+    toast('Cesta Básica ' + (valor?'liberada':'removida') + ' para ' + ids.length + ' colaborador(es).');
+  }catch(e){ toast(e.message); renderTabela(); }
+}
+
+async function desligarEmMassaAsync(ids){
+  try{
+    await patchColaboradores(ids, { status:'Desligado', updated_by: AUTH_SESSION.uid || null });
+    COLABORADORES.forEach(function(c){ if (ids.indexOf(c.id) >= 0) c.status = 'Desligado'; });
+    SELECIONADOS.clear();
+    renderTabela();
+    atualizarBarraFlutuante();
+    toast(ids.length + ' colaborador(es) desligado(s). Nenhum registro foi apagado.');
+  }catch(e){ toast(e.message); }
+}
+
+// ---------- Boot ----------
+(async function boot(){
+  lnbLoadSession();
+  if (!AUTH_SESSION || !AUTH_SESSION.access_token){ location.replace('/'); return; }
+
+  const acesso = await lnbMeuAcessoCentral();
+  if (!lnbTemModulo(acesso, 'beneficios')){
+    document.getElementById('lnb-loading').classList.add('lnb-hide');
+    document.getElementById('lnb-negado').classList.remove('lnb-hide');
+    return;
+  }
+
+  PODE_EDITAR = await lnbTemPermissaoAsync('beneficios','editar');
+
+  try{
+    COLABORADORES = await carregarColaboradoresAsync();
+  }catch(e){
+    document.getElementById('lnb-loading').textContent = 'Erro ao carregar: ' + e.message;
+    return;
+  }
+
+  document.getElementById('badge-modo').innerHTML = PODE_EDITAR ? '' : '<span class="badge-readonly">Somente leitura</span>';
+  document.getElementById('lnb-loading').classList.add('lnb-hide');
+  document.getElementById('lnb-app').classList.remove('lnb-hide');
+  renderTabela();
+})();
+</script>
+</body>
+</html>
