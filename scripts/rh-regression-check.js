@@ -5,7 +5,7 @@ const fs = require('fs');
 function read(path) { return fs.readFileSync(path, 'utf8'); }
 function assert(ok, msg) { if (!ok) throw new Error(`RH regression: ${msg}`); }
 
-const workflow = read('.github/workflows/deploy-staging.yml');
+const workflow = read(process.env.RH_RELEASE_WORKFLOW || '.github/workflows/deploy-staging.yml');
 const baseline = read('runtime-patches/rh-folha-stability-baseline.inc.js');
 const ui = read('runtime-patches/rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
 const reports = read('runtime-patches/rh-folha-hotfix-v40-relatorios-executivos.inc.js');

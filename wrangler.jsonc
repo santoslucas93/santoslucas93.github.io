@@ -2,6 +2,9 @@
   "name": "painel-lnb",
   "compatibility_date": "2026-07-21",
   "main": "worker.js",
+  "cache": {
+    "enabled": false
+  },
   "assets": {
     "directory": ".",
     "binding": "ASSETS",
