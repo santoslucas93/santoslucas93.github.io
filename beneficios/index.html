@@ -3154,7 +3154,7 @@ async function lnbLoginWithPasswordAsync(perfil, password){
   lnbSaveSession();
   return true;
 }
-function isReadOnlyUser(){ if (!AUTH_SESSION) return true; if (AUTH_SESSION.moduloRoles && AUTH_SESSION.moduloRoles.beneficios) return AUTH_SESSION.moduloRoles.beneficios !== 'admin'; return !!(AUTH_SESSION.role && AUTH_SESSION.role!=='admin'); }
+function isReadOnlyUser(){ return !!(AUTH_SESSION && AUTH_SESSION.role && AUTH_SESSION.role!=='admin'); }
 function lnbIsMobOnlyUser(){ return !!(AUTH_SESSION && AUTH_SESSION.mobOnly); }
 function guardReadOnly(){
   if (isReadOnlyUser()){
