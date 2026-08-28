@@ -92,6 +92,7 @@ jobs:
             runtime-patches/rh-folha-hotfix-v83-gemini-hibrido.inc.js \
             runtime-patches/rh-folha-hotfix-v84-integridade-provisoes.inc.js \
             runtime-patches/rh-folha-hotfix-v91-ferias-oficiais.inc.js \
+            runtime-patches/rh-folha-hotfix-v92-motor-provisoes.inc.js \
             > runtime-patches/rh-folha-rc.inc.js
 
           node --check runtime-patches/rh-folha-rc.inc.js
@@ -115,6 +116,7 @@ jobs:
           node scripts/rh-v89-planning-render-ownership-test.js
           node scripts/rh-v90-planning-reference-ui-test.js
           node scripts/rh-v91-vacation-official-total-test.js
+          node scripts/rh-v92-monthly-provision-engine-test.js
           node scripts/beneficios-granular-permissions-test.js
           node scripts/hub-auth-transition-test.js
 
@@ -158,6 +160,7 @@ jobs:
             'rh80-person-list', 'rh80-memory-grid', 'rh80Signature',
             'official26', 'RH_PLANNING_REFERENCE_UI_V90=true', 'RH_OFFICIAL_PROVISIONS_V80&&!window.RH_PLANNING_REFERENCE_UI_V90',
             'RH_VACATION_OFFICIAL_MEMORY_V91', 'rhV91OpenVacationMemory', 'Saldo provisionado total',
+            'RH_MONTHLY_PROVISION_ENGINE_V92', 'rh_reprocessar_provisoes', 'Reprocessar provisões',
 
             ]) {
             if (!rc.includes(required)) throw new Error(`Release candidate sem recurso obrigatório: ${required}`);
