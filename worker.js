@@ -51,7 +51,8 @@ async function handleOrcadoComPermissoes(request, env) {
 async function handleBeneficiosComRastreabilidade(request, env) {
   const asset = await env.ASSETS.fetch(request);
   if (!asset.ok) return asset;
-  return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(await asset.text(), 'beneficios'))), 'nao-aplicavel');
+  const html = injectBenefitsGranularPermissions(await asset.text());
+  return responseHtml(asset, injectBenefitsOfficialLogo(injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'beneficios')))), 'granular-v90');
 }
 
 async function handleRhHtml(request, env) {
@@ -118,11 +119,57 @@ async function handleRhAppPatch(request, env) {
 function injectIaTraceability(html, moduleName) {
   const marker = `data-lnb-ia-traceability="${moduleName}"`;
   if (html.includes(marker)) return html;
-  const style = '<link rel="stylesheet" href="/runtime-patches/ia-traceability.css?v=1" '+marker+'>';
-  const script = `<script src="/runtime-patches/ia-traceability-${moduleName}.js?v=1" ${marker}></` + 'script>';
+  const style = '<link rel="stylesheet" href="/runtime-patches/ia-traceability.css?v=2" '+marker+'>';
+  const script = `<script src="/runtime-patches/ia-traceability-${moduleName}.js?v=2" ${marker}></` + 'script>';
   let out = html;
   if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
   if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;
+  return out;
+}
+
+function injectBenefitsOfficialLogo(html) {
+  const marker = 'data-lnb-benefits-logo="v88"';
+  if (html.includes(marker)) return html;
+  const style = '<link rel="stylesheet" href="/runtime-patches/beneficios-official-logo.css?v=88" '+marker+'>';
+  const script = '<script src="/runtime-patches/beneficios-official-logo.js?v=88" '+marker+'></' + 'script>';
+  let out = html;
+  if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
+  if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;
+  return out;
+}
+
+function injectBenefitsGranularPermissions(html) {
+  const marker = '/* LNB BENEFICIOS PERMISSOES GRANULARES V90 */';
+  if (html.includes(marker)) return html;
+  const sessionAnchor = 'let AUTH_SESSION = null;';
+  const readonlyAnchor = "function isReadOnlyUser(){ return !!(AUTH_SESSION && AUTH_SESSION.role && AUTH_SESSION.role!=='admin'); }";
+  const accessAnchor = "    if(!r.ok) return null;\n    return await r.json();\n  }catch(e){ return null; }\n}\nfunction lnbTemModulo(acesso,recurso){";
+  if (!html.includes(sessionAnchor) || !html.includes(readonlyAnchor) || !html.includes(accessAnchor)) {
+    console.error('Marcadores de permissoes do modulo Beneficios nao encontrados.');
+    return html;
+  }
+  const permissionCode = marker + "\n" +
+    "let LNB_ACCESS = null;";
+  const readonlyCode = [
+    'function lnbCanBenefitsAction(action, resource){',
+    '  const acesso=LNB_ACCESS;',
+    "  if(!acesso)return !!(AUTH_SESSION&&AUTH_SESSION.role==='admin');",
+    "  if(acesso.acesso_total||acesso.permissoes==='*')return true;",
+    '  const permissoes=acesso.permissoes||{};',
+    "  const recurso=resource||'beneficios';",
+    '  const direct=Array.isArray(permissoes[recurso])?permissoes[recurso]:[];',
+    '  const parent=Array.isArray(permissoes.beneficios)?permissoes.beneficios:[];',
+    "  return direct.includes(action)||parent.includes(action)||direct.includes('administrar')||parent.includes('administrar');",
+    '}',
+    "function lnbHasFullBenefitsCrud(){ return ['criar','editar','excluir'].every(function(action){return lnbCanBenefitsAction(action,'beneficios');}); }",
+    'function isReadOnlyUser(){',
+    '  if(LNB_ACCESS)return !lnbHasFullBenefitsCrud();',
+    "  return !!(AUTH_SESSION && AUTH_SESSION.role && AUTH_SESSION.role!=='admin');",
+    '}'
+  ].join('\n');
+  let out = html.replace(sessionAnchor, sessionAnchor + '\n' + permissionCode);
+  out = out.replace(readonlyAnchor, readonlyCode);
+  out = out.replace(accessAnchor, "    if(!r.ok) return null;\n    LNB_ACCESS=await r.json();\n    return LNB_ACCESS;\n  }catch(e){ return null; }\n}\nfunction lnbTemModulo(acesso,recurso){");
   return out;
 }
 
@@ -201,10 +248,15 @@ function applyUnifiedPatch(source, patch, targetPath) {
 export { applyUnifiedPatch };
 
 async function handleGemini(request, env) {
-  const key = env.GEMINI_API_KEY;
-  if (!key) return jsonError('GEMINI_API_KEY não configurada no Worker. Configure em Settings > Variables and Secrets.', 500);
   let body;
   try { body = await request.json(); } catch (e) { return jsonError('Corpo da requisição inválido (esperado JSON).', 400); }
+  if (body && body.contextScope === 'rh') {
+    const access = await validateRhGeminiAccess(request, env);
+    if (!access.ok) return jsonError(access.message, access.status);
+    if (JSON.stringify(body.contents || []).length > 350000) return jsonError('O contexto do RH excedeu o limite seguro.', 413);
+  }
+  const key = env.GEMINI_API_KEY;
+  if (!key) return jsonError('GEMINI_API_KEY não configurada no Worker. Configure em Settings > Variables and Secrets.', 500);
   const model = (body && body.model) || 'gemini-flash-latest';
   const stream = !!(body && body.stream);
   const contents = (body && body.contents) || [];
@@ -219,6 +271,22 @@ async function handleGemini(request, env) {
   if (stream) return new Response(upstream.body, { status: upstream.status, headers: { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no' } });
   const text = await upstream.text();
   return new Response(text, { status: upstream.status, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+}
+
+async function validateRhGeminiAccess(request, env) {
+  const token = String(request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  if (!token) return { ok: false, status: 401, message: 'Sessão do RH não informada.' };
+  if (!env.SUPABASE_URL || !env.SUPABASE_KEY) return { ok: false, status: 500, message: 'Integração de acesso do RH não configurada.' };
+  const headers = { apikey: env.SUPABASE_KEY, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+  let response;
+  try { response = await fetch(env.SUPABASE_URL + '/rest/v1/rpc/meu_acesso', { method: 'POST', headers, body: '{}' }); }
+  catch (error) { return { ok: false, status: 502, message: 'Não foi possível validar o acesso ao RH.' }; }
+  if (!response.ok) return { ok: false, status: response.status === 401 ? 401 : 403, message: 'Sessão inválida ou sem acesso ao RH.' };
+  const access = await response.json().catch(() => null);
+  const permissions = access && access.permissoes;
+  const rh = permissions && typeof permissions === 'object' ? permissions.rh : null;
+  const allowed = !!(access && access.autenticado && access.cadastrado && !(access.usuario && (access.usuario.bloqueado || !access.usuario.ativo)) && (access.acesso_total || permissions === '*' || (Array.isArray(rh) && rh.includes('visualizar'))));
+  return allowed ? { ok: true } : { ok: false, status: 403, message: 'Seu perfil não possui permissão para consultar o Gemini no RH.' };
 }
 
 function handleConfig(env) {

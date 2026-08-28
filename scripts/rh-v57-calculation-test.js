@@ -42,6 +42,32 @@ assert.equal(irrf(6000, inss(6000)), 385.11, 'IRRF combinado com a tabela vigent
 assert.equal(inss(8146.80), 942.05, 'INSS da remuneração recorrente de controle');
 assert.equal(irrf(8146.80, inss(8146.80), 1), 1020.44, 'IRRF da remuneração recorrente de controle');
 
+const source = require('fs').readFileSync('runtime-patches/rh-folha-hotfix-v57-base-editavel-proxima-folha.inc.js', 'utf8');
+for (const required of ['taxDetail57', 'taxBaseMemory57', 'taxBaseMemoryHtml57', 'openBaseMemory57', 'closeBaseMemory57', 'taxCols57', 'taxBaseGroups57', 'taxValuesHtml57', 'rh57-tax-group', 'table-layout:fixed', 'Uma linha por colaborador', 'Sem repetição', 'Base de cálculo', 'Formação da base', 'Ver composição', 'Verbas fora da base', 'Alíquota efetiva/aplicada', 'Memória tributária individual', 'Bases por Imposto', 'regularIrrfDeduction', 'vacationIrrfDeduction', 'cashPay', 'cashThird', 'fgtsBase']) {
+  assert(source.includes(required), `memória tributária individual ausente: ${required}`);
+}
+assert(!source.includes('<details class="rh57-base-memory">'), 'composição da base não pode voltar a expandir dentro da célula da tabela');
+assert(source.includes("keys.map(function(k){return taxDetail57(k,r)})"), 'cards consolidados devem agrupar os impostos na linha do colaborador');
+
+const baseSalary = 4000;
+const recurring = 800;
+const vacationPayBase = 1000;
+const vacationThirdBase = 333.33;
+assert.equal(
+  Math.round((baseSalary + recurring + vacationPayBase + vacationThirdBase) * 100) / 100,
+  6133.33,
+  'formação da base previdenciária deve conciliar salário, recorrentes, férias e 1/3'
+);
+const regularTaxable = 4800;
+const regularDeduction = 607.20;
+const vacationTaxable = 1333.33;
+const vacationDeduction = 607.20;
+assert.equal(
+  Math.round((regularTaxable - regularDeduction + vacationTaxable - vacationDeduction) * 100) / 100,
+  4918.93,
+  'formação da base de IRRF deve conciliar as apurações regular e de férias'
+);
+
 const salary = 3545;
 const vacationDays = 10;
 const normalPay = salary * (30 - vacationDays) / 30;

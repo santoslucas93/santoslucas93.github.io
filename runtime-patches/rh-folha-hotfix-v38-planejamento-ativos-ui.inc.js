@@ -1,7 +1,7 @@
 /* RH v38 — Planejamento: UI aprovada + quadro ativo da stability baseline */
 (function(){
 'use strict';
-var V={obs:null,timer:0};
+var V={timer:0};
 function E(id){return document.getElementById(id)}
 function norm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase()}
 function parseMoney(v){return Number(String(v||'').replace(/R\$|\s/g,'').replace(/\./g,'').replace(',','.'))||0}
@@ -17,7 +17,7 @@ function contextDate(){var a=(window.RH_PERIOD&&RH_PERIOD.active&&RH_PERIOD.acti
 function removeExecutiveSummary(pane){Array.from(pane.querySelectorAll('article.table-panel')).forEach(function(article){var table=article.querySelector('table'),title=norm((article.querySelector('h2')||{}).textContent),kick=norm((article.querySelector('.panel-kicker')||{}).textContent);if((table&&!table.classList.contains('rh26-wide'))||title.indexOf('centro de custo')>=0||kick==='resumo executivo')article.remove()})}
 function makeNameOnly(kind){
   var pane=document.querySelector('[data-plan-pane="'+kind+'"]');if(!pane)return;removeExecutiveSummary(pane);var table=pane.querySelector('table.rh26-wide');if(!table)return;table.classList.add('rh38-name-list');
-  Array.from(table.querySelectorAll('tbody tr')).forEach(function(tr){if(!isActiveRow(tr))tr.remove()});var thead=table.tHead;if(thead){Array.from(thead.querySelectorAll('.rh30-group-head')).forEach(function(x){x.remove()});if(thead.rows[0]&&thead.rows[0].cells[0])setText(thead.rows[0].cells[0],'Colaborador')}
+  Array.from(table.querySelectorAll('tbody tr')).forEach(function(tr){if(tr.dataset.rh91OfficialIndex==null&&!isActiveRow(tr))tr.remove()});var thead=table.tHead;if(thead){Array.from(thead.querySelectorAll('.rh30-group-head')).forEach(function(x){x.remove()});if(thead.rows[0]&&thead.rows[0].cells[0])setText(thead.rows[0].cells[0],'Colaborador')}
   var article=table.closest('article.table-panel');if(article){setText(article.querySelector('.panel-head h2'),kind==='13'?'Colaboradores — provisão de 13º':'Colaboradores — provisão de férias');setText(article.querySelector('.detail-note'),'Clique no colaborador para abrir a memória de cálculo completa.')}
   var wrap=table.closest('.table-wrap');if(wrap){wrap.classList.remove('rh30-scroll');var prev=wrap.previousElementSibling;if(prev&&prev.classList.contains('rh30-scroll-note'))prev.remove()}
   Array.from(table.querySelectorAll('tbody tr')).forEach(function(tr){var first=tr.cells&&tr.cells[0];if(!first)return;Array.from(first.querySelectorAll('small')).forEach(function(s){s.style.display='none'});first.title='Clique para abrir a memória de cálculo'});
@@ -33,6 +33,7 @@ function activeNote(){var page=E('page-planejamento'),m=typeof window.rhRosterMe
 function memLine(label,value,cls){return '<div'+(cls?' class="'+cls+'"':'')+'><span>'+esc(label)+'</span><b>'+esc(value)+'</b></div>'}
 async function rhProvisionOpenMemory(tr){
   if(!tr)return;var kind=tr.dataset.k,id=String(tr.dataset.id||''),p=person(id),c=tr.cells||[];
+  if(kind==='ferias'&&tr.dataset.rh91OfficialIndex!=null&&typeof window.rhV91OpenVacationMemory==='function')return window.rhV91OpenVacationMemory(Number(tr.dataset.rh91OfficialIndex));
   if(typeof window.rhProvisionRefresh==='function')await window.rhProvisionRefresh();
   var ctx=typeof window.rhV34TerminationContext==='function'?await window.rhV34TerminationContext(id,contextDate()):null;
   var salary=Number(ctx&&ctx.latest&&ctx.latest.salario)||Number(p&&p.salario)||0,rec=(ctx&&ctx.recurring||[]),variable=Number(ctx&&ctx.variableAvg)||0,base=salary+rec.reduce(function(s,x){return s+(Number(x.valor)||0)},0)+variable;
@@ -49,9 +50,8 @@ async function rhProvisionOpenMemory(tr){
   }
   var old=E('rh26-modal');if(old)old.remove();document.body.insertAdjacentHTML('beforeend','<div class="rh26-modal" id="rh26-modal"><div class="rh26-card"><button id="rh26-close">×</button><span class="eyebrow">MEMÓRIA DE CÁLCULO</span><h2>'+esc(name)+'</h2><p>'+esc(cc)+(dep?' · '+esc(dep):'')+'</p><div class="rh26-memory">'+html+'</div><h3>Encargos</h3><div class="rh26-memory">'+enc+'</div><p class="detail-note">Base remuneratória = salário vigente + verbas salariais recorrentes + médias variáveis aplicáveis. Valores históricos de salário não reduzem a base atual.</p></div></div>');var close=E('rh26-close');if(close)close.onclick=function(){var modal=E('rh26-modal');if(modal)modal.remove()}
 }
-async function enforceNow(){var page=E('page-planejamento');if(!page)return;if(V.obs)V.obs.disconnect();try{if(typeof window.rhProvisionRefresh==='function')await window.rhProvisionRefresh();makeNameOnly('13');makeNameOnly('ferias');filterForecast();filterTerminationSelect();activeNote();if(typeof window.rhFitAllCardValues==='function')window.rhFitAllCardValues();if(typeof window.rhBaselineCheck==='function')window.rhBaselineCheck()}finally{observePage()}}
+async function enforceNow(){var page=E('page-planejamento');if(!page)return;if(typeof window.rhProvisionRefresh==='function')await window.rhProvisionRefresh();makeNameOnly('13');makeNameOnly('ferias');filterForecast();filterTerminationSelect();activeNote();if(typeof window.rhFitAllCardValues==='function')window.rhFitAllCardValues();if(typeof window.rhBaselineCheck==='function')window.rhBaselineCheck()}
 function schedule(delay){clearTimeout(V.timer);V.timer=setTimeout(function(){Promise.resolve(typeof window.rhRosterLoad==='function'?window.rhRosterLoad(false):null).then(enforceNow).catch(function(e){console.warn('RH v38:',e)})},delay==null?35:delay)}
-function observePage(){var page=E('page-planejamento');if(!page)return;if(!V.obs)V.obs=new MutationObserver(function(muts){if(muts.some(function(m){return m.type==='childList'}))schedule(25)});try{V.obs.observe(page,{childList:true,subtree:true})}catch(e){}}
 function styles(){if(E('_rh38'))return;var s=document.createElement('style');s.id='_rh38';s.textContent='\
 #page-planejamento [data-plan-pane="13"] article.table-panel:has(table:not(.rh26-wide)),#page-planejamento [data-plan-pane="ferias"] article.table-panel:has(table:not(.rh26-wide)){display:none!important}\
 #page-planejamento [data-plan-pane="13"] .rh30-scroll-note,#page-planejamento [data-plan-pane="ferias"] .rh30-scroll-note,#page-planejamento [data-plan-pane="13"] .rh30-group-head,#page-planejamento [data-plan-pane="ferias"] .rh30-group-head{display:none!important}\
@@ -66,7 +66,7 @@ function styles(){if(E('_rh38'))return;var s=document.createElement('style');s.i
 #rh26-modal .rh38-base-total{border-color:color-mix(in srgb,var(--gold) 55%,transparent)!important;background:color-mix(in srgb,var(--gold) 7%,transparent)!important}\
 #rh26-modal .rh38-base-total span,#rh26-modal .rh38-base-total b{color:var(--gold)!important}\
 ';document.head.appendChild(s)}
-function init(){styles();schedule(0);document.addEventListener('click',function(e){if(!e.target||!e.target.closest)return;var tr=e.target.closest('#page-planejamento .rh38-name-list tbody tr.rh26-row');if(tr){e.preventDefault();e.stopImmediatePropagation();rhProvisionOpenMemory(tr).catch(function(err){console.warn('RH memória provisão:',err)});return}if(e.target.closest('#page-planejamento [data-plan-tab]')){schedule(0);schedule(80)}},true);var old=window.renderAll;if(typeof old==='function'&&!old._rh38){var wrapped=function(){var r=old.apply(this,arguments);schedule(0);return r};wrapped._rh38=1;window.renderAll=wrapped}setTimeout(observePage,200)}
+function init(){styles();schedule(0);document.addEventListener('click',function(e){if(!e.target||!e.target.closest)return;var tr=e.target.closest('#page-planejamento .rh38-name-list tbody tr.rh26-row');if(tr){e.preventDefault();e.stopImmediatePropagation();rhProvisionOpenMemory(tr).catch(function(err){console.warn('RH memória provisão:',err)});return}if(e.target.closest('#page-planejamento [data-plan-tab]'))schedule(0)},true);var old=window.renderAll;if(typeof old==='function'&&!old._rh38){var wrapped=function(){var r=old.apply(this,arguments);schedule(0);return r};wrapped._rh38=1;window.renderAll=wrapped}}
 window.rhV38LoadRoster=function(){return typeof window.rhRosterLoad==='function'?window.rhRosterLoad(false):Promise.resolve(null)};window.rhV38EnforcePlanningUI=function(){schedule(0)};window.rhProvisionOpenMemory=rhProvisionOpenMemory;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();

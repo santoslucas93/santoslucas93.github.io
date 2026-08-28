@@ -2,6 +2,64 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — v80 (26/08/2026)
+
+- Provisões de férias e 13º da competência 07/2026 passam a usar os demonstrativos oficiais do Domínio como saldo de abertura conciliado.
+- Cards exibem saldo provisionado, provisão do mês, encargos sobre saldo e custo total exatamente como nos relatórios contábeis.
+- Composição individual separa base provisionada, INSS Empresa, RAT, Terceiros, FGTS, PIS e custo total; estagiários permanecem sem encargos patronais.
+- Pop-ups mostram provisão regular, ajuste/diferença, provisionado no mês e saldo atual sem repetir o salário em cada imposto.
+- PDF e Excel priorizam a tabela oficial e levam a base e todos os encargos individuais para os relatórios emitidos.
+- Simulador de férias, barra de exportação e recibos são preservados; a camada oficial não substitui mais todo o conteúdo da aba.
+- Planejamento continua limitado ao quadro atual, enquanto os registros históricos permanecem preservados na fonte oficial.
+- Corrigido o agendamento tardio da coluna **Líquido no período**, evitando que ela só apareça após nova renderização.
+- RPCs de edição foram endurecidas contra execução por `PUBLIC/anon`, mantendo acesso somente a usuários autenticados com permissão interna válida.
+- O workflow de staging reconstrói o bundle e executa a regressão completa antes de publicar a URL de preview.
+- Alteração restrita ao staging; produção permanece intacta.
+
+## Staging — v79 (26/08/2026)
+
+- Folha importada passa a permitir edição individual de salário, horas, rubricas, bases de INSS/FGTS/IRRF e valores de FGTS/IRRF para usuários autorizados.
+- Próxima Folha passa a ter período próprio, com ajuste geral persistido, edição individual auditada e estados **Aberto** e **Encerrado**.
+- Competências conferidas ou conciliadas voltam automaticamente para **Importado** após uma edição e exigem nova conferência.
+- Períodos encerrados ficam bloqueados; a edição somente é liberada após reabertura explícita e justificada.
+- Novas permissões granulares: **Editar folha importada**, **Editar Próxima Folha**, **Encerrar período** e **Reabrir período**.
+- Toda edição, encerramento ou reabertura registra usuário, motivo e informações anteriores/novas na auditoria.
+- Totais da competência importada são recalculados de forma transacional após a edição individual.
+- Alteração restrita ao staging; produção permanece intacta.
+
+## Staging — v78 (25/08/2026)
+
+- Corrigida a sobreposição entre **Ver composição** e a coluna **Alíquota** nos pop-ups tributários.
+- Tabelas de impostos passam a usar larguras explícitas e layout fixo, preservando alinhamento em diferentes resoluções.
+- Cards consolidados passam a mostrar **uma única linha por colaborador**, sem repetir salário e formação para cada encargo que utiliza a mesma base.
+- INSS patronal, RAT, Terceiros, PIS e FGTS continuam discriminados dentro da linha, com total individual conciliado ao total do card.
+- A composição deixa de expandir dentro da célula e passa a abrir em uma janela de detalhe própria, sem aumentar ou deformar a linha da tabela.
+- A nova janela separa componentes incidentes, verbas fora da base, equação, alíquota e valor do imposto.
+- Correção exclusivamente visual e de interação; cálculos, totais, PDF e Excel permanecem inalterados.
+- Alteração restrita ao staging; produção permanece intacta.
+
+## Staging — v77 (25/08/2026)
+
+- Cada base tributária individual passa a apresentar sua **formação completa**, sem alterar os valores calculados.
+- INSS dos segurados, INSS patronal, RAT, Terceiros, PIS e FGTS discriminam salário proporcional, verbas salariais recorrentes, férias e 1/3 constitucional incidentes.
+- IRRF separa remuneração regular, férias e as respectivas deduções legais ou simplificadas que formam a base final.
+- Abono pecuniário e 1/3 do abono aparecem expressamente como verbas fora das bases quando existirem.
+- Os pop-ups dos impostos recebem a ação **Ver composição** por colaborador.
+- O PDF Executivo e a aba **Bases por Imposto** do Excel passam a registrar a formação da base e as exclusões individuais.
+- Motor tributário, critérios de incidência, arredondamentos e totais da v76 permanecem inalterados.
+- Alteração restrita ao staging; produção permanece intacta.
+
+## Staging — v76 (25/08/2026)
+
+- Pop-ups individuais da Próxima Folha passam a exibir **base de cálculo, alíquota aplicada/efetiva, regra e valor** para INSS dos segurados, IRRF, INSS patronal, RAT, Terceiros, PIS e FGTS.
+- IRRF detalha também a dedução utilizada e a redução mensal de 2026; FGTS identifica a regra individual de 8% ou 2% para aprendiz.
+- Cards consolidados de Impostos Retidos, Encargos da Empresa e Tributos/Recolhimentos recebem memória tributária completa por colaborador e imposto.
+- PDF Executivo inclui base e alíquota no resumo das obrigações e uma nova seção de memória tributária individual.
+- Excel Executivo inclui bases diretamente na aba de colaboradores, resumo tributário consolidado e a nova aba **Bases por Imposto**.
+- Totais continuam originados do mesmo motor remuneratório aprovado; nenhuma fórmula da Próxima Folha foi alterada.
+- Testes de regressão ampliados para impedir a remoção das bases individuais nos pop-ups e relatórios.
+- Alteração restrita ao staging; produção permanece intacta.
+
 ## Staging — v75 (25/08/2026)
 
 - A Central agora abre com um carregamento neutro e imediato enquanto valida ou renova a sessão já existente.

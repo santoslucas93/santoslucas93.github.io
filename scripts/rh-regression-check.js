@@ -9,6 +9,7 @@ const workflow = read(process.env.RH_RELEASE_WORKFLOW || '.github/workflows/depl
 const baseline = read('runtime-patches/rh-folha-stability-baseline.inc.js');
 const ui = read('runtime-patches/rh-folha-hotfix-v38-planejamento-ativos-ui.inc.js');
 const reports = read('runtime-patches/rh-folha-hotfix-v40-relatorios-executivos.inc.js');
+const reportCenter = read('runtime-patches/rh-folha-hotfix-v41-central-relatorios.inc.js');
 const stability40 = read('runtime-patches/rh-folha-hotfix-v40a-runtime-stability.inc.js');
 const stability41 = read('runtime-patches/rh-folha-hotfix-v41a-report-center-stability.inc.js');
 
@@ -21,6 +22,10 @@ const taxComposition46b = read('runtime-patches/rh-folha-hotfix-v46b-impostos-co
 const planningForecast = read('runtime-patches/rh-folha-hotfix-v47-auditoria-integral.inc.js');
 const planningDetails = read('runtime-patches/rh-folha-hotfix-v48-estabilidade-popups.inc.js');
 const forecast57 = read('runtime-patches/rh-folha-hotfix-v57-base-editavel-proxima-folha.inc.js');
+const periodEdit79 = read('runtime-patches/rh-folha-hotfix-v79-edicao-periodos.inc.js');
+const officialProvisions80 = read('runtime-patches/rh-folha-hotfix-v80-provisoes-oficiais.inc.js');
+const monthlyProvisions92 = read('runtime-patches/rh-folha-hotfix-v92-motor-provisoes.inc.js');
+const vacationCardOwner93 = read('runtime-patches/rh-folha-hotfix-v93-cards-ferias-oficiais.inc.js');
 const sourceCards = read('runtime-patches/rh-folha-hotfix-v8.inc.js');
 const popupTotals13 = read('runtime-patches/rh-folha-hotfix-v13-cards-popup-totais.inc.js');
 const popupGrid20 = read('runtime-patches/rh-folha-hotfix-v20-popup-totals-grid.inc.js');
@@ -50,6 +55,17 @@ assert(orderTax46b > orderV40a && orderTax46b < orderV47, 'composição tributá
 assert(workflow.indexOf('rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js') > workflow.indexOf('rh-folha-hotfix-v60-status-cor-desligado.inc.js'), 'v61 precisa ser carregado depois da correção de status v60');
 assert(workflow.indexOf('rh-folha-hotfix-v62-fluxos-independentes.inc.js') > workflow.indexOf('rh-folha-hotfix-v61-cadastro-holerites-ferias.inc.js'), 'v62 precisa neutralizar o v61 depois de seu carregamento');
 assert(workflow.indexOf('rh-folha-hotfix-v63-holerite-email-controles-dp.inc.js') > workflow.indexOf('rh-folha-hotfix-v62-fluxos-independentes.inc.js'), 'v63 precisa assumir holerites e controles depois do v62');
+assert(workflow.indexOf('rh-folha-hotfix-v79-edicao-periodos.inc.js') > workflow.indexOf('rh-folha-hotfix-v73-edicao-completa-colaboradores.inc.js'), 'v79 precisa carregar após a edição cadastral v73');
+assert(workflow.indexOf('rh-folha-hotfix-v80-provisoes-oficiais.inc.js') > workflow.indexOf('rh-folha-hotfix-v79-edicao-periodos.inc.js'), 'v80 precisa carregar após o controle de períodos');
+assert(workflow.indexOf('rh-folha-hotfix-v92-motor-provisoes.inc.js') > workflow.indexOf('rh-folha-hotfix-v91-ferias-oficiais.inc.js'), 'v92 precisa carregar após a memória oficial v91');
+assert(workflow.indexOf('rh-folha-hotfix-v93-cards-ferias-oficiais.inc.js') > workflow.indexOf('rh-folha-hotfix-v92-motor-provisoes.inc.js'), 'v93 precisa assumir os cards após o motor mensal v92');
+assert(monthlyProvisions92.includes('RH_MONTHLY_PROVISION_ENGINE_V92')&&monthlyProvisions92.includes('rh_reprocessar_provisoes'), 'motor mensal de provisões não está ligado à interface');
+assert(!monthlyProvisions92.includes('MutationObserver')&&!monthlyProvisions92.includes('setInterval'), 'motor mensal reintroduz atualização contínua no planejamento');
+assert(vacationCardOwner93.includes("wrap93('rhProvisionRefresh')")&&vacationCardOwner93.includes("wrap93('rhV80Refresh')"), 'v93 não encerra ambas as rotas de atualização com os totais oficiais');
+assert(!vacationCardOwner93.includes('MutationObserver')&&!vacationCardOwner93.includes('setInterval'), 'v93 reintroduz atualização contínua no planejamento');
+assert(reportCenter.includes("pane.querySelector('table.rh80-table')"), 'relatórios de provisão não priorizam a composição oficial');
+assert(!officialProvisions80.includes('pane.innerHTML=cards80'), 'v80 apaga ferramentas existentes do painel de férias');
+assert(officialProvisions80.includes("child.id==='rh70-vacation-simulator'") && officialProvisions80.includes("child.classList.contains('rh41-export-bar')"), 'v80 não preserva simulador e exportações');
 assert(workflow.includes('rh-folha-hotfix-v41a-report-center-stability.inc.js'), 'v41a/v42 precisa estar no release candidate');
 assert(!workflow.includes('rh-folha-hotfix-v37-ativos-cards-provisoes.inc.js'), 'v37 obsoleto ainda está sendo carregado');
 assert(!workflow.includes('rh-folha-hotfix-v30-planejamento-tabelas.inc.js'), 'v30 obsoleto não pode voltar ao release');
@@ -67,8 +83,8 @@ assert(ui.includes('rhRosterActiveIds'), 'camada visual não usa a fonte única 
 assert(ui.includes('rhBaselineCheck'), 'camada visual não executa verificação do baseline');
 assert(ui.includes('centro de custo'), 'regra de remoção do resumo por centro de custo ausente');
 assert(ui.includes('rh38-name-list'), 'lista simples de colaboradores não está protegida');
-assert((ui.match(/new MutationObserver/g) || []).length === 1, 'deve existir somente um observer visual no planejamento');
-assert(ui.includes('V.obs.disconnect()'), 'observer visual precisa ser desconectado durante a própria atualização');
+assert(!ui.includes('MutationObserver'), 'planejamento não deve observar o DOM continuamente');
+assert(ui.includes("if(e.target.closest('#page-planejamento [data-plan-tab]'))schedule(0)"), 'planejamento precisa atualizar apenas em eventos conhecidos');
 assert(ui.includes('rhProvisionOpenMemory'), 'memória das provisões precisa usar a base remuneratória recalculada');
 assert(ui.includes('rhV34TerminationContext'), 'memória das provisões precisa buscar verbas recorrentes no motor remuneratório');
 assert(ui.includes('Base remuneratória'), 'memória das provisões precisa exibir a base remuneratória');
@@ -257,7 +273,19 @@ assert(!forecast57.includes('benefit57') && !forecast57.includes('beneficios:') 
 assert(planningForecast.includes('if(window.RH_FORECAST_V57){installAiResize47();return}'), 'v47 ainda pode sobrescrever a projeção v57');
 assert(forecast57.includes('vacationGross+cashGross-vacationInss-vacationIrrf.value'), 'v57 sem adiantamento líquido de férias');
 assert(forecast57.includes('employerBase=hasInss?contributionBase:0'), 'v57 inclui abono indevidamente na base patronal');
-assert(forecast57.includes("'retained',t.retained") && forecast57.includes("'taxTotal',t.taxTotal"), 'pop-ups tributários v57 não conciliam com os cards');
+assert(forecast57.includes("taxGroupModal57('Impostos retidos',['INSS_EMP','IRRF'],t.retained") && forecast57.includes("taxGroupModal57('Tributos / recolhimentos',TAX_KEYS57,t.taxTotal"), 'pop-ups tributários v57 não conciliam com os cards');
+assert(forecast57.includes('taxDetail57') && forecast57.includes('Base de cálculo') && forecast57.includes('Memória tributária individual') && forecast57.includes('Bases por Imposto'), 'v57 não expõe a memória de base individual nos pop-ups e relatórios');
+assert(forecast57.includes('taxBaseMemory57') && forecast57.includes('taxBaseMemoryHtml57') && forecast57.includes('Formação da base') && forecast57.includes('Ver composição') && forecast57.includes('Fora da base'), 'v57 não explica a formação individual das bases nos pop-ups e relatórios');
+assert(forecast57.includes('regularIrrfDeduction') && forecast57.includes('vacationIrrfDeduction'), 'v57 não separa as deduções da folha e das férias na formação da base do IRRF');
+assert(forecast57.includes('openBaseMemory57') && forecast57.includes('taxCols57') && forecast57.includes('table-layout:fixed'), 'v57 não protege as colunas tributárias contra sobreposição');
+assert(!forecast57.includes('<details class="rh57-base-memory">'), 'v57 voltou a expandir a composição dentro da célula e pode sobrepor a alíquota');
+assert(forecast57.includes('taxBaseGroups57') && forecast57.includes('Uma linha por colaborador') && forecast57.includes('Sem repetição'), 'v57 voltou a repetir a mesma base em várias linhas do mesmo colaborador');
+for (const marker of ['RH_PERIOD_EDIT_V79','editar_folha_importada','editar_proxima_folha','encerrar_periodo','reabrir_periodo','rh_editar_folha_colaborador','rh_reabrir_competencia','rh_atualizar_status_projecao']) assert(periodEdit79.includes(marker), `v79 sem controle obrigatório: ${marker}`);
+assert(!periodEdit79.includes('MutationObserver'), 'v79 não deve observar continuamente o DOM');
+for (const marker of ['RH_OFFICIAL_PROVISIONS_V80','rh_provisoes_oficiais','COMPOSIÇÃO OFICIAL POR COLABORADOR','Conciliado com o Domínio']) assert(officialProvisions80.includes(marker), `v80 sem parâmetro oficial obrigatório: ${marker}`);
+const vacationOfficial91=fs.readFileSync('runtime-patches/rh-folha-hotfix-v91-ferias-oficiais.inc.js','utf8');
+for (const marker of ['RH_VACATION_OFFICIAL_MEMORY_V91','rhV91OpenVacationMemory','demonstrativo oficial']) assert(vacationOfficial91.includes(marker), `v91 sem parâmetro de férias obrigatório: ${marker}`);
+assert(!officialProvisions80.includes('MutationObserver'), 'v80 não deve criar observador contínuo');
 
 /* Simulador de salário v68: candidato separado do quadro e custo integral auditável. */
 assert(workflow.includes('rh-folha-hotfix-v68-simulador-salario.inc.js'), 'v68 não está no release candidate');

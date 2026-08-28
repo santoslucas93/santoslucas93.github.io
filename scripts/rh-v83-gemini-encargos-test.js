@@ -1,0 +1,16 @@
+'use strict';
+const fs=require('fs');const assert=require('assert');
+const v48=fs.readFileSync('runtime-patches/rh-folha-hotfix-v48-estabilidade-popups.inc.js','utf8');
+const v80=fs.readFileSync('runtime-patches/rh-folha-hotfix-v80-provisoes-oficiais.inc.js','utf8');
+const v83=fs.readFileSync('runtime-patches/rh-folha-hotfix-v83-gemini-hibrido.inc.js','utf8');
+const worker=fs.readFileSync('worker.js','utf8');
+assert(v48.includes("card.dataset.rh80Card&&typeof window.rhV80OpenCard==='function'"),'popup legado não delega para a fonte oficial');
+assert(v80.includes('window.rhV80OpenCard=openCard80'),'composição oficial não expõe roteador semântico');
+assert(v80.includes("sum80(s,1,6)"),'total de encargos oficial não soma os cinco componentes');
+assert(v83.includes('RH_GEMINI_HYBRID_V83'),'marcador Gemini v83 ausente');
+assert(v83.includes("'Authorization':'Bearer '"),'chamada Gemini do RH sem sessão');
+assert(v83.includes('CPF, e-mail, telefone, nascimento, endereço, dados bancários, anexos e documentos foram excluídos'),'contexto não documenta exclusões de privacidade');
+assert(!/cpf_mascarado|data_nascimento|email:p\.|telefone:p\./.test(v83),'contexto envia dado pessoal desnecessário');
+assert(worker.includes("body.contextScope === 'rh'")&&worker.includes('validateRhGeminiAccess'),'proxy Gemini não valida acesso do RH');
+assert(worker.includes("rh.includes('visualizar')"),'proxy não exige permissão visualizar do RH');
+console.log('RH v83 Gemini/encargos tests: OK');

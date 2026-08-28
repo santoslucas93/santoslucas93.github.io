@@ -1,5 +1,70 @@
 # RH & Folha — Release Candidate da Fase 1
 
+## Provisões oficiais e estabilidade — v80
+
+- [x] Férias 07/2026 conciliadas ao Domínio: saldo-base de R$ 170.076,04, encargos de R$ 55.345,02 e custo de R$ 225.421,06.
+- [x] 13º 07/2026 conciliado ao Domínio: saldo-base de R$ 56.678,14, encargos de R$ 17.824,43 e custo de R$ 74.502,57.
+- [x] Provisão regular, ajuste/diferença, provisionado no mês e saldo atual preservados por colaborador.
+- [x] INSS Empresa, RAT, Terceiros, FGTS e PIS discriminados individualmente.
+- [x] Estagiários sem encargos patronais nas provisões oficiais.
+- [x] Desligados históricos de saldo zero preservados na fonte, mas ocultos do quadro atual de planejamento.
+- [x] Pop-ups sem repetição do salário para cada encargo.
+- [x] PDF e Excel priorizam a composição oficial com base e encargos individualizados.
+- [x] Simulador de férias, exportações e recibos preservados na mesma aba.
+- [x] Carregamento oficial evita a consulta legada por colaborador e elimina o padrão N+1 na competência conciliada.
+- [x] Coluna Líquido no período protegida contra renderização tardia.
+- [x] Funções de edição fechadas para `PUBLIC/anon` e mantidas para usuários autenticados autorizados.
+- [ ] Validar visualmente a URL publicada de staging com perfil autorizado antes de qualquer promoção.
+
+## Edição e governança de períodos — v79
+
+- [x] Folha importada editável por colaborador enquanto a competência estiver aberta.
+- [x] Salário, horas, rubricas, bases e valores tributários disponíveis na edição controlada.
+- [x] Proventos, descontos, informativas e líquido recalculados a partir das rubricas.
+- [x] Competência conferida/conciliada retorna para Importado após edição.
+- [x] Competência fechada somente pode ser editada após reabertura justificada.
+- [x] Próxima Folha possui estados Aberto e Encerrado independentes da folha importada.
+- [x] Ajuste geral e parâmetros individuais da Próxima Folha exigem período aberto e justificativa.
+- [x] Permissões separadas para editar cada folha, encerrar e reabrir período.
+- [x] Alterações registram usuário, motivo e estado anterior/novo na auditoria.
+- [x] Migração validada transacionalmente e testes de regressão incluídos nos workflows.
+- [ ] Validar o fluxo completo com um perfil restrito no staging antes da produção.
+
+## Correção visual da composição tributária — v78
+
+- [x] Colunas de formação da base e alíquota possuem larguras independentes e não se sobrepõem.
+- [x] Botão **Ver composição** permanece integralmente dentro de sua célula.
+- [x] Cards consolidados exibem uma linha por colaborador e agrupam impostos que compartilham a mesma base.
+- [x] Salário e formação da base não são repetidos em INSS patronal, RAT, Terceiros, PIS e FGTS.
+- [x] Detalhe da base abre em janela própria e não altera a altura das linhas da tabela.
+- [x] Componentes incidentes, exclusões, equação, alíquota e imposto permanecem didáticos e legíveis.
+- [x] Janela fecha pelo botão, clique externo ou tecla `Esc` sem fechar indevidamente o pop-up principal.
+- [x] Motor tributário, totais e exportações da v77 preservados.
+
+## Formação auditável das bases — v77
+
+- [x] Cada imposto individual possui memória da formação de sua base, sem recalcular ou substituir o total aprovado.
+- [x] Bases previdenciária, patronal, PIS e FGTS discriminam salário proporcional, adicionais recorrentes, férias e 1/3 incidentes.
+- [x] Base do IRRF separa remuneração regular, férias e as deduções utilizadas em cada apuração.
+- [x] Abono pecuniário e 1/3 do abono são identificados como verbas fora da base quando existentes.
+- [x] Pop-ups individuais e consolidados permitem abrir a composição por colaborador.
+- [x] PDF Executivo registra a formação da base em cada linha da memória tributária.
+- [x] Excel Executivo inclui a coluna **Formação da base** na aba **Bases por Imposto**.
+- [x] Fórmulas, incidências, arredondamentos e totais da Próxima Folha preservados.
+
+## Memória tributária individual — v76
+
+- [x] Base de cálculo individual exibida em todos os impostos da Próxima Folha.
+- [x] Alíquota aplicada ou efetiva exibida ao lado da base e do valor.
+- [x] INSS dos segurados identificado como progressivo e conciliado por colaborador.
+- [x] IRRF apresenta base após deduções, dedução utilizada e redução mensal de 2026.
+- [x] INSS patronal, RAT, Terceiros e PIS apresentam a base patronal individual.
+- [x] FGTS apresenta base própria e alíquota individual de 8% ou 2% para aprendiz.
+- [x] Cards consolidados abrem memória detalhada por colaborador e por imposto.
+- [x] PDF Executivo contém resumo de bases e memória tributária individual completa.
+- [x] Excel Executivo contém bases na composição e aba exclusiva **Bases por Imposto**.
+- [x] Motor de cálculo, arredondamentos e totais anteriores preservados.
+
 ## Estabilidade, elegibilidade e leitura salarial — v72
 
 - [x] Seleção de colaborador em Férias protegida contra carregamentos recursivos.
