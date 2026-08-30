@@ -6,12 +6,13 @@
 <title>Liga Nacional de Basquete · Central de Gestão de Colaboradores</title>
 <!--
   ============================================================================
-  SCRIPT DE ALTERAÇÃO — NÃO APLICADO / NÃO PUBLICADO
+  HISTÓRICO DE ALTERAÇÕES — já publicado em staging (não em produção)
   ============================================================================
-  Este arquivo é uma PROPOSTA de substituição para colaboradores/index.html.
-  Ninguém executou nada em staging ou produção — é só o código pronto para
-  o Lucas revisar e, se aprovar, publicar seguindo o fluxo normal (staging
-  primeiro, depois produção).
+  Nota: os parágrafos abaixo (rodadas 1 e 2) são anotações de quando esta
+  reescrita da Central de Colaboradores ainda era uma proposta. Ela já foi
+  publicada em staging (com aprovação do Lucas) — o texto ficou apenas como
+  registro do que mudou. Como sempre, produção só recebe isso com aprovação
+  explícita do Lucas.
 
   O QUE MUDOU EM RELAÇÃO AO ARQUIVO ORIGINAL:
 
@@ -79,8 +80,6 @@
      e) Contador de filtros ativos no resumo, para saber rápido se está
         vendo a base inteira ou uma fatia.
 
-  NADA foi publicado. Este arquivo só existe aqui, no ambiente de trabalho
-  do Claude, aguardando revisão.
   ============================================================================
 
   RODADA 2 — pedidos após o primeiro teste em staging:
@@ -105,6 +104,11 @@
      Isso significa que adicionar um departamento novo, mudar a conta da
      Arbitragem ou criar uma regra de Centro de Custo não precisa mais de
      mim mexendo no código — é só abrir "⚙ Regras" e salvar.
+
+  RODADA 3 — mesclado o cabeçalho "hero" (banner com Cadastros ativos /
+  Desligados / Alertas contábeis) que só existia numa versão anterior desta
+  tela e não tinha sido trazido para esta reescrita. Publicado em staging.
+  ============================================================================
 -->
 <style>
   :root{ --azul:#1d4ed8; --azul-esc:#1e3a8a; --verde:#16a34a; --vermelho:#dc2626; --cinza-bg:#f3f4f6; --cinza-borda:#e5e7eb; --amarelo:#b45309; }
@@ -112,11 +116,23 @@
   body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif; background:var(--cinza-bg); color:#111827; }
   #lnb-loading, #lnb-negado{ display:flex; align-items:center; justify-content:center; min-height:100vh; font-size:15px; color:#6b7280; }
   .lnb-hide{ display:none !important; }
-  header.topo{ background:#111827; color:#fff; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
-  header.topo h1{ font-size:16px; margin:0; font-weight:600; }
-  header.topo a{ color:#cbd5e1; font-size:13px; text-decoration:none; }
+  header.topo{ min-height:72px; padding:0 max(24px, calc(50vw - 720px)); background:rgba(7,26,53,.96); color:#fff; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,.09); box-shadow:0 8px 28px rgba(7,26,53,.16); backdrop-filter:blur(14px); }
+  header.topo h1{ font-size:15px; margin:0; font-weight:600; letter-spacing:.015em; display:flex; align-items:center; }
+  header.topo h1::before{ content:"LNB"; display:inline-grid; place-items:center; width:38px; height:38px; margin-right:12px; border:1px solid rgba(215,170,85,.65); border-radius:12px; color:#f2d18d; font-size:11px; letter-spacing:.14em; }
+  header.topo a{ color:#cbd5e1; font-size:13px; text-decoration:none; padding:9px 13px; border:1px solid rgba(255,255,255,.15); border-radius:10px; transition:.18s; }
+  header.topo a:hover{ color:#fff; background:rgba(255,255,255,.08); transform:translateY(-1px); }
   .badge-readonly{ background:#78350f; color:#fde68a; font-size:11px; padding:3px 8px; border-radius:999px; margin-left:10px; }
   main{ max-width:1400px; margin:20px auto; padding:0 20px 100px; }
+  .hero-central{ position:relative; overflow:hidden; display:grid; grid-template-columns:minmax(300px,1.25fr) 2fr; gap:28px; padding:28px 30px; margin-bottom:18px; color:#fff; border-radius:22px; background:linear-gradient(125deg,#071a35 0%,#103d72 64%,#146b74 120%); box-shadow:0 22px 55px rgba(7,26,53,.2); }
+  .hero-central::after{ content:""; position:absolute; width:290px; height:290px; right:-95px; top:-155px; border-radius:50%; border:54px solid rgba(215,170,85,.12); pointer-events:none; }
+  .hero-kicker{ margin:0 0 8px; color:#91b9e9; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
+  .hero-central h2{ margin:0 0 8px; font-size:27px; line-height:1.15; letter-spacing:-.025em; }
+  .hero-central p{ margin:0; color:#c7d7e9; max-width:570px; line-height:1.55; font-size:13px; }
+  .metricas{ display:grid; grid-template-columns:repeat(3,1fr); gap:11px; align-self:center; z-index:1; }
+  .metrica{ padding:16px 17px; border:1px solid rgba(255,255,255,.13); border-radius:16px; background:rgba(255,255,255,.075); backdrop-filter:blur(9px); }
+  .metrica strong{ display:block; font-size:24px; line-height:1; color:#fff; font-variant-numeric:tabular-nums; }
+  .metrica span{ display:block; margin-top:8px; color:#bbcadb; font-size:11px; text-transform:uppercase; letter-spacing:.07em; }
+  @media (max-width:820px){ .hero-central{ grid-template-columns:1fr; } .metricas{ grid-template-columns:repeat(3,1fr); } }
   .barra-filtros{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
   .barra-filtros input, .barra-filtros select{ padding:8px 10px; border:1px solid var(--cinza-borda); border-radius:8px; font-size:13px; }
   .barra-filtros input[type="text"]{ min-width:220px; }
@@ -217,6 +233,18 @@
     <a href="/">← Voltar para a Central</a>
   </header>
   <main>
+    <section class="hero-central" aria-labelledby="titulo-central">
+      <div>
+        <div class="hero-kicker">Gestão integrada de pessoas</div>
+        <h2 id="titulo-central">Central de Colaboradores</h2>
+        <p>Uma visão única para administrar vínculos, benefícios e consistência cadastral em todos os módulos da LNB.</p>
+      </div>
+      <div class="metricas" aria-label="Resumo da base">
+        <div class="metrica"><strong id="metrica-total">–</strong><span>Cadastros ativos</span></div>
+        <div class="metrica"><strong id="metrica-desligados">–</strong><span>Desligados</span></div>
+        <div class="metrica"><strong id="metrica-alertas">–</strong><span>Alertas contábeis</span></div>
+      </div>
+    </section>
     <div class="barra-filtros">
       <input type="text" id="f-busca" placeholder="Buscar por nome ou CPF…">
       <select id="f-status">
@@ -488,7 +516,18 @@ function contaContabilReferencia(c){
   return '— (defina o Tipo de contratação para sugerir)';
 }
 
+function atualizarMetricasHero(){
+  const elTotal = document.getElementById('metrica-total');
+  const elDesligados = document.getElementById('metrica-desligados');
+  const elAlertas = document.getElementById('metrica-alertas');
+  if (!elTotal || !elDesligados || !elAlertas) return;
+  elTotal.textContent = COLABORADORES.filter(function(c){ return c.status === 'Ativo'; }).length;
+  elDesligados.textContent = COLABORADORES.filter(function(c){ return c.status === 'Desligado'; }).length;
+  elAlertas.textContent = COLABORADORES.filter(function(c){ return !!inconsistenciaContabil(c); }).length;
+}
+
 function renderTabela(){
+  atualizarMetricasHero();
   const busca = document.getElementById('f-busca').value.trim().toLowerCase();
   const fStatus = document.getElementById('f-status').value;
   const fOrigem = document.getElementById('f-origem').value;
