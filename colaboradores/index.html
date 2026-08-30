@@ -4,8 +4,87 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Liga Nacional de Basquete · Central de Gestão de Colaboradores</title>
+<!--
+  ============================================================================
+  SCRIPT DE ALTERAÇÃO — NÃO APLICADO / NÃO PUBLICADO
+  ============================================================================
+  Este arquivo é uma PROPOSTA de substituição para colaboradores/index.html.
+  Ninguém executou nada em staging ou produção — é só o código pronto para
+  o Lucas revisar e, se aprovar, publicar seguindo o fluxo normal (staging
+  primeiro, depois produção).
+
+  O QUE MUDOU EM RELAÇÃO AO ARQUIVO ORIGINAL:
+
+  1) FILTROS NOVOS na Central de Colaboradores:
+     - Departamento (lista fixa: SUP/COM/MKT/TOP/A&F/ARB, os mesmos 6 códigos
+       já usados no rótulo da tabela)
+     - Tipo de contratação (montado dinamicamente a partir dos valores que
+       já existem na base — evita filtro "vazio" por causa de maiúsculas/
+       minúsculas diferentes do que eu imaginei)
+     - Centro de Custo (idem, montado a partir dos valores reais)
+     - Cesta Básica (elegível / não elegível) — sugestão minha, já que existe
+       uma coluna inteira dedicada a isso na tabela
+     - Consistência contábil (sugestão de analista financeiro — ver item 4)
+     - Botão "Limpar filtros"
+
+  2) POP-UP DE EDIÇÃO ao clicar no nome do colaborador:
+     - Quem tem permissão de editar (PODE_EDITAR) agora vê um formulário,
+       não só texto. Dá para alterar Centro de Custo, Departamento, Tipo de
+       contratação, Status, Observações e a Cesta Básica.
+     - Quando o colaborador está ligado ao RH-Folha (rh_colaborador_id
+       preenchido), também dá para editar E-mail, Telefone e os 4
+       benefícios de opção (Vale Transporte, VR/VA, Plano de Saúde, Seguro
+       de Vida) — que hoje só apareciam como "selo", sem forma de mudar.
+     - IMPORTANTE (ver aviso no topo do <script>): a escrita dos benefícios
+       vai para a tabela rh_colaboradores, que este módulo nunca gravou
+       antes. Preciso que isso seja testado em staging antes de ir para
+       produção — se a permissão (RLS) do perfil "Benefícios · editar" não
+       cobrir UPDATE em rh_colaboradores, o toast vai mostrar o erro exato
+       na hora (em vez de falhar calado), e ainda assim o resto do
+       formulário (Centro de Custo, Departamento etc.) é salvo normalmente.
+     - Nome, CPF e Data de nascimento continuam somente leitura de propósito:
+       esses dados vêm do RH-Folha (ou de outra origem) e editá-los aqui
+       criaria divergência com a fonte oficial. Quem precisar corrigir isso
+       deve mexer na origem (RH & Folha ou Cadastro/Importação de
+       Benefícios).
+     - Fechar com Esc ou clicando fora do pop-up (não existia antes).
+
+  3) MÓDULO GRANDE "CADASTRO DE COLABORADORES" REMOVIDO DA TELA INICIAL:
+     Isso é feito em outro arquivo (ver index_HUB_proposta.html e
+     README_MUDANCAS.md, que venho junto). Aqui na Central de Colaboradores
+     não muda nada relacionado a isso.
+
+  4) "ALGO MAIS" QUE ACHEI INTERESSANTE (pensando como dev + analista
+     financeiro/contábil sênior):
+     a) Aviso de inconsistência contábil: se o Departamento for Arbitragem
+        mas o Centro de Custo não for 400213 (ou vice-versa: CC 400213 com
+        outro departamento), aparece um selo de alerta na linha e no
+        pop-up. Isso é exatamente o tipo de erro que citam no guia do
+        painel (conta 053917 / CC 400213 = Arbitragem) e que hoje só
+        aparece quando alguém já fechou a folha.
+     b) Conta contábil de referência: no pop-up, mostro a conta sugerida
+        (053671 PJ · 057061 CLT/Estagiário · 053917 Arbitragem) como
+        informação — não como campo editável, e com aviso de que é só
+        referência (a conta oficial de cada benefício é definida dentro do
+        módulo de Benefícios).
+     c) Log de auditoria: toda edição (individual ou em lote) agora grava
+        um registro em activity_log (mesma tabela que Admin e Orçado x
+        Realizado já usam), com o nome de quem alterou, o campo e o valor
+        antes/depois. Hoje as ações em lote (Editar CC, Cesta Básica,
+        Desligar) não deixavam rastro nenhum — importante para conciliação
+        e para auditoria.
+     d) Exportar CSV: exporta exatamente a lista filtrada na tela (mesmas
+        colunas + conta contábil de referência), pronta para levar para o
+        financeiro/contabilidade sem reconstruir a planilha na mão.
+     e) Contador de filtros ativos no resumo, para saber rápido se está
+        vendo a base inteira ou uma fatia.
+
+  NADA foi publicado. Este arquivo só existe aqui, no ambiente de trabalho
+  do Claude, aguardando revisão.
+  ============================================================================
+-->
 <style>
-  :root{ --azul:#1d4ed8; --azul-esc:#1e3a8a; --verde:#16a34a; --vermelho:#dc2626; --cinza-bg:#f3f4f6; --cinza-borda:#e5e7eb; }
+  :root{ --azul:#1d4ed8; --azul-esc:#1e3a8a; --verde:#16a34a; --vermelho:#dc2626; --cinza-bg:#f3f4f6; --cinza-borda:#e5e7eb; --amarelo:#b45309; }
   *{ box-sizing:border-box; }
   body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif; background:var(--cinza-bg); color:#111827; }
   #lnb-loading, #lnb-negado{ display:flex; align-items:center; justify-content:center; min-height:100vh; font-size:15px; color:#6b7280; }
@@ -18,6 +97,10 @@
   .barra-filtros{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
   .barra-filtros input, .barra-filtros select{ padding:8px 10px; border:1px solid var(--cinza-borda); border-radius:8px; font-size:13px; }
   .barra-filtros input[type="text"]{ min-width:220px; }
+  .barra-filtros .btn-limpar{ padding:8px 12px; border-radius:8px; border:1px solid var(--cinza-borda); background:#fff; font-size:12.5px; cursor:pointer; color:#374151; }
+  .barra-filtros .btn-limpar:hover{ background:#f3f4f6; }
+  .barra-filtros .btn-exportar{ padding:8px 12px; border-radius:8px; border:none; background:var(--verde); color:#fff; font-size:12.5px; cursor:pointer; font-weight:600; }
+  .barra-filtros .btn-exportar:hover{ opacity:.92; }
   .resumo{ font-size:12px; color:#6b7280; margin-left:auto; }
   .cartao{ background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); overflow:hidden; }
   table{ width:100%; border-collapse:collapse; font-size:13px; }
@@ -29,6 +112,7 @@
   .status-ativo{ background:#dcfce7; color:#166534; }
   .status-desligado{ background:#fee2e2; color:#991b1b; }
   .origem-pill{ font-size:10px; color:#6b7280; border:1px solid var(--cinza-borda); padding:1px 6px; border-radius:6px; }
+  .alerta-pill{ font-size:10px; color:#92400e; background:#fffbeb; border:1px solid #fde68a; padding:1px 6px; border-radius:6px; margin-left:6px; white-space:nowrap; }
   .cesta-toggle{ position:relative; display:inline-block; width:36px; height:20px; }
   .cesta-toggle input{ opacity:0; width:0; height:0; }
   .cesta-slider{ position:absolute; cursor:pointer; inset:0; background:#d1d5db; border-radius:999px; transition:.15s; }
@@ -45,24 +129,33 @@
   .modal{ background:#fff; border-radius:12px; padding:22px; width:380px; max-width:92vw; }
   .modal h3{ margin:0 0 12px; font-size:15px; }
   .modal label{ font-size:12px; color:#374151; display:block; margin-bottom:5px; }
-  .modal input, .modal select{ width:100%; padding:8px 10px; border:1px solid var(--cinza-borda); border-radius:8px; font-size:13px; margin-bottom:14px; }
+  .modal input, .modal select, .modal textarea{ width:100%; padding:8px 10px; border:1px solid var(--cinza-borda); border-radius:8px; font-size:13px; margin-bottom:14px; font-family:inherit; }
+  .modal textarea{ resize:vertical; min-height:56px; }
   .modal .acoes{ display:flex; justify-content:flex-end; gap:8px; }
   .modal .acoes button{ padding:8px 14px; border-radius:8px; border:none; font-size:13px; cursor:pointer; }
   .modal .cancelar{ background:#f3f4f6; }
   .modal .confirmar{ background:var(--azul); color:#fff; }
   .modal .confirmar.perigo{ background:var(--vermelho); }
-  .toast{ position:fixed; top:16px; left:50%; transform:translateX(-50%); background:#111827; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; z-index:200; }
-  .modal-lg{ width:560px; max-height:84vh; overflow-y:auto; }
+  .modal .confirmar:disabled{ opacity:.6; cursor:wait; }
+  .toast{ position:fixed; top:16px; left:50%; transform:translateX(-50%); background:#111827; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; z-index:200; max-width:80vw; text-align:center; }
+  .modal-lg{ width:600px; max-height:88vh; overflow-y:auto; }
   .modal-lg h4{ font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:#6b7280; margin:18px 0 8px; border-bottom:1px solid var(--cinza-borda); padding-bottom:4px; }
   .modal-lg h4:first-of-type{ margin-top:0; }
   .grade-detalhes{ display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; }
   .grade-detalhes .campo{ font-size:13px; }
   .grade-detalhes .campo label{ display:block; font-size:11px; color:#9ca3af; margin-bottom:2px; }
   .grade-detalhes .campo span{ color:#111827; }
+  .grade-editar{ display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+  .grade-editar .largo{ grid-column:1/-1; }
   .chip-beneficio{ display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:4px 10px; border-radius:999px; margin:0 6px 6px 0; }
   .chip-sim{ background:#dcfce7; color:#166534; }
   .chip-nao{ background:#f3f4f6; color:#6b7280; }
+  .linha-beneficio{ display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid #f3f4f6; font-size:13px; }
+  .linha-beneficio:last-child{ border-bottom:none; }
   .aviso-sem-rh{ font-size:12px; color:#92400e; background:#fffbeb; border:1px solid #fde68a; padding:8px 10px; border-radius:8px; margin-top:6px; }
+  .aviso-inconsistencia{ font-size:12.5px; color:#92400e; background:#fffbeb; border:1px solid #fde68a; padding:9px 12px; border-radius:8px; margin:0 0 14px; }
+  .conta-referencia{ font-size:12.5px; color:#374151; background:#f3f4f6; border:1px solid var(--cinza-borda); padding:9px 12px; border-radius:8px; margin:0 0 14px; }
+  .conta-referencia b{ color:#111827; }
   .link-nome{ background:none; border:none; padding:0; color:#1d4ed8; font-weight:600; cursor:pointer; font-size:13px; text-align:left; font-family:inherit; }
   .link-nome:hover{ text-decoration:underline; }
 </style>
@@ -95,6 +188,34 @@
         <option value="ambos">RH-Folha + Benefícios</option>
         <option value="manual">Cadastro manual</option>
       </select>
+      <select id="f-departamento">
+        <option value="">Departamento: todos</option>
+        <option value="1">Superintendência</option>
+        <option value="2">Comunicação</option>
+        <option value="3">Marketing</option>
+        <option value="4">Técnico Operacional</option>
+        <option value="5">Administrativo e Financeiro</option>
+        <option value="6">Arbitragem</option>
+      </select>
+      <select id="f-tipo">
+        <option value="">Tipo: todos</option>
+        <!-- opções preenchidas em runtime com os valores reais da base -->
+      </select>
+      <select id="f-cc">
+        <option value="">Centro de Custo: todos</option>
+        <!-- opções preenchidas em runtime com os valores reais da base -->
+      </select>
+      <select id="f-cesta">
+        <option value="">Cesta Básica: todos</option>
+        <option value="sim">Elegível</option>
+        <option value="nao">Não elegível</option>
+      </select>
+      <select id="f-consistencia">
+        <option value="">Consistência contábil: todos</option>
+        <option value="alerta">Só com alerta ⚠</option>
+      </select>
+      <button type="button" class="btn-limpar" id="btn-limpar-filtros">Limpar filtros</button>
+      <button type="button" class="btn-exportar" id="btn-exportar-csv">⤓ Exportar CSV</button>
       <div class="resumo" id="resumo-contagem"></div>
     </div>
     <div class="cartao">
@@ -126,6 +247,28 @@
 </div>
 
 <script>
+/*
+  AVISO DE ESCRITA EM rh_colaboradores
+  -------------------------------------
+  Este módulo, até hoje, só grava em `colaboradores_master`. A edição de
+  E-mail, Telefone e dos 4 benefícios de opção (opta_vale_transporte,
+  opta_vr_va, opta_plano_saude, opta_seguro_vida) manda um PATCH para
+  `rh_colaboradores`, tabela que este módulo nunca escreveu antes.
+
+  Antes de publicar em produção, valide em staging:
+    1) Um usuário com perfil "Benefícios · editar" consegue mesmo dar PATCH
+       em rh_colaboradores (RLS liberando esse UPDATE para esse papel)?
+    2) O PATCH está restrito só às 4 colunas opta_* + email/telefone, e não
+       toca em salário, cargo, admissão etc. (o código abaixo já limita a
+       isso, mas vale conferir no Network do navegador).
+  Se o teste falhar (RLS bloqueando), o toast mostra a mensagem de erro
+  exata devolvida pelo Supabase — não falha silenciosamente — e o resto do
+  formulário (dados em colaboradores_master) continua sendo salvo.
+  Se preferir travar essa parte até confirmar a permissão, basta trocar a
+  linha abaixo para false.
+*/
+const PERMITIR_EDITAR_BENEFICIOS_RH = true;
+
 const SUPABASE_URL = 'https://iiheewndotcwqntppjrw.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz';
 
@@ -177,7 +320,28 @@ function toast(msg){
   el.className = 'toast';
   el.textContent = msg;
   document.body.appendChild(el);
-  setTimeout(()=> el.remove(), 3200);
+  setTimeout(function(){ el.remove(); }, 3600);
+}
+
+async function registrarLog(action, details){
+  // Auditoria simples: mesma tabela e mesmo formato que Admin e Orçado x
+  // Realizado já usam. Falha de log nunca deve travar a ação principal.
+  try{
+    await fetch(SUPABASE_URL+'/rest/v1/activity_log', {
+      method:'POST',
+      headers:{
+        'apikey':SUPABASE_KEY,
+        'Authorization':'Bearer '+AUTH_SESSION.access_token,
+        'Content-Type':'application/json',
+        'Prefer':'return=minimal'
+      },
+      body: JSON.stringify([{
+        actor: (AUTH_SESSION && (AUTH_SESSION.nome || AUTH_SESSION.email)) || 'desconhecido',
+        action: action,
+        details: details || ''
+      }])
+    });
+  }catch(e){ /* auditoria é best-effort, nunca bloqueia a ação */ }
 }
 
 async function carregarColaboradoresAsync(){
@@ -188,16 +352,47 @@ async function carregarColaboradoresAsync(){
   return await r.json();
 }
 
+// ---------- Regra de negócio: Arbitragem = conta 053917 / CC 400213 ----------
+// Mesma lógica de benIsArbitragem() do módulo de Benefícios, adaptada para
+// os campos que existem em colaboradores_master (departamento + centro_custo).
+function ccNormalizado(v){ return String(v||'').replace(/\D/g,''); }
+function inconsistenciaContabil(c){
+  const cc = ccNormalizado(c.centro_custo);
+  const ehDeptoArb = c.departamento === '6';
+  const ehCcArb = cc === '400213';
+  if (ehDeptoArb && !ehCcArb) return 'Departamento é Arbitragem, mas o Centro de Custo não é 400213.';
+  if (ehCcArb && !ehDeptoArb) return 'Centro de Custo é 400213 (Arbitragem), mas o Departamento não está marcado como Arbitragem.';
+  return null;
+}
+function contaContabilReferencia(c){
+  if (c.departamento === '6' || ccNormalizado(c.centro_custo) === '400213') return '053917 (Arbitragem)';
+  const tipo = String(c.tipo_contratacao||'').toUpperCase();
+  if (tipo.indexOf('PJ') >= 0) return '053671 (PJ)';
+  if (tipo.indexOf('CLT') >= 0 || tipo.indexOf('ESTAGI') >= 0) return '057061 (CLT/Estagiário)';
+  return '— (defina o Tipo de contratação para sugerir)';
+}
+
 function renderTabela(){
   const busca = document.getElementById('f-busca').value.trim().toLowerCase();
   const fStatus = document.getElementById('f-status').value;
   const fOrigem = document.getElementById('f-origem').value;
+  const fDepto = document.getElementById('f-departamento').value;
+  const fTipo = document.getElementById('f-tipo').value;
+  const fCc = document.getElementById('f-cc').value;
+  const fCesta = document.getElementById('f-cesta').value;
+  const fConsist = document.getElementById('f-consistencia').value;
   const corpo = document.getElementById('corpo-tabela');
   corpo.innerHTML = '';
 
   const filtrados = COLABORADORES.filter(function(c){
     if (fStatus && c.status !== fStatus) return false;
     if (fOrigem && c.origem_fonte !== fOrigem) return false;
+    if (fDepto && c.departamento !== fDepto) return false;
+    if (fTipo && (c.tipo_contratacao||'') !== fTipo) return false;
+    if (fCc && (c.centro_custo||'') !== fCc) return false;
+    if (fCesta === 'sim' && !c.is_cesta_basica_elegivel) return false;
+    if (fCesta === 'nao' && c.is_cesta_basica_elegivel) return false;
+    if (fConsist === 'alerta' && !inconsistenciaContabil(c)) return false;
     if (busca){
       const alvo = ((c.nome||'') + ' ' + (c.cpf||'')).toLowerCase();
       if (alvo.indexOf(busca) === -1) return false;
@@ -205,17 +400,21 @@ function renderTabela(){
     return true;
   });
 
-  document.getElementById('resumo-contagem').textContent = filtrados.length + ' de ' + COLABORADORES.length + ' colaboradores';
+  const filtrosAtivos = [fStatus,fOrigem,fDepto,fTipo,fCc,fCesta,fConsist,busca].filter(Boolean).length;
+  document.getElementById('resumo-contagem').textContent =
+    filtrados.length + ' de ' + COLABORADORES.length + ' colaboradores' +
+    (filtrosAtivos ? ' · ' + filtrosAtivos + ' filtro(s) ativo(s)' : '');
 
   filtrados.forEach(function(c){
     const tr = document.createElement('tr');
     if (SELECIONADOS.has(c.id)) tr.className = 'selecionada';
+    const alerta = inconsistenciaContabil(c);
     tr.innerHTML =
       '<td><input type="checkbox" class="chk-linha" data-id="'+c.id+'" '+(SELECIONADOS.has(c.id)?'checked':'')+'></td>'+
       '<td><button type="button" class="link-nome" data-id="'+c.id+'">'+escapeHtml(c.nome||'(sem nome)')+'</button></td>'+
       '<td>'+escapeHtml(c.cpf||'—')+'</td>'+
       '<td>'+escapeHtml(c.centro_custo||'—')+'</td>'+
-      '<td>'+escapeHtml(c.departamento ? rotuloDepartamento(c.departamento) : '—')+'</td>'+
+      '<td>'+escapeHtml(c.departamento ? rotuloDepartamento(c.departamento) : '—')+(alerta?'<span class="alerta-pill" title="'+escapeHtml(alerta)+'">⚠ conferir</span>':'')+'</td>'+
       '<td>'+escapeHtml(c.tipo_contratacao||'—')+'</td>'+
       '<td><span class="status-pill '+(c.status==='Ativo'?'status-ativo':'status-desligado')+'">'+c.status+'</span></td>'+
       '<td><span class="origem-pill">'+rotuloOrigem(c.origem_fonte)+'</span></td>'+
@@ -275,6 +474,55 @@ function chipBeneficio(rotulo, valor){
   return '';
 }
 
+// ---------- Filtros dinâmicos (Tipo e Centro de Custo) ----------
+function popularFiltrosDinamicos(){
+  const tipos = Array.from(new Set(COLABORADORES.map(function(c){ return c.tipo_contratacao; }).filter(Boolean))).sort();
+  const ccs = Array.from(new Set(COLABORADORES.map(function(c){ return c.centro_custo; }).filter(Boolean))).sort();
+  const selTipo = document.getElementById('f-tipo');
+  tipos.forEach(function(t){
+    const opt = document.createElement('option'); opt.value = t; opt.textContent = t; selTipo.appendChild(opt);
+  });
+  const selCc = document.getElementById('f-cc');
+  ccs.forEach(function(cc){
+    const opt = document.createElement('option'); opt.value = cc; opt.textContent = cc; selCc.appendChild(opt);
+  });
+}
+
+// ---------- Exportar CSV (visão filtrada, para o financeiro) ----------
+function exportarCSV(){
+  const linhas = Array.from(document.querySelectorAll('.link-nome')).map(function(btn){
+    return COLABORADORES.find(function(x){ return x.id === btn.getAttribute('data-id'); });
+  }).filter(Boolean);
+  if (!linhas.length){ toast('Nada para exportar com os filtros atuais.'); return; }
+  const cab = ['Nome','CPF','Centro de Custo','Departamento','Tipo','Status','Origem','Cesta Básica','Conta Contábil (referência)','Alerta'];
+  const linhasCsv = linhas.map(function(c){
+    return [
+      c.nome||'', c.cpf||'', c.centro_custo||'', c.departamento?rotuloDepartamento(c.departamento):'',
+      c.tipo_contratacao||'', c.status||'', rotuloOrigem(c.origem_fonte), c.is_cesta_basica_elegivel?'Sim':'Não',
+      contaContabilReferencia(c), inconsistenciaContabil(c)||''
+    ].map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(';');
+  });
+  const csv = '﻿' + cab.join(';') + '\n' + linhasCsv.join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'colaboradores-lnb-' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ---------- Modal genérico (fecha com Esc / clique fora) ----------
+function abrirModal(html){
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = '<div class="modal">'+html+'</div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(ev){ if (ev.target === overlay) overlay.remove(); });
+  function onEsc(ev){ if (ev.key === 'Escape'){ overlay.remove(); document.removeEventListener('keydown', onEsc); } }
+  document.addEventListener('keydown', onEsc);
+  return overlay;
+}
+
+// ---------- Pop-up de detalhes / edição de um colaborador ----------
 async function abrirDetalhesColaborador(c){
   const overlay = abrirModal(
     '<div class="carregando-detalhes">Carregando detalhes de '+escapeHtml(c.nome||'colaborador')+'…</div>'+
@@ -293,6 +541,15 @@ async function abrirDetalhesColaborador(c){
     }catch(e){ /* segue sem dados de RH */ }
   }
 
+  if (!PODE_EDITAR){
+    renderDetalhesSomenteLeitura(overlay, c, rh);
+  } else {
+    renderFormularioEdicao(overlay, c, rh);
+  }
+}
+
+function renderDetalhesSomenteLeitura(overlay, c, rh){
+  const alerta = inconsistenciaContabil(c);
   const pessoais =
     '<div class="grade-detalhes">' +
     '<div class="campo"><label>Nome</label><span>'+escapeHtml(c.nome||'—')+'</span></div>' +
@@ -334,12 +591,224 @@ async function abrirDetalhesColaborador(c){
 
   overlay.querySelector('.modal').innerHTML =
     '<h3 style="margin:0 0 4px">'+escapeHtml(c.nome||'(sem nome)')+'</h3>' +
-    '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">'+escapeHtml(c.cpf||'CPF não informado')+'</div>' +
+    '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">'+escapeHtml(c.cpf||'CPF não informado')+' · Somente leitura</div>' +
+    (alerta ? '<div class="aviso-inconsistencia">⚠ '+escapeHtml(alerta)+'</div>' : '') +
+    '<div class="conta-referencia">Conta contábil de referência: <b>'+escapeHtml(contaContabilReferencia(c))+'</b> (informativo — a conta oficial de cada benefício é definida no módulo de Benefícios)</div>' +
     '<h4>Dados Pessoais</h4>' + pessoais +
     '<h4>Dados Corporativos</h4>' + corporativos +
     '<h4>Benefícios Envolvidos</h4>' + beneficios +
     '<div class="acoes" style="margin-top:18px"><button class="cancelar">Fechar</button></div>';
   overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+}
+
+function opcoesDepartamento(selecionado){
+  const deps = [['1','Superintendência'],['2','Comunicação'],['3','Marketing'],['4','Técnico Operacional'],['5','Administrativo e Financeiro'],['6','Arbitragem']];
+  return '<option value="">—</option>' + deps.map(function(d){
+    return '<option value="'+d[0]+'" '+(selecionado===d[0]?'selected':'')+'>'+d[1]+'</option>';
+  }).join('');
+}
+function opcoesTipo(selecionado){
+  const base = ['PJ','CLT','ESTAGIÁRIO','ARBITRAGEM'];
+  if (selecionado && base.indexOf(selecionado) === -1) base.push(selecionado); // preserva valor atual mesmo se fora da lista padrão
+  return '<option value="">—</option>' + base.map(function(t){
+    return '<option value="'+escapeHtml(t)+'" '+(selecionado===t?'selected':'')+'>'+escapeHtml(t)+'</option>';
+  }).join('');
+}
+
+function renderFormularioEdicao(overlay, c, rh){
+  const alerta = inconsistenciaContabil(c);
+  const temRh = !!rh;
+
+  const camposPessoais =
+    '<div class="grade-detalhes">' +
+    '<div class="campo"><label>Nome</label><span>'+escapeHtml(c.nome||'—')+'</span></div>' +
+    '<div class="campo"><label>CPF</label><span>'+escapeHtml(c.cpf||(rh&&rh.cpf_mascarado)||'—')+'</span></div>' +
+    '<div class="campo"><label>Data de nascimento</label><span>'+formatDataBR(c.data_nascimento||(rh&&rh.data_nascimento))+'</span></div>' +
+    '</div>' +
+    '<div style="font-size:11.5px;color:#9ca3af;margin:2px 0 14px">Nome, CPF e nascimento não são editáveis aqui — corrija na origem (RH & Folha ou Cadastro de Benefícios) para não gerar divergência.</div>';
+
+  const camposContato =
+    '<div class="grade-editar">' +
+    '<div><label>E-mail'+(temRh?'':' (sem cadastro no RH)')+'</label><input type="email" id="ed-email" value="'+escapeHtml((rh&&rh.email)||'')+'" '+(temRh?'':'disabled placeholder="Vincule ao RH-Folha para editar"')+'></div>' +
+    '<div><label>Telefone'+(temRh?'':' (sem cadastro no RH)')+'</label><input type="text" id="ed-telefone" value="'+escapeHtml((rh&&rh.telefone)||'')+'" '+(temRh?'':'disabled placeholder="Vincule ao RH-Folha para editar"')+'></div>' +
+    '</div>';
+
+  const camposCorporativos =
+    '<div class="grade-editar">' +
+    '<div><label>Centro de Custo</label><input type="text" id="ed-cc" value="'+escapeHtml(c.centro_custo||'')+'"></div>' +
+    '<div><label>Departamento</label><select id="ed-depto">'+opcoesDepartamento(c.departamento)+'</select></div>' +
+    '<div><label>Tipo de contratação</label><select id="ed-tipo">'+opcoesTipo(c.tipo_contratacao)+'</select></div>' +
+    '<div><label>Status</label><select id="ed-status"><option value="Ativo" '+(c.status==='Ativo'?'selected':'')+'>Ativo</option><option value="Desligado" '+(c.status==='Desligado'?'selected':'')+'>Desligado</option></select></div>' +
+    '<div class="largo"><label>Observações</label><textarea id="ed-obs">'+escapeHtml(c.observacoes||'')+'</textarea></div>' +
+    '</div>';
+
+  let blocoBeneficios =
+    '<div class="linha-beneficio"><span>Cesta Básica</span><label class="cesta-toggle"><input type="checkbox" id="ed-cesta" '+(c.is_cesta_basica_elegivel?'checked':'')+'><span class="cesta-slider"></span></label></div>';
+
+  if (temRh){
+    const bloqueado = !PERMITIR_EDITAR_BENEFICIOS_RH;
+    blocoBeneficios +=
+      '<div class="linha-beneficio"><span>Vale Transporte</span><label class="cesta-toggle"><input type="checkbox" id="ed-vt" '+(rh.opta_vale_transporte?'checked':'')+' '+(bloqueado?'disabled':'')+'><span class="cesta-slider"></span></label></div>' +
+      '<div class="linha-beneficio"><span>VR/VA</span><label class="cesta-toggle"><input type="checkbox" id="ed-vrva" '+(rh.opta_vr_va?'checked':'')+' '+(bloqueado?'disabled':'')+'><span class="cesta-slider"></span></label></div>' +
+      '<div class="linha-beneficio"><span>Plano de Saúde</span><label class="cesta-toggle"><input type="checkbox" id="ed-saude" '+(rh.opta_plano_saude?'checked':'')+' '+(bloqueado?'disabled':'')+'><span class="cesta-slider"></span></label></div>' +
+      '<div class="linha-beneficio"><span>Seguro de Vida</span><label class="cesta-toggle"><input type="checkbox" id="ed-seguro" '+(rh.opta_seguro_vida?'checked':'')+' '+(bloqueado?'disabled':'')+'><span class="cesta-slider"></span></label></div>';
+    if (bloqueado){
+      blocoBeneficios += '<div class="aviso-sem-rh">Edição de benefícios do RH desativada (PERMITIR_EDITAR_BENEFICIOS_RH = false no topo do arquivo). Ative depois de confirmar a permissão em staging.</div>';
+    }
+  } else {
+    blocoBeneficios += '<div class="aviso-sem-rh">Colaborador sem vínculo com o RH-Folha (origem: '+rotuloOrigem(c.origem_fonte)+'). Os demais benefícios (VT, VR/VA, Saúde, Seguro de Vida) são controlados diretamente no módulo Benefícios.</div>';
+  }
+
+  overlay.querySelector('.modal').innerHTML =
+    '<h3 style="margin:0 0 4px">'+escapeHtml(c.nome||'(sem nome)')+'</h3>' +
+    '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">'+escapeHtml(c.cpf||'CPF não informado')+'</div>' +
+    (alerta ? '<div class="aviso-inconsistencia" id="ed-aviso-consist">⚠ '+escapeHtml(alerta)+'</div>' : '<div id="ed-aviso-consist"></div>') +
+    '<div class="conta-referencia" id="ed-conta-ref">Conta contábil de referência: <b>'+escapeHtml(contaContabilReferencia(c))+'</b> (informativo)</div>' +
+    '<h4>Dados Pessoais</h4>' + camposPessoais +
+    '<h4>Contato</h4>' + camposContato +
+    '<h4>Dados Corporativos</h4>' + camposCorporativos +
+    '<h4>Benefícios</h4>' + blocoBeneficios +
+    '<div class="acoes" style="margin-top:18px"><button class="cancelar">Cancelar</button><button class="confirmar" id="ed-salvar">Salvar</button></div>';
+
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+
+  // Recalcula o aviso de inconsistência e a conta de referência em tempo real
+  // conforme o usuário muda Departamento / Centro de Custo / Tipo.
+  function recalcular(){
+    const rascunho = {
+      departamento: document.getElementById('ed-depto').value,
+      centro_custo: document.getElementById('ed-cc').value,
+      tipo_contratacao: document.getElementById('ed-tipo').value
+    };
+    const av = inconsistenciaContabil(rascunho);
+    document.getElementById('ed-aviso-consist').innerHTML = av ? '⚠ '+escapeHtml(av) : '';
+    document.getElementById('ed-aviso-consist').className = av ? 'aviso-inconsistencia' : '';
+    document.getElementById('ed-conta-ref').innerHTML = 'Conta contábil de referência: <b>'+escapeHtml(contaContabilReferencia(rascunho))+'</b> (informativo)';
+  }
+  ['ed-depto','ed-cc','ed-tipo'].forEach(function(id){
+    document.getElementById(id).addEventListener('change', recalcular);
+    document.getElementById(id).addEventListener('input', recalcular);
+  });
+
+  document.getElementById('ed-salvar').onclick = async function(){
+    const btn = document.getElementById('ed-salvar');
+    btn.disabled = true; btn.textContent = 'Salvando…';
+    try{
+      await salvarEdicaoColaborador(c, rh, temRh);
+      overlay.remove();
+    }catch(e){
+      toast(e.message || 'Falha ao salvar.');
+      btn.disabled = false; btn.textContent = 'Salvar';
+    }
+  };
+}
+
+async function patchColaboradores(ids, payload){
+  const filtro = 'id=in.(' + ids.join(',') + ')';
+  const r = await fetch(SUPABASE_URL+'/rest/v1/colaboradores_master?'+filtro, {
+    method:'PATCH',
+    headers:{
+      'apikey':SUPABASE_KEY,
+      'Authorization':'Bearer '+AUTH_SESSION.access_token,
+      'Content-Type':'application/json',
+      'Prefer':'return=minimal'
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!r.ok){
+    const txt = await r.text().catch(function(){ return ''; });
+    throw new Error('Falha ao salvar dados do colaborador ('+r.status+'): '+txt);
+  }
+}
+
+async function patchRhColaborador(rhId, payload){
+  const r = await fetch(SUPABASE_URL+'/rest/v1/rh_colaboradores?id=eq.'+rhId, {
+    method:'PATCH',
+    headers:{
+      'apikey':SUPABASE_KEY,
+      'Authorization':'Bearer '+AUTH_SESSION.access_token,
+      'Content-Type':'application/json',
+      'Prefer':'return=minimal'
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!r.ok){
+    const txt = await r.text().catch(function(){ return ''; });
+    throw new Error('Falha ao salvar benefícios/contato no RH ('+r.status+'): '+txt);
+  }
+}
+
+async function salvarEdicaoColaborador(c, rh, temRh){
+  const novoCc = document.getElementById('ed-cc').value.trim();
+  const novoDepto = document.getElementById('ed-depto').value;
+  const novoTipo = document.getElementById('ed-tipo').value;
+  const novoStatus = document.getElementById('ed-status').value;
+  const novaObs = document.getElementById('ed-obs').value;
+  const novaCesta = document.getElementById('ed-cesta').checked;
+
+  if (!novoDepto){ throw new Error('Selecione um Departamento antes de salvar.'); }
+  if (!novoTipo){ throw new Error('Selecione um Tipo de contratação antes de salvar.'); }
+
+  const payloadMaster = {};
+  const logMaster = [];
+  if (novoCc !== (c.centro_custo||'')){ payloadMaster.centro_custo = novoCc; logMaster.push('Centro de Custo: "'+(c.centro_custo||'—')+'" → "'+novoCc+'"'); }
+  if (novoDepto !== (c.departamento||'')){ payloadMaster.departamento = novoDepto; logMaster.push('Departamento: "'+(c.departamento?rotuloDepartamento(c.departamento):'—')+'" → "'+rotuloDepartamento(novoDepto)+'"'); }
+  if (novoTipo !== (c.tipo_contratacao||'')){ payloadMaster.tipo_contratacao = novoTipo; logMaster.push('Tipo: "'+(c.tipo_contratacao||'—')+'" → "'+novoTipo+'"'); }
+  if (novoStatus !== (c.status||'')){ payloadMaster.status = novoStatus; logMaster.push('Status: "'+(c.status||'—')+'" → "'+novoStatus+'"'); }
+  if (novaObs !== (c.observacoes||'')){ payloadMaster.observacoes = novaObs; logMaster.push('Observações alteradas'); }
+  if (novaCesta !== !!c.is_cesta_basica_elegivel){ payloadMaster.is_cesta_basica_elegivel = novaCesta; logMaster.push('Cesta Básica: "'+(c.is_cesta_basica_elegivel?'Sim':'Não')+'" → "'+(novaCesta?'Sim':'Não')+'"'); }
+
+  let erroRh = null;
+  const payloadRh = {};
+  const logRh = [];
+  if (temRh){
+    const novoEmail = document.getElementById('ed-email').value.trim();
+    const novoTelefone = document.getElementById('ed-telefone').value.trim();
+    if (novoEmail !== (rh.email||'')){ payloadRh.email = novoEmail; logRh.push('E-mail alterado'); }
+    if (novoTelefone !== (rh.telefone||'')){ payloadRh.telefone = novoTelefone; logRh.push('Telefone alterado'); }
+    if (PERMITIR_EDITAR_BENEFICIOS_RH){
+      const novoVt = document.getElementById('ed-vt').checked;
+      const novoVrva = document.getElementById('ed-vrva').checked;
+      const novoSaude = document.getElementById('ed-saude').checked;
+      const novoSeguro = document.getElementById('ed-seguro').checked;
+      if (novoVt !== !!rh.opta_vale_transporte){ payloadRh.opta_vale_transporte = novoVt; logRh.push('Vale Transporte: "'+(rh.opta_vale_transporte?'Sim':'Não')+'" → "'+(novoVt?'Sim':'Não')+'"'); }
+      if (novoVrva !== !!rh.opta_vr_va){ payloadRh.opta_vr_va = novoVrva; logRh.push('VR/VA: "'+(rh.opta_vr_va?'Sim':'Não')+'" → "'+(novoVrva?'Sim':'Não')+'"'); }
+      if (novoSaude !== !!rh.opta_plano_saude){ payloadRh.opta_plano_saude = novoSaude; logRh.push('Plano de Saúde: "'+(rh.opta_plano_saude?'Sim':'Não')+'" → "'+(novoSaude?'Sim':'Não')+'"'); }
+      if (novoSeguro !== !!rh.opta_seguro_vida){ payloadRh.opta_seguro_vida = novoSeguro; logRh.push('Seguro de Vida: "'+(rh.opta_seguro_vida?'Sim':'Não')+'" → "'+(novoSeguro?'Sim':'Não')+'"'); }
+    }
+  }
+
+  if (!Object.keys(payloadMaster).length && !Object.keys(payloadRh).length){
+    toast('Nada foi alterado.');
+    return;
+  }
+
+  if (Object.keys(payloadMaster).length){
+    payloadMaster.updated_by = AUTH_SESSION.uid || null;
+    await patchColaboradores([c.id], payloadMaster);
+    Object.assign(c, payloadMaster);
+  }
+
+  if (Object.keys(payloadRh).length){
+    try{
+      payloadRh.updated_by = AUTH_SESSION.uid || null;
+      await patchRhColaborador(c.rh_colaborador_id, payloadRh);
+      Object.assign(rh, payloadRh);
+    }catch(e){
+      erroRh = e.message;
+    }
+  }
+
+  if (logMaster.length) await registrarLog('editar_colaborador', c.nome+' — '+logMaster.join('; '));
+  if (logRh.length && !erroRh) await registrarLog('editar_colaborador_rh', c.nome+' — '+logRh.join('; '));
+
+  renderTabela();
+
+  if (erroRh){
+    toast('Dados do colaborador salvos. Falha ao salvar contato/benefícios do RH: '+erroRh);
+  } else {
+    toast('Colaborador atualizado com sucesso.');
+  }
 }
 
 function atualizarBarraFlutuante(){
@@ -360,20 +829,21 @@ document.getElementById('chk-todos').addEventListener('change', function(ev){
   atualizarBarraFlutuante();
 });
 
-['f-busca','f-status','f-origem'].forEach(function(id){
+['f-busca','f-status','f-origem','f-departamento','f-tipo','f-cc','f-cesta','f-consistencia'].forEach(function(id){
   document.getElementById(id).addEventListener('input', renderTabela);
   document.getElementById(id).addEventListener('change', renderTabela);
 });
 
-// ---------- Ações em lote ----------
+document.getElementById('btn-limpar-filtros').addEventListener('click', function(){
+  ['f-busca','f-status','f-origem','f-departamento','f-tipo','f-cc','f-cesta','f-consistencia'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+  renderTabela();
+});
 
-function abrirModal(html){
-  const overlay = document.createElement('div');
-  overlay.className = 'overlay';
-  overlay.innerHTML = '<div class="modal">'+html+'</div>';
-  document.body.appendChild(overlay);
-  return overlay;
-}
+document.getElementById('btn-exportar-csv').addEventListener('click', exportarCSV);
+
+// ---------- Ações em lote ----------
 
 document.getElementById('btn-editar-lote').addEventListener('click', function(){
   const overlay = abrirModal(
@@ -422,50 +892,38 @@ document.getElementById('btn-desligar-lote').addEventListener('click', function(
   };
 });
 
-async function patchColaboradores(ids, payload){
-  const filtro = 'id=in.(' + ids.join(',') + ')';
-  const r = await fetch(SUPABASE_URL+'/rest/v1/colaboradores_master?'+filtro, {
-    method:'PATCH',
-    headers:{
-      'apikey':SUPABASE_KEY,
-      'Authorization':'Bearer '+AUTH_SESSION.access_token,
-      'Content-Type':'application/json',
-      'Prefer':'return=minimal'
-    },
-    body: JSON.stringify(payload)
-  });
-  if (!r.ok){
-    const txt = await r.text().catch(function(){ return ''; });
-    throw new Error('Falha ao salvar ('+r.status+'): '+txt);
-  }
-}
-
 async function editarAtributoEmLoteAsync(campo, valor){
   try{
+    const nomes = COLABORADORES.filter(function(c){ return SELECIONADOS.has(c.id); }).map(function(c){ return c.nome; });
     const payload = {}; payload[campo] = valor; payload.updated_by = AUTH_SESSION.uid || null;
     await patchColaboradores(Array.from(SELECIONADOS), payload);
     COLABORADORES.forEach(function(c){ if (SELECIONADOS.has(c.id)) c[campo] = valor; });
     renderTabela();
+    await registrarLog('editar_lote_colaboradores', 'Campo "'+campo+'" definido como "'+valor+'" para: '+nomes.join(', '));
     toast('Centro de custo atualizado para '+SELECIONADOS.size+' colaborador(es).');
   }catch(e){ toast(e.message); }
 }
 
 async function atualizarCestaBasicaAsync(ids, valor){
   try{
+    const nomes = COLABORADORES.filter(function(c){ return ids.indexOf(c.id) >= 0; }).map(function(c){ return c.nome; });
     await patchColaboradores(ids, { is_cesta_basica_elegivel: valor, updated_by: AUTH_SESSION.uid || null });
     COLABORADORES.forEach(function(c){ if (ids.indexOf(c.id) >= 0) c.is_cesta_basica_elegivel = valor; });
     renderTabela();
+    await registrarLog('cesta_basica_lote', 'Cesta Básica '+(valor?'ligada':'removida')+' para: '+nomes.join(', '));
     toast('Cesta Básica ' + (valor?'liberada':'removida') + ' para ' + ids.length + ' colaborador(es).');
   }catch(e){ toast(e.message); renderTabela(); }
 }
 
 async function desligarEmMassaAsync(ids){
   try{
+    const nomes = COLABORADORES.filter(function(c){ return ids.indexOf(c.id) >= 0; }).map(function(c){ return c.nome; });
     await patchColaboradores(ids, { status:'Desligado', updated_by: AUTH_SESSION.uid || null });
     COLABORADORES.forEach(function(c){ if (ids.indexOf(c.id) >= 0) c.status = 'Desligado'; });
     SELECIONADOS.clear();
     renderTabela();
     atualizarBarraFlutuante();
+    await registrarLog('desligar_lote_colaboradores', 'Desligados: '+nomes.join(', '));
     toast(ids.length + ' colaborador(es) desligado(s). Nenhum registro foi apagado.');
   }catch(e){ toast(e.message); }
 }
@@ -490,6 +948,8 @@ async function desligarEmMassaAsync(ids){
     document.getElementById('lnb-loading').textContent = 'Erro ao carregar: ' + e.message;
     return;
   }
+
+  popularFiltrosDinamicos();
 
   document.getElementById('badge-modo').innerHTML = PODE_EDITAR ? '' : '<span class="badge-readonly">Somente leitura</span>';
   document.getElementById('lnb-loading').classList.add('lnb-hide');
