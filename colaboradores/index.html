@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liga Nacional de Basquete · Central de Gestão de Colaboradores</title>
+<!--
+  ============================================================================
+  HISTÓRICO DE ALTERAÇÕES — já publicado em staging (não em produção)
+  ============================================================================
+  Nota: os parágrafos abaixo (rodadas 1 e 2) são anotações de quando esta
+  reescrita da Central de Colaboradores ainda era uma proposta. Ela já foi
+  publicada em staging (com aprovação do Lucas) — o texto ficou apenas como
+  registro do que mudou. Como sempre, produção só recebe isso com aprovação
+  explícita do Lucas.
+
+  O QUE MUDOU EM RELAÇÃO AO ARQUIVO ORIGINAL:
+
+  1) FILTROS NOVOS na Central de Colaboradores:
+     - Departamento (lista fixa: SUP/COM/MKT/TOP/A&F/ARB, os mesmos 6 códigos
+       já usados no rótulo da tabela)
+     - Tipo de contratação (montado dinamicamente a partir dos valores que
+       já existem na base — evita filtro "vazio" por causa de maiúsculas/
+       minúsculas diferentes do que eu imaginei)
+     - Centro de Custo (idem, montado a partir dos valores reais)
+     - Cesta Básica (elegível / não elegível) — sugestão minha, já que existe
+       uma coluna inteira dedicada a isso na tabela
+     - Consistência contábil (sugestão de analista financeiro — ver item 4)
+     - Botão "Limpar filtros"
+
+  2) POP-UP DE EDIÇÃO ao clicar no nome do colaborador:
+     - Quem tem permissão de editar (PODE_EDITAR) agora vê um formulário,
+       não só texto. Dá para alterar Centro de Custo, Departamento, Tipo de
+       contratação, Status, Observações e a Cesta Básica.
+     - Quando o colaborador está ligado ao RH-Folha (rh_colaborador_id
+       preenchido), também dá para editar E-mail, Telefone e os 4
+       benefícios de opção (Vale Transporte, VR/VA, Plano de Saúde, Seguro
+       de Vida) — que hoje só apareciam como "selo", sem forma de mudar.
+     - IMPORTANTE (ver aviso no topo do <script>): a escrita dos benefícios
+       vai para a tabela rh_colaboradores, que este módulo nunca gravou
+       antes. Preciso que isso seja testado em staging antes de ir para
+       produção — se a permissão (RLS) do perfil "Benefícios · editar" não
+       cobrir UPDATE em rh_colaboradores, o toast vai mostrar o erro exato
+       na hora (em vez de falhar calado), e ainda assim o resto do
+       formulário (Centro de Custo, Departamento etc.) é salvo normalmente.
+     - Nome, CPF e Data de nascimento continuam somente leitura de propósito:
+       esses dados vêm do RH-Folha (ou de outra origem) e editá-los aqui
+       criaria divergência com a fonte oficial. Quem precisar corrigir isso
+       deve mexer na origem (RH & Folha ou Cadastro/Importação de
+       Benefícios).
+     - Fechar com Esc ou clicando fora do pop-up (não existia antes).
+
+  3) MÓDULO GRANDE "CADASTRO DE COLABORADORES" REMOVIDO DA TELA INICIAL:
+     Isso é feito em outro arquivo (ver index_HUB_proposta.html e
+     README_MUDANCAS.md, que venho junto). Aqui na Central de Colaboradores
+     não muda nada relacionado a isso.
+
+  4) "ALGO MAIS" QUE ACHEI INTERESSANTE (pensando como dev + analista
+     financeiro/contábil sênior):
+     a) Aviso de inconsistência contábil: se o Departamento for Arbitragem
+        mas o Centro de Custo não for 400213 (ou vice-versa: CC 400213 com
+        outro departamento), aparece um selo de alerta na linha e no
+        pop-up. Isso é exatamente o tipo de erro que citam no guia do
+        painel (conta 053917 / CC 400213 = Arbitragem) e que hoje só
+        aparece quando alguém já fechou a folha.
+     b) Conta contábil de referência: no pop-up, mostro a conta sugerida
+        (053671 PJ · 057061 CLT/Estagiário · 053917 Arbitragem) como
+        informação — não como campo editável, e com aviso de que é só
+        referência (a conta oficial de cada benefício é definida dentro do
+        módulo de Benefícios).
+     c) Log de auditoria: toda edição (individual ou em lote) agora grava
+        um registro em activity_log (mesma tabela que Admin e Orçado x
+        Realizado já usam), com o nome de quem alterou, o campo e o valor
+        antes/depois. Hoje as ações em lote (Editar CC, Cesta Básica,
+        Desligar) não deixavam rastro nenhum — importante para conciliação
+        e para auditoria.
+     d) Exportar CSV: exporta exatamente a lista filtrada na tela (mesmas
+        colunas + conta contábil de referência), pronta para levar para o
+        financeiro/contabilidade sem reconstruir a planilha na mão.
+     e) Contador de filtros ativos no resumo, para saber rápido se está
+        vendo a base inteira ou uma fatia.
+
+  ============================================================================
+
+  RODADA 2 — pedidos após o primeiro teste em staging:
+
+  5) AÇÕES EM MASSA NOVAS: Ativar em Massa (faltava, só tinha Desligar),
+     Alterar Departamento em massa, Alterar Tipo de contratação em massa,
+     Alterar Benefícios em massa (Cesta Básica, Vale Transporte, VR/VA,
+     Assistência Médica/Plano de Saúde, Seguro de Vida — cada um com
+     Ligar / Desligar / Não alterar, para poder mudar só o que precisa).
+
+  6) PREMISSA DE AUTONOMIA (regra permanente, guardada em memória para todo
+     trabalho futuro no painel): nada pode ficar fixo no código se depender
+     de decisão de negócio que muda com o tempo. Por isso, Departamentos,
+     Tipos de contratação, a regra "Centro de Custo começando com 8 vai para
+     o departamento Projetos" e a definição de Arbitragem (conta contábil +
+     centro de custo) agora vêm de uma tela própria — botão "⚙ Regras",
+     visível só para quem edita — e ficam salvas no banco (tabela ben_state,
+     mesma que o módulo de Benefícios já usa para guardar configuração,
+     chave "colaboradores_regras"). Se a linha ainda não existir no banco,
+     o sistema usa os valores de hoje como padrão e funciona normalmente;
+     só passa a ler do banco depois que alguém salvar pela tela de Regras.
+     Isso significa que adicionar um departamento novo, mudar a conta da
+     Arbitragem ou criar uma regra de Centro de Custo não precisa mais de
+     mim mexendo no código — é só abrir "⚙ Regras" e salvar.
+
+  RODADA 3 — mesclado o cabeçalho "hero" (banner com Cadastros ativos /
+  Desligados / Alertas contábeis) que só existia numa versão anterior desta
+  tela e não tinha sido trazido para esta reescrita. Publicado em staging.
+  ============================================================================
+-->
+<style>
+  :root{ --azul:#1d4ed8; --azul-esc:#1e3a8a; --verde:#16a34a; --vermelho:#dc2626; --cinza-bg:#f3f4f6; --cinza-borda:#e5e7eb; --amarelo:#b45309; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif; background:var(--cinza-bg); color:#111827; }
+  #lnb-loading, #lnb-negado{ display:flex; align-items:center; justify-content:center; min-height:100vh; font-size:15px; color:#6b7280; }
+  .lnb-hide{ display:none !important; }
+  header.topo{ min-height:72px; padding:0 max(24px, calc(50vw - 720px)); background:rgba(7,26,53,.96); color:#fff; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,.09); box-shadow:0 8px 28px rgba(7,26,53,.16); backdrop-filter:blur(14px); }
+  header.topo h1{ font-size:15px; margin:0; font-weight:600; letter-spacing:.015em; display:flex; align-items:center; }
+  header.topo h1::before{ content:"LNB"; display:inline-grid; place-items:center; width:38px; height:38px; margin-right:12px; border:1px solid rgba(215,170,85,.65); border-radius:12px; color:#f2d18d; font-size:11px; letter-spacing:.14em; }
+  header.topo a{ color:#cbd5e1; font-size:13px; text-decoration:none; padding:9px 13px; border:1px solid rgba(255,255,255,.15); border-radius:10px; transition:.18s; }
+  header.topo a:hover{ color:#fff; background:rgba(255,255,255,.08); transform:translateY(-1px); }
+  .badge-readonly{ background:#78350f; color:#fde68a; font-size:11px; padding:3px 8px; border-radius:999px; margin-left:10px; }
+  main{ max-width:1400px; margin:20px auto; padding:0 20px 100px; }
+  .hero-central{ position:relative; overflow:hidden; display:grid; grid-template-columns:minmax(300px,1.25fr) 2fr; gap:28px; padding:28px 30px; margin-bottom:18px; color:#fff; border-radius:22px; background:linear-gradient(125deg,#071a35 0%,#103d72 64%,#146b74 120%); box-shadow:0 22px 55px rgba(7,26,53,.2); }
+  .hero-central::after{ content:""; position:absolute; width:290px; height:290px; right:-95px; top:-155px; border-radius:50%; border:54px solid rgba(215,170,85,.12); pointer-events:none; }
+  .hero-kicker{ margin:0 0 8px; color:#91b9e9; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
+  .hero-central h2{ margin:0 0 8px; font-size:27px; line-height:1.15; letter-spacing:-.025em; }
+  .hero-central p{ margin:0; color:#c7d7e9; max-width:570px; line-height:1.55; font-size:13px; }
+  .metricas{ display:grid; grid-template-columns:repeat(3,1fr); gap:11px; align-self:center; z-index:1; }
+  .metrica{ padding:16px 17px; border:1px solid rgba(255,255,255,.13); border-radius:16px; background:rgba(255,255,255,.075); backdrop-filter:blur(9px); }
+  .metrica strong{ display:block; font-size:24px; line-height:1; color:#fff; font-variant-numeric:tabular-nums; }
+  .metrica span{ display:block; margin-top:8px; color:#bbcadb; font-size:11px; text-transform:uppercase; letter-spacing:.07em; }
+  @media (max-width:820px){ .hero-central{ grid-template-columns:1fr; } .metricas{ grid-template-columns:repeat(3,1fr); } }
+  .barra-filtros{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+  .barra-filtros input, .barra-filtros select{ padding:8px 10px; border:1px solid var(--cinza-borda); border-radius:8px; font-size:13px; }
+  .barra-filtros input[type="text"]{ min-width:220px; }
+  .barra-filtros .btn-limpar{ padding:8px 12px; border-radius:8px; border:1px solid var(--cinza-borda); background:#fff; font-size:12.5px; cursor:pointer; color:#374151; }
+  .barra-filtros .btn-limpar:hover{ background:#f3f4f6; }
+  .barra-filtros .btn-exportar{ padding:8px 12px; border-radius:8px; border:none; background:var(--verde); color:#fff; font-size:12.5px; cursor:pointer; font-weight:600; }
+  .barra-filtros .btn-exportar:hover{ opacity:.92; }
+  .resumo{ font-size:12px; color:#6b7280; margin-left:auto; }
+  .cartao{ background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); overflow:hidden; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  thead th{ background:#f9fafb; text-align:left; padding:10px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:#6b7280; border-bottom:1px solid var(--cinza-borda); position:sticky; top:0; }
+  tbody td{ padding:9px 12px; border-bottom:1px solid #f3f4f6; }
+  tbody tr:hover{ background:#f9fafb; }
+  tbody tr.selecionada{ background:#eff6ff; }
+  .status-pill{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:600; }
+  .status-ativo{ background:#dcfce7; color:#166534; }
+  .status-desligado{ background:#fee2e2; color:#991b1b; }
+  .origem-pill{ font-size:10px; color:#6b7280; border:1px solid var(--cinza-borda); padding:1px 6px; border-radius:6px; }
+  .alerta-pill{ font-size:10px; color:#92400e; background:#fffbeb; border:1px solid #fde68a; padding:1px 6px; border-radius:6px; margin-left:6px; white-space:nowrap; }
+  .cesta-toggle{ position:relative; display:inline-block; width:36px; height:20px; }
+  .cesta-toggle input{ opacity:0; width:0; height:0; }
+  .cesta-slider{ position:absolute; cursor:pointer; inset:0; background:#d1d5db; border-radius:999px; transition:.15s; }
+  .cesta-slider:before{ content:""; position:absolute; height:14px; width:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.15s; }
+  .cesta-toggle input:checked + .cesta-slider{ background:var(--verde); }
+  .cesta-toggle input:checked + .cesta-slider:before{ transform:translateX(16px); }
+  .cesta-toggle input:disabled + .cesta-slider{ opacity:.5; cursor:not-allowed; }
+  .barra-flutuante{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#111827; color:#fff; padding:12px 20px; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.25); display:flex; align-items:center; gap:14px; z-index:50; }
+  .barra-flutuante button{ font-size:13px; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:600; }
+  .btn-editar{ background:var(--azul); color:#fff; }
+  .btn-desligar{ background:var(--vermelho); color:#fff; }
+  .btn-cesta{ background:#0891b2; color:#fff; }
+  .overlay{ position:fixed; inset:0; background:rgba(15,23,42,.5); display:flex; align-items:center; justify-content:center; z-index:100; }
+  .modal{ background:#fff; border-radius:12px; padding:22px; width:380px; max-width:92vw; }
+  .modal h3{ margin:0 0 12px; font-size:15px; }
+  .modal label{ font-size:12px; color:#374151; display:block; margin-bottom:5px; }
+  .modal input, .modal select, .modal textarea{ width:100%; padding:8px 10px; border:1px solid var(--cinza-borda); border-radius:8px; font-size:13px; margin-bottom:14px; font-family:inherit; }
+  .modal textarea{ resize:vertical; min-height:56px; }
+  .modal .acoes{ display:flex; justify-content:flex-end; gap:8px; }
+  .modal .acoes button{ padding:8px 14px; border-radius:8px; border:none; font-size:13px; cursor:pointer; }
+  .modal .cancelar{ background:#f3f4f6; }
+  .modal .confirmar{ background:var(--azul); color:#fff; }
+  .modal .confirmar.perigo{ background:var(--vermelho); }
+  .modal .confirmar:disabled{ opacity:.6; cursor:wait; }
+  .toast{ position:fixed; top:16px; left:50%; transform:translateX(-50%); background:#111827; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; z-index:200; max-width:80vw; text-align:center; }
+  .modal-lg{ width:600px; max-height:88vh; overflow-y:auto; }
+  .modal-lg h4{ font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:#6b7280; margin:18px 0 8px; border-bottom:1px solid var(--cinza-borda); padding-bottom:4px; }
+  .modal-lg h4:first-of-type{ margin-top:0; }
+  .grade-detalhes{ display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; }
+  .grade-detalhes .campo{ font-size:13px; }
+  .grade-detalhes .campo label{ display:block; font-size:11px; color:#9ca3af; margin-bottom:2px; }
+  .grade-detalhes .campo span{ color:#111827; }
+  .grade-editar{ display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+  .grade-editar .largo{ grid-column:1/-1; }
+  .chip-beneficio{ display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:4px 10px; border-radius:999px; margin:0 6px 6px 0; }
+  .chip-sim{ background:#dcfce7; color:#166534; }
+  .chip-nao{ background:#f3f4f6; color:#6b7280; }
+  .linha-beneficio{ display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid #f3f4f6; font-size:13px; }
+  .linha-beneficio:last-child{ border-bottom:none; }
+  .aviso-sem-rh{ font-size:12px; color:#92400e; background:#fffbeb; border:1px solid #fde68a; padding:8px 10px; border-radius:8px; margin-top:6px; }
+  .aviso-inconsistencia{ font-size:12.5px; color:#92400e; background:#fffbeb; border:1px solid #fde68a; padding:9px 12px; border-radius:8px; margin:0 0 14px; }
+  .conta-referencia{ font-size:12.5px; color:#374151; background:#f3f4f6; border:1px solid var(--cinza-borda); padding:9px 12px; border-radius:8px; margin:0 0 14px; }
+  .conta-referencia b{ color:#111827; }
+  .link-nome{ background:none; border:none; padding:0; color:#1d4ed8; font-weight:600; cursor:pointer; font-size:13px; text-align:left; font-family:inherit; }
+  .link-nome:hover{ text-decoration:underline; }
+  .btn-regras{ padding:8px 12px; border-radius:8px; border:1px solid var(--cinza-borda); background:#fff; font-size:12.5px; cursor:pointer; color:#374151; }
+  .btn-regras:hover{ background:#f3f4f6; }
+  .btn-ativar{ background:var(--verde); color:#fff; }
+  .btn-depto-lote, .btn-tipo-lote{ background:#7c3aed; color:#fff; }
+  .btn-beneficios-lote{ background:#0891b2; color:#fff; }
+  .modal-regras{ width:640px; max-height:88vh; overflow-y:auto; }
+  .regras-secao{ margin-bottom:18px; }
+  .regras-secao h4{ font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:#6b7280; margin:0 0 8px; border-bottom:1px solid var(--cinza-borda); padding-bottom:4px; }
+  .regras-ajuda{ font-size:11.5px; color:#9ca3af; margin:-4px 0 10px; }
+  .regras-linha{ display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .regras-linha input, .regras-linha select{ padding:7px 9px; border:1px solid var(--cinza-borda); border-radius:7px; font-size:12.5px; font-family:inherit; }
+  .regras-linha .reg-dep-cod{ width:60px; }
+  .regras-linha .reg-dep-nome{ flex:1; }
+  .regras-linha .reg-cc-prefixo{ width:110px; }
+  .regras-linha .reg-cc-depto{ flex:1; }
+  .regras-linha .reg-rm{ background:#fee2e2; color:#991b1b; border:none; border-radius:7px; width:28px; height:28px; cursor:pointer; font-size:14px; flex-shrink:0; }
+  .regras-add{ background:#eff6ff; color:#1d4ed8; border:1px dashed #93c5fd; border-radius:7px; padding:6px 10px; font-size:12px; cursor:pointer; }
+  .regras-grade-arb{ display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
+  .beneficio-lote-linha{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; }
+  .beneficio-lote-linha select{ min-width:170px; }
+</style>
+</head>
+<body>
+
+<div id="lnb-loading">Carregando Central de Gestão…</div>
+
+<div id="lnb-negado" class="lnb-hide">
+  Seu usuário não tem acesso ao módulo de Benefícios/Colaboradores.
+</div>
+
+<div id="lnb-app" class="lnb-hide">
+  <header class="topo">
+    <h1>Central de Gestão de Colaboradores <span id="badge-modo"></span></h1>
+    <a href="/">← Voltar para a Central</a>
+  </header>
+  <main>
+    <section class="hero-central" aria-labelledby="titulo-central">
+      <div>
+        <div class="hero-kicker">Gestão integrada de pessoas</div>
+        <h2 id="titulo-central">Central de Colaboradores</h2>
+        <p>Uma visão única para administrar vínculos, benefícios e consistência cadastral em todos os módulos da LNB.</p>
+      </div>
+      <div class="metricas" aria-label="Resumo da base">
+        <div class="metrica"><strong id="metrica-total">–</strong><span>Cadastros ativos</span></div>
+        <div class="metrica"><strong id="metrica-desligados">–</strong><span>Desligados</span></div>
+        <div class="metrica"><strong id="metrica-alertas">–</strong><span>Alertas contábeis</span></div>
+      </div>
+    </section>
+    <div class="barra-filtros">
+      <input type="text" id="f-busca" placeholder="Buscar por nome ou CPF…">
+      <select id="f-status">
+        <option value="">Status: todos</option>
+        <option value="Ativo">Ativo</option>
+        <option value="Desligado">Desligado</option>
+      </select>
+      <select id="f-origem">
+        <option value="">Origem: todas</option>
+        <option value="rh_folha">Só RH-Folha</option>
+        <option value="beneficios_liga_mestre">Só Benefícios (PJ)</option>
+        <option value="ambos">RH-Folha + Benefícios</option>
+        <option value="manual">Cadastro manual</option>
+      </select>
+      <select id="f-departamento">
+        <option value="">Departamento: todos</option>
+        <!-- opções preenchidas em runtime a partir das Regras (⚙ Regras) -->
+      </select>
+      <select id="f-tipo">
+        <option value="">Tipo: todos</option>
+        <!-- opções preenchidas em runtime com os valores reais da base -->
+      </select>
+      <select id="f-cc">
+        <option value="">Centro de Custo: todos</option>
+        <!-- opções preenchidas em runtime com os valores reais da base -->
+      </select>
+      <select id="f-cesta">
+        <option value="">Cesta Básica: todos</option>
+        <option value="sim">Elegível</option>
+        <option value="nao">Não elegível</option>
+      </select>
+      <select id="f-consistencia">
+        <option value="">Consistência contábil: todos</option>
+        <option value="alerta">Só com alerta ⚠</option>
+      </select>
+      <button type="button" class="btn-limpar" id="btn-limpar-filtros">Limpar filtros</button>
+      <button type="button" class="btn-exportar" id="btn-exportar-csv">⤓ Exportar CSV</button>
+      <button type="button" class="btn-regras lnb-hide" id="btn-regras">⚙ Regras</button>
+      <div class="resumo" id="resumo-contagem"></div>
+    </div>
+    <div class="cartao">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px"><input type="checkbox" id="chk-todos"></th>
+            <th>Nome</th>
+            <th>CPF</th>
+            <th>Centro de Custo</th>
+            <th>Departamento</th>
+            <th>Tipo</th>
+            <th>Status</th>
+            <th>Origem</th>
+            <th>Cesta Básica</th>
+          </tr>
+        </thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<div id="barra-flutuante" class="barra-flutuante lnb-hide">
+  <span id="txt-selecionados"></span>
+  <button class="btn-editar" id="btn-editar-lote">Editar Centro de Custo</button>
+  <button class="btn-depto-lote" id="btn-depto-lote">Alterar Departamento</button>
+  <button class="btn-tipo-lote" id="btn-tipo-lote">Alterar Tipo</button>
+  <button class="btn-beneficios-lote" id="btn-beneficios-lote">Benefícios…</button>
+  <button class="btn-cesta" id="btn-cesta-lote">Cesta Básica…</button>
+  <button class="btn-ativar" id="btn-ativar-lote">Ativar em Massa</button>
+  <button class="btn-desligar" id="btn-desligar-lote">Desligar em Massa</button>
+</div>
+
+<script>
+/*
+  AVISO DE ESCRITA EM rh_colaboradores
+  -------------------------------------
+  Este módulo, até hoje, só grava em `colaboradores_master`. A edição de
+  E-mail, Telefone e dos 4 benefícios de opção (opta_vale_transporte,
+  opta_vr_va, opta_plano_saude, opta_seguro_vida) manda um PATCH para
+  `rh_colaboradores`, tabela que este módulo nunca escreveu antes.
+
+  Antes de publicar em produção, valide em staging:
+    1) Um usuário com perfil "Benefícios · editar" consegue mesmo dar PATCH
+       em rh_colaboradores (RLS liberando esse UPDATE para esse papel)?
+    2) O PATCH está restrito só às 4 colunas opta_* + email/telefone, e não
+       toca em salário, cargo, admissão etc. (o código abaixo já limita a
+       isso, mas vale conferir no Network do navegador).
+  Se o teste falhar (RLS bloqueando), o toast mostra a mensagem de erro
+  exata devolvida pelo Supabase — não falha silenciosamente — e o resto do
+  formulário (dados em colaboradores_master) continua sendo salvo.
+  Se preferir travar essa parte até confirmar a permissão, basta trocar a
+  linha abaixo para false.
+*/
+const PERMITIR_EDITAR_BENEFICIOS_RH = true;
+
+const SUPABASE_URL = 'https://iiheewndotcwqntppjrw.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_h2cw5HY-fJk4rtE5sr8-vQ_TOOT8qkz';
+
+let AUTH_SESSION = null;
+let COLABORADORES = [];
+let SELECIONADOS = new Set();
+let PODE_EDITAR = false;
+
+// ---------- Regras de negócio configuráveis (premissa: autonomia) ----------
+// Nada aqui deveria precisar de alteração de código para mudar. Isto é só
+// o valor padrão (igual ao que já existia fixo antes) — quem tem permissão
+// de editar pode mudar tudo isto pela tela "⚙ Regras", que grava em
+// ben_state (chave "colaboradores_regras") e passa a valer sem deploy novo.
+const REGRAS_PADRAO = {
+  departamentos: [
+    {codigo:'1', nome:'Superintendência'},
+    {codigo:'2', nome:'Comunicação'},
+    {codigo:'3', nome:'Marketing'},
+    {codigo:'4', nome:'Técnico Operacional'},
+    {codigo:'5', nome:'Administrativo e Financeiro'},
+    {codigo:'6', nome:'Arbitragem'},
+    {codigo:'7', nome:'Projetos'}
+  ],
+  tipos_contratacao: ['PJ','CLT','ESTAGIÁRIO','ARBITRAGEM'],
+  // Regras de sugestão/consistência: Centro de Custo iniciado com este
+  // prefixo deveria estar no departamento indicado.
+  regras_cc_departamento: [
+    {prefixo:'8', departamento:'7'}
+  ],
+  // Arbitragem = esta conta contábil + este centro de custo, só existe
+  // dentro do benefício indicado (hoje: Seguro de Vida).
+  arbitragem: {conta:'053917', centro_custo:'400213', departamento:'6', beneficio:'Seguro de Vida'}
+};
+let REGRAS = JSON.parse(JSON.stringify(REGRAS_PADRAO));
+let REGRAS_VEM_DO_BANCO = false;
+
+async function carregarRegrasAsync(){
+  try{
+    const r = await fetch(SUPABASE_URL+'/rest/v1/ben_state?select=valor&chave=eq.colaboradores_regras', {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token}
+    });
+    if (r.ok){
+      const arr = await r.json();
+      if (arr && arr[0] && arr[0].valor){
+        REGRAS = Object.assign({}, REGRAS_PADRAO, arr[0].valor);
+        REGRAS_VEM_DO_BANCO = true;
+      }
+    }
+  }catch(e){ /* segue com os valores padrão */ }
+}
+
+async function salvarRegrasAsync(regras){
+  const r = await fetch(SUPABASE_URL+'/rest/v1/ben_state?on_conflict=chave', {
+    method:'POST',
+    headers:{
+      'apikey':SUPABASE_KEY,
+      'Authorization':'Bearer '+AUTH_SESSION.access_token,
+      'Content-Type':'application/json',
+      'Prefer':'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify([{chave:'colaboradores_regras', valor: regras}])
+  });
+  if (!r.ok){
+    const txt = await r.text().catch(function(){ return ''; });
+    throw new Error('Falha ao salvar as Regras ('+r.status+'): '+txt);
+  }
+}
+
+function sugerirDepartamentoPorCc(cc){
+  const norm = String(cc||'').trim();
+  if (!norm) return null;
+  const regra = (REGRAS.regras_cc_departamento||[]).filter(function(r){ return r.prefixo && norm.indexOf(r.prefixo) === 0; })[0];
+  return regra ? regra.departamento : null;
+}
+
+function lnbLoadSession(){
+  try{ const raw = localStorage.getItem('lnb_auth_session_v1'); if (raw) AUTH_SESSION = JSON.parse(raw); }
+  catch(e){ AUTH_SESSION = null; }
+}
+
+async function lnbMeuAcessoCentral(){
+  if (!AUTH_SESSION || !AUTH_SESSION.access_token) return null;
+  try{
+    const r = await fetch(SUPABASE_URL+'/rest/v1/rpc/meu_acesso', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token,'Content-Type':'application/json'},
+      body:'{}'
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
+}
+function lnbTemModulo(acesso, recurso){
+  if (!acesso) return false;
+  if (acesso.acesso_total || acesso.permissoes === '*') return true;
+  const acts = (acesso.permissoes || {})[recurso] || [];
+  if (Array.isArray(acts) && acts.indexOf('visualizar') >= 0) return true;
+  return false;
+}
+
+async function lnbTemPermissaoAsync(recurso, acao){
+  if (!AUTH_SESSION || !AUTH_SESSION.access_token) return false;
+  try{
+    const r = await fetch(SUPABASE_URL+'/rest/v1/rpc/tem_permissao', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token,'Content-Type':'application/json'},
+      body: JSON.stringify({p_recurso:recurso, p_acao:acao})
+    });
+    if (!r.ok) return false;
+    return (await r.json()) === true;
+  }catch(e){ return false; }
+}
+
+function toast(msg){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(function(){ el.remove(); }, 3600);
+}
+
+async function registrarLog(action, details){
+  // Auditoria simples: mesma tabela e mesmo formato que Admin e Orçado x
+  // Realizado já usam. Falha de log nunca deve travar a ação principal.
+  try{
+    await fetch(SUPABASE_URL+'/rest/v1/activity_log', {
+      method:'POST',
+      headers:{
+        'apikey':SUPABASE_KEY,
+        'Authorization':'Bearer '+AUTH_SESSION.access_token,
+        'Content-Type':'application/json',
+        'Prefer':'return=minimal'
+      },
+      body: JSON.stringify([{
+        actor: (AUTH_SESSION && (AUTH_SESSION.nome || AUTH_SESSION.email)) || 'desconhecido',
+        action: action,
+        details: details || ''
+      }])
+    });
+  }catch(e){ /* auditoria é best-effort, nunca bloqueia a ação */ }
+}
+
+async function carregarColaboradoresAsync(){
+  const r = await fetch(SUPABASE_URL+'/rest/v1/colaboradores_master?select=*&order=nome.asc', {
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token}
+  });
+  if (!r.ok) throw new Error('Falha ao carregar colaboradores ('+r.status+')');
+  return await r.json();
+}
+
+// ---------- Regra de negócio: Arbitragem = conta 053917 / CC 400213 ----------
+// Mesma lógica de benIsArbitragem() do módulo de Benefícios, adaptada para
+// os campos que existem em colaboradores_master (departamento + centro_custo).
+function ccNormalizado(v){ return String(v||'').replace(/\D/g,''); }
+function inconsistenciaContabil(c){
+  const arb = REGRAS.arbitragem || REGRAS_PADRAO.arbitragem;
+  const cc = ccNormalizado(c.centro_custo);
+  const ehDeptoArb = c.departamento === arb.departamento;
+  const ehCcArb = cc === ccNormalizado(arb.centro_custo);
+  if (ehDeptoArb && !ehCcArb) return 'Departamento é Arbitragem, mas o Centro de Custo não é '+arb.centro_custo+'.';
+  if (ehCcArb && !ehDeptoArb) return 'Centro de Custo é '+arb.centro_custo+' (Arbitragem), mas o Departamento não está marcado como Arbitragem.';
+  const sugestao = sugerirDepartamentoPorCc(c.centro_custo);
+  if (sugestao && c.departamento && sugestao !== c.departamento){
+    return 'Pela regra de Centro de Custo (⚙ Regras), o Departamento sugerido é "'+rotuloDepartamento(sugestao)+'", mas está marcado como "'+rotuloDepartamento(c.departamento)+'".';
+  }
+  return null;
+}
+function contaContabilReferencia(c){
+  const arb = REGRAS.arbitragem || REGRAS_PADRAO.arbitragem;
+  if (c.departamento === arb.departamento || ccNormalizado(c.centro_custo) === ccNormalizado(arb.centro_custo)) return arb.conta+' (Arbitragem)';
+  const tipo = String(c.tipo_contratacao||'').toUpperCase();
+  if (tipo.indexOf('PJ') >= 0) return '053671 (PJ)';
+  if (tipo.indexOf('CLT') >= 0 || tipo.indexOf('ESTAGI') >= 0) return '057061 (CLT/Estagiário)';
+  return '— (defina o Tipo de contratação para sugerir)';
+}
+
+function atualizarMetricasHero(){
+  const elTotal = document.getElementById('metrica-total');
+  const elDesligados = document.getElementById('metrica-desligados');
+  const elAlertas = document.getElementById('metrica-alertas');
+  if (!elTotal || !elDesligados || !elAlertas) return;
+  elTotal.textContent = COLABORADORES.filter(function(c){ return c.status === 'Ativo'; }).length;
+  elDesligados.textContent = COLABORADORES.filter(function(c){ return c.status === 'Desligado'; }).length;
+  elAlertas.textContent = COLABORADORES.filter(function(c){ return !!inconsistenciaContabil(c); }).length;
+}
+
+function renderTabela(){
+  atualizarMetricasHero();
+  const busca = document.getElementById('f-busca').value.trim().toLowerCase();
+  const fStatus = document.getElementById('f-status').value;
+  const fOrigem = document.getElementById('f-origem').value;
+  const fDepto = document.getElementById('f-departamento').value;
+  const fTipo = document.getElementById('f-tipo').value;
+  const fCc = document.getElementById('f-cc').value;
+  const fCesta = document.getElementById('f-cesta').value;
+  const fConsist = document.getElementById('f-consistencia').value;
+  const corpo = document.getElementById('corpo-tabela');
+  corpo.innerHTML = '';
+
+  const filtrados = COLABORADORES.filter(function(c){
+    if (fStatus && c.status !== fStatus) return false;
+    if (fOrigem && c.origem_fonte !== fOrigem) return false;
+    if (fDepto && c.departamento !== fDepto) return false;
+    if (fTipo && (c.tipo_contratacao||'') !== fTipo) return false;
+    if (fCc && (c.centro_custo||'') !== fCc) return false;
+    if (fCesta === 'sim' && !c.is_cesta_basica_elegivel) return false;
+    if (fCesta === 'nao' && c.is_cesta_basica_elegivel) return false;
+    if (fConsist === 'alerta' && !inconsistenciaContabil(c)) return false;
+    if (busca){
+      const alvo = ((c.nome||'') + ' ' + (c.cpf||'')).toLowerCase();
+      if (alvo.indexOf(busca) === -1) return false;
+    }
+    return true;
+  });
+
+  const filtrosAtivos = [fStatus,fOrigem,fDepto,fTipo,fCc,fCesta,fConsist,busca].filter(Boolean).length;
+  document.getElementById('resumo-contagem').textContent =
+    filtrados.length + ' de ' + COLABORADORES.length + ' colaboradores' +
+    (filtrosAtivos ? ' · ' + filtrosAtivos + ' filtro(s) ativo(s)' : '');
+
+  filtrados.forEach(function(c){
+    const tr = document.createElement('tr');
+    if (SELECIONADOS.has(c.id)) tr.className = 'selecionada';
+    const alerta = inconsistenciaContabil(c);
+    tr.innerHTML =
+      '<td><input type="checkbox" class="chk-linha" data-id="'+c.id+'" '+(SELECIONADOS.has(c.id)?'checked':'')+'></td>'+
+      '<td><button type="button" class="link-nome" data-id="'+c.id+'">'+escapeHtml(c.nome||'(sem nome)')+'</button></td>'+
+      '<td>'+escapeHtml(c.cpf||'—')+'</td>'+
+      '<td>'+escapeHtml(c.centro_custo||'—')+'</td>'+
+      '<td>'+escapeHtml(c.departamento ? rotuloDepartamento(c.departamento) : '—')+(alerta?'<span class="alerta-pill" title="'+escapeHtml(alerta)+'">⚠ conferir</span>':'')+'</td>'+
+      '<td>'+escapeHtml(c.tipo_contratacao||'—')+'</td>'+
+      '<td><span class="status-pill '+(c.status==='Ativo'?'status-ativo':'status-desligado')+'">'+c.status+'</span></td>'+
+      '<td><span class="origem-pill">'+rotuloOrigem(c.origem_fonte)+'</span></td>'+
+      '<td><label class="cesta-toggle"><input type="checkbox" class="chk-cesta" data-id="'+c.id+'" '+(c.is_cesta_basica_elegivel?'checked':'')+' '+(PODE_EDITAR?'':'disabled')+'><span class="cesta-slider"></span></label></td>';
+    corpo.appendChild(tr);
+  });
+
+  document.querySelectorAll('.chk-linha').forEach(function(chk){
+    chk.addEventListener('change', function(){
+      const id = chk.getAttribute('data-id');
+      if (chk.checked) SELECIONADOS.add(id); else SELECIONADOS.delete(id);
+      renderTabela();
+      atualizarBarraFlutuante();
+    });
+  });
+  document.querySelectorAll('.chk-cesta').forEach(function(chk){
+    chk.addEventListener('change', function(){
+      const id = chk.getAttribute('data-id');
+      atualizarCestaBasicaAsync([id], chk.checked);
+    });
+  });
+
+  document.querySelectorAll('.link-nome').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const id = btn.getAttribute('data-id');
+      const c = COLABORADORES.find(function(x){ return x.id === id; });
+      if (c) abrirDetalhesColaborador(c);
+    });
+  });
+}
+
+function rotuloOrigem(origem){
+  return { rh_folha:'RH-Folha', beneficios_liga_mestre:'Benefícios (PJ)', ambos:'RH + Benefícios', manual:'Manual' }[origem] || origem;
+}
+function rotuloDepartamento(cod){
+  const dep = (REGRAS.departamentos||[]).filter(function(d){ return d.codigo === cod; })[0];
+  return dep ? dep.nome : cod;
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+}
+
+function formatDataBR(iso){
+  if (!iso) return '—';
+  const p = String(iso).split('-');
+  if (p.length !== 3) return String(iso);
+  return p[2].slice(0,2) + '/' + p[1] + '/' + p[0];
+}
+function formatMoeda(v){
+  if (v === null || v === undefined || v === '') return '—';
+  const n = Number(v);
+  if (isNaN(n)) return '—';
+  return n.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+}
+function chipBeneficio(rotulo, valor){
+  if (valor === true) return '<span class="chip-beneficio chip-sim">✓ '+escapeHtml(rotulo)+'</span>';
+  if (valor === false) return '<span class="chip-beneficio chip-nao">— '+escapeHtml(rotulo)+'</span>';
+  return '';
+}
+
+// ---------- Filtros dinâmicos (Departamento a partir das Regras; Tipo e Centro de Custo a partir da base) ----------
+function popularFiltroDepartamento(){
+  const selDepto = document.getElementById('f-departamento');
+  const atual = selDepto.value;
+  selDepto.innerHTML = '<option value="">Departamento: todos</option>' + (REGRAS.departamentos||[]).map(function(d){
+    return '<option value="'+escapeHtml(d.codigo)+'">'+escapeHtml(d.nome)+'</option>';
+  }).join('');
+  if (Array.from(selDepto.options).some(function(o){ return o.value === atual; })) selDepto.value = atual;
+}
+function popularFiltrosDinamicos(){
+  popularFiltroDepartamento();
+  const tipos = Array.from(new Set(COLABORADORES.map(function(c){ return c.tipo_contratacao; }).filter(Boolean))).sort();
+  const ccs = Array.from(new Set(COLABORADORES.map(function(c){ return c.centro_custo; }).filter(Boolean))).sort();
+  const selTipo = document.getElementById('f-tipo');
+  selTipo.innerHTML = '<option value="">Tipo: todos</option>';
+  tipos.forEach(function(t){
+    const opt = document.createElement('option'); opt.value = t; opt.textContent = t; selTipo.appendChild(opt);
+  });
+  const selCc = document.getElementById('f-cc');
+  selCc.innerHTML = '<option value="">Centro de Custo: todos</option>';
+  ccs.forEach(function(cc){
+    const opt = document.createElement('option'); opt.value = cc; opt.textContent = cc; selCc.appendChild(opt);
+  });
+}
+
+// ---------- Exportar CSV (visão filtrada, para o financeiro) ----------
+function exportarCSV(){
+  const linhas = Array.from(document.querySelectorAll('.link-nome')).map(function(btn){
+    return COLABORADORES.find(function(x){ return x.id === btn.getAttribute('data-id'); });
+  }).filter(Boolean);
+  if (!linhas.length){ toast('Nada para exportar com os filtros atuais.'); return; }
+  const cab = ['Nome','CPF','Centro de Custo','Departamento','Tipo','Status','Origem','Cesta Básica','Conta Contábil (referência)','Alerta'];
+  const linhasCsv = linhas.map(function(c){
+    return [
+      c.nome||'', c.cpf||'', c.centro_custo||'', c.departamento?rotuloDepartamento(c.departamento):'',
+      c.tipo_contratacao||'', c.status||'', rotuloOrigem(c.origem_fonte), c.is_cesta_basica_elegivel?'Sim':'Não',
+      contaContabilReferencia(c), inconsistenciaContabil(c)||''
+    ].map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(';');
+  });
+  const csv = '﻿' + cab.join(';') + '\n' + linhasCsv.join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'colaboradores-lnb-' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ---------- Modal genérico (fecha com Esc / clique fora) ----------
+function abrirModal(html){
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = '<div class="modal">'+html+'</div>';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(ev){ if (ev.target === overlay) overlay.remove(); });
+  function onEsc(ev){ if (ev.key === 'Escape'){ overlay.remove(); document.removeEventListener('keydown', onEsc); } }
+  document.addEventListener('keydown', onEsc);
+  return overlay;
+}
+
+// ---------- Pop-up de detalhes / edição de um colaborador ----------
+async function abrirDetalhesColaborador(c){
+  const overlay = abrirModal(
+    '<div class="carregando-detalhes">Carregando detalhes de '+escapeHtml(c.nome||'colaborador')+'…</div>'+
+    '<div class="acoes"><button class="cancelar">Fechar</button></div>'
+  );
+  overlay.querySelector('.modal').classList.add('modal-lg');
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+
+  let rh = null;
+  if (c.rh_colaborador_id){
+    try{
+      const r = await fetch(SUPABASE_URL+'/rest/v1/rh_colaboradores?id=eq.'+c.rh_colaborador_id+'&select=*', {
+        headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token}
+      });
+      if (r.ok){ const arr = await r.json(); rh = arr[0] || null; }
+    }catch(e){ /* segue sem dados de RH */ }
+  }
+
+  if (!PODE_EDITAR){
+    renderDetalhesSomenteLeitura(overlay, c, rh);
+  } else {
+    renderFormularioEdicao(overlay, c, rh);
+  }
+}
+
+function renderDetalhesSomenteLeitura(overlay, c, rh){
+  const alerta = inconsistenciaContabil(c);
+  const pessoais =
+    '<div class="grade-detalhes">' +
+    '<div class="campo"><label>Nome</label><span>'+escapeHtml(c.nome||'—')+'</span></div>' +
+    '<div class="campo"><label>CPF</label><span>'+escapeHtml(c.cpf||(rh&&rh.cpf_mascarado)||'—')+'</span></div>' +
+    '<div class="campo"><label>Data de nascimento</label><span>'+formatDataBR(c.data_nascimento||(rh&&rh.data_nascimento))+'</span></div>' +
+    '<div class="campo"><label>E-mail</label><span>'+escapeHtml((rh&&rh.email)||'—')+'</span></div>' +
+    '<div class="campo"><label>Telefone</label><span>'+escapeHtml((rh&&rh.telefone)||'—')+'</span></div>' +
+    '</div>';
+
+  const corporativos =
+    '<div class="grade-detalhes">' +
+    '<div class="campo"><label>Centro de Custo</label><span>'+escapeHtml(c.centro_custo||'—')+'</span></div>' +
+    '<div class="campo"><label>Departamento</label><span>'+escapeHtml(c.departamento?rotuloDepartamento(c.departamento):'—')+'</span></div>' +
+    '<div class="campo"><label>Tipo de contratação</label><span>'+escapeHtml(c.tipo_contratacao||(rh&&rh.vinculo)||'—')+'</span></div>' +
+    '<div class="campo"><label>Cargo</label><span>'+escapeHtml((rh&&rh.cargo)||'—')+'</span></div>' +
+    '<div class="campo"><label>Gestor</label><span>'+escapeHtml((rh&&rh.gestor)||'—')+'</span></div>' +
+    '<div class="campo"><label>Filial</label><span>'+escapeHtml((rh&&rh.filial)||'—')+'</span></div>' +
+    '<div class="campo"><label>Admissão</label><span>'+formatDataBR(rh&&rh.admissao)+'</span></div>' +
+    '<div class="campo"><label>Status</label><span>'+escapeHtml(c.status||'—')+'</span></div>' +
+    '<div class="campo"><label>Origem do cadastro</label><span>'+rotuloOrigem(c.origem_fonte)+'</span></div>' +
+    '<div class="campo"><label>Jornada semanal</label><span>'+((rh&&rh.jornada_horas_semanais)?(rh.jornada_horas_semanais+'h'):'—')+'</span></div>' +
+    '<div class="campo"><label>Salário base</label><span>'+formatMoeda(rh&&rh.salario_base)+'</span></div>' +
+    '</div>' +
+    (c.observacoes ? '<div class="campo" style="margin-top:10px"><label>Observações</label><span>'+escapeHtml(c.observacoes)+'</span></div>' : '');
+
+  let beneficios;
+  if (rh){
+    beneficios =
+      chipBeneficio('Vale Transporte', rh.opta_vale_transporte) +
+      chipBeneficio('VR/VA', rh.opta_vr_va) +
+      chipBeneficio('Plano de Saúde', rh.opta_plano_saude) +
+      chipBeneficio('Seguro de Vida', rh.opta_seguro_vida) +
+      chipBeneficio('Cesta Básica', c.is_cesta_basica_elegivel);
+  } else {
+    beneficios =
+      chipBeneficio('Cesta Básica', c.is_cesta_basica_elegivel) +
+      '<div class="aviso-sem-rh">Colaborador sem vínculo com o RH-Folha (origem: '+rotuloOrigem(c.origem_fonte)+'). Os demais benefícios (VT, VR/VA, Saúde, Seguro de Vida) são controlados diretamente no módulo Benefícios.</div>';
+  }
+
+  overlay.querySelector('.modal').innerHTML =
+    '<h3 style="margin:0 0 4px">'+escapeHtml(c.nome||'(sem nome)')+'</h3>' +
+    '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">'+escapeHtml(c.cpf||'CPF não informado')+' · Somente leitura</div>' +
+    (alerta ? '<div class="aviso-inconsistencia">⚠ '+escapeHtml(alerta)+'</div>' : '') +
+    '<div class="conta-referencia">Conta contábil de referência: <b>'+escapeHtml(contaContabilReferencia(c))+'</b> (informativo — a conta oficial de cada benefício é definida no módulo de Benefícios)</div>' +
+    '<h4>Dados Pessoais</h4>' + pessoais +
+    '<h4>Dados Corporativos</h4>' + corporativos +
+    '<h4>Benefícios Envolvidos</h4>' + beneficios +
+    '<div class="acoes" style="margin-top:18px"><button class="cancelar">Fechar</button></div>';
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+}
+
+function opcoesDepartamento(selecionado){
+  const deps = REGRAS.departamentos || [];
+  return '<option value="">—</option>' + deps.map(function(d){
+    return '<option value="'+escapeHtml(d.codigo)+'" '+(selecionado===d.codigo?'selected':'')+'>'+escapeHtml(d.nome)+'</option>';
+  }).join('');
+}
+function opcoesTipo(selecionado){
+  const base = (REGRAS.tipos_contratacao || []).slice();
+  if (selecionado && base.indexOf(selecionado) === -1) base.push(selecionado); // preserva valor atual mesmo se fora da lista configurada
+  return '<option value="">—</option>' + base.map(function(t){
+    return '<option value="'+escapeHtml(t)+'" '+(selecionado===t?'selected':'')+'>'+escapeHtml(t)+'</option>';
+  }).join('');
+}
+
+function renderFormularioEdicao(overlay, c, rh){
+  const alerta = inconsistenciaContabil(c);
+  const temRh = !!rh;
+
+  const camposPessoais =
+    '<div class="grade-detalhes">' +
+    '<div class="campo"><label>Nome</label><span>'+escapeHtml(c.nome||'—')+'</span></div>' +
+    '<div class="campo"><label>CPF</label><span>'+escapeHtml(c.cpf||(rh&&rh.cpf_mascarado)||'—')+'</span></div>' +
+    '<div class="campo"><label>Data de nascimento</label><span>'+formatDataBR(c.data_nascimento||(rh&&rh.data_nascimento))+'</span></div>' +
+    '</div>' +
+    '<div style="font-size:11.5px;color:#9ca3af;margin:2px 0 14px">Nome, CPF e nascimento não são editáveis aqui — corrija na origem (RH & Folha ou Cadastro de Benefícios) para não gerar divergência.</div>';
+
+  const camposContato =
+    '<div class="grade-editar">' +
+    '<div><label>E-mail'+(temRh?'':' (sem cadastro no RH)')+'</label><input type="email" id="ed-email" value="'+escapeHtml((rh&&rh.email)||'')+'" '+(temRh?'':'disabled placeholder="Vincule ao RH-Folha para editar"')+'></div>' +
+    '<div><label>Telefone'+(temRh?'':' (sem cadastro no RH)')+'</label><input type="text" id="ed-telefone" value="'+escapeHtml((rh&&rh.telefone)||'')+'" '+(temRh?'':'disabled placeholder="Vincule ao RH-Folha para editar"')+'></div>' +
+    '</div>';
+
+  const camposCorporativos =
+    '<div class="grade-editar">' +
+    '<div><label>Centro de Custo</label><input type="text" id="ed-cc" value="'+escapeHtml(c.centro_custo||'')+'"></div>' +
+    '<div><label>Departamento</label><select id="ed-depto">'+opcoesDepartamento(c.departamento)+'</select><div id="ed-sugestao-depto" style="font-size:11px;color:#1d4ed8;margin:-10px 0 14px"></div></div>' +
+    '<div><label>Tipo de contratação</label><select id="ed-tipo">'+opcoesTipo(c.tipo_contratacao)+'</select></div>' +
+    '<div><label>Status</label><select id="ed-status"><option value="Ativo" '+(c.status==='Ativo'?'selected':'')+'>Ativo</option><option value="Desligado" '+(c.status==='Desligado'?'selected':'')+'>Desligado</option></select></div>' +
+    '<div class="largo"><label>Observações</label><textarea id="ed-obs">'+escapeHtml(c.observacoes||'')+'</textarea></div>' +
+    '</div>';
+
+  let blocoBeneficios =
+    '<div class="linha-beneficio"><span>Cesta Básica</span><label class="cesta-toggle"><input type="checkbox" id="ed-cesta" '+(c.is_cesta_basica_elegivel?'checked':'')+'><span class="cesta-slider"></span></label></div>';
+
+  if (temRh){
+    const bloqueado = !PERMITIR_EDITAR_BENEFICIOS_RH;
+    blocoBeneficios +=
+      '<div class="linha-beneficio"><span>Vale Transporte</span><label class="cesta-toggle"><input type="checkbox" id="ed-vt" '+(rh.opta_vale_transporte?'checked':'')+' '+(bloqueado?'disabled':'')+'><span class="cesta-slider"></span></label></div>' +
+      '<div class="linha-beneficio"><span>VR/VA</span><label class="cesta-toggle"><input type="checkbox" id="ed-vrva" '+(rh.opta_vr_va?'checked':'')+' '+(bloqueado?'disabled':'')+'><span class="cesta-slider"></span></label></div>' +
+      '<div class="linha-beneficio"><span>Plano de Saúde</span><label class="cesta-toggle"><input type="checkbox" id="ed-saude" '+(rh.opta_plano_saude?'checked':'')+' '+(bloqueado?'disabled':'')+'><span class="cesta-slider"></span></label></div>' +
+      '<div class="linha-beneficio"><span>Seguro de Vida</span><label class="cesta-toggle"><input type="checkbox" id="ed-seguro" '+(rh.opta_seguro_vida?'checked':'')+' '+(bloqueado?'disabled':'')+'><span class="cesta-slider"></span></label></div>';
+    if (bloqueado){
+      blocoBeneficios += '<div class="aviso-sem-rh">Edição de benefícios do RH desativada (PERMITIR_EDITAR_BENEFICIOS_RH = false no topo do arquivo). Ative depois de confirmar a permissão em staging.</div>';
+    }
+  } else {
+    blocoBeneficios += '<div class="aviso-sem-rh">Colaborador sem vínculo com o RH-Folha (origem: '+rotuloOrigem(c.origem_fonte)+'). Os demais benefícios (VT, VR/VA, Saúde, Seguro de Vida) são controlados diretamente no módulo Benefícios.</div>';
+  }
+
+  overlay.querySelector('.modal').innerHTML =
+    '<h3 style="margin:0 0 4px">'+escapeHtml(c.nome||'(sem nome)')+'</h3>' +
+    '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">'+escapeHtml(c.cpf||'CPF não informado')+'</div>' +
+    (alerta ? '<div class="aviso-inconsistencia" id="ed-aviso-consist">⚠ '+escapeHtml(alerta)+'</div>' : '<div id="ed-aviso-consist"></div>') +
+    '<div class="conta-referencia" id="ed-conta-ref">Conta contábil de referência: <b>'+escapeHtml(contaContabilReferencia(c))+'</b> (informativo)</div>' +
+    '<h4>Dados Pessoais</h4>' + camposPessoais +
+    '<h4>Contato</h4>' + camposContato +
+    '<h4>Dados Corporativos</h4>' + camposCorporativos +
+    '<h4>Benefícios</h4>' + blocoBeneficios +
+    '<div class="acoes" style="margin-top:18px"><button class="cancelar">Cancelar</button><button class="confirmar" id="ed-salvar">Salvar</button></div>';
+
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+
+  // Recalcula o aviso de inconsistência e a conta de referência em tempo real
+  // conforme o usuário muda Departamento / Centro de Custo / Tipo.
+  function recalcular(){
+    const rascunho = {
+      departamento: document.getElementById('ed-depto').value,
+      centro_custo: document.getElementById('ed-cc').value,
+      tipo_contratacao: document.getElementById('ed-tipo').value
+    };
+    const av = inconsistenciaContabil(rascunho);
+    document.getElementById('ed-aviso-consist').innerHTML = av ? '⚠ '+escapeHtml(av) : '';
+    document.getElementById('ed-aviso-consist').className = av ? 'aviso-inconsistencia' : '';
+    document.getElementById('ed-conta-ref').innerHTML = 'Conta contábil de referência: <b>'+escapeHtml(contaContabilReferencia(rascunho))+'</b> (informativo)';
+    const sugestao = sugerirDepartamentoPorCc(rascunho.centro_custo);
+    const elSug = document.getElementById('ed-sugestao-depto');
+    if (sugestao && sugestao !== rascunho.departamento){
+      elSug.innerHTML = 'Sugestão pela regra de CC: <button type="button" id="ed-usar-sugestao" style="background:none;border:none;color:#1d4ed8;text-decoration:underline;cursor:pointer;font-size:11px;padding:0">usar "'+escapeHtml(rotuloDepartamento(sugestao))+'"</button>';
+      document.getElementById('ed-usar-sugestao').onclick = function(){ document.getElementById('ed-depto').value = sugestao; recalcular(); };
+    } else {
+      elSug.innerHTML = '';
+    }
+  }
+  ['ed-depto','ed-cc','ed-tipo'].forEach(function(id){
+    document.getElementById(id).addEventListener('change', recalcular);
+    document.getElementById(id).addEventListener('input', recalcular);
+  });
+  recalcular();
+
+  document.getElementById('ed-salvar').onclick = async function(){
+    const btn = document.getElementById('ed-salvar');
+    btn.disabled = true; btn.textContent = 'Salvando…';
+    try{
+      await salvarEdicaoColaborador(c, rh, temRh);
+      overlay.remove();
+    }catch(e){
+      toast(e.message || 'Falha ao salvar.');
+      btn.disabled = false; btn.textContent = 'Salvar';
+    }
+  };
+}
+
+async function patchColaboradores(ids, payload){
+  const filtro = 'id=in.(' + ids.join(',') + ')';
+  const r = await fetch(SUPABASE_URL+'/rest/v1/colaboradores_master?'+filtro, {
+    method:'PATCH',
+    headers:{
+      'apikey':SUPABASE_KEY,
+      'Authorization':'Bearer '+AUTH_SESSION.access_token,
+      'Content-Type':'application/json',
+      'Prefer':'return=minimal'
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!r.ok){
+    const txt = await r.text().catch(function(){ return ''; });
+    throw new Error('Falha ao salvar dados do colaborador ('+r.status+'): '+txt);
+  }
+}
+
+async function patchRhColaborador(rhId, payload){
+  const r = await fetch(SUPABASE_URL+'/rest/v1/rh_colaboradores?id=eq.'+rhId, {
+    method:'PATCH',
+    headers:{
+      'apikey':SUPABASE_KEY,
+      'Authorization':'Bearer '+AUTH_SESSION.access_token,
+      'Content-Type':'application/json',
+      'Prefer':'return=minimal'
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!r.ok){
+    const txt = await r.text().catch(function(){ return ''; });
+    throw new Error('Falha ao salvar benefícios/contato no RH ('+r.status+'): '+txt);
+  }
+}
+
+async function patchRhColaboradores(rhIds, payload){
+  const filtro = 'id=in.(' + rhIds.join(',') + ')';
+  const r = await fetch(SUPABASE_URL+'/rest/v1/rh_colaboradores?'+filtro, {
+    method:'PATCH',
+    headers:{
+      'apikey':SUPABASE_KEY,
+      'Authorization':'Bearer '+AUTH_SESSION.access_token,
+      'Content-Type':'application/json',
+      'Prefer':'return=minimal'
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!r.ok){
+    const txt = await r.text().catch(function(){ return ''; });
+    throw new Error('Falha ao salvar benefícios em massa no RH ('+r.status+'): '+txt);
+  }
+}
+
+async function salvarEdicaoColaborador(c, rh, temRh){
+  const novoCc = document.getElementById('ed-cc').value.trim();
+  const novoDepto = document.getElementById('ed-depto').value;
+  const novoTipo = document.getElementById('ed-tipo').value;
+  const novoStatus = document.getElementById('ed-status').value;
+  const novaObs = document.getElementById('ed-obs').value;
+  const novaCesta = document.getElementById('ed-cesta').checked;
+
+  if (!novoDepto){ throw new Error('Selecione um Departamento antes de salvar.'); }
+  if (!novoTipo){ throw new Error('Selecione um Tipo de contratação antes de salvar.'); }
+
+  const payloadMaster = {};
+  const logMaster = [];
+  if (novoCc !== (c.centro_custo||'')){ payloadMaster.centro_custo = novoCc; logMaster.push('Centro de Custo: "'+(c.centro_custo||'—')+'" → "'+novoCc+'"'); }
+  if (novoDepto !== (c.departamento||'')){ payloadMaster.departamento = novoDepto; logMaster.push('Departamento: "'+(c.departamento?rotuloDepartamento(c.departamento):'—')+'" → "'+rotuloDepartamento(novoDepto)+'"'); }
+  if (novoTipo !== (c.tipo_contratacao||'')){ payloadMaster.tipo_contratacao = novoTipo; logMaster.push('Tipo: "'+(c.tipo_contratacao||'—')+'" → "'+novoTipo+'"'); }
+  if (novoStatus !== (c.status||'')){ payloadMaster.status = novoStatus; logMaster.push('Status: "'+(c.status||'—')+'" → "'+novoStatus+'"'); }
+  if (novaObs !== (c.observacoes||'')){ payloadMaster.observacoes = novaObs; logMaster.push('Observações alteradas'); }
+  if (novaCesta !== !!c.is_cesta_basica_elegivel){ payloadMaster.is_cesta_basica_elegivel = novaCesta; logMaster.push('Cesta Básica: "'+(c.is_cesta_basica_elegivel?'Sim':'Não')+'" → "'+(novaCesta?'Sim':'Não')+'"'); }
+
+  let erroRh = null;
+  const payloadRh = {};
+  const logRh = [];
+  if (temRh){
+    const novoEmail = document.getElementById('ed-email').value.trim();
+    const novoTelefone = document.getElementById('ed-telefone').value.trim();
+    if (novoEmail !== (rh.email||'')){ payloadRh.email = novoEmail; logRh.push('E-mail alterado'); }
+    if (novoTelefone !== (rh.telefone||'')){ payloadRh.telefone = novoTelefone; logRh.push('Telefone alterado'); }
+    if (PERMITIR_EDITAR_BENEFICIOS_RH){
+      const novoVt = document.getElementById('ed-vt').checked;
+      const novoVrva = document.getElementById('ed-vrva').checked;
+      const novoSaude = document.getElementById('ed-saude').checked;
+      const novoSeguro = document.getElementById('ed-seguro').checked;
+      if (novoVt !== !!rh.opta_vale_transporte){ payloadRh.opta_vale_transporte = novoVt; logRh.push('Vale Transporte: "'+(rh.opta_vale_transporte?'Sim':'Não')+'" → "'+(novoVt?'Sim':'Não')+'"'); }
+      if (novoVrva !== !!rh.opta_vr_va){ payloadRh.opta_vr_va = novoVrva; logRh.push('VR/VA: "'+(rh.opta_vr_va?'Sim':'Não')+'" → "'+(novoVrva?'Sim':'Não')+'"'); }
+      if (novoSaude !== !!rh.opta_plano_saude){ payloadRh.opta_plano_saude = novoSaude; logRh.push('Plano de Saúde: "'+(rh.opta_plano_saude?'Sim':'Não')+'" → "'+(novoSaude?'Sim':'Não')+'"'); }
+      if (novoSeguro !== !!rh.opta_seguro_vida){ payloadRh.opta_seguro_vida = novoSeguro; logRh.push('Seguro de Vida: "'+(rh.opta_seguro_vida?'Sim':'Não')+'" → "'+(novoSeguro?'Sim':'Não')+'"'); }
+    }
+  }
+
+  if (!Object.keys(payloadMaster).length && !Object.keys(payloadRh).length){
+    toast('Nada foi alterado.');
+    return;
+  }
+
+  if (Object.keys(payloadMaster).length){
+    payloadMaster.updated_by = AUTH_SESSION.uid || null;
+    await patchColaboradores([c.id], payloadMaster);
+    Object.assign(c, payloadMaster);
+  }
+
+  if (Object.keys(payloadRh).length){
+    try{
+      await patchRhColaborador(c.rh_colaborador_id, payloadRh);
+      Object.assign(rh, payloadRh);
+    }catch(e){
+      erroRh = e.message;
+    }
+  }
+
+  if (logMaster.length) await registrarLog('editar_colaborador', c.nome+' — '+logMaster.join('; '));
+  if (logRh.length && !erroRh) await registrarLog('editar_colaborador_rh', c.nome+' — '+logRh.join('; '));
+
+  renderTabela();
+
+  if (erroRh){
+    toast('Dados do colaborador salvos. Falha ao salvar contato/benefícios do RH: '+erroRh);
+  } else {
+    toast('Colaborador atualizado com sucesso.');
+  }
+}
+
+function atualizarBarraFlutuante(){
+  const barra = document.getElementById('barra-flutuante');
+  if (SELECIONADOS.size === 0){ barra.classList.add('lnb-hide'); return; }
+  barra.classList.remove('lnb-hide');
+  document.getElementById('txt-selecionados').textContent = SELECIONADOS.size + (SELECIONADOS.size===1?' selecionado':' selecionados');
+  ['btn-editar-lote','btn-cesta-lote','btn-desligar-lote','btn-ativar-lote','btn-depto-lote','btn-tipo-lote','btn-beneficios-lote'].forEach(function(id){
+    document.getElementById(id).style.display = PODE_EDITAR ? '' : 'none';
+  });
+}
+
+document.getElementById('chk-todos').addEventListener('change', function(ev){
+  const linhasVisiveis = Array.from(document.querySelectorAll('.chk-linha')).map(function(el){ return el.getAttribute('data-id'); });
+  if (ev.target.checked) linhasVisiveis.forEach(function(id){ SELECIONADOS.add(id); });
+  else linhasVisiveis.forEach(function(id){ SELECIONADOS.delete(id); });
+  renderTabela();
+  atualizarBarraFlutuante();
+});
+
+['f-busca','f-status','f-origem','f-departamento','f-tipo','f-cc','f-cesta','f-consistencia'].forEach(function(id){
+  document.getElementById(id).addEventListener('input', renderTabela);
+  document.getElementById(id).addEventListener('change', renderTabela);
+});
+
+document.getElementById('btn-limpar-filtros').addEventListener('click', function(){
+  ['f-busca','f-status','f-origem','f-departamento','f-tipo','f-cc','f-cesta','f-consistencia'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+  renderTabela();
+});
+
+document.getElementById('btn-exportar-csv').addEventListener('click', exportarCSV);
+
+// ---------- Ações em lote ----------
+
+document.getElementById('btn-editar-lote').addEventListener('click', function(){
+  const overlay = abrirModal(
+    '<h3>Editar Centro de Custo em lote</h3>'+
+    '<label>Novo centro de custo para '+SELECIONADOS.size+' colaborador(es)</label>'+
+    '<input type="text" id="m-cc" placeholder="Ex.: 200201">'+
+    '<div class="acoes"><button class="cancelar">Cancelar</button><button class="confirmar">Aplicar</button></div>'
+  );
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+  overlay.querySelector('.confirmar').onclick = async function(){
+    const novoCC = document.getElementById('m-cc').value.trim();
+    if (!novoCC){ toast('Informe um centro de custo.'); return; }
+    overlay.remove();
+    await editarAtributoEmLoteAsync('centro_custo', novoCC);
+  };
+});
+
+document.getElementById('btn-cesta-lote').addEventListener('click', function(){
+  const overlay = abrirModal(
+    '<h3>Cesta Básica em lote</h3>'+
+    '<label>Aplicar para '+SELECIONADOS.size+' colaborador(es) selecionado(s)</label>'+
+    '<select id="m-cesta"><option value="true">Elegível (ligar)</option><option value="false">Não elegível (desligar)</option></select>'+
+    '<div class="acoes"><button class="cancelar">Cancelar</button><button class="confirmar">Aplicar</button></div>'
+  );
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+  overlay.querySelector('.confirmar').onclick = async function(){
+    const val = document.getElementById('m-cesta').value === 'true';
+    overlay.remove();
+    await atualizarCestaBasicaAsync(Array.from(SELECIONADOS), val);
+  };
+});
+
+document.getElementById('btn-desligar-lote').addEventListener('click', function(){
+  const overlay = abrirModal(
+    '<h3>Desligar em massa</h3>'+
+    '<p style="font-size:13px;color:#374151;margin-top:0">'+
+    'Isso marca <strong>'+SELECIONADOS.size+' colaborador(es)</strong> como <strong>Desligado</strong> '+
+    '(status = Desligado). Nada é apagado do banco — é possível reverter depois.'+
+    '</p>'+
+    '<div class="acoes"><button class="cancelar">Cancelar</button><button class="confirmar perigo">Desligar</button></div>'
+  );
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+  overlay.querySelector('.confirmar').onclick = async function(){
+    overlay.remove();
+    await desligarEmMassaAsync(Array.from(SELECIONADOS));
+  };
+});
+
+document.getElementById('btn-ativar-lote').addEventListener('click', function(){
+  const overlay = abrirModal(
+    '<h3>Ativar em massa</h3>'+
+    '<p style="font-size:13px;color:#374151;margin-top:0">'+
+    'Isso marca <strong>'+SELECIONADOS.size+' colaborador(es)</strong> como <strong>Ativo</strong> (status = Ativo).'+
+    '</p>'+
+    '<div class="acoes"><button class="cancelar">Cancelar</button><button class="confirmar">Ativar</button></div>'
+  );
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+  overlay.querySelector('.confirmar').onclick = async function(){
+    overlay.remove();
+    await ativarEmMassaAsync(Array.from(SELECIONADOS));
+  };
+});
+
+document.getElementById('btn-depto-lote').addEventListener('click', function(){
+  const overlay = abrirModal(
+    '<h3>Alterar Departamento em lote</h3>'+
+    '<label>Novo departamento para '+SELECIONADOS.size+' colaborador(es)</label>'+
+    '<select id="m-depto">'+opcoesDepartamento('')+'</select>'+
+    '<div class="acoes"><button class="cancelar">Cancelar</button><button class="confirmar">Aplicar</button></div>'
+  );
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+  overlay.querySelector('.confirmar').onclick = async function(){
+    const novo = document.getElementById('m-depto').value;
+    if (!novo){ toast('Selecione um departamento.'); return; }
+    overlay.remove();
+    await editarAtributoEmLoteAsync('departamento', novo, rotuloDepartamento(novo));
+  };
+});
+
+document.getElementById('btn-tipo-lote').addEventListener('click', function(){
+  const overlay = abrirModal(
+    '<h3>Alterar Tipo de contratação em lote</h3>'+
+    '<label>Novo tipo para '+SELECIONADOS.size+' colaborador(es)</label>'+
+    '<select id="m-tipo">'+opcoesTipo('')+'</select>'+
+    '<div class="acoes"><button class="cancelar">Cancelar</button><button class="confirmar">Aplicar</button></div>'
+  );
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+  overlay.querySelector('.confirmar').onclick = async function(){
+    const novo = document.getElementById('m-tipo').value;
+    if (!novo){ toast('Selecione um tipo de contratação.'); return; }
+    overlay.remove();
+    await editarAtributoEmLoteAsync('tipo_contratacao', novo, novo);
+  };
+});
+
+function opcaoTriEstado(id, rotulo){
+  return '<div class="beneficio-lote-linha"><span>'+rotulo+'</span><select id="'+id+'">'+
+    '<option value="manter">Não alterar</option>'+
+    '<option value="ligar">Ligar (Sim)</option>'+
+    '<option value="desligar">Desligar (Não)</option>'+
+    '</select></div>';
+}
+
+document.getElementById('btn-beneficios-lote').addEventListener('click', function(){
+  const qtdComRh = COLABORADORES.filter(function(c){ return SELECIONADOS.has(c.id) && c.rh_colaborador_id; }).length;
+  const qtdSemRh = SELECIONADOS.size - qtdComRh;
+  const overlay = abrirModal(
+    '<h3>Benefícios em lote</h3>'+
+    '<p style="font-size:12.5px;color:#374151;margin-top:0">Aplicar para '+SELECIONADOS.size+' colaborador(es) selecionado(s). '+
+    'Cesta Básica vale para todos. Vale Transporte, VR/VA, Assistência Médica e Seguro de Vida só se aplicam a quem está vinculado ao RH-Folha'+
+    (qtdSemRh?' — <strong>'+qtdSemRh+' selecionado(s) sem vínculo com o RH não serão afetados</strong> nesses 4 campos.':'.')+
+    '</p>'+
+    opcaoTriEstado('m-ben-cesta','Cesta Básica') +
+    opcaoTriEstado('m-ben-vt','Vale Transporte') +
+    opcaoTriEstado('m-ben-vrva','VR/VA') +
+    opcaoTriEstado('m-ben-saude','Assistência Médica / Plano de Saúde') +
+    opcaoTriEstado('m-ben-seguro','Seguro de Vida') +
+    '<div class="acoes" style="margin-top:14px"><button class="cancelar">Cancelar</button><button class="confirmar">Aplicar</button></div>'
+  );
+  overlay.querySelector('.modal').style.width = '440px';
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+  overlay.querySelector('.confirmar').onclick = async function(){
+    function ler(id){
+      const v = document.getElementById(id).value;
+      return v === 'manter' ? null : (v === 'ligar');
+    }
+    const mudancas = {
+      cesta: ler('m-ben-cesta'),
+      vt: ler('m-ben-vt'),
+      vrva: ler('m-ben-vrva'),
+      saude: ler('m-ben-saude'),
+      seguro: ler('m-ben-seguro')
+    };
+    if (Object.values(mudancas).every(function(v){ return v === null; })){ toast('Escolha ao menos um benefício para alterar.'); return; }
+    overlay.remove();
+    await alterarBeneficiosEmMassaAsync(Array.from(SELECIONADOS), mudancas);
+  };
+});
+
+document.getElementById('btn-regras').addEventListener('click', abrirPainelRegras);
+
+function linhaRegraDepto(codigo, nome){
+  return '<div class="regras-linha reg-dep-row"><input class="reg-dep-cod" placeholder="código" value="'+escapeHtml(codigo||'')+'"><input class="reg-dep-nome" placeholder="nome do departamento" value="'+escapeHtml(nome||'')+'"><button type="button" class="reg-rm">×</button></div>';
+}
+function linhaRegraCc(prefixo, deptoSelecionado){
+  return '<div class="regras-linha reg-cc-row"><input class="reg-cc-prefixo" placeholder="prefixo, ex.: 8" value="'+escapeHtml(prefixo||'')+'"><select class="reg-cc-depto">'+opcoesDepartamento(deptoSelecionado)+'</select><button type="button" class="reg-rm">×</button></div>';
+}
+
+function abrirPainelRegras(){
+  const overlay = abrirModal(
+    '<h3 style="margin:0 0 4px">⚙ Regras do sistema</h3>'+
+    '<p style="font-size:12px;color:#6b7280;margin:0 0 16px">Ajuste aqui sem precisar mexer em código. '+(REGRAS_VEM_DO_BANCO?'':'Ainda usando os valores padrão — nada foi salvo no banco ainda.')+'</p>'+
+    '<div class="regras-secao"><h4>Departamentos</h4>'+
+    '<div id="reg-deps">'+(REGRAS.departamentos||[]).map(function(d){ return linhaRegraDepto(d.codigo, d.nome); }).join('')+'</div>'+
+    '<button type="button" class="regras-add" id="reg-add-depto">+ Adicionar departamento</button></div>'+
+    '<div class="regras-secao"><h4>Tipos de contratação</h4>'+
+    '<div class="regras-ajuda">Separados por vírgula.</div>'+
+    '<input type="text" id="reg-tipos" value="'+escapeHtml((REGRAS.tipos_contratacao||[]).join(', '))+'"></div>'+
+    '<div class="regras-secao"><h4>Centro de Custo → Departamento</h4>'+
+    '<div class="regras-ajuda">Ex.: Centro de Custo iniciado com "8" sugere o departamento "Projetos". Usado para o alerta de consistência e a sugestão no pop-up de edição — não move ninguém sozinho.</div>'+
+    '<div id="reg-ccs">'+(REGRAS.regras_cc_departamento||[]).map(function(r){ return linhaRegraCc(r.prefixo, r.departamento); }).join('')+'</div>'+
+    '<button type="button" class="regras-add" id="reg-add-cc">+ Adicionar regra</button></div>'+
+    '<div class="regras-secao"><h4>Arbitragem</h4>'+
+    '<div class="regras-ajuda">Combinação de conta contábil + centro de custo que define Arbitragem (hoje só existe dentro do benefício Seguro de Vida).</div>'+
+    '<div class="regras-grade-arb">'+
+    '<div><label>Conta contábil</label><input type="text" id="reg-arb-conta" value="'+escapeHtml((REGRAS.arbitragem||{}).conta||'')+'"></div>'+
+    '<div><label>Centro de Custo</label><input type="text" id="reg-arb-cc" value="'+escapeHtml((REGRAS.arbitragem||{}).centro_custo||'')+'"></div>'+
+    '<div><label>Departamento correspondente</label><select id="reg-arb-depto">'+opcoesDepartamento((REGRAS.arbitragem||{}).departamento)+'</select></div>'+
+    '<div><label>Benefício onde se aplica</label><input type="text" id="reg-arb-beneficio" value="'+escapeHtml((REGRAS.arbitragem||{}).beneficio||'')+'"></div>'+
+    '</div></div>'+
+    '<div class="acoes"><button class="cancelar">Cancelar</button><button class="confirmar" id="reg-salvar">Salvar Regras</button></div>'
+  );
+  overlay.querySelector('.modal').classList.add('modal-regras');
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+
+  function religarRemoveBotoes(){
+    overlay.querySelectorAll('.reg-rm').forEach(function(btn){
+      btn.onclick = function(){ btn.closest('.regras-linha').remove(); };
+    });
+  }
+  religarRemoveBotoes();
+
+  document.getElementById('reg-add-depto').onclick = function(){
+    document.getElementById('reg-deps').insertAdjacentHTML('beforeend', linhaRegraDepto('',''));
+    religarRemoveBotoes();
+  };
+  document.getElementById('reg-add-cc').onclick = function(){
+    document.getElementById('reg-ccs').insertAdjacentHTML('beforeend', linhaRegraCc('', ''));
+    religarRemoveBotoes();
+  };
+
+  document.getElementById('reg-salvar').onclick = async function(){
+    const btn = document.getElementById('reg-salvar');
+    const deps = Array.from(overlay.querySelectorAll('.reg-dep-row')).map(function(row){
+      return { codigo: row.querySelector('.reg-dep-cod').value.trim(), nome: row.querySelector('.reg-dep-nome').value.trim() };
+    }).filter(function(d){ return d.codigo && d.nome; });
+    const tipos = document.getElementById('reg-tipos').value.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+    const ccs = Array.from(overlay.querySelectorAll('.reg-cc-row')).map(function(row){
+      return { prefixo: row.querySelector('.reg-cc-prefixo').value.trim(), departamento: row.querySelector('.reg-cc-depto').value };
+    }).filter(function(r){ return r.prefixo && r.departamento; });
+    const arbitragem = {
+      conta: document.getElementById('reg-arb-conta').value.trim(),
+      centro_custo: document.getElementById('reg-arb-cc').value.trim(),
+      departamento: document.getElementById('reg-arb-depto').value,
+      beneficio: document.getElementById('reg-arb-beneficio').value.trim()
+    };
+    if (!deps.length){ toast('Cadastre pelo menos um departamento.'); return; }
+    if (!tipos.length){ toast('Cadastre pelo menos um tipo de contratação.'); return; }
+    const novasRegras = { departamentos: deps, tipos_contratacao: tipos, regras_cc_departamento: ccs, arbitragem: arbitragem };
+    btn.disabled = true; btn.textContent = 'Salvando…';
+    try{
+      await salvarRegrasAsync(novasRegras);
+      REGRAS = novasRegras;
+      REGRAS_VEM_DO_BANCO = true;
+      await registrarLog('editar_regras_colaboradores', deps.length+' departamento(s), '+ccs.length+' regra(s) de CC→Departamento, tipos: '+tipos.join(', ')+', Arbitragem: conta '+arbitragem.conta+' / CC '+arbitragem.centro_custo);
+      popularFiltroDepartamento();
+      renderTabela();
+      toast('Regras salvas.');
+      overlay.remove();
+    }catch(e){
+      toast(e.message);
+      btn.disabled = false; btn.textContent = 'Salvar Regras';
+    }
+  };
+}
+
+async function editarAtributoEmLoteAsync(campo, valor, rotuloParaMensagem){
+  const rotulo = rotuloParaMensagem || valor;
+  try{
+    const ids = Array.from(SELECIONADOS);
+    const nomes = COLABORADORES.filter(function(c){ return SELECIONADOS.has(c.id); }).map(function(c){ return c.nome; });
+    const payload = {}; payload[campo] = valor; payload.updated_by = AUTH_SESSION.uid || null;
+    await patchColaboradores(ids, payload);
+    COLABORADORES.forEach(function(c){ if (SELECIONADOS.has(c.id)) c[campo] = valor; });
+    renderTabela();
+    await registrarLog('editar_lote_colaboradores', 'Campo "'+campo+'" definido como "'+rotulo+'" para: '+nomes.join(', '));
+    toast(campo+' atualizado para '+ids.length+' colaborador(es).');
+  }catch(e){ toast(e.message); }
+}
+
+async function ativarEmMassaAsync(ids){
+  try{
+    const nomes = COLABORADORES.filter(function(c){ return ids.indexOf(c.id) >= 0; }).map(function(c){ return c.nome; });
+    await patchColaboradores(ids, { status:'Ativo', updated_by: AUTH_SESSION.uid || null });
+    COLABORADORES.forEach(function(c){ if (ids.indexOf(c.id) >= 0) c.status = 'Ativo'; });
+    SELECIONADOS.clear();
+    renderTabela();
+    atualizarBarraFlutuante();
+    await registrarLog('ativar_lote_colaboradores', 'Ativados: '+nomes.join(', '));
+    toast(ids.length + ' colaborador(es) ativado(s).');
+  }catch(e){ toast(e.message); }
+}
+
+async function alterarBeneficiosEmMassaAsync(ids, mudancas){
+  try{
+    const nomes = COLABORADORES.filter(function(c){ return ids.indexOf(c.id) >= 0; }).map(function(c){ return c.nome; });
+    const logPartes = [];
+
+    const payloadMaster = {};
+    if (mudancas.cesta !== null){ payloadMaster.is_cesta_basica_elegivel = mudancas.cesta; logPartes.push('Cesta Básica → '+(mudancas.cesta?'Sim':'Não')); }
+    if (Object.keys(payloadMaster).length){
+      payloadMaster.updated_by = AUTH_SESSION.uid || null;
+      await patchColaboradores(ids, payloadMaster);
+      COLABORADORES.forEach(function(c){ if (ids.indexOf(c.id) >= 0) Object.assign(c, payloadMaster); });
+    }
+
+    const payloadRh = {};
+    if (mudancas.vt !== null){ payloadRh.opta_vale_transporte = mudancas.vt; logPartes.push('Vale Transporte → '+(mudancas.vt?'Sim':'Não')); }
+    if (mudancas.vrva !== null){ payloadRh.opta_vr_va = mudancas.vrva; logPartes.push('VR/VA → '+(mudancas.vrva?'Sim':'Não')); }
+    if (mudancas.saude !== null){ payloadRh.opta_plano_saude = mudancas.saude; logPartes.push('Assistência Médica → '+(mudancas.saude?'Sim':'Não')); }
+    if (mudancas.seguro !== null){ payloadRh.opta_seguro_vida = mudancas.seguro; logPartes.push('Seguro de Vida → '+(mudancas.seguro?'Sim':'Não')); }
+
+    let erroRh = null, semRh = 0;
+    if (Object.keys(payloadRh).length){
+      if (!PERMITIR_EDITAR_BENEFICIOS_RH){
+        erroRh = 'Edição de benefícios do RH está desativada (PERMITIR_EDITAR_BENEFICIOS_RH = false).';
+      } else {
+        const rhIds = [];
+        COLABORADORES.forEach(function(c){
+          if (ids.indexOf(c.id) >= 0){ if (c.rh_colaborador_id) rhIds.push(c.rh_colaborador_id); else semRh++; }
+        });
+        if (rhIds.length){
+          try{
+            await patchRhColaboradores(rhIds, payloadRh);
+          }catch(e){ erroRh = e.message; }
+        }
+      }
+    }
+
+    renderTabela();
+    if (logPartes.length) await registrarLog('beneficios_lote_colaboradores', logPartes.join('; ')+' — para: '+nomes.join(', '));
+
+    if (erroRh){
+      toast('Cesta Básica (se marcada) foi salva. Falha ao salvar os demais benefícios no RH: '+erroRh);
+    } else if (semRh){
+      toast('Benefícios atualizados. '+semRh+' selecionado(s) sem vínculo com o RH não foram afetados nos benefícios do RH.');
+    } else {
+      toast('Benefícios atualizados para '+ids.length+' colaborador(es).');
+    }
+  }catch(e){ toast(e.message); }
+}
+
+async function atualizarCestaBasicaAsync(ids, valor){
+  try{
+    const nomes = COLABORADORES.filter(function(c){ return ids.indexOf(c.id) >= 0; }).map(function(c){ return c.nome; });
+    await patchColaboradores(ids, { is_cesta_basica_elegivel: valor, updated_by: AUTH_SESSION.uid || null });
+    COLABORADORES.forEach(function(c){ if (ids.indexOf(c.id) >= 0) c.is_cesta_basica_elegivel = valor; });
+    renderTabela();
+    await registrarLog('cesta_basica_lote', 'Cesta Básica '+(valor?'ligada':'removida')+' para: '+nomes.join(', '));
+    toast('Cesta Básica ' + (valor?'liberada':'removida') + ' para ' + ids.length + ' colaborador(es).');
+  }catch(e){ toast(e.message); renderTabela(); }
+}
+
+async function desligarEmMassaAsync(ids){
+  try{
+    const nomes = COLABORADORES.filter(function(c){ return ids.indexOf(c.id) >= 0; }).map(function(c){ return c.nome; });
+    await patchColaboradores(ids, { status:'Desligado', updated_by: AUTH_SESSION.uid || null });
+    COLABORADORES.forEach(function(c){ if (ids.indexOf(c.id) >= 0) c.status = 'Desligado'; });
+    SELECIONADOS.clear();
+    renderTabela();
+    atualizarBarraFlutuante();
+    await registrarLog('desligar_lote_colaboradores', 'Desligados: '+nomes.join(', '));
+    toast(ids.length + ' colaborador(es) desligado(s). Nenhum registro foi apagado.');
+  }catch(e){ toast(e.message); }
+}
+
+// ---------- Boot ----------
+(async function boot(){
+  lnbLoadSession();
+  if (!AUTH_SESSION || !AUTH_SESSION.access_token){ location.replace('/'); return; }
+
+  const acesso = await lnbMeuAcessoCentral();
+  if (!lnbTemModulo(acesso, 'beneficios')){
+    document.getElementById('lnb-loading').classList.add('lnb-hide');
+    document.getElementById('lnb-negado').classList.remove('lnb-hide');
+    return;
+  }
+
+  PODE_EDITAR = (await lnbTemPermissaoAsync('colaboradores','editar')) || (await lnbTemPermissaoAsync('beneficios','editar'));
+
+  await carregarRegrasAsync();
+
+  try{
+    COLABORADORES = await carregarColaboradoresAsync();
+  }catch(e){
+    document.getElementById('lnb-loading').textContent = 'Erro ao carregar: ' + e.message;
+    return;
+  }
+
+  popularFiltrosDinamicos();
+  if (PODE_EDITAR) document.getElementById('btn-regras').classList.remove('lnb-hide');
+
+  document.getElementById('badge-modo').innerHTML = PODE_EDITAR ? '' : '<span class="badge-readonly">Somente leitura</span>';
+  document.getElementById('lnb-loading').classList.add('lnb-hide');
+  document.getElementById('lnb-app').classList.remove('lnb-hide');
+  renderTabela();
+})();
+</script>
+</body>
+</html>
