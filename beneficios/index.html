@@ -7021,6 +7021,16 @@ function prudTipoByCC(cc) {
   if(PRUD_CC_CLT.includes(cc)) return 'CLT';
   return '';
 }
+function prudEhArbitragem(r) {
+  r=r||{};
+  return PRUD_CC_ARB.includes(String(r.cc||'').trim())
+    || String(r.conta||'').replace(/\D/g,'')==='053917'
+    || normName(r.nome)==='ARBITRAGEM';
+}
+function prudTipoEfetivo(r) {
+  if(prudEhArbitragem(r)) return 'ARBITRAGEM';
+  return String((r&&r.tipo)||'').trim() || prudTipoByCC(r&&r.cc) || '';
+}
 function prudContaByCC(cc, tipo) {
   cc=String(cc||'').trim(); tipo=String(tipo||'').toUpperCase();
   if(PRUD_CC_ARB.includes(cc) || tipo==='ARBITRAGEM') return '053917';
@@ -7030,9 +7040,10 @@ function prudContaByCC(cc, tipo) {
 function prudLabelConta(conta) { return conta==='057061' ? 'CLT/EST' : conta==='053917' ? 'ARBITRAGEM' : 'PJ'; }
 function prudHydrate(r, i) {
   const emp = employees.find(e=>normName(e.nome)===normName(r.nome));
-  const tipo = r.tipo || prudTipoByCC(r.cc) || (emp&&emp.tipo) || 'PJ';
-  const conta = prudContaByCC(r.cc || (emp&&emp.cc), tipo);
-  return { id: r.id || i+1, nome:r.nome, tipo, cc:r.cc || (emp&&emp.cc)||'', cpf:r.cpf || (emp&&emp.cpf)||'', nascimento:r.nascimento || (emp&&emp.nascimento)||'', conta, valor:Number(r.valor)||0, ativo:r.ativo !== false, origem:r.origem || '' };
+  const cc = r.cc || (emp&&emp.cc)||'';
+  const tipo = prudEhArbitragem({...r,cc}) ? 'ARBITRAGEM' : (r.tipo || prudTipoByCC(cc) || (emp&&emp.tipo) || 'PJ');
+  const conta = prudContaByCC(cc, tipo);
+  return { id: r.id || i+1, nome:r.nome, tipo, cc, cpf:r.cpf || (emp&&emp.cpf)||'', nascimento:r.nascimento || (emp&&emp.nascimento)||'', conta, valor:Number(r.valor)||0, ativo:r.ativo !== false, origem:r.origem || '' };
 }
 function prudRowsSorted(rows) {
   return (rows||[]).slice().sort((a,b)=>{
@@ -7084,7 +7095,7 @@ function applyPrudBulkValue() {
 }
 
 function renderPrudStats(targetId, rows) { const ativos=(rows||[]).filter(r=>r.ativo); const total=ativos.reduce((s,r)=>s+Number(r.valor||0),0); const el=document.getElementById(targetId); if(!el) return; el.innerHTML = `<div class="stat-card navy"><div class="stat-label">Ativos Prudential</div><div class="stat-value">${ativos.length}</div><div class="stat-sub">colaboradores no seguro</div></div><div class="stat-card green"><div class="stat-label">Total Seguro</div><div class="stat-value" style="font-size:19px">${fmt(total)}</div><div class="stat-sub">sem IOF</div></div><div class="stat-card gold"><div class="stat-label">Contas</div><div class="stat-value" style="font-size:17px">053671 / 057061 / 053917</div><div class="stat-sub">por tipo e centro de custo</div></div><div class="stat-card"><div class="stat-label">Centros de Custo</div><div class="stat-value">${new Set(ativos.map(r=>r.cc)).size}</div><div class="stat-sub">com seguro ativo</div></div>`; }
-function renderPrud() { const rows=prudFiltered(); renderPrudStats('stat-prud', rows); const body=document.getElementById('prud-body'); if(!body) return; body.innerHTML=''; let total=0; if(!rows.length) body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum registro Prudential encontrado.</td></tr>'; rows.forEach(r=>{ r.conta=prudContaByCC(r.cc,r.tipo); const v=Number(r.valor)||0; if(r.ativo) total+=v; const arb=r.conta==='053917'||normName(r.nome)==='ARBITRAGEM'; body.innerHTML += `<tr class="${r.ativo?'':'prud-row-off'} ${arb?'prud-row-arb':''}"><td>${r.nome}</td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td><span class="conta-pill">${r.conta}</span><div class="kpi-note">${prudLabelConta(r.conta)}</div></td><td><span class="badge ${r.ativo?'badge-active':'badge-off'}">${r.ativo?'ATIVO':'DESLIGADO'}</span></td><td class="tr"><input class="prud-input" type="number" step="0.01" value="${v.toFixed(2)}" onchange="updatePrudField(${r.id},'valor',this.value)"></td><td class="tc no-print"><div class="prud-actions"><button class="btn btn-ghost btn-xs" onclick="editPrudRow(${r.id})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updatePrudField(${r.id},'ativo',${!r.ativo})">${r.ativo?'Desligar':'Ativar'}</button>${arb?'':`<button class="btn btn-danger btn-xs" onclick="excluirPrudRow(${r.id})" title="Excluir (escolher módulos)">🗑️</button>`}</div></td></tr>`; }); document.getElementById('prud-total-geral').textContent=fmt(total); }
+function renderPrud() { const rows=prudFiltered(); renderPrudStats('stat-prud', rows); const body=document.getElementById('prud-body'); if(!body) return; body.innerHTML=''; let total=0; if(!rows.length) body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum registro Prudential encontrado.</td></tr>'; rows.forEach(r=>{ r.tipo=prudTipoEfetivo(r)||'PJ'; r.conta=prudContaByCC(r.cc,r.tipo); const v=Number(r.valor)||0; if(r.ativo) total+=v; const arb=prudEhArbitragem(r); body.innerHTML += `<tr class="${r.ativo?'':'prud-row-off'} ${arb?'prud-row-arb':''}"><td>${r.nome}</td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td><span class="conta-pill">${r.conta}</span><div class="kpi-note">${prudLabelConta(r.conta)}</div></td><td><span class="badge ${r.ativo?'badge-active':'badge-off'}">${r.ativo?'ATIVO':'DESLIGADO'}</span></td><td class="tr"><input class="prud-input" type="number" step="0.01" value="${v.toFixed(2)}" onchange="updatePrudField(${r.id},'valor',this.value)"></td><td class="tc no-print"><div class="prud-actions"><button class="btn btn-ghost btn-xs" onclick="editPrudRow(${r.id})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updatePrudField(${r.id},'ativo',${!r.ativo})">${r.ativo?'Desligar':'Ativar'}</button>${arb?'':`<button class="btn btn-danger btn-xs" onclick="excluirPrudRow(${r.id})" title="Excluir (escolher módulos)">🗑️</button>`}</div></td></tr>`; }); document.getElementById('prud-total-geral').textContent=fmt(total); }
 function prudSnapshot() { const detalhes=prudActiveRows().map(r=>{ const conta=prudContaByCC(r.cc,r.tipo); return {nome:r.nome,cpf:r.cpf,nascimento:r.nascimento,cc:r.cc,tipo:r.tipo,conta,valor:Number(r.valor)||0,total:Number(r.valor)||0}; }); const totais={pj:0,clt:0,arb:0,total:0}; detalhes.forEach(d=>{ if(d.conta==='053917') totais.arb+=d.total; else if(d.conta==='057061') totais.clt+=d.total; else totais.pj+=d.total; totais.total+=d.total; }); return {detalhes, totais}; }
 function renderPrudCalculo() { const comp=document.getElementById('prud-comp'); if(comp) comp.value=prudCfg.competencia; const sub=document.getElementById('prud-calc-print-subtitle'); if(sub) sub.textContent=`Competência: ${compLabel(prudCfg.competencia)}`; const snap=prudSnapshot(); renderPrudStats('stat-prud-calculo', prudActiveRows()); const body=document.getElementById('prud-calculo-body'); if(!body) return; body.innerHTML=''; snap.detalhes.forEach(d=>body.innerHTML+=`<tr class="${d.conta==='053917'?'prud-row-arb':''}"><td>${d.nome}</td><td class="doc-cell">${d.cpf||'–'}</td><td class="doc-cell">${d.nascimento||'–'}</td><td>${ccPill(d.cc)}</td><td><span class="conta-pill">${d.conta}</span></td><td class="tr money">${fmt(d.total)}</td></tr>`); document.getElementById('prud-calc-total').textContent=fmt(snap.totais.total); }
 function prudRateioGroups() { const groups={pj:{conta:'053671',ccs:PRUD_CC_PJ,items:{}}, clt:{conta:'057061',ccs:PRUD_CC_CLT,items:{}}, arb:{conta:'053917',ccs:PRUD_CC_ARB,items:{}}}; Object.values(groups).forEach(g=>g.ccs.forEach(cc=>g.items[cc]={cc,area:areaName(cc),valor:0})); prudActiveRows().forEach(r=>{ const conta=prudContaByCC(r.cc,r.tipo), key=conta==='053917'?'arb':conta==='057061'?'clt':'pj', cc=r.cc||'N/D'; if(!groups[key].items[cc]) groups[key].items[cc]={cc,area:areaName(cc),valor:0}; groups[key].items[cc].valor+=Number(r.valor)||0; }); return groups; }
@@ -7234,7 +7245,7 @@ function openPrudModal(id){
   document.getElementById('prud-f-nome').value = row?.nome || '';
   document.getElementById('prud-f-cpf').value = row?.cpf || '';
   document.getElementById('prud-f-nascimento').value = row?.nascimento || '';
-  document.getElementById('prud-f-tipo').value = row?.tipo || prudTipoByCC(row?.cc) || 'PJ';
+  document.getElementById('prud-f-tipo').value = row ? (prudTipoEfetivo(row)||'PJ') : 'PJ';
   document.getElementById('prud-f-cc').value = row?.cc || '';
   document.getElementById('prud-f-valor').value = Number(row?.valor||0).toFixed(2);
   document.getElementById('prud-f-conta').value = prudContaByCC(row?.cc, row?.tipo);
@@ -7249,7 +7260,9 @@ function savePrudEmployee(){
   const cc=document.getElementById('prud-f-cc').value.trim();
   if(!nome || !cc){ alert('Preencha nome e centro de custo.'); return; }
   if(cc.length!==6 || !/^[0-9]+$/.test(cc)){ alert('Centro de custo deve ter 6 dígitos numéricos.'); return; }
-  const tipo=document.getElementById('prud-f-tipo').value || prudTipoByCC(cc) || 'PJ';
+  const tipo=prudEhArbitragem({nome,cc,conta:document.getElementById('prud-f-conta').value})
+    ? 'ARBITRAGEM'
+    : (document.getElementById('prud-f-tipo').value || prudTipoByCC(cc) || 'PJ');
   const novo = { id: editingPrudId || (prudRegistros.length ? Math.max(...prudRegistros.map(r=>Number(r.id)||0))+1 : 1), nome, tipo, cpf:maskCPFValue(document.getElementById('prud-f-cpf').value), nascimento:maskDateValue(document.getElementById('prud-f-nascimento').value), cc, conta:prudContaByCC(cc,tipo), valor:parseFloat(document.getElementById('prud-f-valor').value)||0, ativo:document.getElementById('prud-f-ativo').value === 'true', origem:'MANUAL' };
   const idx = prudRegistros.findIndex(r=>String(r.id)===String(editingPrudId));
   if(idx>=0) prudRegistros[idx] = {...prudRegistros[idx], ...novo}; else prudRegistros.push(novo);
