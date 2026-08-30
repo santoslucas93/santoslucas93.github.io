@@ -52,6 +52,19 @@
   .modal .confirmar{ background:var(--azul); color:#fff; }
   .modal .confirmar.perigo{ background:var(--vermelho); }
   .toast{ position:fixed; top:16px; left:50%; transform:translateX(-50%); background:#111827; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; z-index:200; }
+  .modal-lg{ width:560px; max-height:84vh; overflow-y:auto; }
+  .modal-lg h4{ font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:#6b7280; margin:18px 0 8px; border-bottom:1px solid var(--cinza-borda); padding-bottom:4px; }
+  .modal-lg h4:first-of-type{ margin-top:0; }
+  .grade-detalhes{ display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; }
+  .grade-detalhes .campo{ font-size:13px; }
+  .grade-detalhes .campo label{ display:block; font-size:11px; color:#9ca3af; margin-bottom:2px; }
+  .grade-detalhes .campo span{ color:#111827; }
+  .chip-beneficio{ display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:4px 10px; border-radius:999px; margin:0 6px 6px 0; }
+  .chip-sim{ background:#dcfce7; color:#166534; }
+  .chip-nao{ background:#f3f4f6; color:#6b7280; }
+  .aviso-sem-rh{ font-size:12px; color:#92400e; background:#fffbeb; border:1px solid #fde68a; padding:8px 10px; border-radius:8px; margin-top:6px; }
+  .link-nome{ background:none; border:none; padding:0; color:#1d4ed8; font-weight:600; cursor:pointer; font-size:13px; text-align:left; font-family:inherit; }
+  .link-nome:hover{ text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -199,7 +212,7 @@ function renderTabela(){
     if (SELECIONADOS.has(c.id)) tr.className = 'selecionada';
     tr.innerHTML =
       '<td><input type="checkbox" class="chk-linha" data-id="'+c.id+'" '+(SELECIONADOS.has(c.id)?'checked':'')+'></td>'+
-      '<td>'+escapeHtml(c.nome||'')+'</td>'+
+      '<td><button type="button" class="link-nome" data-id="'+c.id+'">'+escapeHtml(c.nome||'(sem nome)')+'</button></td>'+
       '<td>'+escapeHtml(c.cpf||'—')+'</td>'+
       '<td>'+escapeHtml(c.centro_custo||'—')+'</td>'+
       '<td>'+escapeHtml(c.departamento ? rotuloDepartamento(c.departamento) : '—')+'</td>'+
@@ -224,6 +237,14 @@ function renderTabela(){
       atualizarCestaBasicaAsync([id], chk.checked);
     });
   });
+
+  document.querySelectorAll('.link-nome').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const id = btn.getAttribute('data-id');
+      const c = COLABORADORES.find(function(x){ return x.id === id; });
+      if (c) abrirDetalhesColaborador(c);
+    });
+  });
 }
 
 function rotuloOrigem(origem){
@@ -234,6 +255,91 @@ function rotuloDepartamento(cod){
 }
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+}
+
+function formatDataBR(iso){
+  if (!iso) return '—';
+  const p = String(iso).split('-');
+  if (p.length !== 3) return String(iso);
+  return p[2].slice(0,2) + '/' + p[1] + '/' + p[0];
+}
+function formatMoeda(v){
+  if (v === null || v === undefined || v === '') return '—';
+  const n = Number(v);
+  if (isNaN(n)) return '—';
+  return n.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+}
+function chipBeneficio(rotulo, valor){
+  if (valor === true) return '<span class="chip-beneficio chip-sim">✓ '+escapeHtml(rotulo)+'</span>';
+  if (valor === false) return '<span class="chip-beneficio chip-nao">— '+escapeHtml(rotulo)+'</span>';
+  return '';
+}
+
+async function abrirDetalhesColaborador(c){
+  const overlay = abrirModal(
+    '<div class="carregando-detalhes">Carregando detalhes de '+escapeHtml(c.nome||'colaborador')+'…</div>'+
+    '<div class="acoes"><button class="cancelar">Fechar</button></div>'
+  );
+  overlay.querySelector('.modal').classList.add('modal-lg');
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
+
+  let rh = null;
+  if (c.rh_colaborador_id){
+    try{
+      const r = await fetch(SUPABASE_URL+'/rest/v1/rh_colaboradores?id=eq.'+c.rh_colaborador_id+'&select=*', {
+        headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token}
+      });
+      if (r.ok){ const arr = await r.json(); rh = arr[0] || null; }
+    }catch(e){ /* segue sem dados de RH */ }
+  }
+
+  const pessoais =
+    '<div class="grade-detalhes">' +
+    '<div class="campo"><label>Nome</label><span>'+escapeHtml(c.nome||'—')+'</span></div>' +
+    '<div class="campo"><label>CPF</label><span>'+escapeHtml(c.cpf||(rh&&rh.cpf_mascarado)||'—')+'</span></div>' +
+    '<div class="campo"><label>Data de nascimento</label><span>'+formatDataBR(c.data_nascimento||(rh&&rh.data_nascimento))+'</span></div>' +
+    '<div class="campo"><label>E-mail</label><span>'+escapeHtml((rh&&rh.email)||'—')+'</span></div>' +
+    '<div class="campo"><label>Telefone</label><span>'+escapeHtml((rh&&rh.telefone)||'—')+'</span></div>' +
+    '</div>';
+
+  const corporativos =
+    '<div class="grade-detalhes">' +
+    '<div class="campo"><label>Centro de Custo</label><span>'+escapeHtml(c.centro_custo||'—')+'</span></div>' +
+    '<div class="campo"><label>Departamento</label><span>'+escapeHtml(c.departamento?rotuloDepartamento(c.departamento):'—')+'</span></div>' +
+    '<div class="campo"><label>Tipo de contratação</label><span>'+escapeHtml(c.tipo_contratacao||(rh&&rh.vinculo)||'—')+'</span></div>' +
+    '<div class="campo"><label>Cargo</label><span>'+escapeHtml((rh&&rh.cargo)||'—')+'</span></div>' +
+    '<div class="campo"><label>Gestor</label><span>'+escapeHtml((rh&&rh.gestor)||'—')+'</span></div>' +
+    '<div class="campo"><label>Filial</label><span>'+escapeHtml((rh&&rh.filial)||'—')+'</span></div>' +
+    '<div class="campo"><label>Admissão</label><span>'+formatDataBR(rh&&rh.admissao)+'</span></div>' +
+    '<div class="campo"><label>Status</label><span>'+escapeHtml(c.status||'—')+'</span></div>' +
+    '<div class="campo"><label>Origem do cadastro</label><span>'+rotuloOrigem(c.origem_fonte)+'</span></div>' +
+    '<div class="campo"><label>Jornada semanal</label><span>'+((rh&&rh.jornada_horas_semanais)?(rh.jornada_horas_semanais+'h'):'—')+'</span></div>' +
+    '<div class="campo"><label>Salário base</label><span>'+formatMoeda(rh&&rh.salario_base)+'</span></div>' +
+    '</div>' +
+    (c.observacoes ? '<div class="campo" style="margin-top:10px"><label>Observações</label><span>'+escapeHtml(c.observacoes)+'</span></div>' : '');
+
+  let beneficios;
+  if (rh){
+    beneficios =
+      chipBeneficio('Vale Transporte', rh.opta_vale_transporte) +
+      chipBeneficio('VR/VA', rh.opta_vr_va) +
+      chipBeneficio('Plano de Saúde', rh.opta_plano_saude) +
+      chipBeneficio('Seguro de Vida', rh.opta_seguro_vida) +
+      chipBeneficio('Cesta Básica', c.is_cesta_basica_elegivel);
+  } else {
+    beneficios =
+      chipBeneficio('Cesta Básica', c.is_cesta_basica_elegivel) +
+      '<div class="aviso-sem-rh">Colaborador sem vínculo com o RH-Folha (origem: '+rotuloOrigem(c.origem_fonte)+'). Os demais benefícios (VT, VR/VA, Saúde, Seguro de Vida) são controlados diretamente no módulo Benefícios.</div>';
+  }
+
+  overlay.querySelector('.modal').innerHTML =
+    '<h3 style="margin:0 0 4px">'+escapeHtml(c.nome||'(sem nome)')+'</h3>' +
+    '<div style="font-size:12px;color:#6b7280;margin-bottom:6px">'+escapeHtml(c.cpf||'CPF não informado')+'</div>' +
+    '<h4>Dados Pessoais</h4>' + pessoais +
+    '<h4>Dados Corporativos</h4>' + corporativos +
+    '<h4>Benefícios Envolvidos</h4>' + beneficios +
+    '<div class="acoes" style="margin-top:18px"><button class="cancelar">Fechar</button></div>';
+  overlay.querySelector('.cancelar').onclick = function(){ overlay.remove(); };
 }
 
 function atualizarBarraFlutuante(){
