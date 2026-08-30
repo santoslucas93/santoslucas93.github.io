@@ -738,7 +738,8 @@ function telaUsuarios(){
     h += '<tr><td><b>'+esc(u.nome||'(sem nome)')+'</b><div style="color:var(--tx2);font-size:12px">'+esc(u.email)+'</div></td>'
       +  '<td>'+tags+'</td><td>'+sit+'</td><td style="white-space:nowrap">'
       +  '<button class="btn btn-peq" data-editar="'+esc(u.id)+'">Editar</button> '
-      +  '<button class="btn btn-peq" data-alternar="'+esc(u.id)+'">'+(u.bloqueado?'Desbloquear':'Bloquear')+'</button></td></tr>'
+      +  '<button class="btn btn-peq" data-alternar="'+esc(u.id)+'">'+(u.bloqueado?'Desbloquear':'Bloquear')+'</button> '
+      +  '<button class="btn-perigo btn-peq" data-excluir-user="'+esc(u.id)+'">Excluir</button></td></tr>'
       +  '<tr id="ed-'+esc(u.id)+'" style="display:none"><td colspan="4"></td></tr>';
   });
   return h+'</tbody></table></div>';
