@@ -202,7 +202,7 @@ function renderTabela(){
       '<td>'+escapeHtml(c.nome||'')+'</td>'+
       '<td>'+escapeHtml(c.cpf||'—')+'</td>'+
       '<td>'+escapeHtml(c.centro_custo||'—')+'</td>'+
-      '<td>'+escapeHtml(c.departamento||'—')+'</td>'+
+      '<td>'+escapeHtml(c.departamento ? rotuloDepartamento(c.departamento) : '—')+'</td>'+
       '<td>'+escapeHtml(c.tipo_contratacao||'—')+'</td>'+
       '<td><span class="status-pill '+(c.status==='Ativo'?'status-ativo':'status-desligado')+'">'+c.status+'</span></td>'+
       '<td><span class="origem-pill">'+rotuloOrigem(c.origem_fonte)+'</span></td>'+
@@ -228,6 +228,9 @@ function renderTabela(){
 
 function rotuloOrigem(origem){
   return { rh_folha:'RH-Folha', beneficios_liga_mestre:'Benefícios (PJ)', ambos:'RH + Benefícios', manual:'Manual' }[origem] || origem;
+}
+function rotuloDepartamento(cod){
+  return { '1':'Superintendência', '2':'Comunicação', '3':'Marketing', '4':'Técnico Operacional', '5':'Administrativo e Financeiro', '6':'Arbitragem' }[cod] || cod;
 }
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
