@@ -3440,7 +3440,7 @@ window.__lnbBootReady.then(function(authed){
 
 <!-- NAV -->
 <nav class="nav-wrap mode-hidden" id="main-nav">
-  <span id="current-module-label" style="display:flex;align-items:center;gap:8px;font-weight:900;color:var(--navy);background:var(--bg-soft,#F3EFEA);border-radius:999px;padding:8px 16px;font-size:13px;letter-spacing:.3px;margin-right:8px;"></span>
+  <span id="current-module-label" style="display:flex;align-items:center;gap:8px;font-weight:900;color:var(--navy);background:var(--bg-soft,#F3EFEA);border-radius:999px;padding:8px 16px;font-size:13px;letter-spacing:.3px;margin-right:8px;white-space:nowrap;flex-shrink:0;"></span>
   <button class="nav-tab benefit-vr active" data-tab="colaboradores" onclick="showTab(this,'colaboradores')">👥 Colaboradores</button>
   <button class="nav-tab benefit-vr" data-tab="calculo" onclick="showTab(this,'calculo')">📅 Cálculo Mensal</button>
   <button class="nav-tab benefit-vr" data-tab="rateio" onclick="showTab(this,'rateio')">📊 Rateio</button>
@@ -4643,15 +4643,15 @@ window.__lnbBootReady.then(function(authed){
       <div class="form-group"><label class="form-label">Data de Nascimento</label><input type="text" class="form-control" id="prud-f-nascimento" placeholder="00/00/0000" maxlength="10" inputmode="numeric"></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Tipo</label><select class="form-control" id="prud-f-tipo" onchange="previewPrudConta()"><option value="PJ">PJ</option><option value="CLT">CLT</option><option value="ESTAGIÁRIO">Estagiário</option><option value="ARBITRAGEM">Arbitragem</option></select></div>
+      <div class="form-group"><label class="form-label">Tipo</label><select class="form-control" id="prud-f-tipo"><option value="PJ">PJ</option><option value="CLT">CLT</option><option value="ESTAGIÁRIO">Estagiário</option><option value="ARBITRAGEM">Arbitragem</option></select></div>
       <div class="form-group"><label class="form-label">Centro de Custo *</label><input type="text" class="form-control" id="prud-f-cc" placeholder="Ex: 200201" maxlength="6" oninput="previewPrudConta()"></div>
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Valor Seguro</label><input type="number" class="form-control" id="prud-f-valor" min="0" step="0.01" value="0.00"></div>
-      <div class="form-group"><label class="form-label">Conta Contábil</label><select class="form-control" id="prud-f-conta"><option value="053671">053671 · PJ</option><option value="057061">057061 · CLT/EST</option><option value="053917">053917 · Arbitragem</option></select></div>
+      <div class="form-group"><label class="form-label">Conta Contábil</label><input type="text" class="form-control" id="prud-f-conta" readonly value="053671"></div>
     </div>
     <div class="form-group"><label class="form-label">Status</label><select class="form-control" id="prud-f-ativo"><option value="true">Ativo</option><option value="false">Desligado</option></select></div>
-    <div class="info-box" style="margin-top:8px"><strong>Todos os campos podem ser ajustados.</strong> A conta é sugerida pelo tipo e centro de custo, mas pode ser alterada antes de salvar. Nome, CPF, nascimento, tipo e centro de custo também são sincronizados com a Central de Colaboradores e com os cadastros atuais dos demais benefícios; históricos já processados permanecem intactos.</div>
+    <div class="info-box" style="margin-top:8px">A conta contábil é definida automaticamente pelo centro de custo: PJ 053671, CLT/Estagiários 057061 e ARBITRAGEM 053917.</div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closePrudModal()">Cancelar</button><button class="btn btn-primary" onclick="savePrudEmployee()">Salvar Prudential</button></div>
   </div>
 </div>
@@ -5530,8 +5530,9 @@ function editMedRow(id){
   openMedModal(id);
 }
 function editPrudRow(id){
-  // O editor específico reúne todas as colunas do Seguro de Vida. Os campos
-  // cadastrais comuns continuam sincronizados com a Central ao salvar.
+  const r = (prudRegistros||[]).find(x=>String(x.id)===String(id));
+  const emp = resolverEmpDoRegistro(r);
+  if (emp) { openModal(emp.id); return; }
   openPrudModal(id);
 }
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
@@ -7020,38 +7021,23 @@ function prudTipoByCC(cc) {
   if(PRUD_CC_CLT.includes(cc)) return 'CLT';
   return '';
 }
-function prudEhArbitragem(r) {
-  r=r||{};
-  return PRUD_CC_ARB.includes(String(r.cc||'').trim())
-    || String(r.conta||'').replace(/\D/g,'')==='053917'
-    || normName(r.nome)==='ARBITRAGEM';
-}
-function prudTipoEfetivo(r) {
-  if(prudEhArbitragem(r)) return 'ARBITRAGEM';
-  return String((r&&r.tipo)||'').trim() || prudTipoByCC(r&&r.cc) || '';
-}
 function prudContaByCC(cc, tipo) {
   cc=String(cc||'').trim(); tipo=String(tipo||'').toUpperCase();
   if(PRUD_CC_ARB.includes(cc) || tipo==='ARBITRAGEM') return '053917';
   if(PRUD_CC_CLT.includes(cc) || tipo==='CLT' || tipo==='ESTAGIÁRIO' || tipo==='ESTAGIARIO') return '057061';
   return '053671';
 }
-function prudContaEfetiva(r) {
-  const conta = String((r&&r.conta)||'').replace(/\D/g,'');
-  return ['053671','057061','053917'].includes(conta) ? conta : prudContaByCC(r&&r.cc,r&&r.tipo);
-}
 function prudLabelConta(conta) { return conta==='057061' ? 'CLT/EST' : conta==='053917' ? 'ARBITRAGEM' : 'PJ'; }
 function prudHydrate(r, i) {
   const emp = employees.find(e=>normName(e.nome)===normName(r.nome));
-  const cc = r.cc || (emp&&emp.cc)||'';
-  const tipo = prudEhArbitragem({...r,cc}) ? 'ARBITRAGEM' : (r.tipo || prudTipoByCC(cc) || (emp&&emp.tipo) || 'PJ');
-  const conta = prudContaEfetiva({...r,cc,tipo});
-  return { id: r.id || i+1, nome:r.nome, tipo, cc, cpf:r.cpf || (emp&&emp.cpf)||'', nascimento:r.nascimento || (emp&&emp.nascimento)||'', conta, valor:Number(r.valor)||0, ativo:r.ativo !== false, origem:r.origem || '' };
+  const tipo = r.tipo || prudTipoByCC(r.cc) || (emp&&emp.tipo) || 'PJ';
+  const conta = prudContaByCC(r.cc || (emp&&emp.cc), tipo);
+  return { id: r.id || i+1, nome:r.nome, tipo, cc:r.cc || (emp&&emp.cc)||'', cpf:r.cpf || (emp&&emp.cpf)||'', nascimento:r.nascimento || (emp&&emp.nascimento)||'', conta, valor:Number(r.valor)||0, ativo:r.ativo !== false, origem:r.origem || '' };
 }
 function prudRowsSorted(rows) {
   return (rows||[]).slice().sort((a,b)=>{
-    const aa = prudContaEfetiva(a)==='053917' || normName(a.nome)==='ARBITRAGEM';
-    const bb = prudContaEfetiva(b)==='053917' || normName(b.nome)==='ARBITRAGEM';
+    const aa = prudContaByCC(a.cc,a.tipo)==='053917' || normName(a.nome)==='ARBITRAGEM';
+    const bb = prudContaByCC(b.cc,b.tipo)==='053917' || normName(b.nome)==='ARBITRAGEM';
     if(aa!==bb) return aa ? 1 : -1;
     return normName(a.nome).localeCompare(normName(b.nome),'pt-BR',{numeric:true});
   });
@@ -7073,7 +7059,7 @@ function savePrudCfg() { const c=document.getElementById('prud-comp')?.value || 
 function clearPrudFilters() { const q=document.getElementById('prud-search'); if(q) q.value=''; const st=document.getElementById('prud-filter-status'); if(st) st.value='ATIVO'; const ar=document.getElementById('prud-filter-area'); if(ar) ar.value=''; renderPrud(); }
 function prudFiltered() { const q=(document.getElementById('prud-search')?.value||'').toLowerCase(); const st=document.getElementById('prud-filter-status')?.value||''; const ar=document.getElementById('prud-filter-area')?.value||''; return prudRowsSorted(prudRegistros.filter(r=>{ if(q && !String(r.nome).toLowerCase().includes(q)) return false; if(st==='ATIVO' && !r.ativo) return false; if(st==='DESLIGADO' && r.ativo) return false; if(ar && area(r.cc)!==ar) return false; return true; })); }
 function prudActiveRows() { return prudRowsSorted(prudRegistros.filter(r=>r.ativo)); }
-function updatePrudField(id, field, value) { const r=prudRegistros.find(x=>String(x.id)===String(id)); if(!r) return; if(field==='ativo') r[field]=!!value; else if(field==='valor') r[field]=Number(value)||0; else r[field]=value; r.conta=prudContaEfetiva(r); savePrud(); renderPrud(); renderPrudCalculo(); renderPrudRateio(); renderPrudConfig(); }
+function updatePrudField(id, field, value) { const r=prudRegistros.find(x=>String(x.id)===String(id)); if(!r) return; if(field==='ativo') r[field]=!!value; else if(field==='valor') r[field]=Number(value)||0; else r[field]=value; r.conta=prudContaByCC(r.cc,r.tipo); savePrud(); renderPrud(); renderPrudCalculo(); renderPrudRateio(); renderPrudConfig(); }
 function deletePrudEmployee(id){
   const r = prudRegistros.find(x=>String(x.id)===String(id)); if(!r) return;
   if(normName(r.nome)==='ARBITRAGEM'){ alert('A linha ARBITRAGEM é o total da conta 053917 e não pode ser excluída.'); return; }
@@ -7098,10 +7084,10 @@ function applyPrudBulkValue() {
 }
 
 function renderPrudStats(targetId, rows) { const ativos=(rows||[]).filter(r=>r.ativo); const total=ativos.reduce((s,r)=>s+Number(r.valor||0),0); const el=document.getElementById(targetId); if(!el) return; el.innerHTML = `<div class="stat-card navy"><div class="stat-label">Ativos Prudential</div><div class="stat-value">${ativos.length}</div><div class="stat-sub">colaboradores no seguro</div></div><div class="stat-card green"><div class="stat-label">Total Seguro</div><div class="stat-value" style="font-size:19px">${fmt(total)}</div><div class="stat-sub">sem IOF</div></div><div class="stat-card gold"><div class="stat-label">Contas</div><div class="stat-value" style="font-size:17px">053671 / 057061 / 053917</div><div class="stat-sub">por tipo e centro de custo</div></div><div class="stat-card"><div class="stat-label">Centros de Custo</div><div class="stat-value">${new Set(ativos.map(r=>r.cc)).size}</div><div class="stat-sub">com seguro ativo</div></div>`; }
-function renderPrud() { const rows=prudFiltered(); renderPrudStats('stat-prud', rows); const body=document.getElementById('prud-body'); if(!body) return; body.innerHTML=''; let total=0; if(!rows.length) body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum registro Prudential encontrado.</td></tr>'; rows.forEach(r=>{ r.tipo=prudTipoEfetivo(r)||'PJ'; r.conta=prudContaEfetiva(r); const v=Number(r.valor)||0; if(r.ativo) total+=v; const arb=prudEhArbitragem(r); body.innerHTML += `<tr class="${r.ativo?'':'prud-row-off'} ${arb?'prud-row-arb':''}"><td>${r.nome}</td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${r.tipo ? badge(r.tipo) : '–'}</td><td><span class="conta-pill">${r.conta}</span><div class="kpi-note">${prudLabelConta(r.conta)}</div></td><td><span class="badge ${r.ativo?'badge-active':'badge-off'}">${r.ativo?'ATIVO':'DESLIGADO'}</span></td><td class="tr"><input class="prud-input" type="number" step="0.01" value="${v.toFixed(2)}" onchange="updatePrudField(${r.id},'valor',this.value)"></td><td class="tc no-print"><div class="prud-actions"><button class="btn btn-ghost btn-xs" onclick="editPrudRow(${r.id})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updatePrudField(${r.id},'ativo',${!r.ativo})">${r.ativo?'Desligar':'Ativar'}</button>${arb?'':`<button class="btn btn-danger btn-xs" onclick="excluirPrudRow(${r.id})" title="Excluir (escolher módulos)">🗑️</button>`}</div></td></tr>`; }); document.getElementById('prud-total-geral').textContent=fmt(total); }
-function prudSnapshot() { const detalhes=prudActiveRows().map(r=>{ const conta=prudContaEfetiva(r); return {nome:r.nome,cpf:r.cpf,nascimento:r.nascimento,cc:r.cc,tipo:r.tipo,conta,valor:Number(r.valor)||0,total:Number(r.valor)||0}; }); const totais={pj:0,clt:0,arb:0,total:0}; detalhes.forEach(d=>{ if(d.conta==='053917') totais.arb+=d.total; else if(d.conta==='057061') totais.clt+=d.total; else totais.pj+=d.total; totais.total+=d.total; }); return {detalhes, totais}; }
+function renderPrud() { const rows=prudFiltered(); renderPrudStats('stat-prud', rows); const body=document.getElementById('prud-body'); if(!body) return; body.innerHTML=''; let total=0; if(!rows.length) body.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:28px">Nenhum registro Prudential encontrado.</td></tr>'; rows.forEach(r=>{ r.conta=prudContaByCC(r.cc,r.tipo); const v=Number(r.valor)||0; if(r.ativo) total+=v; const arb=r.conta==='053917'||normName(r.nome)==='ARBITRAGEM'; body.innerHTML += `<tr class="${r.ativo?'':'prud-row-off'} ${arb?'prud-row-arb':''}"><td>${r.nome}</td><td class="doc-cell">${r.cpf||'–'}</td><td class="doc-cell">${r.nascimento||'–'}</td><td>${ccPill(r.cc)}</td><td>${arb ? badge('ARBITRAGEM') : (r.tipo ? badge(r.tipo) : '–')}</td><td><span class="conta-pill">${r.conta}</span><div class="kpi-note">${prudLabelConta(r.conta)}</div></td><td><span class="badge ${r.ativo?'badge-active':'badge-off'}">${r.ativo?'ATIVO':'DESLIGADO'}</span></td><td class="tr"><input class="prud-input" type="number" step="0.01" value="${v.toFixed(2)}" onchange="updatePrudField(${r.id},'valor',this.value)"></td><td class="tc no-print"><div class="prud-actions"><button class="btn btn-ghost btn-xs" onclick="editPrudRow(${r.id})" title="Editar colaborador">✏️</button><button class="btn btn-ghost btn-xs" onclick="updatePrudField(${r.id},'ativo',${!r.ativo})">${r.ativo?'Desligar':'Ativar'}</button>${arb?'':`<button class="btn btn-danger btn-xs" onclick="excluirPrudRow(${r.id})" title="Excluir (escolher módulos)">🗑️</button>`}</div></td></tr>`; }); document.getElementById('prud-total-geral').textContent=fmt(total); }
+function prudSnapshot() { const detalhes=prudActiveRows().map(r=>{ const conta=prudContaByCC(r.cc,r.tipo); return {nome:r.nome,cpf:r.cpf,nascimento:r.nascimento,cc:r.cc,tipo:r.tipo,conta,valor:Number(r.valor)||0,total:Number(r.valor)||0}; }); const totais={pj:0,clt:0,arb:0,total:0}; detalhes.forEach(d=>{ if(d.conta==='053917') totais.arb+=d.total; else if(d.conta==='057061') totais.clt+=d.total; else totais.pj+=d.total; totais.total+=d.total; }); return {detalhes, totais}; }
 function renderPrudCalculo() { const comp=document.getElementById('prud-comp'); if(comp) comp.value=prudCfg.competencia; const sub=document.getElementById('prud-calc-print-subtitle'); if(sub) sub.textContent=`Competência: ${compLabel(prudCfg.competencia)}`; const snap=prudSnapshot(); renderPrudStats('stat-prud-calculo', prudActiveRows()); const body=document.getElementById('prud-calculo-body'); if(!body) return; body.innerHTML=''; snap.detalhes.forEach(d=>body.innerHTML+=`<tr class="${d.conta==='053917'?'prud-row-arb':''}"><td>${d.nome}</td><td class="doc-cell">${d.cpf||'–'}</td><td class="doc-cell">${d.nascimento||'–'}</td><td>${ccPill(d.cc)}</td><td><span class="conta-pill">${d.conta}</span></td><td class="tr money">${fmt(d.total)}</td></tr>`); document.getElementById('prud-calc-total').textContent=fmt(snap.totais.total); }
-function prudRateioGroups() { const groups={pj:{conta:'053671',ccs:PRUD_CC_PJ,items:{}}, clt:{conta:'057061',ccs:PRUD_CC_CLT,items:{}}, arb:{conta:'053917',ccs:PRUD_CC_ARB,items:{}}}; Object.values(groups).forEach(g=>g.ccs.forEach(cc=>g.items[cc]={cc,area:areaName(cc),valor:0})); prudActiveRows().forEach(r=>{ const conta=prudContaEfetiva(r), key=conta==='053917'?'arb':conta==='057061'?'clt':'pj', cc=r.cc||'N/D'; if(!groups[key].items[cc]) groups[key].items[cc]={cc,area:areaName(cc),valor:0}; groups[key].items[cc].valor+=Number(r.valor)||0; }); return groups; }
+function prudRateioGroups() { const groups={pj:{conta:'053671',ccs:PRUD_CC_PJ,items:{}}, clt:{conta:'057061',ccs:PRUD_CC_CLT,items:{}}, arb:{conta:'053917',ccs:PRUD_CC_ARB,items:{}}}; Object.values(groups).forEach(g=>g.ccs.forEach(cc=>g.items[cc]={cc,area:areaName(cc),valor:0})); prudActiveRows().forEach(r=>{ const conta=prudContaByCC(r.cc,r.tipo), key=conta==='053917'?'arb':conta==='057061'?'clt':'pj', cc=r.cc||'N/D'; if(!groups[key].items[cc]) groups[key].items[cc]={cc,area:areaName(cc),valor:0}; groups[key].items[cc].valor+=Number(r.valor)||0; }); return groups; }
 function fillPrudRateioTable(bodyId,totalId,items) {
   const body=document.getElementById(bodyId); if(!body) return 0;
   const panel = body.closest('.rateio-panel');
@@ -7146,7 +7132,7 @@ function renderPrudConsolidado() { const body=document.getElementById('prud-cons
 function renderPrudConfig() { const comp=document.getElementById('prud-cfg-comp'); if(comp) comp.value=prudCfg.competencia; const snap=prudSnapshot(); const a=document.getElementById('prud-cfg-ativos'); if(a) a.textContent=snap.detalhes.length; const t=document.getElementById('prud-cfg-total'); if(t) t.textContent=fmt(snap.totais.total); }
 function exportPrudHistoricoExcel() { const wb=XLSX.utils.book_new(); const rows=[['Processado em','Competência','Ativos','PJ 053671','CLT/EST 057061','ARBITRAGEM 053917','Total']]; prudHistorico.forEach(h=>{const t=h.totais||{}; rows.push([brDateTime(h.criadoEm),compLabel(h.competencia),h.ativos||0,t.pj||0,t.clt||0,t.arb||0,t.total||0]);}); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Histórico Prudential'); XLSX.writeFile(wb,'Historico_Prudential.xlsx'); }
 function exportPrudConsolidadoExcel() { const wb=XLSX.utils.book_new(); const rows=[['Competência','Último Processamento','PJ 053671','CLT/EST 057061','ARBITRAGEM 053917','Total']]; prudConsolidado().forEach(r=>rows.push([compLabel(r.competencia),brDateTime(r.ultimo),r.pj,r.clt,r.arb,r.total])); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Consolidado Prudential'); XLSX.writeFile(wb,'Consolidado_Prudential.xlsx'); }
-function exportPrudExcel() { renderPrudCalculo(); renderPrudRateio(); const wb=XLSX.utils.book_new(); const calc=[['Competência',compLabel(prudCfg.competencia)],[],['Colaborador/Item','CPF','Nascimento','Tipo','Centro de Custo','Área','Conta','Valor']]; prudActiveRows().forEach(r=>{const conta=prudContaEfetiva(r); calc.push([r.nome,r.cpf,r.nascimento,r.tipo,r.cc,areaName(r.cc),conta,Number(r.valor)||0]);}); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(calc),'Cálculo Prudential'); const rate=[['Grupo','Conta','Centro de Custo','Área','Valor']]; const g=prudRateioGroups(); [['PJ',g.pj],['CLT/EST',g.clt],['ARBITRAGEM',g.arb]].forEach(([label,grp])=>Object.values(grp.items).sort((a,b)=>String(a.cc).localeCompare(String(b.cc),'pt-BR',{numeric:true})).forEach(r=>rate.push([label,grp.conta,r.cc,r.area,r.valor]))); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rate),'Rateio Prudential'); XLSX.writeFile(wb,'Prudential_Seguro_de_Vida.xlsx'); showToast('✅ Excel Prudential gerado.'); }
+function exportPrudExcel() { renderPrudCalculo(); renderPrudRateio(); const wb=XLSX.utils.book_new(); const calc=[['Competência',compLabel(prudCfg.competencia)],[],['Colaborador/Item','CPF','Nascimento','Tipo','Centro de Custo','Área','Conta','Valor']]; prudActiveRows().forEach(r=>{const conta=prudContaByCC(r.cc,r.tipo); calc.push([r.nome,r.cpf,r.nascimento,r.tipo,r.cc,areaName(r.cc),conta,Number(r.valor)||0]);}); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(calc),'Cálculo Prudential'); const rate=[['Grupo','Conta','Centro de Custo','Área','Valor']]; const g=prudRateioGroups(); [['PJ',g.pj],['CLT/EST',g.clt],['ARBITRAGEM',g.arb]].forEach(([label,grp])=>Object.values(grp.items).sort((a,b)=>String(a.cc).localeCompare(String(b.cc),'pt-BR',{numeric:true})).forEach(r=>rate.push([label,grp.conta,r.cc,r.area,r.valor]))); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rate),'Rateio Prudential'); XLSX.writeFile(wb,'Prudential_Seguro_de_Vida.xlsx'); showToast('✅ Excel Prudential gerado.'); }
 
 // ============================================================
 // INCLUSÃO MANUAL – VT / ASSISTÊNCIA MÉDICA
@@ -7248,56 +7234,26 @@ function openPrudModal(id){
   document.getElementById('prud-f-nome').value = row?.nome || '';
   document.getElementById('prud-f-cpf').value = row?.cpf || '';
   document.getElementById('prud-f-nascimento').value = row?.nascimento || '';
-  document.getElementById('prud-f-tipo').value = row ? (prudTipoEfetivo(row)||'PJ') : 'PJ';
+  document.getElementById('prud-f-tipo').value = row?.tipo || prudTipoByCC(row?.cc) || 'PJ';
   document.getElementById('prud-f-cc').value = row?.cc || '';
   document.getElementById('prud-f-valor').value = Number(row?.valor||0).toFixed(2);
-  document.getElementById('prud-f-conta').value = row ? prudContaEfetiva(row) : prudContaByCC('', 'PJ');
+  document.getElementById('prud-f-conta').value = prudContaByCC(row?.cc, row?.tipo);
   document.getElementById('prud-f-ativo').value = row?.ativo === false ? 'false' : 'true';
   document.getElementById('prud-modal-overlay').classList.add('open');
 }
 function closePrudModal(){ document.getElementById('prud-modal-overlay').classList.remove('open'); editingPrudId=null; }
 function closePrudModalBg(e){ if(e.target===document.getElementById('prud-modal-overlay')) closePrudModal(); }
 function previewPrudConta(){ const cc=document.getElementById('prud-f-cc')?.value||''; const tipo=document.getElementById('prud-f-tipo')?.value||''; const el=document.getElementById('prud-f-conta'); if(el) el.value=prudContaByCC(cc,tipo); }
-function sincronizarCadastroAtualDoPrud(novo, anterior) {
-  const emp = resolverEmpDoRegistro(anterior);
-  if (!emp) return;
-  const nomeAnterior = emp.nome;
-  Object.assign(emp, {nome:novo.nome, cpf:novo.cpf, nascimento:novo.nascimento, tipo:novo.tipo, cc:novo.cc});
-  novo.employeeId = emp.id;
-  const pertence = r => r && r !== novo && (r.employeeId===emp.id || normNameFlex(r.nome)===normNameFlex(nomeAnterior));
-  [vtRegistros, medRegistros, prudRegistros].forEach(lista=>(lista||[]).forEach(r=>{
-    if (!pertence(r)) return;
-    Object.assign(r, {employeeId:emp.id, nome:novo.nome, cpf:novo.cpf, nascimento:novo.nascimento, tipo:novo.tipo, cc:novo.cc});
-  }));
-  // Somente os cadastros atuais são sincronizados. Folhas, rateios e
-  // competências já processadas não são reescritos.
-  save();
-  saveVTRegistros();
-  saveMed();
-}
 function savePrudEmployee(){
-  const anterior = editingPrudId ? prudRegistros.find(r=>String(r.id)===String(editingPrudId)) : null;
-  const empVinculado = resolverEmpDoRegistro(anterior);
   const nome=document.getElementById('prud-f-nome').value.trim().toUpperCase();
   const cc=document.getElementById('prud-f-cc').value.trim();
-  const cpf=maskCPFValue(document.getElementById('prud-f-cpf').value);
-  const nascimento=maskDateValue(document.getElementById('prud-f-nascimento').value);
-  const tipo=document.getElementById('prud-f-tipo').value || prudTipoByCC(cc) || 'PJ';
-  const conta=String(document.getElementById('prud-f-conta').value||'').replace(/\D/g,'');
   if(!nome || !cc){ alert('Preencha nome e centro de custo.'); return; }
   if(cc.length!==6 || !/^[0-9]+$/.test(cc)){ alert('Centro de custo deve ter 6 dígitos numéricos.'); return; }
-  if(cpf && !validarCPF(cpf)){ alert('CPF inválido. Confira os números digitados.'); return; }
-  if(!['053671','057061','053917'].includes(conta)){ alert('Selecione uma conta contábil válida.'); return; }
-  if(cpf){
-    const duplicado=employees.find(e=>(!empVinculado || e.id!==empVinculado.id) && normCPFDigits(empCpf(e))===normCPFDigits(cpf));
-    if(duplicado){ alert('Este CPF já está cadastrado para "'+duplicado.nome+'". Verifique antes de salvar.'); return; }
-  }
-  const novo = { id: editingPrudId || (prudRegistros.length ? Math.max(...prudRegistros.map(r=>Number(r.id)||0))+1 : 1), employeeId:anterior?.employeeId, nome, tipo, cpf, nascimento, cc, conta, valor:parseFloat(document.getElementById('prud-f-valor').value)||0, ativo:document.getElementById('prud-f-ativo').value === 'true', origem:anterior?.origem||'MANUAL' };
+  const tipo=document.getElementById('prud-f-tipo').value || prudTipoByCC(cc) || 'PJ';
+  const novo = { id: editingPrudId || (prudRegistros.length ? Math.max(...prudRegistros.map(r=>Number(r.id)||0))+1 : 1), nome, tipo, cpf:maskCPFValue(document.getElementById('prud-f-cpf').value), nascimento:maskDateValue(document.getElementById('prud-f-nascimento').value), cc, conta:prudContaByCC(cc,tipo), valor:parseFloat(document.getElementById('prud-f-valor').value)||0, ativo:document.getElementById('prud-f-ativo').value === 'true', origem:'MANUAL' };
   const idx = prudRegistros.findIndex(r=>String(r.id)===String(editingPrudId));
   if(idx>=0) prudRegistros[idx] = {...prudRegistros[idx], ...novo}; else prudRegistros.push(novo);
-  sincronizarCadastroAtualDoPrud(prudRegistros[idx>=0?idx:prudRegistros.length-1], anterior);
-  savePrud(); closePrudModal(); renderPrud(); renderPrudCalculo(); renderPrudRateio(); renderPrudConfig(); renderAll();
-  showToast(empVinculado ? '✅ Seguro de Vida e cadastro atual sincronizados.' : '✅ Registro do Seguro de Vida salvo.');
+  savePrud(); closePrudModal(); renderPrud(); renderPrudCalculo(); renderPrudRateio(); renderPrudConfig(); showToast('✅ Colaborador Prudential salvo.');
 }
 
 function aplicarCorrecaoYgor(){
