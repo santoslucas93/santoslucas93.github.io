@@ -118,7 +118,8 @@
   .lnb-hide{ display:none !important; }
   header.topo{ min-height:72px; padding:0 max(24px, calc(50vw - 720px)); background:rgba(7,26,53,.96); color:#fff; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,.09); box-shadow:0 8px 28px rgba(7,26,53,.16); backdrop-filter:blur(14px); }
   header.topo h1{ font-size:15px; margin:0; font-weight:600; letter-spacing:.015em; display:flex; align-items:center; }
-  header.topo h1::before{ content:"LNB"; display:inline-grid; place-items:center; width:38px; height:38px; margin-right:12px; border:1px solid rgba(215,170,85,.65); border-radius:12px; color:#f2d18d; font-size:11px; letter-spacing:.14em; }
+  header.topo .logo-central{ display:inline-grid; place-items:center; width:38px; height:38px; margin-right:12px; border:1px solid rgba(215,170,85,.65); border-radius:12px; overflow:hidden; flex:0 0 38px; background:rgba(255,255,255,.04); }
+  header.topo .logo-central img{ width:100%; height:100%; object-fit:contain; padding:3px; box-sizing:border-box; }
   header.topo a{ color:#cbd5e1; font-size:13px; text-decoration:none; padding:9px 13px; border:1px solid rgba(255,255,255,.15); border-radius:10px; transition:.18s; }
   header.topo a:hover{ color:#fff; background:rgba(255,255,255,.08); transform:translateY(-1px); }
   .badge-readonly{ background:#78350f; color:#fde68a; font-size:11px; padding:3px 8px; border-radius:999px; margin-left:10px; }
@@ -229,7 +230,7 @@
 
 <div id="lnb-app" class="lnb-hide">
   <header class="topo">
-    <h1>Central de Gestão de Colaboradores <span id="badge-modo"></span></h1>
+    <h1><span class="logo-central"><img src="/rh/lnb-logo.png" alt="Liga Nacional de Basquete"></span>Central de Gestão de Colaboradores <span id="badge-modo"></span></h1>
     <a href="/">← Voltar para a Central</a>
   </header>
   <main>
