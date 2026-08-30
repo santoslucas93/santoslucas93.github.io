@@ -201,6 +201,73 @@
   .regras-grade-arb{ display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
   .beneficio-lote-linha{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; }
   .beneficio-lote-linha select{ min-width:170px; }
+  /* Camada visual premium — preserva todos os IDs e fluxos existentes. */
+  :root{
+    --azul:#1f6feb; --azul-esc:#071a35; --verde:#0f9f78; --vermelho:#d94b55;
+    --cinza-bg:#f4f7fb; --cinza-borda:#dfe7f1; --texto:#122033; --muted:#66768c;
+    --ouro:#d7aa55; --surface:#ffffff; --shadow:0 18px 48px rgba(15,34,61,.10);
+  }
+  body{ background:
+    radial-gradient(circle at 12% -10%,rgba(31,111,235,.12),transparent 30rem),
+    linear-gradient(180deg,#edf3fb 0,#f7f9fc 340px); color:var(--texto); }
+  header.topo{ min-height:72px; padding:0 max(24px,calc((100vw - 1440px)/2)); background:rgba(7,26,53,.96);
+    border-bottom:1px solid rgba(255,255,255,.09); box-shadow:0 8px 28px rgba(7,26,53,.16); backdrop-filter:blur(14px); }
+  header.topo h1{ font-size:15px; letter-spacing:.015em; }
+  header.topo h1:before{ content:"LNB"; display:inline-grid; place-items:center; width:38px; height:38px; margin-right:12px;
+    border:1px solid rgba(215,170,85,.65); border-radius:12px; color:#f2d18d; font-size:11px; letter-spacing:.14em; }
+  header.topo a{ padding:9px 13px; border:1px solid rgba(255,255,255,.15); border-radius:10px; transition:.18s ease; }
+  header.topo a:hover{ color:#fff; background:rgba(255,255,255,.08); transform:translateY(-1px); }
+  main{ max-width:1480px; margin:26px auto; padding:0 24px 120px; }
+  .hero-central{ position:relative; overflow:hidden; display:grid; grid-template-columns:minmax(300px,1.25fr) 2fr; gap:28px;
+    padding:28px 30px; margin-bottom:18px; color:#fff; border-radius:22px;
+    background:linear-gradient(125deg,#071a35 0%,#103d72 64%,#146b74 120%); box-shadow:0 22px 55px rgba(7,26,53,.20); }
+  .hero-central:after{ content:""; position:absolute; width:290px; height:290px; right:-95px; top:-155px; border-radius:50%;
+    border:54px solid rgba(215,170,85,.12); pointer-events:none; }
+  .hero-kicker{ margin:0 0 8px; color:#91b9e9; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
+  .hero-central h2{ margin:0 0 8px; font-size:27px; line-height:1.15; letter-spacing:-.025em; }
+  .hero-central p{ margin:0; color:#c7d7e9; max-width:570px; line-height:1.55; font-size:13px; }
+  .metricas{ display:grid; grid-template-columns:repeat(3,1fr); gap:11px; align-self:center; z-index:1; }
+  .metrica{ padding:16px 17px; border:1px solid rgba(255,255,255,.13); border-radius:16px; background:rgba(255,255,255,.075); backdrop-filter:blur(9px); }
+  .metrica strong{ display:block; font-size:24px; line-height:1; color:#fff; font-variant-numeric:tabular-nums; }
+  .metrica span{ display:block; margin-top:8px; color:#bbcadb; font-size:11px; text-transform:uppercase; letter-spacing:.07em; }
+  .filtros-shell{ background:rgba(255,255,255,.86); border:1px solid rgba(214,225,238,.9); padding:16px; border-radius:18px;
+    box-shadow:0 10px 32px rgba(27,54,91,.07); backdrop-filter:blur(10px); margin-bottom:16px; }
+  .barra-filtros{ margin:0; gap:9px; }
+  .barra-filtros input,.barra-filtros select{ min-height:40px; background:#fff; border-color:#d9e3ef; border-radius:10px; color:#23364e; outline:none; transition:.16s ease; }
+  .barra-filtros input:focus,.barra-filtros select:focus,.modal input:focus,.modal select:focus,.modal textarea:focus{
+    border-color:#6aa2eb; box-shadow:0 0 0 3px rgba(31,111,235,.12); }
+  .barra-filtros input[type="text"]{ min-width:260px; padding-left:36px; background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2366768c' stroke-width='2' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-4-4'/%3E%3C/svg%3E") no-repeat 12px center; }
+  .barra-filtros button{ min-height:40px; transition:.17s ease; }
+  .barra-filtros button:hover{ transform:translateY(-1px); box-shadow:0 7px 15px rgba(17,36,61,.10); }
+  .barra-filtros .btn-exportar{ background:linear-gradient(135deg,#0f9f78,#08745b); padding-inline:15px; }
+  .btn-regras{ border-color:#c6d5e7; font-weight:650; }
+  .resumo{ flex-basis:100%; margin:4px 2px 0; color:var(--muted); }
+  .cartao{ border:1px solid #e0e8f1; border-radius:18px; box-shadow:var(--shadow); overflow:auto; }
+  table{ min-width:1050px; }
+  thead th{ padding:14px 13px; color:#6d7d91; background:#f7f9fc; border-bottom:1px solid #dfe7f1; top:0; z-index:2; }
+  tbody td{ padding:12px 13px; border-bottom:1px solid #edf1f6; vertical-align:middle; }
+  tbody tr{ transition:.14s ease; }
+  tbody tr:hover{ background:#f4f8fd; }
+  tbody tr.selecionada{ background:#eaf3ff; box-shadow:inset 3px 0 #1f6feb; }
+  .link-nome{ color:#15375f; font-weight:750; }
+  .status-pill{ position:relative; padding:5px 10px 5px 22px; border:1px solid transparent; }
+  .status-pill:before{ content:""; position:absolute; left:9px; top:50%; width:6px; height:6px; border-radius:50%; transform:translateY(-50%); background:currentColor; }
+  .status-ativo{ background:#e7f8f2; color:#08765a; border-color:#c8ecdf; }
+  .status-desligado{ background:#fff0f1; color:#b52e3a; border-color:#f5d1d5; }
+  .origem-pill{ display:inline-block; padding:4px 8px; border-radius:7px; background:#f5f7fa; color:#596a80; }
+  .barra-flutuante{ max-width:calc(100vw - 30px); overflow:auto; white-space:nowrap; padding:11px 13px 11px 17px; border:1px solid rgba(255,255,255,.12);
+    border-radius:17px; background:rgba(7,26,53,.96); box-shadow:0 20px 55px rgba(7,26,53,.35); backdrop-filter:blur(14px); }
+  .barra-flutuante button{ min-height:38px; border:1px solid rgba(255,255,255,.10); }
+  .modal{ border:1px solid rgba(221,230,240,.9); border-radius:18px; box-shadow:0 28px 80px rgba(7,26,53,.28); }
+  .overlay{ background:rgba(5,18,37,.62); backdrop-filter:blur(5px); }
+  .modal .confirmar{ background:linear-gradient(135deg,#1f6feb,#174f9e); }
+  .toast{ top:22px; border:1px solid rgba(255,255,255,.14); border-radius:12px; box-shadow:0 14px 36px rgba(7,26,53,.25); }
+  .estado-vazio{ padding:54px 20px!important; text-align:center; color:#718096; }
+  @media(max-width:980px){ .hero-central{ grid-template-columns:1fr; } .metricas{ grid-template-columns:repeat(3,1fr); } }
+  @media(max-width:640px){ main{ padding-inline:13px; margin-top:14px; } header.topo{ padding:0 14px; } header.topo h1:before{ display:none; }
+    .hero-central{ padding:22px 19px; border-radius:17px; } .hero-central h2{ font-size:23px; } .metricas{ grid-template-columns:1fr; }
+    .metrica{ display:flex; align-items:center; justify-content:space-between; } .metrica span{ margin:0; } .filtros-shell{ padding:12px; }
+    .barra-filtros input,.barra-filtros select,.barra-filtros button{ width:100%; } .barra-filtros input[type="text"]{ min-width:0; } }
 </style>
 </head>
 <body>
@@ -217,6 +284,19 @@
     <a href="/">← Voltar para a Central</a>
   </header>
   <main>
+    <section class="hero-central" aria-labelledby="titulo-central">
+      <div>
+        <div class="hero-kicker">Gestão integrada de pessoas</div>
+        <h2 id="titulo-central">Central de Colaboradores</h2>
+        <p>Uma visão única para administrar vínculos, benefícios e consistência cadastral em todos os módulos da LNB.</p>
+      </div>
+      <div class="metricas" aria-label="Resumo da base">
+        <div class="metrica"><strong id="metrica-total">—</strong><span>Cadastros ativos</span></div>
+        <div class="metrica"><strong id="metrica-desligados">—</strong><span>Desligados</span></div>
+        <div class="metrica"><strong id="metrica-alertas">—</strong><span>Alertas contábeis</span></div>
+      </div>
+    </section>
+    <div class="filtros-shell">
     <div class="barra-filtros">
       <input type="text" id="f-busca" placeholder="Buscar por nome ou CPF…">
       <select id="f-status">
@@ -256,6 +336,7 @@
       <button type="button" class="btn-exportar" id="btn-exportar-csv">⤓ Exportar CSV</button>
       <button type="button" class="btn-regras lnb-hide" id="btn-regras">⚙ Regras</button>
       <div class="resumo" id="resumo-contagem"></div>
+    </div>
     </div>
     <div class="cartao">
       <table>
@@ -455,7 +536,7 @@ async function registrarLog(action, details){
 }
 
 async function carregarColaboradoresAsync(){
-  const r = await fetch(SUPABASE_URL+'/rest/v1/colaboradores_master?select=*&order=nome.asc', {
+  const r = await fetch(SUPABASE_URL+'/rest/v1/colaboradores_master?select=*&merged_into_id=is.null&order=nome.asc', {
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+AUTH_SESSION.access_token}
   });
   if (!r.ok) throw new Error('Falha ao carregar colaboradores ('+r.status+')');
@@ -520,6 +601,13 @@ function renderTabela(){
   document.getElementById('resumo-contagem').textContent =
     filtrados.length + ' de ' + COLABORADORES.length + ' colaboradores' +
     (filtrosAtivos ? ' · ' + filtrosAtivos + ' filtro(s) ativo(s)' : '');
+  document.getElementById('metrica-total').textContent = COLABORADORES.filter(function(c){ return c.status === 'Ativo'; }).length;
+  document.getElementById('metrica-desligados').textContent = COLABORADORES.filter(function(c){ return c.status === 'Desligado'; }).length;
+  document.getElementById('metrica-alertas').textContent = COLABORADORES.filter(function(c){ return !!inconsistenciaContabil(c); }).length;
+
+  if (!filtrados.length){
+    corpo.innerHTML = '<tr><td colspan="9" class="estado-vazio">Nenhum colaborador corresponde aos filtros selecionados.</td></tr>';
+  }
 
   filtrados.forEach(function(c){
     const tr = document.createElement('tr');
@@ -858,6 +946,23 @@ async function patchColaboradores(ids, payload){
   }
 }
 
+async function atualizarStatusColaboradoresAsync(ids, status){
+  const r = await fetch(SUPABASE_URL+'/rest/v1/rpc/atualizar_status_colaboradores_lote', {
+    method:'POST',
+    headers:{
+      'apikey':SUPABASE_KEY,
+      'Authorization':'Bearer '+AUTH_SESSION.access_token,
+      'Content-Type':'application/json'
+    },
+    body:JSON.stringify({ p_master_ids:ids, p_status:status })
+  });
+  if (!r.ok){
+    const txt = await r.text().catch(function(){ return ''; });
+    throw new Error('Falha ao sincronizar o status nos módulos de benefícios ('+r.status+'): '+txt);
+  }
+  return await r.json();
+}
+
 async function patchRhColaborador(rhId, payload){
   const r = await fetch(SUPABASE_URL+'/rest/v1/rh_colaboradores?id=eq.'+rhId, {
     method:'PATCH',
@@ -906,10 +1011,11 @@ async function salvarEdicaoColaborador(c, rh, temRh){
 
   const payloadMaster = {};
   const logMaster = [];
+  const statusMudou = novoStatus !== (c.status||'');
   if (novoCc !== (c.centro_custo||'')){ payloadMaster.centro_custo = novoCc; logMaster.push('Centro de Custo: "'+(c.centro_custo||'—')+'" → "'+novoCc+'"'); }
   if (novoDepto !== (c.departamento||'')){ payloadMaster.departamento = novoDepto; logMaster.push('Departamento: "'+(c.departamento?rotuloDepartamento(c.departamento):'—')+'" → "'+rotuloDepartamento(novoDepto)+'"'); }
   if (novoTipo !== (c.tipo_contratacao||'')){ payloadMaster.tipo_contratacao = novoTipo; logMaster.push('Tipo: "'+(c.tipo_contratacao||'—')+'" → "'+novoTipo+'"'); }
-  if (novoStatus !== (c.status||'')){ payloadMaster.status = novoStatus; logMaster.push('Status: "'+(c.status||'—')+'" → "'+novoStatus+'"'); }
+  if (statusMudou){ logMaster.push('Status: "'+(c.status||'—')+'" → "'+novoStatus+'"'); }
   if (novaObs !== (c.observacoes||'')){ payloadMaster.observacoes = novaObs; logMaster.push('Observações alteradas'); }
   if (novaCesta !== !!c.is_cesta_basica_elegivel){ payloadMaster.is_cesta_basica_elegivel = novaCesta; logMaster.push('Cesta Básica: "'+(c.is_cesta_basica_elegivel?'Sim':'Não')+'" → "'+(novaCesta?'Sim':'Não')+'"'); }
 
@@ -933,7 +1039,7 @@ async function salvarEdicaoColaborador(c, rh, temRh){
     }
   }
 
-  if (!Object.keys(payloadMaster).length && !Object.keys(payloadRh).length){
+  if (!Object.keys(payloadMaster).length && !Object.keys(payloadRh).length && !statusMudou){
     toast('Nada foi alterado.');
     return;
   }
@@ -942,6 +1048,10 @@ async function salvarEdicaoColaborador(c, rh, temRh){
     payloadMaster.updated_by = AUTH_SESSION.uid || null;
     await patchColaboradores([c.id], payloadMaster);
     Object.assign(c, payloadMaster);
+  }
+  if (statusMudou){
+    await atualizarStatusColaboradoresAsync([c.id], novoStatus);
+    c.status = novoStatus;
   }
 
   if (Object.keys(payloadRh).length){
@@ -1241,13 +1351,13 @@ async function editarAtributoEmLoteAsync(campo, valor, rotuloParaMensagem){
 async function ativarEmMassaAsync(ids){
   try{
     const nomes = COLABORADORES.filter(function(c){ return ids.indexOf(c.id) >= 0; }).map(function(c){ return c.nome; });
-    await patchColaboradores(ids, { status:'Ativo', updated_by: AUTH_SESSION.uid || null });
+    await atualizarStatusColaboradoresAsync(ids, 'Ativo');
     COLABORADORES.forEach(function(c){ if (ids.indexOf(c.id) >= 0) c.status = 'Ativo'; });
     SELECIONADOS.clear();
     renderTabela();
     atualizarBarraFlutuante();
     await registrarLog('ativar_lote_colaboradores', 'Ativados: '+nomes.join(', '));
-    toast(ids.length + ' colaborador(es) ativado(s).');
+    toast(ids.length + ' colaborador(es) ativado(s) na Central e nos módulos de benefícios.');
   }catch(e){ toast(e.message); }
 }
 
@@ -1308,13 +1418,13 @@ async function atualizarCestaBasicaAsync(ids, valor){
 async function desligarEmMassaAsync(ids){
   try{
     const nomes = COLABORADORES.filter(function(c){ return ids.indexOf(c.id) >= 0; }).map(function(c){ return c.nome; });
-    await patchColaboradores(ids, { status:'Desligado', updated_by: AUTH_SESSION.uid || null });
+    await atualizarStatusColaboradoresAsync(ids, 'Desligado');
     COLABORADORES.forEach(function(c){ if (ids.indexOf(c.id) >= 0) c.status = 'Desligado'; });
     SELECIONADOS.clear();
     renderTabela();
     atualizarBarraFlutuante();
     await registrarLog('desligar_lote_colaboradores', 'Desligados: '+nomes.join(', '));
-    toast(ids.length + ' colaborador(es) desligado(s). Nenhum registro foi apagado.');
+    toast(ids.length + ' colaborador(es) desligado(s) na Central e nos módulos. Nenhum registro foi apagado.');
   }catch(e){ toast(e.message); }
 }
 
