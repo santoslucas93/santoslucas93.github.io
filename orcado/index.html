@@ -2550,6 +2550,31 @@ async function lnbFetchProfile(token, uid){
 function lnbRoleToLegacy(dbRole){
   return (dbRole==='administrador'||dbRole==='gestor'||dbRole==='editor') ? 'admin' : 'readonly';
 }
+async function lnbFetchMeuAcesso(token){
+  // Consulta meu_acesso() -- o mesmo motor da tela de Permissoes -- para saber se este usuario
+  // tem 'editar' liberado em Orcamento (na raiz ou em algum departamento/tela especifica), em vez
+  // de depender só do campo legado profiles.role. Sem isso, um perfil configurado na tela de
+  // Permissoes (ex.: Supervisor Administrativo & Financeiro) nao tinha efeito nenhum aqui.
+  try{
+    const r = await fetch(SUPABASE_URL+'/rest/v1/rpc/meu_acesso', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+token,'Content-Type':'application/json'}
+    });
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
+}
+function lnbPodeEditarOrcamento(acesso){
+  if(!acesso) return false;
+  if(acesso.acesso_total === true) return true;
+  const perm = acesso.permissoes;
+  if(perm === '*') return true;
+  if(!perm || typeof perm !== 'object') return false;
+  return Object.keys(perm).some(function(recurso){
+    return (recurso === 'orcamento' || recurso.indexOf('orcamento.') === 0) &&
+      Array.isArray(perm[recurso]) && perm[recurso].indexOf('editar') >= 0;
+  });
+}
 async function lnbAttachProfile(sess){
   try{
     const user = await lnbFetchAuthUser(sess.access_token);
@@ -2558,6 +2583,8 @@ async function lnbAttachProfile(sess){
       sess.email = user.email;
       const prof = await lnbFetchProfile(sess.access_token, user.id);
       if(prof){ sess.nome = prof.nome; sess.dbRole = prof.role; sess.role = lnbRoleToLegacy(prof.role); }
+      const acesso = await lnbFetchMeuAcesso(sess.access_token);
+      if(lnbPodeEditarOrcamento(acesso)) sess.role = 'admin';
     }
   }catch(e){ console.error('lnbAttachProfile falhou:', e); }
   return sess;
