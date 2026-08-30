@@ -946,7 +946,6 @@ async function salvarEdicaoColaborador(c, rh, temRh){
 
   if (Object.keys(payloadRh).length){
     try{
-      payloadRh.updated_by = AUTH_SESSION.uid || null;
       await patchRhColaborador(c.rh_colaborador_id, payloadRh);
       Object.assign(rh, payloadRh);
     }catch(e){
@@ -1282,7 +1281,6 @@ async function alterarBeneficiosEmMassaAsync(ids, mudancas){
         });
         if (rhIds.length){
           try{
-            payloadRh.updated_by = AUTH_SESSION.uid || null;
             await patchRhColaboradores(rhIds, payloadRh);
           }catch(e){ erroRh = e.message; }
         }
