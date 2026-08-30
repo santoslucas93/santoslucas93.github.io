@@ -2,6 +2,15 @@
 
 Este arquivo é o índice humano das mudanças. O detalhamento funcional e os critérios de aceite do RH ficam em `rh/RELEASE_CANDIDATE.md`; o histórico técnico completo fica nos commits e nas migrations de `supabase/migrations/`.
 
+## Staging — Central fonte única (30/08/2026)
+
+- Central de Colaboradores passa a salvar cada operação em uma única transação, propagando dados pessoais, corporativos, status e adesões para RH & Folha e para os cadastros operacionais atuais de Benefícios.
+- Nome, CPF, nascimento, matrícula, admissão, cargo, gestor, salário, e-mail e telefone passam a ser ajustáveis na própria Central.
+- Inclusão individual e importação CSV criam o vínculo mestre e o cadastro correspondente no RH; os módulos de VT, VR/VA, Saúde e Seguro são atualizados conforme a adesão informada.
+- Edições individuais e em massa deixam de usar gravações parciais no navegador e passam pelos mesmos RPCs transacionais e auditados.
+- Desligamento permanece lógico e reversível; folhas, snapshots, históricos mensais e rateios não são alterados.
+- Testes transacionais completos foram executados com reversão, sem deixar colaboradores ou lançamentos de teste no banco.
+
 ## Staging — v80 (26/08/2026)
 
 - Provisões de férias e 13º da competência 07/2026 passam a usar os demonstrativos oficiais do Domínio como saldo de abertura conciliado.
