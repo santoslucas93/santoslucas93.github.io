@@ -137,7 +137,7 @@ body.claro .hub-card.rh .hub-btn{background:linear-gradient(135deg,#8D6711,#0863
   .hub-header{position:sticky;top:0;z-index:50;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;align-items:center;gap:10px;background:rgba(8,20,40,.94);backdrop-filter:blur(14px);box-shadow:0 8px 24px rgba(0,0,0,.16)}
   body.claro .hub-header{background:rgba(248,245,240,.94)}
   .hub-brand{gap:8px;min-width:0}.hub-brand>svg{width:34px;height:34px;flex:0 0 34px}.hub-brand h1{font-size:13px;line-height:1.15;max-width:92px}.hub-chave{width:44px;height:44px;border-radius:13px}
-  .hub-actions{gap:6px;flex-wrap:wrap;justify-content:flex-end}.hub-who{order:4;width:100%;max-width:180px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hub-theme{min-height:44px;padding:8px 11px;font-size:0;border-radius:13px}.hub-theme::first-letter{font-size:17px}.hub-install{font-size:12px!important;padding:8px 12px!important}.hub-install svg{width:17px;height:17px}
+  .hub-actions{gap:6px;flex-wrap:wrap;justify-content:flex-end}.hub-who{order:4;width:100%;max-width:180px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hub-theme{min-height:44px;padding:8px 11px;font-size:0;border-radius:13px}.hub-theme::before{font-size:18px;line-height:1}.hub-install::before{content:none}.hub-install{font-size:12px!important;padding:8px 12px!important}.hub-install svg{width:17px;height:17px}#hub-password::before{content:'⚙️'}#hub-logout::before{content:'↪'}#hub-theme-toggle::before{content:'◐'}
   .hub-hero{padding:34px 18px 4px}.hub-hero h2{font-size:28px;line-height:1.08}.hub-hero p{margin-top:9px;font-size:14px}.hub-divider{margin-top:20px}
   .hub-cards{grid-template-columns:minmax(0,1fr);gap:14px;padding:24px 14px 40px;max-width:430px}
   .hub-card{display:grid;grid-template-columns:86px minmax(0,1fr);grid-template-rows:auto auto auto;column-gap:16px;padding:18px;text-align:left;border-radius:18px}.hub-card:hover{transform:none}.hub-card .hub-icon{grid-row:1/4;width:86px;height:86px;margin:0;border-radius:20px}.hub-card .hub-icon svg{width:48px;height:48px}.hub-logos-grid{grid-row:1/4;width:86px;height:86px;margin:0;padding:6px;gap:4px;border-radius:18px}.hub-logos-grid .logo-box{height:34px;border-radius:6px;padding:2px}.hub-card h3{font-size:16px;align-self:end}.hub-card p{min-height:0;margin:5px 0 13px;font-size:12px;line-height:1.35}.hub-btn{min-height:44px;padding:10px;font-size:12px}.hub-footer{padding:16px 12px calc(16px + env(safe-area-inset-bottom))}.hub-footer::before,.hub-footer::after{width:24px}
@@ -195,9 +195,9 @@ body.claro .hub-card.rh .hub-btn{background:linear-gradient(135deg,#8D6711,#0863
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
       <span>Instalar app</span>
     </button>
-    <button class="hub-theme" id="hub-password" type="button">⚙️ Senha</button>
-    <button class="hub-theme hub-logout" id="hub-logout" type="button">Sair</button>
-    <button class="hub-theme" id="hub-theme-toggle" type="button">☀️ Tema</button>
+    <button class="hub-theme" id="hub-password" type="button" aria-label="Alterar senha" title="Alterar senha">⚙️ Senha</button>
+    <button class="hub-theme hub-logout" id="hub-logout" type="button" aria-label="Sair do Painel LNB" title="Sair">Sair</button>
+    <button class="hub-theme" id="hub-theme-toggle" type="button" aria-label="Alternar tema claro ou escuro" title="Alternar tema">☀️ Tema</button>
   </div>
 </header>
 
