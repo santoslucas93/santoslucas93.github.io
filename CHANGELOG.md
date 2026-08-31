@@ -10,6 +10,7 @@ Este arquivo é o índice humano das mudanças. O detalhamento funcional e os cr
 - Edições individuais e em massa deixam de usar gravações parciais no navegador e passam pelos mesmos RPCs transacionais e auditados.
 - Desligamento permanece lógico e reversível; folhas, snapshots, históricos mensais e rateios não são alterados.
 - Mobilidade deixa de excluir fisicamente o cadastro: a ação passa a desligar a pessoa, mantendo o vínculo e todas as corridas, com auditoria e reativação pela edição.
+- Administrador Mestre passa a registrar bloqueio/desbloqueio, concessão/revogação de crachá e alterações de permissões ou exceções, complementando a auditoria já existente para criar, editar e excluir usuários.
 - Testes transacionais completos foram executados com reversão, sem deixar colaboradores ou lançamentos de teste no banco.
 
 ## Staging — v80 (26/08/2026)

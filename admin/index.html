@@ -340,6 +340,12 @@ function api(caminho, o){
   });
 }
 function rpc(nome,args){ return api('rpc/'+nome,{method:'POST',body:args||{}}); }
+function registrarAtividade(acao,detalhes){
+  var ator=(SES&&(SES.nome||SES.email||SES.role))||'administrador';
+  return api('activity_log',{method:'POST',prefer:'return=minimal',body:[{
+    actor:ator,action:acao,details:JSON.stringify(detalhes||{})
+  }]});
+}
 async function trocarSenhaDeUsuario(uid,senha){
   if(!CFG||!SES||!SES.access_token) throw new Error('Sessão administrativa indisponível.');
   const r=await fetch(CFG.SUPABASE_URL+'/functions/v1/trocar-senha',{method:'POST',headers:{'apikey':CFG.SUPABASE_KEY,'Authorization':'Bearer '+SES.access_token,'Content-Type':'application/json'},body:JSON.stringify({usuario_id:uid,senha:senha})});
@@ -1314,6 +1320,9 @@ function salvar(){
       .then(function(){ return permNovas.length ? api('perfil_permissoes',{method:'POST',body:permNovas,prefer:'return=minimal'}) : null; })
       .then(function(){ return api('perfil_escopos?perfil_id=eq.'+encodeURIComponent(PERFIL),{method:'DELETE'}); })
       .then(function(){ return escNovas.length ? api('perfil_escopos',{method:'POST',body:escNovas,prefer:'return=minimal'}) : null; })
+      .then(function(){ return registrarAtividade('permissoes_perfil_atualizadas',{
+        perfil_id:PERFIL,permissoes_liberadas:permNovas.length,escopos_definidos:escNovas.length
+      }); })
       .then(function(){
         SUJO=false;
         PERM_ORIGINAL=copiarMapa(PERM);ESC_ORIGINAL=copiarMapa(ESC);HIST_PERM=[];
@@ -1547,18 +1556,21 @@ document.addEventListener('click', function(ev){
   if(t.dataset.alternar){
     var uid=t.dataset.alternar, u=D.usuarios.filter(function(x){return x.id===uid;})[0];
     comErro(api('profiles?id=eq.'+uid,{method:'PATCH',body:{bloqueado:!u.bloqueado},prefer:'return=minimal'})
+      .then(function(){return registrarAtividade(u.bloqueado?'usuario_desbloqueado':'usuario_bloqueado',{usuario_id:uid});})
       .then(recarregar),'alterar o bloqueio').then(null,function(){});
     return;
   }
   if(t.dataset.conceder){
     var u2=t.dataset.conceder, pid=$('np-'+u2).value; if(!pid) return;
     comErro(api('usuario_perfis',{method:'POST',body:[{usuario_id:u2,perfil_id:pid,valido_ate:$('nv-'+u2).value||null}],prefer:'return=minimal'})
+      .then(function(){return registrarAtividade('perfil_concedido',{usuario_id:u2,perfil_id:pid});})
       .then(recarregar).then(function(){ banner('<b>Perfil concedido.</b>','bom'); }),'conceder o perfil').then(null,function(){});
     return;
   }
   if(t.dataset.revogar){
     var r2=t.dataset.revogar.split('|');
     comErro(api('usuario_perfis?usuario_id=eq.'+r2[0]+'&perfil_id=eq.'+encodeURIComponent(r2[1]),{method:'DELETE'})
+      .then(function(){return registrarAtividade('perfil_revogado',{usuario_id:r2[0],perfil_id:r2[1]});})
       .then(recarregar).then(function(){ banner('<b>Perfil revogado.</b>','bom'); }),'revogar o perfil').then(null,function(){});
     return;
   }
@@ -1594,6 +1606,9 @@ document.addEventListener('click', function(ev){
       .then(function(){ return escopos.length?api('usuario_escopos',{method:'POST',body:escopos,prefer:'return=minimal'}):null; })
       .then(function(){ return api('usuario_permissoes?usuario_id=eq.'+uid4+'&acao=in.('+ACOES_SENSIVEIS.join(',')+')',{method:'DELETE'}); })
       .then(function(){ return exc.length?api('usuario_permissoes',{method:'POST',body:exc,prefer:'return=minimal'}):null; })
+      .then(function(){return registrarAtividade('excecoes_usuario_atualizadas',{
+        usuario_id:uid4,departamentos:deps.length,grupos_bloqueados:grps.length,restricoes_sensiveis:exc.length
+      });})
       .then(recarregar).then(function(){ banner('<b>Exceções salvas.</b> Ainda não aplicadas pelos módulos.','bom'); }),
       'salvar as exceções').then(null,function(){});
     return;
