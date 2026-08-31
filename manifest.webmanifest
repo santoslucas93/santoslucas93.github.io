@@ -1,0 +1,26 @@
+{
+  "id": "/mobile/",
+  "name": "Painel LNB",
+  "short_name": "Painel LNB",
+  "description": "Central de Gestão da Liga Nacional de Basquete",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/mobile/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#081428",
+  "theme_color": "#0a1930",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    {"src": "/icons/painel-lnb-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/painel-lnb-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/painel-lnb-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Orçado x Realizado", "short_name": "Orçamento", "url": "/orcado/", "icons": [{"src": "/icons/painel-lnb-192.png", "sizes": "192x192"}]},
+    {"name": "Gestão de Benefícios", "short_name": "Benefícios", "url": "/beneficios/", "icons": [{"src": "/icons/painel-lnb-192.png", "sizes": "192x192"}]},
+    {"name": "RH & Folha", "short_name": "RH & Folha", "url": "/rh/", "icons": [{"src": "/icons/painel-lnb-192.png", "sizes": "192x192"}]}
+  ]
+}

@@ -3,6 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a1930">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Painel LNB">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="Painel LNB">
+<meta name="description" content="Central de Gestão da Liga Nacional de Basquete">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/painel-lnb-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/painel-lnb-192.png">
 <title>Central de Gestão LNB</title>
 <style>
 /* Os dois temas vivem em variáveis. Trocar de tema troca as variáveis, não só o
@@ -115,8 +125,25 @@ body.claro .hub-card.rh .hub-btn{background:linear-gradient(135deg,#8D6711,#0863
 .hub-login-card{width:min(430px,100%);padding:32px;border:1px solid var(--gold-linha);border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018));box-shadow:0 28px 80px rgba(0,0,0,.42)}
 .hub-login-brand{display:flex;align-items:center;gap:13px;margin-bottom:24px}.hub-login-emblem{width:54px;height:54px;display:block;flex:0 0 54px;overflow:hidden}.hub-login-emblem img{display:block;height:54px;width:auto;max-width:none}.hub-login-brand h2{margin:0;font-size:20px}.hub-login-brand p{margin:3px 0 0;color:#B9C6D9;font-size:12.5px}.hub-login label{display:block;font-size:12px;font-weight:700;margin:13px 0 5px;color:#D7E0EE}.hub-login input,.hub-login select{width:100%;padding:11px 12px;border:1px solid rgba(232,185,60,.30);border-radius:9px;background:#0d213f;color:#fff;font:inherit;box-sizing:border-box}.hub-login input::placeholder{color:#8190A8}.hub-login select option{background:#0d213f}
 .hub-login-btn{width:100%;margin-top:18px;padding:12px;border:0;border-radius:9px;background:linear-gradient(135deg,#E8B93C,#B98213);color:#071326;font:800 14px inherit;cursor:pointer}.hub-login-btn:disabled{opacity:.62;cursor:wait}.hub-login-err{min-height:18px;margin-top:10px;color:#FFB4AB;font-size:12.5px;text-align:center}.hub-login-note{margin-top:17px;padding-top:14px;border-top:1px solid rgba(232,185,60,.18);color:#9FB0C7;font-size:11.5px;line-height:1.5}.hub-who{color:var(--txt-muted);font-size:12.5px}.hub-logout{display:none}.hub-card[hidden]{display:none!important}.hub-empty{display:none;text-align:center;color:var(--txt-muted);padding:42px 22px}.hub-empty.on{display:block}
+.hub-install{display:none;background:linear-gradient(135deg,#E8B93C,#B98213)!important;color:#071326!important;border-color:transparent!important;font-weight:800!important}
+.hub-install.on{display:inline-flex}
+.hub-install svg{width:16px;height:16px;flex:0 0 auto}
+.pwa-sheet-backdrop{position:fixed;inset:0;z-index:100001;display:flex;align-items:flex-end;justify-content:center;padding:16px;background:rgba(2,8,18,.72);backdrop-filter:blur(6px)}
+.pwa-sheet{width:min(440px,100%);padding:22px;border:1px solid var(--gold-linha);border-radius:22px;background:#0d2140;color:#EAF0FA;box-shadow:0 28px 80px rgba(0,0,0,.5)}
+.pwa-sheet h2{margin:0 0 8px;font-size:19px}.pwa-sheet p{margin:0 0 18px;color:#C7D2E2;font-size:14px;line-height:1.55}.pwa-sheet-actions{display:flex;gap:10px}.pwa-sheet button{min-height:44px;flex:1;border-radius:11px;border:1px solid rgba(232,185,60,.35);background:#132d52;color:#EAF0FA;font:700 14px inherit;cursor:pointer}.pwa-sheet button[data-primary]{border:0;background:linear-gradient(135deg,#E8B93C,#B98213);color:#071326}
 @media(max-width:1000px){.hub-cards{grid-template-columns:repeat(2,minmax(280px,340px))}}
-@media(max-width:700px){.hub-header{padding:14px 16px;align-items:flex-start;gap:12px}.hub-actions{gap:7px;flex-wrap:wrap;justify-content:flex-end}.hub-who{width:100%;text-align:right}.hub-hero{padding-top:40px}.hub-cards{grid-template-columns:minmax(0,340px)}}
+@media(max-width:700px){
+  body{background-attachment:scroll;padding-bottom:env(safe-area-inset-bottom)}
+  .hub-header{position:sticky;top:0;z-index:50;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;align-items:center;gap:10px;background:rgba(8,20,40,.94);backdrop-filter:blur(14px);box-shadow:0 8px 24px rgba(0,0,0,.16)}
+  body.claro .hub-header{background:rgba(248,245,240,.94)}
+  .hub-brand{gap:8px;min-width:0}.hub-brand>svg{width:34px;height:34px;flex:0 0 34px}.hub-brand h1{font-size:13px;line-height:1.15;max-width:92px}.hub-chave{width:44px;height:44px;border-radius:13px}
+  .hub-actions{gap:6px;flex-wrap:wrap;justify-content:flex-end}.hub-who{order:4;width:100%;max-width:180px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hub-theme{min-height:44px;padding:8px 11px;font-size:0;border-radius:13px}.hub-theme::first-letter{font-size:17px}.hub-install{font-size:12px!important;padding:8px 12px!important}.hub-install svg{width:17px;height:17px}
+  .hub-hero{padding:34px 18px 4px}.hub-hero h2{font-size:28px;line-height:1.08}.hub-hero p{margin-top:9px;font-size:14px}.hub-divider{margin-top:20px}
+  .hub-cards{grid-template-columns:minmax(0,1fr);gap:14px;padding:24px 14px 40px;max-width:430px}
+  .hub-card{display:grid;grid-template-columns:86px minmax(0,1fr);grid-template-rows:auto auto auto;column-gap:16px;padding:18px;text-align:left;border-radius:18px}.hub-card:hover{transform:none}.hub-card .hub-icon{grid-row:1/4;width:86px;height:86px;margin:0;border-radius:20px}.hub-card .hub-icon svg{width:48px;height:48px}.hub-logos-grid{grid-row:1/4;width:86px;height:86px;margin:0;padding:6px;gap:4px;border-radius:18px}.hub-logos-grid .logo-box{height:34px;border-radius:6px;padding:2px}.hub-card h3{font-size:16px;align-self:end}.hub-card p{min-height:0;margin:5px 0 13px;font-size:12px;line-height:1.35}.hub-btn{min-height:44px;padding:10px;font-size:12px}.hub-footer{padding:16px 12px calc(16px + env(safe-area-inset-bottom))}.hub-footer::before,.hub-footer::after{width:24px}
+  .hub-login{align-items:flex-end;padding:0}.hub-login-card{width:100%;max-height:calc(100dvh - env(safe-area-inset-top));overflow:auto;padding:24px 20px calc(24px + env(safe-area-inset-bottom));border-radius:24px 24px 0 0}.hub-login input,.hub-login select,.hub-login-btn{min-height:48px;font-size:16px}
+}
+@media(display-mode:standalone){.hub-install{display:none!important}.hub-header{padding-top:calc(10px + env(safe-area-inset-top))}}
 </style>
 </head>
 <body class="hub-auth-booting" aria-busy="true">
@@ -164,6 +191,10 @@ body.claro .hub-card.rh .hub-btn{background:linear-gradient(135deg,#8D6711,#0863
   </div>
   <div class="hub-actions">
     <span class="hub-who" id="hub-who"></span>
+    <button class="hub-theme hub-install" id="hub-install" type="button" aria-label="Instalar Painel LNB no celular">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+      <span>Instalar app</span>
+    </button>
     <button class="hub-theme" id="hub-password" type="button">⚙️ Senha</button>
     <button class="hub-theme hub-logout" id="hub-logout" type="button">Sair</button>
     <button class="hub-theme" id="hub-theme-toggle" type="button">☀️ Tema</button>
@@ -245,6 +276,7 @@ document.getElementById('hub-login-form').onsubmit=async function(ev){ev.prevent
 fetch('/api/config').then(function(r){if(!r.ok)throw new Error('Configuração indisponível.');return r.json();}).then(async function(c){CFG=c;if(!CFG||!CFG.SUPABASE_URL||!CFG.SUPABASE_KEY)throw new Error('Configuração indisponível.');var x=load();if(x){if(!x.expires_at||Date.now()>=x.expires_at-60000)x=await refresh(x);if(x){SES=x;try{await open();return;}catch(e){clear();}}}showLogin();}).catch(function(e){showLogin('Não foi possível iniciar: '+e.message);});
 });
 </script>
+<script src="/runtime-patches/pwa-install.js?v=1" defer></script>
 
 </body>
 </html>

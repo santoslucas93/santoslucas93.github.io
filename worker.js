@@ -5,7 +5,8 @@ export default {
     if (url.pathname === '/api/gemini' && request.method === 'POST') return handleGemini(request, env);
     if (url.pathname === '/api/rh/holerite-email' && request.method === 'POST') return handleHoleriteEmail(request, env);
     if (url.pathname === '/api/config' && request.method === 'GET') return handleConfig(env);
-    if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) return handleHubBranding(request, env);
+    if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) return handleHubBranding(request, env, false);
+    if (request.method === 'GET' && (url.pathname === '/mobile' || url.pathname === '/mobile/' || url.pathname === '/mobile/index.html')) return handleHubBranding(request, env, true);
     if (request.method === 'GET' && (url.pathname === '/orcado/' || url.pathname === '/orcado/index.html')) return handleOrcadoComPermissoes(request, env);
     if (request.method === 'GET' && (url.pathname === '/beneficios/' || url.pathname === '/beneficios/index.html')) return handleBeneficiosComRastreabilidade(request, env);
     if (request.method === 'GET' && (url.pathname === '/rh/' || url.pathname === '/rh/index.html')) return handleRhHtml(request, env);
@@ -15,10 +16,16 @@ export default {
   }
 };
 
-async function handleHubBranding(request, env) {
-  const asset = await env.ASSETS.fetch(request);
+async function handleHubBranding(request, env, mobileEntry) {
+  let assetRequest = request;
+  if (mobileEntry) {
+    const rootUrl = new URL('/index.html', request.url);
+    assetRequest = new Request(rootUrl, { method: 'GET', headers: request.headers });
+  }
+  const asset = await env.ASSETS.fetch(assetRequest);
   if (!asset.ok) return asset;
-  const html = await asset.text();
+  let html = await asset.text();
+  if (mobileEntry) html = html.replace('<html lang="pt-BR">', '<html lang="pt-BR" data-lnb-mobile-entry="true">');
   const marker = 'data-lnb-hub-branding="v1"';
   if (html.includes(marker)) return responsePatchedHtml(asset, html, 'x-lnb-hub-branding', 'v1');
   const style = '<link rel="stylesheet" href="/runtime-patches/hub-branding.css?v=1" '+marker+'>';
@@ -26,7 +33,11 @@ async function handleHubBranding(request, env) {
   let out = html;
   if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
   if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;
-  return responsePatchedHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(out)), 'x-lnb-hub-branding', 'v1');
+  const response = responsePatchedHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(out)), 'x-lnb-hub-branding', 'v1');
+  if (!mobileEntry) return response;
+  const headers = new Headers(response.headers);
+  headers.set('x-lnb-mobile-entry', 'v1');
+  return new Response(response.body, { status: response.status, headers });
 }
 
 async function handleOrcadoComPermissoes(request, env) {

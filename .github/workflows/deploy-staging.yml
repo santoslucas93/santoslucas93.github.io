@@ -121,6 +121,7 @@ jobs:
           node scripts/rh-v93-vacation-card-owner-test.js
           node scripts/beneficios-granular-permissions-test.js
           node scripts/hub-auth-transition-test.js
+          node scripts/pwa-mobile-test.js
 
           node <<'NODE'
           const fs = require('fs');

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="40" x2="448" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#102b52"/><stop offset="1" stop-color="#071326"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(160 125) rotate(48) scale(360)">
+      <stop stop-color="#e8b93c" stop-opacity=".2"/><stop offset="1" stop-color="#e8b93c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="118" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="118" fill="url(#glow)"/>
+  <circle cx="256" cy="242" r="142" fill="#0a1930" stroke="#e8b93c" stroke-width="15"/>
+  <circle cx="256" cy="242" r="115" fill="none" stroke="#e8b93c" stroke-width="8" opacity=".95"/>
+  <path d="M116 242c75-72 205-72 280 0M116 242c75 72 205 72 280 0M256 101v282" fill="none" stroke="#e8b93c" stroke-width="9" stroke-linecap="round"/>
+  <path d="M168 130c47 29 76 68 88 112 12-44 41-83 88-112M168 354c47-29 76-68 88-112 12 44 41 83 88 112" fill="none" stroke="#e8b93c" stroke-width="8" stroke-linecap="round"/>
+  <rect x="126" y="391" width="260" height="65" rx="28" fill="#e8b93c"/>
+  <text x="256" y="437" fill="#071326" font-family="Arial, sans-serif" font-size="43" font-weight="800" text-anchor="middle" letter-spacing="4">LNB</text>
+</svg>
