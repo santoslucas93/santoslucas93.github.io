@@ -21,12 +21,12 @@
     backdrop.setAttribute('role', 'dialog');
     backdrop.setAttribute('aria-modal', 'true');
     backdrop.setAttribute('aria-labelledby', 'pwa-sheet-title');
-    backdrop.innerHTML = '<div class="pwa-sheet"><h2 id="pwa-sheet-title">Instalar o Painel LNB</h2><p>No Safari, toque em <strong>Compartilhar</strong> e depois em <strong>Adicionar à Tela de Início</strong>. O Painel será aberto em tela cheia, como um aplicativo.</p><div class="pwa-sheet-actions"><button type="button" data-primary>Entendi</button></div></div>';
+    backdrop.innerHTML = '<div class="pwa-sheet"><button type="button" class="pwa-sheet-close" aria-label="Fechar">×</button><h2 id="pwa-sheet-title">Instalar o Painel LNB</h2><p>No Safari, toque em <strong>Compartilhar</strong> e depois em <strong>Adicionar à Tela de Início</strong>. O Painel será aberto em tela cheia, como um aplicativo.</p><div class="pwa-sheet-actions"><button type="button" data-primary>Entendi</button></div></div>';
     backdrop.addEventListener('click', function (event) {
       if (event.target === backdrop || event.target.matches('button')) closeSheet();
     });
     document.body.appendChild(backdrop);
-    backdrop.querySelector('button').focus();
+    backdrop.querySelector('.pwa-sheet-close').focus();
   }
 
   window.addEventListener('beforeinstallprompt', function (event) {

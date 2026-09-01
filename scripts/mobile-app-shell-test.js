@@ -5,6 +5,7 @@ const vm = require('vm');
 const workerSource = fs.readFileSync('worker.js', 'utf8');
 const css = fs.readFileSync('runtime-patches/mobile-app-shell.css', 'utf8');
 const client = fs.readFileSync('runtime-patches/mobile-app-shell.js', 'utf8');
+const pwaInstall = fs.readFileSync('runtime-patches/pwa-install.js', 'utf8');
 const rh19 = fs.readFileSync('runtime-patches/rh-folha-hotfix-v19-popup-columns.inc.js', 'utf8');
 const rh20 = fs.readFileSync('runtime-patches/rh-folha-hotfix-v20-popup-totals-grid.inc.js', 'utf8');
 const rh23 = fs.readFileSync('runtime-patches/rh-folha-hotfix-v23-competencia-popup.inc.js', 'utf8');
@@ -40,8 +41,8 @@ const env = { ASSETS: { fetch: async () => new Response(html, { headers: { 'cont
 
   const mobile = await workerDefault.fetch(new Request('https://painel.test/admin/', { headers: { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' } }), env);
   const mobileHtml = await mobile.text();
-  assert(mobileHtml.includes('data-lnb-mobile-shell="v5"'), 'HTML móvel não recebeu o marcador isolado.');
-  assert(mobileHtml.includes('/runtime-patches/mobile-app-shell.css?v=5'), 'CSS móvel não foi injetado.');
+  assert(mobileHtml.includes('data-lnb-mobile-shell="v6"'), 'HTML móvel não recebeu o marcador isolado.');
+  assert(mobileHtml.includes('/runtime-patches/mobile-app-shell.css?v=6'), 'CSS móvel não foi injetado.');
   assert(mobileHtml.includes('data-lnb-mobile-module="admin"'), 'Módulo móvel não foi identificado.');
 
   const future = await workerDefault.fetch(new Request('https://painel.test/novo-modulo/', { headers: { 'sec-ch-ua-mobile': '?1' } }), env);
@@ -55,9 +56,24 @@ const env = { ASSETS: { fetch: async () => new Response(html, { headers: { 'cont
     assert(client.includes(selector), 'Descoberta de navegação ausente: ' + selector);
   }
   assert(client.includes('MutationObserver'), 'Módulos e funções adicionados dinamicamente não serão descobertos.');
+  const observerFilter = client.match(/attributeFilter:\s*\[([^\]]+)\]/);
+  assert(observerFilter && !observerFilter[1].includes('style'), 'Shell ainda observa style e pode oscilar cards.');
+  assert(!client.includes('watchRhComposition') && !client.includes('setInterval('), 'Watcher periódico do RH reintroduz tremor.');
   assert(client.includes("localStorage.getItem('lnb_access_snapshot_v1')"), 'Menu móvel não respeita o retrato de permissões.');
   assert(!client.includes('/rest/v1/') && !client.includes('/auth/v1/'), 'Shell móvel não deve duplicar autenticação nem acessar dados diretamente.');
   assert(css.includes('env(safe-area-inset-top') && css.includes('env(safe-area-inset-bottom'), 'Safe areas de iPhone ausentes.');
+  assert(pwaInstall.includes('pwa-sheet-close') && pwaInstall.includes('aria-label="Fechar"'), 'Instalação não possui fechamento imediato.');
+  assert(css.includes('body.lnb-mobile-app .pwa-sheet-backdrop{z-index:999994!important;inset:var(--lnb-mobile-top) 0 var(--lnb-mobile-bottom)'), 'PWA ainda pode ficar atrás da navegação móvel.');
+  assert(css.includes('.pwa-sheet-actions{position:sticky!important;bottom:0'), 'Ação da instalação não permanece visível.');
+  for (const selector of ['revid-modal-overlay', 'modal-overlay', 'mob-modal', 'modal-fundo', 'body.lnb-mobile-app .overlay']) {
+    const at = css.indexOf(selector);
+    const rule = at < 0 ? '' : css.slice(at, at + 420);
+    assert(rule.includes('--lnb-mobile-top') && rule.includes('--lnb-mobile-bottom'), 'Modal ' + selector + ' não reserva as duas barras móveis.');
+  }
+  for (const selector of ['modal-footer', 'mob-modal-foot', 'modal-acoes', '.modal .acoes']) {
+    assert(css.includes(selector) && css.slice(css.indexOf(selector), css.indexOf(selector) + 360).includes('position:sticky'), 'Rodapé ' + selector + ' pode esconder Salvar.');
+  }
+  assert(css.includes('font-variant-numeric:tabular-nums') && css.includes('animation:none!important') && css.includes('transition:none!important'), 'Cards móveis ainda podem oscilar visualmente.');
   assert(css.includes('.lnb-mobile-table-cards td::before'), 'Tabelas não possuem rótulos móveis.');
   assert(client.includes("host.className = 'lnb-mobile-table-host'"), 'Tabelas ainda podem destruir o card/painel pai.');
   assert(client.includes('lnbMobileLocked') && client.includes("prop === 'min-width'"), 'O bloqueio contra reescrita desktop da largura móvel foi perdido.');

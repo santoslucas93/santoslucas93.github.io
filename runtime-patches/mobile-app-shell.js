@@ -1,8 +1,8 @@
 /* Painel LNB — shell móvel compartilhado. Descobre e aciona a interface original. */
 (function () {
   'use strict';
-  if (!document.documentElement.matches('[data-lnb-mobile-shell="v5"]') || window.__LNB_MOBILE_APP_V5) return;
-  window.__LNB_MOBILE_APP_V5 = true;
+  if (!document.documentElement.matches('[data-lnb-mobile-shell="v6"]') || window.__LNB_MOBILE_APP_V6) return;
+  window.__LNB_MOBILE_APP_V6 = true;
 
   var MODULES = {
     hub: { title: 'Painel LNB', subtitle: 'Central de Gestão', nav: '.hub-card a,.hub-chave.on' },
@@ -261,7 +261,7 @@
       item.className = 'lnb-mobile-menu-item' + (record.active ? ' is-active' : '');
       item.innerHTML = '<span class="lnb-mobile-item-icon" aria-hidden="true">' + record.icon + '</span><span>' + record.label + '</span>';
       if (record.element) item.addEventListener('click', function () {
-        closeDrawer(); record.element.click(); setTimeout(syncAll, 100); setTimeout(syncAll, 500);
+        closeDrawer(); record.element.click(); requestSync(140);
       });
       ui.list.appendChild(item);
     });
@@ -402,35 +402,31 @@
     ui.aiButton.disabled = !ai;
   }
   function keepMobileStylesLast() {
-    var link = document.querySelector('link[data-lnb-mobile-shell="v5"]');
+    var link = document.querySelector('link[data-lnb-mobile-shell="v6"]');
     if (link && link.parentNode === document.head && document.head.lastElementChild !== link) document.head.appendChild(link);
   }
   function syncAll() { labelTables(document); adaptRhCompositionGrids(); adaptCharts(); renderMobileHome(); syncShell(); keepMobileStylesLast(); if (ui.drawer && ui.drawer.classList.contains('is-open')) renderDrawer(); }
+  function requestSync(delay) {
+    clearTimeout(state.syncTimer);
+    state.syncTimer = setTimeout(function () {
+      if (state.observer) state.observer.disconnect();
+      syncAll();
+      if (state.observer) state.observer.observe(document.body, state.observerOptions);
+    }, delay == null ? 120 : delay);
+  }
   function observe() {
-    var options = { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'aria-selected', 'aria-current', 'style'] };
+    // Mudancas de style sao frequentes em graficos e contadores. Observa-las aqui
+    // realimentava o adaptador e causava oscilacao de tamanho/valor no Safari.
+    var options = { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'aria-selected', 'aria-current'] };
     var observer = new MutationObserver(function (mutations) {
       var useful = mutations.some(function (mutation) { return !mutation.target.closest || !mutation.target.closest('.lnb-mobile-appbar,.lnb-mobile-bottomnav,.lnb-mobile-drawer'); });
       if (!useful) return;
-      clearTimeout(state.observerTimer); state.observerTimer = setTimeout(function () {
-        observer.disconnect();
-        syncAll();
-        observer.observe(document.body, options);
-      }, 120);
+      requestSync(120);
     });
+    state.observer = observer;
+    state.observerOptions = options;
     observer.observe(document.body, options);
   }
-  var rhWatchTimer = null, rhWatchTicks = 0;
-  function watchRhComposition() {
-    if (moduleId !== 'rh') return;
-    clearInterval(rhWatchTimer);
-    rhWatchTicks = 0;
-    rhWatchTimer = setInterval(function () {
-      rhWatchTicks += 1;
-      if (!document.querySelector('.rh-comp-header')) { clearInterval(rhWatchTimer); return; }
-      adaptRhCompositionGrids();
-      if (rhWatchTicks >= 12) clearInterval(rhWatchTimer);
-    }, 400);
-  }
-  function start() { buildShell(); syncAll(); observe(); document.addEventListener('click', function () { setTimeout(syncAll, 20); setTimeout(syncAll, 300); watchRhComposition(); }, true); document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeDrawer(); }); setTimeout(syncAll, 800); setTimeout(syncAll, 2200); }
+  function start() { buildShell(); syncAll(); observe(); document.addEventListener('click', function () { requestSync(120); }, true); document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeDrawer(); }); requestSync(600); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
 })();
