@@ -23,6 +23,12 @@ assert(!/method\s*:\s*['\"]PATCH['\"]/.test(html), 'Ainda existe gravação PATC
 assert(html.includes('btn-novo-colaborador'), 'Cadastro de novo colaborador ausente.');
 assert(html.includes('btn-importar-colaboradores'), 'Importação CSV ausente.');
 assert(html.includes('ed-nome') && html.includes('ed-cpf') && html.includes('ed-nascimento'), 'Dados pessoais não estão editáveis.');
+assert(html.trim().endsWith('</html>'), 'A página da Central está truncada.');
+assert(html.includes('(async function boot()'), 'Inicialização da Central ausente.');
+assert(html.includes("['colaboradores','beneficios','rh','admin']"), 'Leitura da Central não contempla os módulos autorizados.');
+for (const action of ['editarAtributoEmLoteAsync','ativarEmMassaAsync','desligarEmMassaAsync','alterarBeneficiosEmMassaAsync']) {
+  assert(html.includes('function '+action), 'Ação em lote ausente: '+action);
+}
 
 assert(migration.includes('trg_colaboradores_master_propagar'), 'Gatilho de propagação ausente.');
 assert(migration.includes('private.sincronizar_colaborador_central_operacional'), 'Motor de sincronização ausente.');

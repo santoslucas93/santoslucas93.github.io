@@ -39,6 +39,7 @@ html[data-lnb-mobile-shell="v2"] body.lnb-mobile-lock{overflow:hidden!important}
 .lnb-mobile-search::placeholder{color:#9fb0c1}
 .lnb-mobile-drawer-list{overflow:auto;overscroll-behavior:contain;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:2px 0 8px}
 .lnb-mobile-menu-item{min-width:0;min-height:58px;border:1px solid var(--lnb-mobile-line);border-radius:15px;background:rgba(255,255,255,.045);color:#eaf1f8;display:flex;align-items:center;gap:10px;text-align:left;padding:10px 11px;font-size:12px;font-weight:750;line-height:1.25;text-decoration:none}
+.lnb-mobile-menu-item>span:last-child{min-width:0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
 .lnb-mobile-menu-item .lnb-mobile-item-icon{width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center;border-radius:9px;background:rgba(240,197,83,.1);color:var(--lnb-mobile-gold);font-size:15px}
 .lnb-mobile-menu-item.is-active{border-color:rgba(240,197,83,.65);background:linear-gradient(135deg,rgba(240,197,83,.16),rgba(34,189,136,.09));color:#fff}
 .lnb-mobile-menu-empty{grid-column:1/-1;text-align:center;color:var(--lnb-mobile-muted);padding:28px 10px;font-size:13px}
@@ -59,6 +60,9 @@ html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards td::before{content:attr
 html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards td[data-lnb-label=""]::before{content:none}
 html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards td>*{max-width:100%!important;justify-self:end}
 html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards td:first-child:has(input[type="checkbox"]){grid-template-columns:auto 1fr!important}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-scroll{max-width:100%!important;overflow-x:auto!important;overscroll-behavior-inline:contain;-webkit-overflow-scrolling:touch;box-shadow:inset -14px 0 18px -18px rgba(7,26,44,.7)}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-scroll table{width:max-content!important;min-width:100%!important}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-scroll th,html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-scroll td{white-space:nowrap!important;overflow-wrap:normal!important}
 
 /* RH & Folha */
 html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .topbar,html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .sidebar{display:none!important}
@@ -78,8 +82,9 @@ html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .panel-head{padding:14px 1
 html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .chart-wrap{height:260px!important;padding-inline:8px!important}
 html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .ai-launch{display:none!important}
 html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .ai-panel{inset:calc(var(--lnb-mobile-top) + 6px) 7px calc(var(--lnb-mobile-bottom) + 6px)!important;width:auto!important;height:auto!important;max-height:none!important;border-radius:18px!important}
-html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .modal{padding:var(--lnb-mobile-top) 0 0!important;align-items:end!important}
-html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .modal-card{max-height:calc(100vh - var(--lnb-mobile-top))!important;border-radius:22px 22px 0 0!important;border-bottom:0!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .modal{z-index:999980!important;inset:var(--lnb-mobile-top) 0 var(--lnb-mobile-bottom)!important;padding:7px!important;display:flex!important;align-items:stretch!important;justify-content:center!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .modal[hidden]{display:none!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .modal-card{width:100%!important;height:100%!important;max-height:none!important;border-radius:18px!important;overflow:auto!important}
 html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .back-chat{display:none!important}
 
 /* Orçado x Realizado */
@@ -91,6 +96,9 @@ html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .panel,html[data-lnb-m
 html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .subnav,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .mtabs{display:flex!important;max-width:100%!important;overflow-x:auto!important;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;flex-wrap:nowrap!important;padding:7px 2px!important;gap:7px!important}
 html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .subnav button,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .mtabs button{flex:0 0 auto!important;scroll-snap-align:start;min-height:42px!important;border-radius:999px!important;padding:8px 13px!important;white-space:nowrap!important}
 html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app canvas{max-width:100%!important}
+html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .ia-launch{display:none!important}
+html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app #ia-pop,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app #ia-pop{z-index:999989!important;inset:calc(var(--lnb-mobile-top) + 6px) 7px calc(var(--lnb-mobile-bottom) + 6px)!important;width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;resize:none!important;border-radius:18px!important}
+html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app #ia-pop .ia-chatbox,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app #ia-pop .ia-chatbox{height:auto!important;min-height:150px!important;flex:1!important}
 
 /* Benefícios */
 html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .app-header,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app #main-nav,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app #lnb-back-link,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app #lnb-auth-badge{display:none!important}
@@ -101,6 +109,7 @@ html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .card{padding:14px
 html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .month-bar,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .toolbar,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .actions{gap:8px!important;flex-wrap:wrap!important}
 html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .modal-overlay{align-items:flex-end!important;padding:0!important}
 html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .modal-overlay .modal{width:100%!important;max-width:none!important;max-height:calc(100vh - var(--lnb-mobile-top))!important;border-radius:22px 22px 0 0!important;padding:18px 14px calc(18px + env(safe-area-inset-bottom,0px))!important;overflow:auto!important}
+html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .ia-launch{display:none!important}
 
 /* Administração Mestre */
 html[data-lnb-mobile-module="admin"] body.lnb-mobile-app #app>header,html[data-lnb-mobile-module="admin"] body.lnb-mobile-app .painel>aside{display:none!important}
@@ -132,7 +141,7 @@ html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .overlay .modal
 html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .grade-detalhes,html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .grade-editar,html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .regras-grade-arb{grid-template-columns:1fr!important}
 
 /* Home/PWA */
-html[data-lnb-mobile-module="hub"] body.lnb-mobile-app .hub-top{position:static!important}
+html[data-lnb-mobile-module="hub"] body.lnb-mobile-app .hub-top{display:none!important}
 html[data-lnb-mobile-module="hub"] body.lnb-mobile-app .hub-shell{padding-top:12px!important;padding-bottom:28px!important}
 
 @media (max-width:390px){

@@ -53,6 +53,12 @@ const env = { ASSETS: { fetch: async () => new Response(html, { headers: { 'cont
   assert(!client.includes('/rest/v1/') && !client.includes('/auth/v1/'), 'Shell móvel não deve duplicar autenticação nem acessar dados diretamente.');
   assert(css.includes('env(safe-area-inset-top') && css.includes('env(safe-area-inset-bottom'), 'Safe areas de iPhone ausentes.');
   assert(css.includes('.lnb-mobile-table-cards td::before'), 'Tabelas não possuem rótulos móveis.');
+  assert(client.includes("if (moduleId === 'orcado') return 'scroll'"), 'Tabelas complexas do Orçado não estão protegidas da conversão em fichas.');
+  assert(!client.includes("'Detalhe ' +"), 'O shell ainda fabrica rótulos sem significado para tabelas sem cabeçalho.');
+  assert(client.includes("'#ia-toggle'"), 'Atalho móvel não reconhece o Chat IA de Orçado e Benefícios.');
+  assert(css.includes('body.lnb-mobile-app #ia-pop'), 'Chat IA não possui layout móvel em tela inteira.');
+  assert(css.includes('.hub-top{display:none!important}'), 'Cabeçalho duplicado da Central ainda aparece no celular.');
+  assert(client.includes("resources: ['colaboradores', 'beneficios', 'rh', 'admin']"), 'Central de Colaboradores não considera todos os perfis autorizados.');
   assert(workerSource.includes('if (!asset.ok || !isMobileRequest(request)) return asset;'), 'Ativo desktop não está protegido por retorno sem alteração.');
 
   console.log('Shell móvel: isolamento desktop, módulos atuais, expansão futura e tabelas validados.');

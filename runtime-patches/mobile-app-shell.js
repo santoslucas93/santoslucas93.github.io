@@ -14,7 +14,7 @@
   };
   var MODULE_LINKS = [
     { id: 'hub', resource: null, href: '/mobile/', icon: '⌂', label: 'Início' },
-    { id: 'colaboradores', resource: 'beneficios', href: '/colaboradores/', icon: '👥', label: 'Colaboradores' },
+    { id: 'colaboradores', resources: ['colaboradores', 'beneficios', 'rh', 'admin'], href: '/colaboradores/', icon: '👥', label: 'Colaboradores' },
     { id: 'beneficios', resource: 'beneficios', href: '/beneficios/', icon: '♡', label: 'Benefícios' },
     { id: 'orcado', resource: 'orcamento', href: '/orcado/', icon: '▥', label: 'Orçado x Realizado' },
     { id: 'rh', resource: 'rh', href: '/rh/', icon: '▤', label: 'RH & Folha' },
@@ -57,7 +57,7 @@
       var mode = currentBenefitsMode();
       if (mode) items = items.filter(function (item) { return item.classList.contains('benefit-' + mode); });
       var home = document.getElementById('benefit-home');
-      if (home && !home.hidden && !home.classList.contains('mode-hidden')) {
+      if (!mode && home && !home.hidden && !home.classList.contains('mode-hidden')) {
         Array.prototype.slice.call(home.querySelectorAll('.benefit-choice-card')).filter(isUsable).forEach(function (item) { items.unshift(item); });
       }
     }
@@ -87,14 +87,17 @@
     } catch (error) { return null; }
   }
   function moduleAllowed(item) {
-    if (!item.resource) return true;
+    if (!item.resource && !item.resources) return true;
     var access = parseAccess();
     if (!access) return true;
     if (access.acesso_total || access.permissoes === '*') return true;
     var permissions = access.permissoes || {};
-    var actions = permissions[item.resource] || [];
-    if (item.resource === 'admin') return Array.isArray(actions) && (actions.indexOf('administrar') >= 0 || actions.indexOf('visualizar') >= 0);
-    return Array.isArray(actions) && actions.indexOf('visualizar') >= 0;
+    var resources = item.resources || [item.resource];
+    return resources.some(function (resource) {
+      var actions = permissions[resource] || [];
+      if (resource === 'admin') return Array.isArray(actions) && (actions.indexOf('administrar') >= 0 || actions.indexOf('visualizar') >= 0);
+      return Array.isArray(actions) && actions.indexOf('visualizar') >= 0;
+    });
   }
   function pageTitle() {
     var candidates = moduleId === 'rh' ? '.page.active .page-head h1' : moduleId === 'admin' ? '#tela .tit h2,#tela h2' : moduleId === 'beneficios' ? '.tab-content.active h1,.tab-content.active .card-title' : moduleId === 'orcado' ? '[id^="v-"]:not([style*="display:none"]) h1,[id^="v-"]:not([style*="display:none"]) h2' : 'main h1,main h2';
@@ -151,7 +154,7 @@
     syncShell();
   }
   function findAi() {
-    var candidates = ['#ai-launch', '#lnb-ai-fab', '.ai-launch', '[aria-label*="Chat IA"]', '[aria-label*="IA"]'];
+    var candidates = ['#ia-toggle', '#ai-launch', '#lnb-ai-fab', '.ia-launch', '[aria-label*="Chat IA"]', '[aria-label*="IA"]'];
     for (var i = 0; i < candidates.length; i += 1) {
       var node = document.querySelector(candidates[i]);
       if (node && !node.closest('.lnb-mobile-bottomnav,.lnb-mobile-appbar,.lnb-mobile-drawer')) return node;
@@ -175,7 +178,9 @@
     document.body.classList.remove('lnb-mobile-lock'); ui.drawer.classList.remove('is-open'); ui.backdrop.classList.remove('is-open');
   }
   function itemRecord(element) {
-    var raw = cleanText(element.textContent || element.getAttribute('aria-label') || element.title);
+    var titleNode = element.querySelector && element.querySelector('[data-lnb-mobile-label],.benefit-choice-title,.module-card-title,h1,h2,h3,h4');
+    var raw = cleanText(element.getAttribute('aria-label') || element.title || (titleNode && titleNode.textContent) || element.textContent);
+    if (raw.length > 72) raw = raw.slice(0, 69).replace(/\s+\S*$/, '') + '…';
     return { label: raw || 'Abrir', icon: leadingIcon(element.textContent || ''), active: activeElement(element), element: element };
   }
   function renderDrawer() {
@@ -208,20 +213,28 @@
       ui.list.appendChild(item);
     });
   }
+  function tablePolicy(table, headers) {
+    if (moduleId === 'orcado') return 'scroll';
+    if (table.querySelector('table') || table.querySelector('[colspan],[rowspan]') || table.querySelector('tfoot') || headers.length > 9) return 'scroll';
+    if (moduleId === 'colaboradores' && table.closest('.cartao')) return 'cards';
+    if (moduleId === 'rh' && (table.closest('.modal') || table.closest('.chart-wrap'))) return 'scroll';
+    if (moduleId === 'beneficios' && table.closest('.modal,.rateio-table,.smalltbl')) return 'scroll';
+    return headers.length >= 2 && headers.every(Boolean) ? 'cards' : 'scroll';
+  }
   function labelTables(root) {
     Array.prototype.slice.call((root || document).querySelectorAll('table')).forEach(function (table) {
       if (table.closest('.lnb-mobile-drawer') || table.dataset.lnbMobileTable === 'skip' || table.getAttribute('role') === 'presentation') return;
       var headers = Array.prototype.slice.call(table.querySelectorAll('thead th')).map(function (header) { return cleanText(header.textContent); });
-      if (!headers.length) {
-        var first = table.querySelector('tr');
-        headers = first ? Array.prototype.slice.call(first.children).map(function (_, index) { return index === 0 ? 'Item' : 'Detalhe ' + index; }) : [];
-      }
-      if (headers.length < 2) return;
       var wrap = table.closest('.table-wrap,.matriz,.cartao') || table.parentElement;
-      if (wrap && !wrap.classList.contains('lnb-mobile-table-cards')) wrap.classList.add('lnb-mobile-table-cards');
+      var policy = tablePolicy(table, headers);
+      if (wrap) {
+        wrap.classList.toggle('lnb-mobile-table-cards', policy === 'cards');
+        wrap.classList.toggle('lnb-mobile-table-scroll', policy === 'scroll');
+      }
+      if (policy !== 'cards') return;
       Array.prototype.slice.call(table.querySelectorAll('tbody tr')).forEach(function (row) {
         Array.prototype.slice.call(row.children).forEach(function (cell, index) {
-          var label = headers[index] || ('Detalhe ' + (index + 1));
+          var label = headers[index] || '';
           if (cell.tagName === 'TD' && cell.dataset.lnbLabel !== label) cell.dataset.lnbLabel = label;
         });
       });

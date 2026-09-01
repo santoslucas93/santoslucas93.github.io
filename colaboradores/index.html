@@ -1198,3 +1198,96 @@ document.getElementById('btn-depto-lote').addEventListener('click', function(){
   overlay.querySelector('.confirmar').onclick = async function(){
     const novo = document.getElementById('m-depto').value;
     if (!novo){ toast('Selecione um departamento.'); return; }
+    overlay.remove();
+    await editarAtributoEmLoteAsync('departamento', novo, rotuloDepartamento(novo));
+  };
+});
+
+document.getElementById('btn-tipo-lote').addEventListener('click', function(){
+  const overlay = abrirModal(
+    '<h3>Alterar Tipo de contratação em lote</h3><label>Novo tipo para '+SELECIONADOS.size+' colaborador(es)</label>'+
+    '<select id="m-tipo">'+opcoesTipo('')+'</select><div class="acoes"><button class="cancelar">Cancelar</button><button class="confirmar">Aplicar</button></div>'
+  );
+  overlay.querySelector('.cancelar').onclick=function(){ overlay.remove(); };
+  overlay.querySelector('.confirmar').onclick=async function(){
+    const novo=document.getElementById('m-tipo').value;
+    if(!novo){ toast('Selecione um tipo de contratação.'); return; }
+    overlay.remove(); await editarAtributoEmLoteAsync('tipo_contratacao',novo,novo);
+  };
+});
+
+function opcaoTriEstado(id, rotulo){
+  return '<div class="linha-beneficio"><span>'+rotulo+'</span><select id="'+id+'"><option value="manter">Manter como está</option><option value="ligar">Ligar</option><option value="desligar">Desligar</option></select></div>';
+}
+document.getElementById('btn-beneficios-lote').addEventListener('click', function(){
+  const overlay=abrirModal('<h3>Alterar benefícios em lote</h3>'+opcaoTriEstado('m-ben-cesta','Cesta Básica')+opcaoTriEstado('m-ben-vt','Vale Transporte')+opcaoTriEstado('m-ben-vrva','VR/VA')+opcaoTriEstado('m-ben-saude','Assistência Médica / Plano de Saúde')+opcaoTriEstado('m-ben-seguro','Seguro de Vida')+'<div class="acoes"><button class="cancelar">Cancelar</button><button class="confirmar">Aplicar</button></div>');
+  overlay.querySelector('.cancelar').onclick=function(){ overlay.remove(); };
+  overlay.querySelector('.confirmar').onclick=async function(){
+    function ler(id){ const v=document.getElementById(id).value; return v==='manter'?null:v==='ligar'; }
+    const mudancas={cesta:ler('m-ben-cesta'),vt:ler('m-ben-vt'),vrva:ler('m-ben-vrva'),saude:ler('m-ben-saude'),seguro:ler('m-ben-seguro')};
+    if(Object.values(mudancas).every(function(v){return v===null;})){toast('Escolha ao menos um benefício para alterar.');return;}
+    overlay.remove(); await alterarBeneficiosEmMassaAsync(Array.from(SELECIONADOS),mudancas);
+  };
+});
+
+document.getElementById('btn-regras').addEventListener('click', abrirPainelRegras);
+function linhaRegraDepto(codigo,nome){return '<div class="regras-linha reg-dep-row"><input class="reg-dep-cod" placeholder="código" value="'+escapeHtml(codigo||'')+'"><input class="reg-dep-nome" placeholder="nome do departamento" value="'+escapeHtml(nome||'')+'"><button type="button" class="reg-rm">×</button></div>';}
+function linhaRegraCc(prefixo,depto){return '<div class="regras-linha reg-cc-row"><input class="reg-cc-prefixo" placeholder="prefixo, ex.: 8" value="'+escapeHtml(prefixo||'')+'"><select class="reg-cc-depto">'+opcoesDepartamento(depto)+'</select><button type="button" class="reg-rm">×</button></div>';}
+function abrirPainelRegras(){
+  const overlay=abrirModal('<h3 style="margin:0 0 4px">⚙ Regras do sistema</h3><p style="font-size:12px;color:#6b7280">Ajuste departamentos, tipos e regras contábeis sem alterar código.</p><div class="regras-secao"><h4>Departamentos</h4><div id="reg-deps">'+(REGRAS.departamentos||[]).map(function(d){return linhaRegraDepto(d.codigo,d.nome);}).join('')+'</div><button type="button" class="regras-add" id="reg-add-depto">+ Adicionar departamento</button></div><div class="regras-secao"><h4>Tipos de contratação</h4><input id="reg-tipos" value="'+escapeHtml((REGRAS.tipos_contratacao||[]).join(', '))+'"></div><div class="regras-secao"><h4>Centro de Custo → Departamento</h4><div id="reg-ccs">'+(REGRAS.regras_cc_departamento||[]).map(function(r){return linhaRegraCc(r.prefixo,r.departamento);}).join('')+'</div><button type="button" class="regras-add" id="reg-add-cc">+ Adicionar regra</button></div><div class="regras-secao"><h4>Arbitragem</h4><div class="regras-grade-arb"><div><label>Conta contábil</label><input id="reg-arb-conta" value="'+escapeHtml((REGRAS.arbitragem||{}).conta||'')+'"></div><div><label>Centro de Custo</label><input id="reg-arb-cc" value="'+escapeHtml((REGRAS.arbitragem||{}).centro_custo||'')+'"></div><div><label>Departamento</label><select id="reg-arb-depto">'+opcoesDepartamento((REGRAS.arbitragem||{}).departamento)+'</select></div><div><label>Benefício</label><input id="reg-arb-beneficio" value="'+escapeHtml((REGRAS.arbitragem||{}).beneficio||'')+'"></div></div></div><div class="acoes"><button class="cancelar">Cancelar</button><button class="confirmar" id="reg-salvar">Salvar Regras</button></div>');
+  overlay.querySelector('.modal').classList.add('modal-regras'); overlay.querySelector('.cancelar').onclick=function(){overlay.remove();};
+  function bindRemove(){overlay.querySelectorAll('.reg-rm').forEach(function(b){b.onclick=function(){b.closest('.regras-linha').remove();};});}
+  bindRemove();
+  document.getElementById('reg-add-depto').onclick=function(){document.getElementById('reg-deps').insertAdjacentHTML('beforeend',linhaRegraDepto('',''));bindRemove();};
+  document.getElementById('reg-add-cc').onclick=function(){document.getElementById('reg-ccs').insertAdjacentHTML('beforeend',linhaRegraCc('',''));bindRemove();};
+  document.getElementById('reg-salvar').onclick=async function(){
+    const deps=Array.from(overlay.querySelectorAll('.reg-dep-row')).map(function(r){return{codigo:r.querySelector('.reg-dep-cod').value.trim(),nome:r.querySelector('.reg-dep-nome').value.trim()};}).filter(function(d){return d.codigo&&d.nome;});
+    const tipos=document.getElementById('reg-tipos').value.split(',').map(function(v){return v.trim();}).filter(Boolean);
+    const ccs=Array.from(overlay.querySelectorAll('.reg-cc-row')).map(function(r){return{prefixo:r.querySelector('.reg-cc-prefixo').value.trim(),departamento:r.querySelector('.reg-cc-depto').value};}).filter(function(v){return v.prefixo&&v.departamento;});
+    const arbitragem={conta:document.getElementById('reg-arb-conta').value.trim(),centro_custo:document.getElementById('reg-arb-cc').value.trim(),departamento:document.getElementById('reg-arb-depto').value,beneficio:document.getElementById('reg-arb-beneficio').value.trim()};
+    if(!deps.length||!tipos.length){toast('Cadastre ao menos um departamento e um tipo.');return;}
+    try{await salvarRegrasAsync({departamentos:deps,tipos_contratacao:tipos,regras_cc_departamento:ccs,arbitragem:arbitragem});REGRAS={departamentos:deps,tipos_contratacao:tipos,regras_cc_departamento:ccs,arbitragem:arbitragem};REGRAS_VEM_DO_BANCO=true;popularFiltrosDinamicos();renderTabela();overlay.remove();toast('Regras salvas.');}catch(e){toast(e.message);}
+  };
+}
+
+function payloadsSelecionados(ids,mudancas){
+  return ids.map(function(id){return Object.assign({id:id},mudancas);});
+}
+async function aplicarLoteCentral(ids,mudancas,mensagem){
+  if(!ids.length)return;
+  try{await salvarColaboradoresCentralLote(payloadsSelecionados(ids,mudancas));SELECIONADOS.clear();await recarregarCentral();atualizarBarraFlutuante();toast(mensagem);}catch(e){toast(e.message);}
+}
+async function editarAtributoEmLoteAsync(campo,valor){const m={};m[campo]=valor;await aplicarLoteCentral(Array.from(SELECIONADOS),m,'Dados atualizados e sincronizados.');}
+async function ativarEmMassaAsync(ids){await aplicarLoteCentral(ids,{status:'Ativo'},ids.length+' colaborador(es) ativado(s).');}
+async function desligarEmMassaAsync(ids){await aplicarLoteCentral(ids,{status:'Desligado'},ids.length+' colaborador(es) desligado(s). Nenhum registro foi apagado.');}
+async function atualizarCestaBasicaAsync(ids,valor){await aplicarLoteCentral(ids,{is_cesta_basica_elegivel:valor},'Cesta Básica '+(valor?'liberada':'removida')+'.');}
+async function alterarBeneficiosEmMassaAsync(ids,m){
+  const payload={};
+  if(m.cesta!==null)payload.is_cesta_basica_elegivel=m.cesta;
+  if(m.vt!==null)payload.opta_vale_transporte=m.vt;
+  if(m.vrva!==null)payload.opta_vr_va=m.vrva;
+  if(m.saude!==null)payload.opta_plano_saude=m.saude;
+  if(m.seguro!==null)payload.opta_seguro_vida=m.seguro;
+  await aplicarLoteCentral(ids,payload,'Benefícios atualizados e sincronizados.');
+}
+
+(async function boot(){
+  lnbLoadSession();
+  if(!AUTH_SESSION||!AUTH_SESSION.access_token){location.replace('/');return;}
+  const acesso=await lnbMeuAcessoCentral();
+  const podeVer=['colaboradores','beneficios','rh','admin'].some(function(recurso){return lnbTemModulo(acesso,recurso);});
+  if(!podeVer){document.getElementById('lnb-loading').classList.add('lnb-hide');document.getElementById('lnb-negado').classList.remove('lnb-hide');return;}
+  PODE_EDITAR=(await lnbTemPermissaoAsync('colaboradores','editar'))||(await lnbTemPermissaoAsync('beneficios','editar'));
+  PODE_CRIAR=(await lnbTemPermissaoAsync('colaboradores','criar'))||(await lnbTemPermissaoAsync('beneficios','criar'));
+  PODE_IMPORTAR=PODE_CRIAR;
+  await carregarRegrasAsync();
+  try{await recarregarCentral();}catch(e){document.getElementById('lnb-loading').textContent='Erro ao carregar: '+e.message;return;}
+  if(PODE_EDITAR)document.getElementById('btn-regras').classList.remove('lnb-hide');
+  if(PODE_CRIAR)document.getElementById('btn-novo-colaborador').classList.remove('lnb-hide');
+  if(PODE_IMPORTAR)document.getElementById('btn-importar-colaboradores').classList.remove('lnb-hide');
+  document.getElementById('badge-modo').innerHTML=PODE_EDITAR?'':'<span class="badge-readonly">Somente leitura</span>';
+  document.getElementById('lnb-loading').classList.add('lnb-hide');document.getElementById('lnb-app').classList.remove('lnb-hide');renderTabela();
+})();
+</script>
+</body>
+</html>
