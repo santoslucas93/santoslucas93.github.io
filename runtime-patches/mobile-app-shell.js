@@ -284,6 +284,15 @@
     table.style.setProperty('width', '100%', 'important');
     table.style.setProperty('min-width', '0', 'important');
     table.style.setProperty('table-layout', 'auto', 'important');
+    if (!table.dataset.lnbMobileLocked) {
+      table.dataset.lnbMobileLocked = '1';
+      var originalSetProperty = table.style.setProperty.bind(table.style);
+      table.style.setProperty = function (prop, value, priority) {
+        if (prop === 'min-width') return originalSetProperty('min-width', '0', 'important');
+        if (prop === 'table-layout') return originalSetProperty('table-layout', 'auto', 'important');
+        return originalSetProperty(prop, value, priority);
+      };
+    }
     Array.prototype.slice.call(table.querySelectorAll('colgroup')).forEach(function (group) { group.style.setProperty('display', 'none', 'important'); });
     var head = table.querySelector('thead'); if (head) head.style.setProperty('display', 'none', 'important');
     Array.prototype.slice.call(table.querySelectorAll('tbody,tfoot')).forEach(function (section) {
