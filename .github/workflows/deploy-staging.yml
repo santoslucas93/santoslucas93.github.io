@@ -122,6 +122,7 @@ jobs:
           node scripts/beneficios-granular-permissions-test.js
           node scripts/hub-auth-transition-test.js
           node scripts/pwa-mobile-test.js
+          node scripts/mobile-app-shell-test.js
 
           node <<'NODE'
           const fs = require('fs');

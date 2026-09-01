@@ -1,0 +1,59 @@
+'use strict';
+const fs = require('fs');
+const vm = require('vm');
+
+const workerSource = fs.readFileSync('worker.js', 'utf8');
+const css = fs.readFileSync('runtime-patches/mobile-app-shell.css', 'utf8');
+const client = fs.readFileSync('runtime-patches/mobile-app-shell.js', 'utf8');
+
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
+const executableWorker = workerSource
+  .replace('export default {', 'const workerDefault = {')
+  .replace('export { applyUnifiedPatch };', '') +
+  '\nmodule.exports={workerDefault,isMobileRequest,inferMobileModule,injectMobileAppShell};';
+const sandbox = { module: { exports: {} }, exports: {}, Request, Response, Headers, URL, console, fetch };
+vm.runInNewContext(executableWorker, sandbox, { filename: 'worker.js' });
+const { workerDefault, isMobileRequest, inferMobileModule } = sandbox.module.exports;
+
+assert(isMobileRequest(new Request('https://painel.test/rh/', { headers: { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' } })), 'iPhone deve receber a camada móvel.');
+assert(isMobileRequest(new Request('https://painel.test/novo/?lnb_mobile=1')), 'Modo móvel explícito deve funcionar em módulos futuros.');
+assert(!isMobileRequest(new Request('https://painel.test/rh/', { headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X)' } })), 'Desktop não pode receber a camada móvel.');
+assert(inferMobileModule('/qualquer-modulo/') === 'qualquer-modulo', 'Módulos futuros devem ser inferidos pela rota.');
+
+const html = '<!doctype html><html lang="pt-BR"><head><title>Teste</title></head><body><main>desktop-original</main></body></html>';
+const env = { ASSETS: { fetch: async () => new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } }) } };
+
+(async () => {
+  const desktop = await workerDefault.fetch(new Request('https://painel.test/admin/', { headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X)' } }), env);
+  const desktopHtml = await desktop.text();
+  assert(desktopHtml === html, 'HTML de desktop foi alterado pelo shell móvel.');
+  assert(!desktopHtml.includes('mobile-app-shell'), 'Desktop recebeu recurso exclusivo de celular.');
+
+  const mobile = await workerDefault.fetch(new Request('https://painel.test/admin/', { headers: { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' } }), env);
+  const mobileHtml = await mobile.text();
+  assert(mobileHtml.includes('data-lnb-mobile-shell="v2"'), 'HTML móvel não recebeu o marcador isolado.');
+  assert(mobileHtml.includes('/runtime-patches/mobile-app-shell.css?v=2'), 'CSS móvel não foi injetado.');
+  assert(mobileHtml.includes('data-lnb-mobile-module="admin"'), 'Módulo móvel não foi identificado.');
+
+  const future = await workerDefault.fetch(new Request('https://painel.test/novo-modulo/', { headers: { 'sec-ch-ua-mobile': '?1' } }), env);
+  assert((await future.text()).includes('data-lnb-mobile-module="novo-modulo"'), 'Novo módulo não herdou automaticamente o shell móvel.');
+
+  for (const required of ['hub', 'colaboradores', 'admin', 'beneficios', 'orcado', 'rh']) {
+    assert(client.includes(required + ':'), 'Mapeamento móvel ausente: ' + required);
+    assert(css.includes('data-lnb-mobile-module="' + required + '"') || required === 'hub', 'CSS móvel ausente: ' + required);
+  }
+  for (const selector of ['#menu button[data-tela]', '#main-nav .nav-tab[data-tab]', '#nav button[data-v]', '.sidebar .nav-item[data-view]']) {
+    assert(client.includes(selector), 'Descoberta de navegação ausente: ' + selector);
+  }
+  assert(client.includes('MutationObserver'), 'Módulos e funções adicionados dinamicamente não serão descobertos.');
+  assert(client.includes("localStorage.getItem('lnb_access_snapshot_v1')"), 'Menu móvel não respeita o retrato de permissões.');
+  assert(!client.includes('/rest/v1/') && !client.includes('/auth/v1/'), 'Shell móvel não deve duplicar autenticação nem acessar dados diretamente.');
+  assert(css.includes('env(safe-area-inset-top') && css.includes('env(safe-area-inset-bottom'), 'Safe areas de iPhone ausentes.');
+  assert(css.includes('.lnb-mobile-table-cards td::before'), 'Tabelas não possuem rótulos móveis.');
+  assert(workerSource.includes('if (!asset.ok || !isMobileRequest(request)) return asset;'), 'Ativo desktop não está protegido por retorno sem alteração.');
+
+  console.log('Shell móvel: isolamento desktop, módulos atuais, expansão futura e tabelas validados.');
+})().catch(error => { console.error(error); process.exitCode = 1; });

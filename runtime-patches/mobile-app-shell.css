@@ -1,0 +1,148 @@
+/* Painel LNB — camada nativa para celular. Este arquivo nunca é injetado no desktop. */
+html[data-lnb-mobile-shell="v2"]{
+  --lnb-mobile-navy:#071a2c;
+  --lnb-mobile-navy-2:#0c2940;
+  --lnb-mobile-surface:#102b43;
+  --lnb-mobile-gold:#f0c553;
+  --lnb-mobile-green:#22bd88;
+  --lnb-mobile-text:#f7fafc;
+  --lnb-mobile-muted:#aebed0;
+  --lnb-mobile-line:rgba(151,180,207,.22);
+  --lnb-mobile-top:calc(68px + env(safe-area-inset-top,0px));
+  --lnb-mobile-bottom:calc(70px + env(safe-area-inset-bottom,0px));
+}
+html[data-lnb-mobile-shell="v2"],html[data-lnb-mobile-shell="v2"] body{max-width:100%;overflow-x:hidden}
+html[data-lnb-mobile-shell="v2"] body.lnb-mobile-app{padding-top:var(--lnb-mobile-top)!important;padding-bottom:var(--lnb-mobile-bottom)!important;-webkit-tap-highlight-color:transparent}
+html[data-lnb-mobile-shell="v2"] body.lnb-mobile-lock{overflow:hidden!important}
+
+.lnb-mobile-appbar{position:fixed;z-index:999990;inset:0 0 auto;height:var(--lnb-mobile-top);padding:env(safe-area-inset-top,0px) 12px 0;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:10px;background:color-mix(in srgb,var(--lnb-mobile-navy) 94%,transparent);border-bottom:1px solid rgba(240,197,83,.26);box-shadow:0 8px 28px rgba(0,0,0,.22);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);color:var(--lnb-mobile-text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.lnb-mobile-appbar button,.lnb-mobile-appbar a{width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--lnb-mobile-line);border-radius:14px;background:rgba(255,255,255,.055);color:#fff;text-decoration:none;font-size:20px;padding:0}
+.lnb-mobile-appbar-copy{min-width:0;line-height:1.1}
+.lnb-mobile-appbar-copy strong,.lnb-mobile-appbar-copy small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lnb-mobile-appbar-copy strong{font-size:15px;letter-spacing:-.01em}
+.lnb-mobile-appbar-copy small{margin-top:5px;color:var(--lnb-mobile-muted);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:800}
+
+.lnb-mobile-bottomnav{position:fixed;z-index:999990;inset:auto 0 0;height:var(--lnb-mobile-bottom);padding:7px 7px env(safe-area-inset-bottom,0px);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:color-mix(in srgb,var(--lnb-mobile-navy) 96%,transparent);border-top:1px solid rgba(240,197,83,.23);box-shadow:0 -9px 30px rgba(0,0,0,.24);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.lnb-mobile-bottomnav button,.lnb-mobile-bottomnav a{min-width:0;height:55px;border:0;border-radius:13px;background:transparent;color:var(--lnb-mobile-muted);text-decoration:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:9px;font-weight:800;padding:0}
+.lnb-mobile-bottomnav .lnb-mobile-nav-icon{font-size:19px;line-height:1}
+.lnb-mobile-bottomnav .is-current{color:var(--lnb-mobile-gold);background:rgba(240,197,83,.09)}
+.lnb-mobile-bottomnav [hidden]{display:flex!important;opacity:.38;pointer-events:none}
+
+.lnb-mobile-backdrop{position:fixed;z-index:999991;inset:0;background:rgba(1,8,16,.68);opacity:0;pointer-events:none;transition:opacity .2s ease;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.lnb-mobile-drawer{position:fixed;z-index:999992;inset:auto 0 0;max-height:min(82vh,760px);padding:10px 14px calc(18px + env(safe-area-inset-bottom,0px));border-radius:24px 24px 0 0;border:1px solid var(--lnb-mobile-line);border-bottom:0;background:linear-gradient(160deg,#102d46,#071a2c 72%);color:var(--lnb-mobile-text);box-shadow:0 -24px 70px rgba(0,0,0,.44);transform:translateY(104%);transition:transform .24s cubic-bezier(.2,.8,.2,1);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden;display:flex;flex-direction:column}
+.lnb-mobile-drawer.is-open{transform:none}.lnb-mobile-backdrop.is-open{opacity:1;pointer-events:auto}
+.lnb-mobile-grabber{width:42px;height:4px;background:rgba(255,255,255,.28);border-radius:99px;margin:0 auto 10px}
+.lnb-mobile-drawer-head{display:flex;align-items:center;gap:10px;padding:0 2px 12px}
+.lnb-mobile-drawer-head>div{min-width:0;flex:1}.lnb-mobile-drawer-head strong,.lnb-mobile-drawer-head small{display:block}.lnb-mobile-drawer-head strong{font-size:19px}.lnb-mobile-drawer-head small{color:var(--lnb-mobile-muted);font-size:11px;margin-top:3px}
+.lnb-mobile-close{width:42px;height:42px;border:1px solid var(--lnb-mobile-line);border-radius:13px;background:rgba(255,255,255,.06);color:#fff;font-size:22px}
+.lnb-mobile-search{width:100%;height:46px;flex:0 0 46px;border:1px solid var(--lnb-mobile-line)!important;border-radius:14px!important;padding:0 14px!important;background:rgba(255,255,255,.07)!important;color:#fff!important;font-size:15px!important;outline:0!important;margin:0 0 10px!important;max-width:none!important}
+.lnb-mobile-search::placeholder{color:#9fb0c1}
+.lnb-mobile-drawer-list{overflow:auto;overscroll-behavior:contain;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:2px 0 8px}
+.lnb-mobile-menu-item{min-width:0;min-height:58px;border:1px solid var(--lnb-mobile-line);border-radius:15px;background:rgba(255,255,255,.045);color:#eaf1f8;display:flex;align-items:center;gap:10px;text-align:left;padding:10px 11px;font-size:12px;font-weight:750;line-height:1.25;text-decoration:none}
+.lnb-mobile-menu-item .lnb-mobile-item-icon{width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center;border-radius:9px;background:rgba(240,197,83,.1);color:var(--lnb-mobile-gold);font-size:15px}
+.lnb-mobile-menu-item.is-active{border-color:rgba(240,197,83,.65);background:linear-gradient(135deg,rgba(240,197,83,.16),rgba(34,189,136,.09));color:#fff}
+.lnb-mobile-menu-empty{grid-column:1/-1;text-align:center;color:var(--lnb-mobile-muted);padding:28px 10px;font-size:13px}
+
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-app button,html[data-lnb-mobile-shell="v2"] .lnb-mobile-app a,html[data-lnb-mobile-shell="v2"] .lnb-mobile-app select,html[data-lnb-mobile-shell="v2"] .lnb-mobile-app input{touch-action:manipulation}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-app input:not([type="checkbox"]):not([type="radio"]),html[data-lnb-mobile-shell="v2"] .lnb-mobile-app select,html[data-lnb-mobile-shell="v2"] .lnb-mobile-app textarea{font-size:16px!important;max-width:100%!important}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-app button,html[data-lnb-mobile-shell="v2"] .lnb-mobile-app a.button,html[data-lnb-mobile-shell="v2"] .lnb-mobile-app .btn{min-height:44px}
+
+/* Tabelas viram fichas legíveis; o clique e todos os controles originais permanecem. */
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards{overflow:visible!important;border:0!important;background:transparent!important;box-shadow:none!important}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards table{display:block!important;width:100%!important;min-width:0!important;border-collapse:separate!important;background:transparent!important}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards thead{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards tbody{display:grid!important;gap:11px!important;width:100%!important}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards tr{display:block!important;width:100%!important;border:1px solid rgba(145,164,185,.26)!important;border-radius:16px!important;padding:7px 12px!important;background:color-mix(in srgb,currentColor 3%,transparent)!important;box-shadow:0 7px 22px rgba(0,0,0,.07)!important}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards td{display:grid!important;grid-template-columns:minmax(88px,40%) minmax(0,1fr)!important;align-items:center!important;gap:10px!important;width:100%!important;min-width:0!important;min-height:38px!important;padding:7px 0!important;border:0!important;border-bottom:1px solid rgba(145,164,185,.16)!important;text-align:right!important;white-space:normal!important;overflow-wrap:anywhere!important}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards td:last-child{border-bottom:0!important}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards td::before{content:attr(data-lnb-label);color:var(--lnb-mobile-muted,#64748b);font-size:9px;font-weight:850;line-height:1.2;text-transform:uppercase;letter-spacing:.07em;text-align:left}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards td[data-lnb-label=""]::before{content:none}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards td>*{max-width:100%!important;justify-self:end}
+html[data-lnb-mobile-shell="v2"] .lnb-mobile-table-cards td:first-child:has(input[type="checkbox"]){grid-template-columns:auto 1fr!important}
+
+/* RH & Folha */
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .topbar,html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .sidebar{display:none!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .shell{display:block!important;min-height:0!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .content{width:100%!important;padding:16px 12px 34px!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .page{width:100%!important;max-width:none!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .page-head{display:grid!important;gap:13px!important;align-items:start!important;margin-bottom:15px!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .page-head h1{font-size:25px!important;line-height:1.1!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .head-actions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;width:100%!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .head-actions>*{min-width:0!important;width:100%!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .head-actions select,html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .search{width:100%!important;min-width:0!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .kpi-grid{grid-template-columns:1fr 1fr!important;gap:10px!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .kpi{min-height:108px!important;padding:15px!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .grid.two,html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .grid.three,html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .import-grid,html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .preview-summary,html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .modal-summary{grid-template-columns:1fr!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .panel{border-radius:16px!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .panel-head{padding:14px 14px 8px!important;min-height:55px!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .chart-wrap{height:260px!important;padding-inline:8px!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .ai-launch{display:none!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .ai-panel{inset:calc(var(--lnb-mobile-top) + 6px) 7px calc(var(--lnb-mobile-bottom) + 6px)!important;width:auto!important;height:auto!important;max-height:none!important;border-radius:18px!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .modal{padding:var(--lnb-mobile-top) 0 0!important;align-items:end!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .modal-card{max-height:calc(100vh - var(--lnb-mobile-top))!important;border-radius:22px 22px 0 0!important;border-bottom:0!important}
+html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .back-chat{display:none!important}
+
+/* Orçado x Realizado */
+html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .hero,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app #nav,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app #lnb-back-link,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app #lnb-auth-badge{display:none!important}
+html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .wrap{width:100%!important;max-width:none!important;margin:0!important;padding:13px 11px 30px!important;overflow:visible!important}
+html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .grid2,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .layout,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .kpis,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .dashgrid,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .quickcards,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .bulkgrid{grid-template-columns:1fr!important;gap:11px!important}
+html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .kpis{grid-template-columns:1fr 1fr!important}
+html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .panel,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .kpi,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app details.grp{width:100%!important;min-width:0!important;border-radius:16px!important}
+html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .subnav,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .mtabs{display:flex!important;max-width:100%!important;overflow-x:auto!important;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;flex-wrap:nowrap!important;padding:7px 2px!important;gap:7px!important}
+html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .subnav button,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .mtabs button{flex:0 0 auto!important;scroll-snap-align:start;min-height:42px!important;border-radius:999px!important;padding:8px 13px!important;white-space:nowrap!important}
+html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app canvas{max-width:100%!important}
+
+/* Benefícios */
+html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .app-header,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app #main-nav,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app #lnb-back-link,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app #lnb-auth-badge{display:none!important}
+html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .main{width:100%!important;max-width:none!important;margin:0!important;padding:13px 11px 34px!important}
+html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .benefit-choice-grid,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .stats-grid,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .grid-2,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .grid-3{grid-template-columns:1fr!important;gap:11px!important}
+html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .benefit-choice-card,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .card,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .stat-card{min-width:0!important;width:100%!important;border-radius:17px!important}
+html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .card{padding:14px!important}
+html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .month-bar,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .toolbar,html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .actions{gap:8px!important;flex-wrap:wrap!important}
+html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .modal-overlay{align-items:flex-end!important;padding:0!important}
+html[data-lnb-mobile-module="beneficios"] body.lnb-mobile-app .modal-overlay .modal{width:100%!important;max-width:none!important;max-height:calc(100vh - var(--lnb-mobile-top))!important;border-radius:22px 22px 0 0!important;padding:18px 14px calc(18px + env(safe-area-inset-bottom,0px))!important;overflow:auto!important}
+
+/* Administração Mestre */
+html[data-lnb-mobile-module="admin"] body.lnb-mobile-app #app>header,html[data-lnb-mobile-module="admin"] body.lnb-mobile-app .painel>aside{display:none!important}
+html[data-lnb-mobile-module="admin"] body.lnb-mobile-app #app,html[data-lnb-mobile-module="admin"] body.lnb-mobile-app .painel{min-height:0!important;width:100%!important;display:block!important}
+html[data-lnb-mobile-module="admin"] body.lnb-mobile-app main{width:100%!important;padding:14px 11px 34px!important}
+html[data-lnb-mobile-module="admin"] body.lnb-mobile-app .tit{gap:10px!important}.lnb-mobile-app .tit .dir{margin-left:0!important;width:100%!important;flex-wrap:wrap!important}
+html[data-lnb-mobile-module="admin"] body.lnb-mobile-app .colunas{display:block!important}.lnb-mobile-app .colunas .lado{width:100%!important}
+html[data-lnb-mobile-module="admin"] body.lnb-mobile-app .filtros,html[data-lnb-mobile-module="admin"] body.lnb-mobile-app .perm-passos,html[data-lnb-mobile-module="admin"] body.lnb-mobile-app .perm-alteracoes,html[data-lnb-mobile-module="admin"] body.lnb-mobile-app .form-grade{grid-template-columns:1fr!important}
+html[data-lnb-mobile-module="admin"] body.lnb-mobile-app .card,html[data-lnb-mobile-module="admin"] body.lnb-mobile-app .perm-modulo{border-radius:16px!important;padding:13px!important}
+html[data-lnb-mobile-module="admin"] body.lnb-mobile-app .modal-fundo{align-items:flex-end!important;padding:0!important}
+html[data-lnb-mobile-module="admin"] body.lnb-mobile-app .modal-caixa{max-height:calc(100vh - var(--lnb-mobile-top))!important;border-radius:22px 22px 0 0!important}
+
+/* Central de Colaboradores */
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app #lnb-app>header.topo{display:none!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app main{width:100%!important;max-width:none!important;padding:12px 10px 34px!important;margin:0!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .hero-central{grid-template-columns:1fr!important;padding:17px!important;border-radius:18px!important;gap:14px!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .hero-central h2{font-size:23px!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .metricas{grid-template-columns:repeat(3,1fr)!important;gap:7px!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .metrica{padding:12px 8px!important;border-radius:13px!important}.lnb-mobile-app .metrica strong{font-size:20px!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros input[type="text"]{grid-column:1/-1!important;min-width:0!important;width:100%!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros button{width:100%!important;min-width:0!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros .resumo{grid-column:1/-1!important;margin:0!important;text-align:center}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .cartao{background:transparent!important;box-shadow:none!important;overflow:visible!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-flutuante{left:8px!important;right:8px!important;bottom:calc(var(--lnb-mobile-bottom) + 7px)!important;transform:none!important;overflow-x:auto!important;justify-content:flex-start!important;border-radius:16px!important;padding:9px!important;gap:7px!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-flutuante button{flex:0 0 auto!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .overlay{align-items:flex-end!important;padding:0!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .overlay .modal{width:100%!important;max-width:none!important;max-height:calc(100vh - var(--lnb-mobile-top))!important;overflow:auto!important;border-radius:22px 22px 0 0!important;padding:18px 14px calc(18px + env(safe-area-inset-bottom,0px))!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .grade-detalhes,html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .grade-editar,html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .regras-grade-arb{grid-template-columns:1fr!important}
+
+/* Home/PWA */
+html[data-lnb-mobile-module="hub"] body.lnb-mobile-app .hub-top{position:static!important}
+html[data-lnb-mobile-module="hub"] body.lnb-mobile-app .hub-shell{padding-top:12px!important;padding-bottom:28px!important}
+
+@media (max-width:390px){
+  .lnb-mobile-drawer-list{grid-template-columns:1fr}
+  html[data-lnb-mobile-module="rh"] body.lnb-mobile-app .kpi-grid,html[data-lnb-mobile-module="orcado"] body.lnb-mobile-app .kpis{grid-template-columns:1fr!important}
+  html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros{grid-template-columns:1fr!important}
+  html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros input[type="text"],html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros .resumo{grid-column:auto!important}
+}
+
+@media print{
+  .lnb-mobile-appbar,.lnb-mobile-bottomnav,.lnb-mobile-drawer,.lnb-mobile-backdrop{display:none!important}
+  html[data-lnb-mobile-shell="v2"] body.lnb-mobile-app{padding:0!important}
+}

@@ -12,6 +12,7 @@ export default {
     if (request.method === 'GET' && (url.pathname === '/rh/' || url.pathname === '/rh/index.html')) return handleRhHtml(request, env);
     if (request.method === 'GET' && (url.pathname === '/revisao-ids' || url.pathname === '/revisao-ids.html')) return handleGenericHtml(request, env);
     if (request.method === 'GET' && url.pathname === '/rh/app.js') return handleRhAppPatch(request, env);
+    if (request.method === 'GET') return handleMobileAwareAsset(request, env);
     return env.ASSETS.fetch(request);
   }
 };
@@ -33,7 +34,9 @@ async function handleHubBranding(request, env, mobileEntry) {
   let out = html;
   if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
   if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;
-  const response = responsePatchedHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(out)), 'x-lnb-hub-branding', 'v1');
+  out = injectSystemExportBranding(injectSystemTextSpacing(out));
+  out = injectMobileAppShell(out, request, 'hub', mobileEntry);
+  const response = responsePatchedHtml(asset, out, 'x-lnb-hub-branding', 'v1');
   if (!mobileEntry) return response;
   const headers = new Headers(response.headers);
   headers.set('x-lnb-mobile-entry', 'v1');
@@ -44,16 +47,16 @@ async function handleOrcadoComPermissoes(request, env) {
   const asset = await env.ASSETS.fetch(request);
   if (!asset.ok) return asset;
   const html = await asset.text();
-  if (html.includes('const LNB_ORCAMENTO_RECURSOS=')) return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'orcado'))), 'incorporado');
+  if (html.includes('const LNB_ORCAMENTO_RECURSOS=')) return responseHtml(asset, injectMobileAppShell(injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'orcado'))), request, 'orcado'), 'incorporado');
   const patchUrl = new URL('/runtime-patches/orcado-permissions.patch', request.url);
   const patchResponse = await env.ASSETS.fetch(new Request(patchUrl, { method: 'GET' }));
-  if (!patchResponse.ok) return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'orcado'))), 'indisponivel');
+  if (!patchResponse.ok) return responseHtml(asset, injectMobileAppShell(injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'orcado'))), request, 'orcado'), 'indisponivel');
   try {
     const patched = applyUnifiedPatch(html, await patchResponse.text(), 'orcado/index.html');
-    return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(patched, 'orcado'))), 'staging-v1');
+    return responseHtml(asset, injectMobileAppShell(injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(patched, 'orcado'))), request, 'orcado'), 'staging-v1');
   } catch (error) {
     console.error('Falha ao aplicar patch de permissoes do Orcado:', error);
-    return responseHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'orcado'))), 'erro');
+    return responseHtml(asset, injectMobileAppShell(injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'orcado'))), request, 'orcado'), 'erro');
   }
 }
 
@@ -61,19 +64,62 @@ async function handleBeneficiosComRastreabilidade(request, env) {
   const asset = await env.ASSETS.fetch(request);
   if (!asset.ok) return asset;
   const html = injectBenefitsGranularPermissions(await asset.text());
-  return responseHtml(asset, injectBenefitsOfficialLogo(injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'beneficios')))), 'granular-v90');
+  return responseHtml(asset, injectMobileAppShell(injectBenefitsOfficialLogo(injectSystemExportBranding(injectSystemTextSpacing(injectIaTraceability(html, 'beneficios')))), request, 'beneficios'), 'granular-v90');
 }
 
 async function handleRhHtml(request, env) {
   const asset = await env.ASSETS.fetch(request);
   if (!asset.ok) return asset;
-  return responsePatchedHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(await asset.text())), 'x-lnb-system-spacing', 'v67');
+  const html = injectSystemExportBranding(injectSystemTextSpacing(await asset.text()));
+  return responsePatchedHtml(asset, injectMobileAppShell(html, request, 'rh'), 'x-lnb-system-spacing', 'v67');
 }
 
 async function handleGenericHtml(request, env) {
   const asset = await env.ASSETS.fetch(request);
   if (!asset.ok) return asset;
-  return responsePatchedHtml(asset, injectSystemExportBranding(injectSystemTextSpacing(await asset.text())), 'x-lnb-export-branding', 'v67');
+  const html = injectSystemExportBranding(injectSystemTextSpacing(await asset.text()));
+  return responsePatchedHtml(asset, injectMobileAppShell(html, request, inferMobileModule(new URL(request.url).pathname)), 'x-lnb-export-branding', 'v67');
+}
+
+async function handleMobileAwareAsset(request, env) {
+  const asset = await env.ASSETS.fetch(request);
+  if (!asset.ok || !isMobileRequest(request)) return asset;
+  const contentType = String(asset.headers.get('content-type') || '').toLowerCase();
+  if (!contentType.includes('text/html')) return asset;
+  const path = new URL(request.url).pathname;
+  const html = injectMobileAppShell(await asset.text(), request, inferMobileModule(path));
+  return responsePatchedHtml(asset, html, 'x-lnb-mobile-shell', 'v2');
+}
+
+function isMobileRequest(request, forceMobile) {
+  if (forceMobile) return true;
+  const url = new URL(request.url);
+  if (url.pathname === '/mobile' || url.pathname.startsWith('/mobile/')) return true;
+  if (url.searchParams.get('lnb_mobile') === '1') return true;
+  if (String(request.headers.get('sec-ch-ua-mobile') || '') === '?1') return true;
+  return /Android.*Mobile|iPhone|iPod|Windows Phone|webOS|BlackBerry|Opera Mini|IEMobile/i.test(String(request.headers.get('user-agent') || ''));
+}
+
+function inferMobileModule(pathname) {
+  const segment = String(pathname || '/').split('/').filter(Boolean)[0] || 'hub';
+  const aliases = { mobile: 'hub', orcado: 'orcado', beneficios: 'beneficios', rh: 'rh', admin: 'admin', colaboradores: 'colaboradores' };
+  return aliases[segment] || segment.replace(/[^a-z0-9_-]/gi, '').toLowerCase() || 'modulo';
+}
+
+function injectMobileAppShell(html, request, moduleName, forceMobile) {
+  if (!isMobileRequest(request, forceMobile)) return html;
+  const marker = 'data-lnb-mobile-shell="v2"';
+  if (html.includes(marker)) return html;
+  const moduleId = String(moduleName || 'modulo').replace(/[^a-z0-9_-]/gi, '').toLowerCase();
+  const style = '<link rel="stylesheet" href="/runtime-patches/mobile-app-shell.css?v=2" '+marker+'>';
+  const script = '<script src="/runtime-patches/mobile-app-shell.js?v=2" data-lnb-mobile-module="'+moduleId+'" '+marker+' defer></' + 'script>';
+  let out = html.replace(/<html(\s[^>]*)?>/i, function(match, attrs){
+    const rest = attrs || '';
+    return '<html'+rest+' data-lnb-mobile-shell="v2" data-lnb-mobile-module="'+moduleId+'">';
+  });
+  if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
+  if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;
+  return out;
 }
 
 async function handleRhAppPatch(request, env) {

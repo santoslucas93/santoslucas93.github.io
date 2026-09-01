@@ -99,6 +99,8 @@ jobs:
           node scripts/rh-v79-period-edit-test.js
           node scripts/rh-v80-provision-test.js
           node scripts/hub-auth-transition-test.js
+          node scripts/pwa-mobile-test.js
+          node scripts/mobile-app-shell-test.js
 
           node <<'NODE'
           const fs = require('fs');
