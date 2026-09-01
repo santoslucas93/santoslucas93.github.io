@@ -376,12 +376,17 @@
   }
   function syncAll() { labelTables(document); adaptRhCompositionGrids(); adaptCharts(); renderMobileHome(); syncShell(); keepMobileStylesLast(); if (ui.drawer && ui.drawer.classList.contains('is-open')) renderDrawer(); }
   function observe() {
+    var options = { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'aria-selected', 'aria-current', 'style'] };
     var observer = new MutationObserver(function (mutations) {
       var useful = mutations.some(function (mutation) { return !mutation.target.closest || !mutation.target.closest('.lnb-mobile-appbar,.lnb-mobile-bottomnav,.lnb-mobile-drawer'); });
       if (!useful) return;
-      clearTimeout(state.observerTimer); state.observerTimer = setTimeout(syncAll, 120);
+      clearTimeout(state.observerTimer); state.observerTimer = setTimeout(function () {
+        observer.disconnect();
+        syncAll();
+        observer.observe(document.body, options);
+      }, 120);
     });
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'aria-selected', 'aria-current', 'style'] });
+    observer.observe(document.body, options);
   }
   function start() { buildShell(); syncAll(); observe(); document.addEventListener('click', function () { setTimeout(syncAll, 20); setTimeout(syncAll, 300); }, true); document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeDrawer(); }); setTimeout(syncAll, 800); setTimeout(syncAll, 2200); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
