@@ -323,7 +323,7 @@
     if (moduleId !== 'rh') return;
     Array.prototype.slice.call(document.querySelectorAll('.rh-comp-table')).forEach(function (grid) {
       grid.style.setProperty('display', 'grid', 'important'); grid.style.setProperty('width', '100%', 'important'); grid.style.setProperty('overflow-x', 'hidden', 'important');
-      var header = grid.querySelector('.rh-comp-header'); if (header) header.style.setProperty('display', 'none', 'important');
+      var header = grid.querySelector('.rh-comp-header'); if (header) header.remove();
       Array.prototype.slice.call(grid.querySelectorAll('.rh-comp-row:not(.rh-comp-header)')).forEach(function (row) {
         row.style.setProperty('display', 'block', 'important'); row.style.setProperty('grid-template-columns', '1fr', 'important'); row.style.setProperty('width', '100%', 'important'); row.style.setProperty('padding', '6px 0', 'important');
         Array.prototype.slice.call(row.children).forEach(function (cell) {
@@ -388,6 +388,6 @@
     });
     observer.observe(document.body, options);
   }
-  function start() { buildShell(); syncAll(); observe(); document.addEventListener('click', function () { setTimeout(syncAll, 20); setTimeout(syncAll, 300); }, true); document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeDrawer(); }); setTimeout(syncAll, 800); setTimeout(syncAll, 2200); }
+  function start() { buildShell(); syncAll(); observe(); document.addEventListener('click', function () { setTimeout(syncAll, 20); setTimeout(syncAll, 300); }, true); document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeDrawer(); }); setTimeout(syncAll, 800); setTimeout(syncAll, 2200); if (moduleId === 'rh') setInterval(adaptRhCompositionGrids, 400); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
 })();
