@@ -1,8 +1,8 @@
 /* Painel LNB — shell móvel compartilhado. Descobre e aciona a interface original. */
 (function () {
   'use strict';
-  if (!document.documentElement.matches('[data-lnb-mobile-shell="v2"]') || window.__LNB_MOBILE_APP_V2) return;
-  window.__LNB_MOBILE_APP_V2 = true;
+  if (!document.documentElement.matches('[data-lnb-mobile-shell="v3"]') || window.__LNB_MOBILE_APP_V3) return;
+  window.__LNB_MOBILE_APP_V3 = true;
 
   var MODULES = {
     hub: { title: 'Painel LNB', subtitle: 'Central de Gestão', nav: '.hub-card a,.hub-chave.on' },
@@ -22,7 +22,7 @@
   ];
   var moduleId = document.documentElement.dataset.lnbMobileModule || inferModule();
   var config = MODULES[moduleId] || { title: document.title.split(/[·|—-]/)[0].trim() || 'Painel LNB', subtitle: 'Módulo LNB', nav: 'nav a,nav button' };
-  var state = { mode: 'navigation', query: '', observerTimer: 0 };
+  var state = { mode: 'navigation', query: '', observerTimer: 0, homeSignature: '' };
   var ui = {};
 
   function inferModule() {
@@ -153,6 +153,59 @@
     document.body.appendChild(drawer); ui.drawer = drawer; ui.drawerTitle = drawer.querySelector('strong'); ui.drawerSubtitle = drawer.querySelector('small'); ui.search = drawer.querySelector('input'); ui.list = drawer.querySelector('.lnb-mobile-drawer-list');
     syncShell();
   }
+  function homeModules() {
+    var definitions = [
+      { id: 'orcado', source: '#hub-card-orcamento', href: '/orcado/', icon: '▥', title: 'Orçado x Realizado', subtitle: 'Planejamento e acompanhamento financeiro' },
+      { id: 'beneficios', source: '#hub-card-beneficios', href: '/beneficios/', icon: '♡', title: 'Gestão de Benefícios', subtitle: 'Benefícios e custos dos colaboradores' },
+      { id: 'rh', source: '#hub-card-rh', href: '/rh/', icon: '▤', title: 'RH & Folha', subtitle: 'Pessoas, folha, encargos e histórico' },
+      { id: 'colaboradores', source: '#hub-icon-colaboradores', href: '/colaboradores/', icon: '👥', title: 'Central de Colaboradores', subtitle: 'Cadastro mestre e visão individual' },
+      { id: 'admin', source: '#hub-chave', href: '/admin/', icon: '⚙', title: 'Administração', subtitle: 'Acessos, perfis e permissões' }
+    ];
+    return definitions.filter(function (item) {
+      var source = document.querySelector(item.source);
+      if (!source) return false;
+      if (item.id === 'colaboradores' || item.id === 'admin') return source.classList.contains('on');
+      return !source.hidden;
+    });
+  }
+  function renderMobileHome() {
+    if (moduleId !== 'hub') return;
+    var shell = document.getElementById('hub-shell');
+    if (!shell || shell.style.display === 'none') return;
+    var modules = homeModules();
+    var who = cleanText((document.getElementById('hub-who') || {}).textContent);
+    var signature = who + '|' + modules.map(function (item) { return item.id; }).join(',');
+    if (state.homeSignature === signature && document.querySelector('.lnb-mobile-home')) return;
+    state.homeSignature = signature;
+    var home = document.querySelector('.lnb-mobile-home') || document.createElement('main');
+    home.className = 'lnb-mobile-home';
+    home.innerHTML = '<section class="lnb-mobile-home-intro"><img src="/rh/lnb-logo.png" alt="Liga Nacional de Basquete"><div><small>Central de Gestão</small><h1>Olá' + (who ? ', ' + who.split(' ')[0] : '') + '</h1><p>Dados financeiros e de pessoas em um só lugar.</p></div></section>' +
+      '<section class="lnb-mobile-home-section"><div class="lnb-mobile-section-title"><div><small>Seu espaço de trabalho</small><h2>Módulos</h2></div><span>' + modules.length + ' disponíveis</span></div><div class="lnb-mobile-home-modules"></div></section>' +
+      '<section class="lnb-mobile-home-section"><div class="lnb-mobile-section-title"><div><small>Preferências</small><h2>Ações rápidas</h2></div></div><div class="lnb-mobile-quick-actions"></div></section>';
+    var list = home.querySelector('.lnb-mobile-home-modules');
+    modules.forEach(function (item) {
+      var link = document.createElement('a'); link.href = item.href; link.className = 'lnb-mobile-module-row';
+      link.innerHTML = '<span class="lnb-mobile-module-icon ' + item.id + '">' + item.icon + '</span><span class="lnb-mobile-module-copy"><strong>' + item.title + '</strong><small>' + item.subtitle + '</small></span><span class="lnb-mobile-chevron">›</span>';
+      list.appendChild(link);
+    });
+    if (!modules.length) list.innerHTML = '<div class="lnb-mobile-home-empty">Nenhum módulo foi liberado para este perfil.</div>';
+    var actions = [
+      { source: '#hub-install', icon: '⇩', label: 'Instalar app' },
+      { source: '#hub-theme-toggle', icon: '◐', label: 'Aparência' },
+      { source: '#hub-password', icon: '⌘', label: 'Senha' },
+      { source: '#hub-logout', icon: '↗', label: 'Sair' }
+    ];
+    var quick = home.querySelector('.lnb-mobile-quick-actions');
+    actions.forEach(function (action) {
+      var original = document.querySelector(action.source);
+      if (!original || getComputedStyle(original).display === 'none') return;
+      var button = document.createElement('button'); button.type = 'button';
+      button.innerHTML = '<span>' + action.icon + '</span><small>' + action.label + '</small>';
+      button.addEventListener('click', function () { original.click(); }); quick.appendChild(button);
+    });
+    if (!home.isConnected) shell.appendChild(home);
+    document.body.classList.add('lnb-mobile-home-ready');
+  }
   function findAi() {
     var candidates = ['#ia-toggle', '#ai-launch', '#lnb-ai-fab', '.ia-launch', '[aria-label*="Chat IA"]', '[aria-label*="IA"]'];
     for (var i = 0; i < candidates.length; i += 1) {
@@ -214,25 +267,25 @@
     });
   }
   function tablePolicy(table, headers) {
-    if (moduleId === 'orcado') return 'scroll';
-    if (table.querySelector('table') || table.querySelector('[colspan],[rowspan]') || table.querySelector('tfoot') || headers.length > 9) return 'scroll';
+    var simple = headers.length >= 2 && headers.length <= 5 && headers.every(Boolean) && !table.querySelector('table') && !table.querySelector('[colspan],[rowspan]');
+    if (simple && (moduleId === 'rh' || moduleId === 'orcado' || moduleId === 'beneficios' || moduleId === 'colaboradores')) return 'cards';
+    if (table.querySelector('table') || table.querySelector('[colspan],[rowspan]') || headers.length > 5) return 'scroll';
     if (moduleId === 'colaboradores' && table.closest('.cartao')) return 'cards';
-    if (moduleId === 'rh' && (table.closest('.modal') || table.closest('.chart-wrap'))) return 'scroll';
-    if (moduleId === 'beneficios' && table.closest('.modal,.rateio-table,.smalltbl')) return 'scroll';
     return headers.length >= 2 && headers.every(Boolean) ? 'cards' : 'scroll';
   }
   function labelTables(root) {
     Array.prototype.slice.call((root || document).querySelectorAll('table')).forEach(function (table) {
       if (table.closest('.lnb-mobile-drawer') || table.dataset.lnbMobileTable === 'skip' || table.getAttribute('role') === 'presentation') return;
       var headers = Array.prototype.slice.call(table.querySelectorAll('thead th')).map(function (header) { return cleanText(header.textContent); });
-      var wrap = table.closest('.table-wrap,.matriz,.cartao') || table.parentElement;
+      var wrap = table.parentElement;
       var policy = tablePolicy(table, headers);
       if (wrap) {
         wrap.classList.toggle('lnb-mobile-table-cards', policy === 'cards');
         wrap.classList.toggle('lnb-mobile-table-scroll', policy === 'scroll');
+        wrap.dataset.lnbMobileColumns = String(headers.length);
       }
       if (policy !== 'cards') return;
-      Array.prototype.slice.call(table.querySelectorAll('tbody tr')).forEach(function (row) {
+      Array.prototype.slice.call(table.querySelectorAll('tbody tr,tfoot tr')).forEach(function (row) {
         Array.prototype.slice.call(row.children).forEach(function (cell, index) {
           var label = headers[index] || '';
           if (cell.tagName === 'TD' && cell.dataset.lnbLabel !== label) cell.dataset.lnbLabel = label;
@@ -248,7 +301,11 @@
     ui.aiButton.hidden = !ai;
     ui.aiButton.disabled = !ai;
   }
-  function syncAll() { labelTables(document); syncShell(); if (ui.drawer && ui.drawer.classList.contains('is-open')) renderDrawer(); }
+  function keepMobileStylesLast() {
+    var link = document.querySelector('link[data-lnb-mobile-shell="v3"]');
+    if (link && link.parentNode === document.head && document.head.lastElementChild !== link) document.head.appendChild(link);
+  }
+  function syncAll() { labelTables(document); renderMobileHome(); syncShell(); keepMobileStylesLast(); if (ui.drawer && ui.drawer.classList.contains('is-open')) renderDrawer(); }
   function observe() {
     var observer = new MutationObserver(function (mutations) {
       var useful = mutations.some(function (mutation) { return !mutation.target.closest || !mutation.target.closest('.lnb-mobile-appbar,.lnb-mobile-bottomnav,.lnb-mobile-drawer'); });
@@ -257,6 +314,6 @@
     });
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'aria-selected', 'aria-current'] });
   }
-  function start() { buildShell(); labelTables(document); observe(); document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeDrawer(); }); }
+  function start() { buildShell(); syncAll(); observe(); document.addEventListener('click', function () { setTimeout(syncAll, 20); setTimeout(syncAll, 300); }, true); document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeDrawer(); }); setTimeout(syncAll, 800); setTimeout(syncAll, 2200); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
 })();

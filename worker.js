@@ -88,7 +88,7 @@ async function handleMobileAwareAsset(request, env) {
   if (!contentType.includes('text/html')) return asset;
   const path = new URL(request.url).pathname;
   const html = injectMobileAppShell(await asset.text(), request, inferMobileModule(path));
-  return responsePatchedHtml(asset, html, 'x-lnb-mobile-shell', 'v2');
+  return responsePatchedHtml(asset, html, 'x-lnb-mobile-shell', 'v3');
 }
 
 function isMobileRequest(request, forceMobile) {
@@ -108,14 +108,14 @@ function inferMobileModule(pathname) {
 
 function injectMobileAppShell(html, request, moduleName, forceMobile) {
   if (!isMobileRequest(request, forceMobile)) return html;
-  const marker = 'data-lnb-mobile-shell="v2"';
+  const marker = 'data-lnb-mobile-shell="v3"';
   if (html.includes(marker)) return html;
   const moduleId = String(moduleName || 'modulo').replace(/[^a-z0-9_-]/gi, '').toLowerCase();
-  const style = '<link rel="stylesheet" href="/runtime-patches/mobile-app-shell.css?v=2" '+marker+'>';
-  const script = '<script src="/runtime-patches/mobile-app-shell.js?v=2" data-lnb-mobile-module="'+moduleId+'" '+marker+' defer></' + 'script>';
+  const style = '<link rel="stylesheet" href="/runtime-patches/mobile-app-shell.css?v=3" '+marker+'>';
+  const script = '<script src="/runtime-patches/mobile-app-shell.js?v=3" data-lnb-mobile-module="'+moduleId+'" '+marker+' defer></' + 'script>';
   let out = html.replace(/<html(\s[^>]*)?>/i, function(match, attrs){
     const rest = attrs || '';
-    return '<html'+rest+' data-lnb-mobile-shell="v2" data-lnb-mobile-module="'+moduleId+'">';
+    return '<html'+rest+' data-lnb-mobile-shell="v3" data-lnb-mobile-module="'+moduleId+'">';
   });
   if (out.includes('</head>')) out = out.replace('</head>', style + '\n</head>'); else out = style + '\n' + out;
   if (out.includes('</body>')) out = out.replace('</body>', script + '\n</body>'); else out += '\n' + script;

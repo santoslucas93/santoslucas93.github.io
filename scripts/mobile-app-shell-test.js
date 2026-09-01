@@ -34,8 +34,8 @@ const env = { ASSETS: { fetch: async () => new Response(html, { headers: { 'cont
 
   const mobile = await workerDefault.fetch(new Request('https://painel.test/admin/', { headers: { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' } }), env);
   const mobileHtml = await mobile.text();
-  assert(mobileHtml.includes('data-lnb-mobile-shell="v2"'), 'HTML móvel não recebeu o marcador isolado.');
-  assert(mobileHtml.includes('/runtime-patches/mobile-app-shell.css?v=2'), 'CSS móvel não foi injetado.');
+  assert(mobileHtml.includes('data-lnb-mobile-shell="v3"'), 'HTML móvel não recebeu o marcador isolado.');
+  assert(mobileHtml.includes('/runtime-patches/mobile-app-shell.css?v=3'), 'CSS móvel não foi injetado.');
   assert(mobileHtml.includes('data-lnb-mobile-module="admin"'), 'Módulo móvel não foi identificado.');
 
   const future = await workerDefault.fetch(new Request('https://painel.test/novo-modulo/', { headers: { 'sec-ch-ua-mobile': '?1' } }), env);
@@ -53,11 +53,12 @@ const env = { ASSETS: { fetch: async () => new Response(html, { headers: { 'cont
   assert(!client.includes('/rest/v1/') && !client.includes('/auth/v1/'), 'Shell móvel não deve duplicar autenticação nem acessar dados diretamente.');
   assert(css.includes('env(safe-area-inset-top') && css.includes('env(safe-area-inset-bottom'), 'Safe areas de iPhone ausentes.');
   assert(css.includes('.lnb-mobile-table-cards td::before'), 'Tabelas não possuem rótulos móveis.');
-  assert(client.includes("if (moduleId === 'orcado') return 'scroll'"), 'Tabelas complexas do Orçado não estão protegidas da conversão em fichas.');
+  assert(client.includes("headers.length <= 5"), 'Tabelas simples não estão protegidas pela política de fichas móveis.');
   assert(!client.includes("'Detalhe ' +"), 'O shell ainda fabrica rótulos sem significado para tabelas sem cabeçalho.');
   assert(client.includes("'#ia-toggle'"), 'Atalho móvel não reconhece o Chat IA de Orçado e Benefícios.');
   assert(css.includes('body.lnb-mobile-app #ia-pop'), 'Chat IA não possui layout móvel em tela inteira.');
-  assert(css.includes('.hub-top{display:none!important}'), 'Cabeçalho duplicado da Central ainda aparece no celular.');
+  assert(css.includes('.hub-header'), 'Cabeçalho duplicado da Central ainda aparece no celular.');
+  assert(client.includes('Central de Colaboradores'), 'Home móvel não oferece acesso claro à Central de Colaboradores.');
   assert(client.includes("resources: ['colaboradores', 'beneficios', 'rh', 'admin']"), 'Central de Colaboradores não considera todos os perfis autorizados.');
   assert(workerSource.includes('if (!asset.ok || !isMobileRequest(request)) return asset;'), 'Ativo desktop não está protegido por retorno sem alteração.');
 
