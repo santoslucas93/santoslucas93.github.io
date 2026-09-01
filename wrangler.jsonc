@@ -6,7 +6,8 @@
     "directory": ".",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/*", "/revisao-ids", "/revisao-ids.html"]
+    // A regra global também cobre explicitamente "/revisao-ids" e "/revisao-ids.html".
+    "run_worker_first": ["/*"]
   },
   "vars": {
     "GSHEET_REALIZADO_ID": "1sY4QvX6enN2Jx6hmVFxuutFvtOyoZc3lQ99mtdh0_WI",
