@@ -1,8 +1,8 @@
 /* Painel LNB — shell móvel compartilhado. Descobre e aciona a interface original. */
 (function () {
   'use strict';
-  if (!document.documentElement.matches('[data-lnb-mobile-shell="v3"]') || window.__LNB_MOBILE_APP_V3) return;
-  window.__LNB_MOBILE_APP_V3 = true;
+  if (!document.documentElement.matches('[data-lnb-mobile-shell="v4"]') || window.__LNB_MOBILE_APP_V4) return;
+  window.__LNB_MOBILE_APP_V4 = true;
 
   var MODULES = {
     hub: { title: 'Painel LNB', subtitle: 'Central de Gestão', nav: '.hub-card a,.hub-chave.on' },
@@ -266,31 +266,99 @@
       ui.list.appendChild(item);
     });
   }
+  function tableHeaders(table) {
+    var rows = Array.prototype.slice.call(table.querySelectorAll('thead tr'));
+    if (!rows.length) return [];
+    var bodyRow = table.querySelector('tbody tr');
+    var count = bodyRow ? bodyRow.children.length : 0;
+    var chosen = rows[rows.length - 1];
+    rows.some(function (row) { if (count && row.children.length === count) { chosen = row; return true; } return false; });
+    return Array.prototype.slice.call(chosen.querySelectorAll('th,td')).map(function (header) { return cleanText(header.textContent); });
+  }
   function tablePolicy(table, headers) {
-    var simple = headers.length >= 2 && headers.length <= 5 && headers.every(Boolean) && !table.querySelector('table') && !table.querySelector('[colspan],[rowspan]');
-    if (simple && (moduleId === 'rh' || moduleId === 'orcado' || moduleId === 'beneficios' || moduleId === 'colaboradores')) return 'cards';
-    if (table.querySelector('table') || table.querySelector('[colspan],[rowspan]') || headers.length > 5) return 'scroll';
-    if (moduleId === 'colaboradores' && table.closest('.cartao')) return 'cards';
-    return headers.length >= 2 && headers.every(Boolean) ? 'cards' : 'scroll';
+    if (headers.length && table.querySelector('tbody tr,tfoot tr')) return 'cards';
+    return 'plain';
+  }
+  function forceCardLayout(table, headers) {
+    table.style.setProperty('display', 'block', 'important');
+    table.style.setProperty('width', '100%', 'important');
+    table.style.setProperty('min-width', '0', 'important');
+    table.style.setProperty('table-layout', 'auto', 'important');
+    Array.prototype.slice.call(table.querySelectorAll('colgroup')).forEach(function (group) { group.style.setProperty('display', 'none', 'important'); });
+    var head = table.querySelector('thead'); if (head) head.style.setProperty('display', 'none', 'important');
+    Array.prototype.slice.call(table.querySelectorAll('tbody,tfoot')).forEach(function (section) {
+      section.style.setProperty('display', 'grid', 'important'); section.style.setProperty('width', '100%', 'important');
+    });
+    Array.prototype.slice.call(table.querySelectorAll('tbody tr,tfoot tr')).forEach(function (row) {
+      row.style.setProperty('display', 'block', 'important'); row.style.setProperty('width', '100%', 'important'); row.style.removeProperty('grid-template-columns');
+      Array.prototype.slice.call(row.children).forEach(function (cell, index) {
+        if (cell.tagName !== 'TD' && cell.tagName !== 'TH') return;
+        var label = headers[index] || (index === 0 ? 'Item' : 'Informação');
+        cell.dataset.lnbLabel = label;
+        cell.style.setProperty('display', 'grid', 'important');
+        cell.style.setProperty('grid-template-columns', 'minmax(92px,38%) minmax(0,1fr)', 'important');
+        cell.style.setProperty('width', '100%', 'important'); cell.style.setProperty('min-width', '0', 'important');
+        cell.style.setProperty('white-space', 'normal', 'important'); cell.style.setProperty('overflow-wrap', 'break-word', 'important'); cell.style.setProperty('word-break', 'normal', 'important');
+        cell.style.setProperty('text-align', 'right', 'important');
+      });
+    });
   }
   function labelTables(root) {
     Array.prototype.slice.call((root || document).querySelectorAll('table')).forEach(function (table) {
       if (table.closest('.lnb-mobile-drawer') || table.dataset.lnbMobileTable === 'skip' || table.getAttribute('role') === 'presentation') return;
-      var headers = Array.prototype.slice.call(table.querySelectorAll('thead th')).map(function (header) { return cleanText(header.textContent); });
+      var headers = tableHeaders(table);
       var wrap = table.parentElement;
       var policy = tablePolicy(table, headers);
       if (wrap) {
         wrap.classList.toggle('lnb-mobile-table-cards', policy === 'cards');
-        wrap.classList.toggle('lnb-mobile-table-scroll', policy === 'scroll');
+        wrap.classList.remove('lnb-mobile-table-scroll');
+        wrap.classList.toggle('lnb-mobile-table-plain', policy === 'plain');
         wrap.dataset.lnbMobileColumns = String(headers.length);
       }
-      if (policy !== 'cards') return;
-      Array.prototype.slice.call(table.querySelectorAll('tbody tr,tfoot tr')).forEach(function (row) {
-        Array.prototype.slice.call(row.children).forEach(function (cell, index) {
-          var label = headers[index] || '';
-          if (cell.tagName === 'TD' && cell.dataset.lnbLabel !== label) cell.dataset.lnbLabel = label;
+      if (policy === 'cards') forceCardLayout(table, headers);
+    });
+  }
+  function adaptRhCompositionGrids() {
+    if (moduleId !== 'rh') return;
+    Array.prototype.slice.call(document.querySelectorAll('.rh-comp-table')).forEach(function (grid) {
+      grid.style.setProperty('display', 'grid', 'important'); grid.style.setProperty('width', '100%', 'important'); grid.style.setProperty('overflow-x', 'hidden', 'important');
+      var header = grid.querySelector('.rh-comp-header'); if (header) header.style.setProperty('display', 'none', 'important');
+      Array.prototype.slice.call(grid.querySelectorAll('.rh-comp-row:not(.rh-comp-header)')).forEach(function (row) {
+        row.style.setProperty('display', 'block', 'important'); row.style.setProperty('grid-template-columns', '1fr', 'important'); row.style.setProperty('width', '100%', 'important'); row.style.setProperty('padding', '6px 0', 'important');
+        Array.prototype.slice.call(row.children).forEach(function (cell) {
+          cell.style.setProperty('display', 'grid', 'important'); cell.style.setProperty('grid-template-columns', 'minmax(105px,42%) minmax(0,1fr)', 'important');
+          cell.style.setProperty('gap', '9px', 'important'); cell.style.setProperty('width', '100%', 'important'); cell.style.setProperty('min-width', '0', 'important');
+          cell.style.setProperty('padding', '7px 10px', 'important'); cell.style.setProperty('white-space', 'normal', 'important'); cell.style.setProperty('overflow-wrap', 'break-word', 'important'); cell.style.setProperty('word-break', 'normal', 'important'); cell.style.setProperty('text-align', 'right', 'important');
         });
       });
+    });
+    Array.prototype.slice.call(document.querySelectorAll('.modal:not([hidden]),#rh-detail-modal:not([hidden])')).forEach(function (modal) {
+      var card = modal.querySelector('.modal-card,.rh-detail-card');
+      if (!card) return;
+      card.style.setProperty('width', '100%', 'important'); card.style.setProperty('max-width', '100%', 'important'); card.style.setProperty('min-width', '0', 'important'); card.style.setProperty('height', 'auto', 'important'); card.style.setProperty('max-height', '100%', 'important');
+    });
+  }
+  function adaptCharts() {
+    if (moduleId !== 'orcado') return;
+    Array.prototype.slice.call(document.querySelectorAll('.chart-svg')).forEach(function (svg) {
+      var host = svg.parentElement; if (!host || host.querySelector(':scope > .lnb-mobile-chart-list')) return;
+      var marks = Array.prototype.slice.call(svg.querySelectorAll('[data-clickable="1"]')).filter(function (mark) { return mark.querySelector('title'); });
+      if (!marks.length) { svg.classList.add('lnb-mobile-chart-fit'); return; }
+      var records = marks.map(function (mark) {
+        var title = Array.prototype.slice.call(mark.querySelectorAll('title')).map(function (node) { return cleanText(node.textContent); }).filter(Boolean).join(' / ');
+        var label = cleanText(mark.dataset.label) || title.split('·')[0].trim();
+        var values = title.match(/R\$\s*[\d.]+(?:,\d{2})?/g) || [];
+        var numeric = values.reduce(function (max, value) { return Math.max(max, Number(value.replace(/[^\d,]/g, '').replace(',', '.')) || 0); }, 0);
+        return { mark: mark, title: title, label: label, detail: title.replace(label, '').replace(/^\s*·\s*/, ''), value: numeric };
+      });
+      var max = Math.max.apply(Math, records.map(function (record) { return record.value; }).concat([1]));
+      var list = document.createElement('div'); list.className = 'lnb-mobile-chart-list';
+      records.forEach(function (record) {
+        var button = document.createElement('button'); button.type = 'button'; button.style.setProperty('--lnb-chart-pct', Math.max(3, record.value / max * 100) + '%');
+        button.innerHTML = '<span><strong>' + record.label + '</strong><small>' + (record.detail || 'Toque para detalhar') + '</small><i></i></span><b>›</b>';
+        button.addEventListener('click', function () { record.mark.dispatchEvent(new MouseEvent('click', { bubbles: true })); }); list.appendChild(button);
+      });
+      host.appendChild(list); svg.classList.add('lnb-mobile-chart-source');
     });
   }
   function syncShell() {
@@ -302,10 +370,10 @@
     ui.aiButton.disabled = !ai;
   }
   function keepMobileStylesLast() {
-    var link = document.querySelector('link[data-lnb-mobile-shell="v3"]');
+    var link = document.querySelector('link[data-lnb-mobile-shell="v4"]');
     if (link && link.parentNode === document.head && document.head.lastElementChild !== link) document.head.appendChild(link);
   }
-  function syncAll() { labelTables(document); renderMobileHome(); syncShell(); keepMobileStylesLast(); if (ui.drawer && ui.drawer.classList.contains('is-open')) renderDrawer(); }
+  function syncAll() { labelTables(document); adaptRhCompositionGrids(); adaptCharts(); renderMobileHome(); syncShell(); keepMobileStylesLast(); if (ui.drawer && ui.drawer.classList.contains('is-open')) renderDrawer(); }
   function observe() {
     var observer = new MutationObserver(function (mutations) {
       var useful = mutations.some(function (mutation) { return !mutation.target.closest || !mutation.target.closest('.lnb-mobile-appbar,.lnb-mobile-bottomnav,.lnb-mobile-drawer'); });

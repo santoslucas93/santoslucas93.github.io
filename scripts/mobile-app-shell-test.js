@@ -34,8 +34,8 @@ const env = { ASSETS: { fetch: async () => new Response(html, { headers: { 'cont
 
   const mobile = await workerDefault.fetch(new Request('https://painel.test/admin/', { headers: { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' } }), env);
   const mobileHtml = await mobile.text();
-  assert(mobileHtml.includes('data-lnb-mobile-shell="v3"'), 'HTML móvel não recebeu o marcador isolado.');
-  assert(mobileHtml.includes('/runtime-patches/mobile-app-shell.css?v=3'), 'CSS móvel não foi injetado.');
+  assert(mobileHtml.includes('data-lnb-mobile-shell="v4"'), 'HTML móvel não recebeu o marcador isolado.');
+  assert(mobileHtml.includes('/runtime-patches/mobile-app-shell.css?v=4'), 'CSS móvel não foi injetado.');
   assert(mobileHtml.includes('data-lnb-mobile-module="admin"'), 'Módulo móvel não foi identificado.');
 
   const future = await workerDefault.fetch(new Request('https://painel.test/novo-modulo/', { headers: { 'sec-ch-ua-mobile': '?1' } }), env);
@@ -53,7 +53,11 @@ const env = { ASSETS: { fetch: async () => new Response(html, { headers: { 'cont
   assert(!client.includes('/rest/v1/') && !client.includes('/auth/v1/'), 'Shell móvel não deve duplicar autenticação nem acessar dados diretamente.');
   assert(css.includes('env(safe-area-inset-top') && css.includes('env(safe-area-inset-bottom'), 'Safe areas de iPhone ausentes.');
   assert(css.includes('.lnb-mobile-table-cards td::before'), 'Tabelas não possuem rótulos móveis.');
-  assert(client.includes("headers.length <= 5"), 'Tabelas simples não estão protegidas pela política de fichas móveis.');
+  assert(client.includes("return 'cards'"), 'Tabelas não estão protegidas pela política de fichas móveis.');
+  assert(!client.includes("return 'scroll'"), 'A camada móvel ainda permite tabelas com rolagem lateral.');
+  assert(client.includes('adaptRhCompositionGrids'), 'Grades dinâmicas do RH não possuem adaptação móvel.');
+  assert(client.includes('adaptCharts'), 'Gráficos não possuem visualização móvel sem recorte lateral.');
+  assert(css.includes('.lnb-mobile-chart-list'), 'Lista gráfica móvel não foi estilizada.');
   assert(!client.includes("'Detalhe ' +"), 'O shell ainda fabrica rótulos sem significado para tabelas sem cabeçalho.');
   assert(client.includes("'#ia-toggle'"), 'Atalho móvel não reconhece o Chat IA de Orçado e Benefícios.');
   assert(css.includes('body.lnb-mobile-app #ia-pop'), 'Chat IA não possui layout móvel em tela inteira.');
