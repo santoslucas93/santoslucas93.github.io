@@ -388,6 +388,18 @@
     });
     observer.observe(document.body, options);
   }
-  function start() { buildShell(); syncAll(); observe(); document.addEventListener('click', function () { setTimeout(syncAll, 20); setTimeout(syncAll, 300); }, true); document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeDrawer(); }); setTimeout(syncAll, 800); setTimeout(syncAll, 2200); if (moduleId === 'rh') setInterval(adaptRhCompositionGrids, 400); }
+  var rhWatchTimer = null, rhWatchTicks = 0;
+  function watchRhComposition() {
+    if (moduleId !== 'rh') return;
+    clearInterval(rhWatchTimer);
+    rhWatchTicks = 0;
+    rhWatchTimer = setInterval(function () {
+      rhWatchTicks += 1;
+      if (!document.querySelector('.rh-comp-header')) { clearInterval(rhWatchTimer); return; }
+      adaptRhCompositionGrids();
+      if (rhWatchTicks >= 12) clearInterval(rhWatchTimer);
+    }, 400);
+  }
+  function start() { buildShell(); syncAll(); observe(); document.addEventListener('click', function () { setTimeout(syncAll, 20); setTimeout(syncAll, 300); watchRhComposition(); }, true); document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeDrawer(); }); setTimeout(syncAll, 800); setTimeout(syncAll, 2200); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
 })();
