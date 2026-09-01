@@ -37,5 +37,5 @@
     if(typeof window.rhV21ApplyPopupPeriodReferences==='function')window.rhV21ApplyPopupPeriodReferences(modal);
   }
   var previous=window.openPerson;if(typeof previous==='function')window.openPerson=function(id){var r=previous.apply(this,arguments);setTimeout(function(){rebuild(id);},0);return r;};
-  if(!document.getElementById('_rh_v23_comp_popup')){var st=document.createElement('style');st.id='_rh_v23_comp_popup';st.textContent='.rh-v23-comp span{display:inline-flex;padding:3px 7px;border:1px solid var(--line-soft);border-radius:999px;color:var(--muted);font-size:10px;font-weight:800;white-space:nowrap}#employee-modal table{min-width:920px!important}';document.head.appendChild(st);}
+  if(!document.getElementById('_rh_v23_comp_popup')){var st=document.createElement('style');st.id='_rh_v23_comp_popup';st.textContent='.rh-v23-comp span{display:inline-flex;padding:3px 7px;border:1px solid var(--line-soft);border-radius:999px;color:var(--muted);font-size:10px;font-weight:800;white-space:nowrap}#employee-modal table{min-width:920px!important}html[data-lnb-mobile-shell] #employee-modal table{display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;table-layout:auto!important}';document.head.appendChild(st);}
 })();

@@ -5,6 +5,12 @@ const vm = require('vm');
 const workerSource = fs.readFileSync('worker.js', 'utf8');
 const css = fs.readFileSync('runtime-patches/mobile-app-shell.css', 'utf8');
 const client = fs.readFileSync('runtime-patches/mobile-app-shell.js', 'utf8');
+const rh19 = fs.readFileSync('runtime-patches/rh-folha-hotfix-v19-popup-columns.inc.js', 'utf8');
+const rh20 = fs.readFileSync('runtime-patches/rh-folha-hotfix-v20-popup-totals-grid.inc.js', 'utf8');
+const rh23 = fs.readFileSync('runtime-patches/rh-folha-hotfix-v23-competencia-popup.inc.js', 'utf8');
+const rh62 = fs.readFileSync('runtime-patches/rh-folha-hotfix-v62-fluxos-independentes.inc.js', 'utf8');
+const rh73 = fs.readFileSync('runtime-patches/rh-folha-hotfix-v73-edicao-completa-colaboradores.inc.js', 'utf8');
+const orcado = fs.readFileSync('orcado/index.html', 'utf8');
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -34,8 +40,8 @@ const env = { ASSETS: { fetch: async () => new Response(html, { headers: { 'cont
 
   const mobile = await workerDefault.fetch(new Request('https://painel.test/admin/', { headers: { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' } }), env);
   const mobileHtml = await mobile.text();
-  assert(mobileHtml.includes('data-lnb-mobile-shell="v4"'), 'HTML móvel não recebeu o marcador isolado.');
-  assert(mobileHtml.includes('/runtime-patches/mobile-app-shell.css?v=4'), 'CSS móvel não foi injetado.');
+  assert(mobileHtml.includes('data-lnb-mobile-shell="v5"'), 'HTML móvel não recebeu o marcador isolado.');
+  assert(mobileHtml.includes('/runtime-patches/mobile-app-shell.css?v=5'), 'CSS móvel não foi injetado.');
   assert(mobileHtml.includes('data-lnb-mobile-module="admin"'), 'Módulo móvel não foi identificado.');
 
   const future = await workerDefault.fetch(new Request('https://painel.test/novo-modulo/', { headers: { 'sec-ch-ua-mobile': '?1' } }), env);
@@ -53,11 +59,26 @@ const env = { ASSETS: { fetch: async () => new Response(html, { headers: { 'cont
   assert(!client.includes('/rest/v1/') && !client.includes('/auth/v1/'), 'Shell móvel não deve duplicar autenticação nem acessar dados diretamente.');
   assert(css.includes('env(safe-area-inset-top') && css.includes('env(safe-area-inset-bottom'), 'Safe areas de iPhone ausentes.');
   assert(css.includes('.lnb-mobile-table-cards td::before'), 'Tabelas não possuem rótulos móveis.');
+  assert(client.includes("host.className = 'lnb-mobile-table-host'"), 'Tabelas ainda podem destruir o card/painel pai.');
+  assert(client.includes('lnbMobileLocked') && client.includes("prop === 'min-width'"), 'O bloqueio contra reescrita desktop da largura móvel foi perdido.');
+  assert(client.includes("getAttribute('colspan')") && client.includes("'lnb-mobile-cell-wide'"), 'Detalhes colspan ainda podem ser comprimidos em uma coluna parcial.');
+  assert(css.includes('.lnb-mobile-cell-wide>*{width:100%'), 'Conteúdo de detalhes colspan não ocupa a largura inteira.');
   assert(client.includes("return 'cards'"), 'Tabelas não estão protegidas pela política de fichas móveis.');
   assert(!client.includes("return 'scroll'"), 'A camada móvel ainda permite tabelas com rolagem lateral.');
   assert(client.includes('adaptRhCompositionGrids'), 'Grades dinâmicas do RH não possuem adaptação móvel.');
+  assert(rh19.includes('isRhMobile()') && rh19.includes('if(!grid||isRhMobile())return'), 'RH v19 ainda reaplica a grade desktop no celular.');
+  assert(rh20.includes('function mobileTable(') && rh20.includes('function mobileGrid('), 'RH v20 não possui renderização móvel na origem.');
+  assert(rh20.includes("if(isRhMobile()){mobileTable(table,heads);return;}"), 'Tabela RH ainda depende de correção tardia do shell.');
+  assert(rh20.includes("if(isRhMobile()){mobileGrid(grid,heads,header,rows,total);return;}"), 'Grade RH ainda depende de correção tardia do shell.');
+  assert(rh23.includes('html[data-lnb-mobile-shell] #employee-modal table'), 'Modal de competência ainda mantém largura mínima de desktop no celular.');
+  assert(rh62.includes("modal62('Carregando colaborador'"), 'Detalhe do colaborador ainda espera a rede antes de exibir o botão Fechar.');
+  assert(rh62.includes('inset:var(--lnb-mobile-top) 0 var(--lnb-mobile-bottom)') && rh62.includes('.rh62-form button[type="submit"]{position:sticky'), 'Detalhe funcional ainda pode esconder Fechar ou Salvar atrás das barras móveis.');
+  assert(rh73.includes('inset:var(--lnb-mobile-top) 0 var(--lnb-mobile-bottom)') && rh73.includes('#rh73-edit-save{position:sticky'), 'Edição completa ainda pode esconder Fechar ou Salvar atrás das barras móveis.');
   assert(client.includes('adaptCharts'), 'Gráficos não possuem visualização móvel sem recorte lateral.');
   assert(css.includes('.lnb-mobile-chart-list'), 'Lista gráfica móvel não foi estilizada.');
+  assert(orcado.includes('function orcadoMobileChart('), 'Orçado ainda renderiza o gráfico desktop antes da adaptação móvel.');
+  assert(orcado.includes('if(document.documentElement&&document.documentElement.dataset.lnbMobileShell)return orcadoMobileChart(rows,opt)'), 'Gráficos do Orçado não selecionam a visualização móvel na origem.');
+  assert(orcado.includes('class="lnb-mobile-series-list"'), 'Séries mensais do Orçado ainda exigem rolagem lateral.');
   assert(!client.includes("'Detalhe ' +"), 'O shell ainda fabrica rótulos sem significado para tabelas sem cabeçalho.');
   assert(client.includes("'#ia-toggle'"), 'Atalho móvel não reconhece o Chat IA de Orçado e Benefícios.');
   assert(css.includes('body.lnb-mobile-app #ia-pop'), 'Chat IA não possui layout móvel em tela inteira.');

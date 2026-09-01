@@ -21,7 +21,14 @@ function style73(){
     '.rh73-body{min-height:0;overflow:auto;padding:18px 22px 22px}.rh73-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.rh73-form label{display:grid;gap:5px;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase}.rh73-form input,.rh73-form select,.rh73-form textarea{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--line-soft);border-radius:9px;background:var(--surface-2);color:var(--text)}.rh73-form input:disabled{opacity:.6}'+
     '.rh73-checks,.rh73-full{grid-column:1/-1}.rh73-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.rh73-checks label{display:flex;align-items:center;gap:8px;text-transform:none}.rh73-checks input{width:auto}.rh73-note{padding:11px 12px;border:1px solid var(--line-soft);border-radius:10px;background:var(--surface-2);color:var(--muted);font-size:11px;line-height:1.5}'+
     '.rh73-edit-btn{display:inline-block;margin-top:4px;padding:2px 8px;border:1px solid var(--line-soft);border-radius:7px;background:var(--surface-2);color:var(--gold-2);font-size:10px;font-weight:800;cursor:pointer}'+
-    '@media(max-width:760px){#rh73-modal{padding:7px}.rh73-card{width:calc(100vw - 14px);max-height:calc(100vh - 14px)}.rh73-form{grid-template-columns:1fr}.rh73-full,.rh73-checks{grid-column:1}.rh73-checks{grid-template-columns:1fr}}';document.head.appendChild(s)
+    '@media(max-width:760px){#rh73-modal{padding:7px}.rh73-card{width:calc(100vw - 14px);max-height:calc(100vh - 14px)}.rh73-form{grid-template-columns:1fr}.rh73-full,.rh73-checks{grid-column:1}.rh73-checks{grid-template-columns:1fr}}'+
+    'html[data-lnb-mobile-shell] #rh73-modal{inset:var(--lnb-mobile-top) 0 var(--lnb-mobile-bottom);z-index:999980;padding:7px;place-items:stretch center;overflow:hidden}'+
+    'html[data-lnb-mobile-shell] #rh73-modal .rh73-card{width:100%;max-width:100%;height:100%;max-height:100%;min-height:0;border-radius:18px}'+
+    'html[data-lnb-mobile-shell] #rh73-modal .rh73-head{position:relative;z-index:3;flex:0 0 auto;align-items:flex-start;padding:12px 13px;background:var(--surface)}'+
+    'html[data-lnb-mobile-shell] #rh73-modal .rh73-head>div{min-width:0}html[data-lnb-mobile-shell] #rh73-modal .rh73-head h2{font-size:19px;line-height:1.15;overflow-wrap:anywhere}'+
+    'html[data-lnb-mobile-shell] #rh73-modal .rh73-close{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;margin:0;padding:0;position:relative;z-index:4}'+
+    'html[data-lnb-mobile-shell] #rh73-modal .rh73-body{flex:1;min-height:0;padding:12px 12px 10px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}'+
+    'html[data-lnb-mobile-shell] #rh73-modal .rh73-form{padding-bottom:4px}html[data-lnb-mobile-shell] #rh73-modal #rh73-edit-save{position:sticky;z-index:5;bottom:0;width:100%;min-height:50px;margin-top:4px;box-shadow:0 -10px 22px var(--surface)}';document.head.appendChild(s)
 }
 function close73(){var m=el73('rh73-modal');if(m)m.remove()}
 function modal73(title,subtitle,html){

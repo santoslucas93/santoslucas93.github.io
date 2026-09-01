@@ -1,8 +1,8 @@
 /* Painel LNB — shell móvel compartilhado. Descobre e aciona a interface original. */
 (function () {
   'use strict';
-  if (!document.documentElement.matches('[data-lnb-mobile-shell="v4"]') || window.__LNB_MOBILE_APP_V4) return;
-  window.__LNB_MOBILE_APP_V4 = true;
+  if (!document.documentElement.matches('[data-lnb-mobile-shell="v5"]') || window.__LNB_MOBILE_APP_V5) return;
+  window.__LNB_MOBILE_APP_V5 = true;
 
   var MODULES = {
     hub: { title: 'Painel LNB', subtitle: 'Central de Gestão', nav: '.hub-card a,.hub-chave.on' },
@@ -273,11 +273,26 @@
     var count = bodyRow ? bodyRow.children.length : 0;
     var chosen = rows[rows.length - 1];
     rows.some(function (row) { if (count && row.children.length === count) { chosen = row; return true; } return false; });
-    return Array.prototype.slice.call(chosen.querySelectorAll('th,td')).map(function (header) { return cleanText(header.textContent); });
+    var headers = [];
+    Array.prototype.slice.call(chosen.querySelectorAll('th,td')).forEach(function (header) {
+      var label = cleanText(header.textContent);
+      var span = Math.max(1, Number(header.getAttribute('colspan') || 1));
+      for (var i = 0; i < span; i += 1) headers.push(label);
+    });
+    return headers;
   }
   function tablePolicy(table, headers) {
-    if (headers.length && table.querySelector('tbody tr,tfoot tr')) return 'cards';
+    var row = table.querySelector('tbody tr,tfoot tr');
+    if (row && (headers.length || row.children.length > 1)) return 'cards';
     return 'plain';
+  }
+  function tableHost(table) {
+    if (table.parentElement && table.parentElement.classList.contains('lnb-mobile-table-host')) return table.parentElement;
+    var host = document.createElement('div'); host.className = 'lnb-mobile-table-host';
+    table.parentNode.insertBefore(host, table); host.appendChild(table); return host;
+  }
+  function fallbackCellLabel(cell, headers, index, count) {
+    return headers[index] || cleanText(cell.getAttribute('data-label') || cell.getAttribute('aria-label')) || (index === 0 ? 'Item' : index === count - 1 ? 'Ações' : 'Informação');
   }
   function forceCardLayout(table, headers) {
     table.style.setProperty('display', 'block', 'important');
@@ -302,22 +317,29 @@
       row.style.setProperty('display', 'block', 'important'); row.style.setProperty('width', '100%', 'important'); row.style.removeProperty('grid-template-columns');
       Array.prototype.slice.call(row.children).forEach(function (cell, index) {
         if (cell.tagName !== 'TD' && cell.tagName !== 'TH') return;
-        var label = headers[index] || (index === 0 ? 'Item' : 'Informação');
+        var fullWidth = Number(cell.getAttribute('colspan') || 1) > 1 || cell.querySelectorAll('input,select,textarea,button').length > 1;
+        var label = fullWidth && Number(cell.getAttribute('colspan') || 1) > 1 ? '' : fallbackCellLabel(cell, headers, index, row.children.length);
         cell.dataset.lnbLabel = label;
         var hasNestedTable = !!cell.querySelector('table, .table-scroll, .table-wrap');
         cell.style.setProperty('display', 'grid', 'important');
-        cell.style.setProperty('grid-template-columns', hasNestedTable ? '1fr' : 'minmax(92px,38%) minmax(0,1fr)', 'important');
-        cell.style.setProperty('width', '100%', 'important'); cell.style.setProperty('min-width', '0', 'important');
-        cell.style.setProperty('white-space', 'normal', 'important'); cell.style.setProperty('overflow-wrap', 'break-word', 'important'); cell.style.setProperty('word-break', 'normal', 'important');
-        cell.style.setProperty('text-align', hasNestedTable ? 'left' : 'right', 'important');
+        fullWidth = fullWidth || hasNestedTable;
+        cell.style.setProperty('grid-template-columns', fullWidth ? 'minmax(0,1fr)' : 'minmax(92px,38%) minmax(0,1fr)', 'important');
+        cell.style.setProperty('width', '100%', 'important'); cell.style.setProperty('max-width', '100%', 'important'); cell.style.setProperty('min-width', '0', 'important');
+        cell.style.setProperty('white-space', 'normal', 'important'); cell.style.setProperty('overflow-wrap', 'anywhere', 'important'); cell.style.setProperty('word-break', 'normal', 'important');
+        cell.style.setProperty('text-align', fullWidth ? 'left' : 'right', 'important');
+        cell.classList.toggle('lnb-mobile-cell-wide', fullWidth);
+        Array.prototype.slice.call(cell.querySelectorAll('input,select,textarea,button,div,section,table')).forEach(function (child) { child.style.setProperty('max-width', '100%', 'important'); child.style.setProperty('min-width', '0', 'important'); });
       });
     });
   }
   function labelTables(root) {
-    Array.prototype.slice.call((root || document).querySelectorAll('table')).forEach(function (table) {
-      if (table.closest('.lnb-mobile-drawer') || table.dataset.lnbMobileTable === 'skip' || table.getAttribute('role') === 'presentation') return;
+    var tables = Array.prototype.slice.call((root || document).querySelectorAll('table'));
+    function depth(node) { var value = 0; while (node && node.parentElement) { value += 1; node = node.parentElement; } return value; }
+    tables.sort(function (a, b) { return depth(b) - depth(a); });
+    tables.forEach(function (table) {
+      if (table.closest('.lnb-mobile-drawer') || table.dataset.lnbMobileTable === 'skip' || table.getAttribute('role') === 'presentation' || table.dataset.rhMobileLayout === 'cards') return;
       var headers = tableHeaders(table);
-      var wrap = table.parentElement;
+      var wrap = tableHost(table);
       var policy = tablePolicy(table, headers);
       if (wrap) {
         wrap.classList.toggle('lnb-mobile-table-cards', policy === 'cards');
@@ -380,7 +402,7 @@
     ui.aiButton.disabled = !ai;
   }
   function keepMobileStylesLast() {
-    var link = document.querySelector('link[data-lnb-mobile-shell="v4"]');
+    var link = document.querySelector('link[data-lnb-mobile-shell="v5"]');
     if (link && link.parentNode === document.head && document.head.lastElementChild !== link) document.head.appendChild(link);
   }
   function syncAll() { labelTables(document); adaptRhCompositionGrids(); adaptCharts(); renderMobileHome(); syncShell(); keepMobileStylesLast(); if (ui.drawer && ui.drawer.classList.contains('is-open')) renderDrawer(); }

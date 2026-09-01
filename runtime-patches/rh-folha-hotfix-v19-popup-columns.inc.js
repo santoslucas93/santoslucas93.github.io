@@ -1,8 +1,9 @@
 /* RH & Folha — hotfix v19: alinhamento consistente de colunas e totais em todos os popups */
 (function(){
+  function isRhMobile(){return !!(document.documentElement&&document.documentElement.dataset&&document.documentElement.dataset.lnbMobileShell);}
   function isNumericHeader(t){return /valor|total|provento|desconto|líquido|liquido|fgts|inss|pis|irrf|custo|benef|salário|salario|base|encargo|média|media|%|pessoas|quantidade|qtd/i.test(String(t||''));}
   function alignGrid(grid){
-    if(!grid)return;var header=grid.querySelector('.rh-comp-header');if(!header)return;
+    if(!grid||isRhMobile())return;var header=grid.querySelector('.rh-comp-header');if(!header)return;
     var heads=Array.prototype.map.call(header.children,function(x){return x.textContent.trim();});
     var template=getComputedStyle(header).gridTemplateColumns;
     if(!template||template==='none')template='repeat('+Math.max(1,heads.length)+',minmax(0,1fr))';
@@ -16,7 +17,7 @@
     });
   }
   function alignTable(table){
-    if(!table)return;var heads=Array.prototype.map.call(table.querySelectorAll('thead th'),function(x){return x.textContent.trim();});if(!heads.length)return;
+    if(!table||isRhMobile())return;var heads=Array.prototype.map.call(table.querySelectorAll('thead th'),function(x){return x.textContent.trim();});if(!heads.length)return;
     Array.prototype.forEach.call(table.querySelectorAll('tr'),function(row){Array.prototype.forEach.call(row.children,function(cell,i){cell.style.setProperty('text-align',isNumericHeader(heads[i])?'right':'left','important');cell.style.setProperty('vertical-align','middle','important');});});
   }
   function alignAll(root){root=root||document;Array.prototype.forEach.call(root.querySelectorAll('.rh-comp-table'),alignGrid);Array.prototype.forEach.call(root.querySelectorAll('.modal table,.rh-detail-card table,#rh-detail-modal table'),alignTable);}
