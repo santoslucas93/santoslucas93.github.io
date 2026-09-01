@@ -295,11 +295,12 @@
         if (cell.tagName !== 'TD' && cell.tagName !== 'TH') return;
         var label = headers[index] || (index === 0 ? 'Item' : 'Informação');
         cell.dataset.lnbLabel = label;
+        var hasNestedTable = !!cell.querySelector('table, .table-scroll, .table-wrap');
         cell.style.setProperty('display', 'grid', 'important');
-        cell.style.setProperty('grid-template-columns', 'minmax(92px,38%) minmax(0,1fr)', 'important');
+        cell.style.setProperty('grid-template-columns', hasNestedTable ? '1fr' : 'minmax(92px,38%) minmax(0,1fr)', 'important');
         cell.style.setProperty('width', '100%', 'important'); cell.style.setProperty('min-width', '0', 'important');
         cell.style.setProperty('white-space', 'normal', 'important'); cell.style.setProperty('overflow-wrap', 'break-word', 'important'); cell.style.setProperty('word-break', 'normal', 'important');
-        cell.style.setProperty('text-align', 'right', 'important');
+        cell.style.setProperty('text-align', hasNestedTable ? 'left' : 'right', 'important');
       });
     });
   }
@@ -380,7 +381,7 @@
       if (!useful) return;
       clearTimeout(state.observerTimer); state.observerTimer = setTimeout(syncAll, 120);
     });
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'aria-selected', 'aria-current'] });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'aria-selected', 'aria-current', 'style'] });
   }
   function start() { buildShell(); syncAll(); observe(); document.addEventListener('click', function () { setTimeout(syncAll, 20); setTimeout(syncAll, 300); }, true); document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeDrawer(); }); setTimeout(syncAll, 800); setTimeout(syncAll, 2200); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
