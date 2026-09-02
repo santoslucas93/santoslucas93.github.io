@@ -42,7 +42,7 @@ const env = { ASSETS: { fetch: async () => new Response(html, { headers: { 'cont
   const mobile = await workerDefault.fetch(new Request('https://painel.test/admin/', { headers: { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' } }), env);
   const mobileHtml = await mobile.text();
   assert(mobileHtml.includes('data-lnb-mobile-shell="v6"'), 'HTML móvel não recebeu o marcador isolado.');
-  assert(mobileHtml.includes('/runtime-patches/mobile-app-shell.css?v=6'), 'CSS móvel não foi injetado.');
+  assert(mobileHtml.includes('/runtime-patches/mobile-app-shell.css?v=7'), 'CSS móvel não foi injetado.');
   assert(mobileHtml.includes('data-lnb-mobile-module="admin"'), 'Módulo móvel não foi identificado.');
 
   const future = await workerDefault.fetch(new Request('https://painel.test/novo-modulo/', { headers: { 'sec-ch-ua-mobile': '?1' } }), env);
