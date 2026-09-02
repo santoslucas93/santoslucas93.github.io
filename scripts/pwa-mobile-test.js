@@ -11,7 +11,7 @@ function assert(condition, message) {
 }
 
 assert(index.includes('rel="manifest" href="/manifest.webmanifest"'), 'Manifesto não vinculado ao Painel.');
-assert(index.includes('/runtime-patches/pwa-install.js?v=1'), 'Instalação PWA não carregada.');
+assert(index.includes('/runtime-patches/pwa-install.js?v=2'), 'Instalação PWA não carregada.');
 assert(index.includes('id="hub-install"'), 'Botão de instalação ausente.');
 assert(manifest.start_url === '/mobile/', 'A PWA deve abrir pelo endereço mobile.');
 assert(manifest.scope === '/', 'O escopo deve preservar a navegação entre módulos.');

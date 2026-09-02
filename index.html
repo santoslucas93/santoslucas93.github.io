@@ -276,7 +276,7 @@ document.getElementById('hub-login-form').onsubmit=async function(ev){ev.prevent
 fetch('/api/config').then(function(r){if(!r.ok)throw new Error('Configuração indisponível.');return r.json();}).then(async function(c){CFG=c;if(!CFG||!CFG.SUPABASE_URL||!CFG.SUPABASE_KEY)throw new Error('Configuração indisponível.');var x=load();if(x){if(!x.expires_at||Date.now()>=x.expires_at-60000)x=await refresh(x);if(x){SES=x;try{await open();return;}catch(e){clear();}}}showLogin();}).catch(function(e){showLogin('Não foi possível iniciar: '+e.message);});
 });
 </script>
-<script src="/runtime-patches/pwa-install.js?v=1" defer></script>
+<script src="/runtime-patches/pwa-install.js?v=2" defer></script>
 
 </body>
 </html>
