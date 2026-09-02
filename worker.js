@@ -111,7 +111,7 @@ function injectMobileAppShell(html, request, moduleName, forceMobile) {
   const marker = 'data-lnb-mobile-shell="v6"';
   if (html.includes(marker)) return html;
   const moduleId = String(moduleName || 'modulo').replace(/[^a-z0-9_-]/gi, '').toLowerCase();
-  const style = '<link rel="stylesheet" href="/runtime-patches/mobile-app-shell.css?v=6" '+marker+'>';
+  const style = '<link rel="stylesheet" href="/runtime-patches/mobile-app-shell.css?v=7" '+marker+'>';
   const script = '<script src="/runtime-patches/mobile-app-shell.js?v=6" data-lnb-mobile-module="'+moduleId+'" '+marker+' defer></' + 'script>';
   let out = html.replace(/<html(\s[^>]*)?>/i, function(match, attrs){
     const rest = attrs || '';
