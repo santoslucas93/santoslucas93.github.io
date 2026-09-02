@@ -188,9 +188,10 @@ html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .hero-central{g
 html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .hero-central h2{font-size:23px!important}
 html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .metricas{grid-template-columns:repeat(3,1fr)!important;gap:7px!important}
 html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .metrica{min-width:0!important;padding:12px 8px!important;border-radius:13px!important}.lnb-mobile-app .metrica strong{font-size:20px!important}
-html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;max-width:100%!important}
 html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros input[type="text"]{grid-column:1/-1!important;min-width:0!important;width:100%!important}
-html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros button{width:100%!important;min-width:0!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros select{min-width:0!important;width:100%!important;max-width:100%!important;text-overflow:ellipsis!important;overflow:hidden!important}
+html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros button{width:100%!important;min-width:0!important;white-space:normal!important;line-height:1.2!important}
 html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-filtros .resumo{grid-column:1/-1!important;margin:0!important;text-align:center}
 html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .cartao{background:transparent!important;box-shadow:none!important;overflow:visible!important}
 html[data-lnb-mobile-module="colaboradores"] body.lnb-mobile-app .barra-flutuante{display:none!important}
