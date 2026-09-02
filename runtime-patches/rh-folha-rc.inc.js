@@ -1,3 +1,35 @@
+/* RH & Folha — fix 02/09/2026 (Lucas): X do popup demora/às vezes não fecha.
+   Causa: cada leva de hotfixes (v46, v47, v48, v57, v61, v62, v63...) criou o
+   seu próprio sistema de popup e o seu próprio "escutador" de clique na fase
+   de captura, vários deles chamando stopImmediatePropagation(). Quando um
+   escutador mais antigo intercepta um clique que era pro X de um popup mais
+   novo, o clique nunca chega no fechamento certo. Esta rede de segurança é
+   registrada ANTES de todos os outros hotfixes (primeiro bloco do arquivo),
+   então roda primeiro na fase de captura e sempre fecha o popup, não importa
+   qual dos sistemas o abriu — sem interferir nos escutadores específicos de
+   cada um (não usamos stopPropagation, então eles continuam rodando normal). */
+(function(){
+  document.addEventListener('click',function(e){
+    var t=e.target;
+    if(!t||!t.closest)return;
+    var closeBtn=t.closest('.modal-close,[data-close-encargos],[data-close-inss],[data-close-irrf],[data-close-fgts],[data-close-modal],[data-rh57-close],[data-rh57-memory-close],[data-rh62-close],[data-rh63-close],.rh47f-close,.rh48-close');
+    if(closeBtn){
+      var modal=closeBtn.closest('.modal,#employee-modal,#rh47-forecast-modal,.rh48-overlay,[id$="-modal"],[id*="Modal"]');
+      if(modal){
+        if('hidden' in modal)modal.hidden=true;
+        if(modal.parentNode&&(modal.id==='rh47-forecast-modal'||modal.classList.contains('rh48-overlay')))modal.remove();
+      }
+      return;
+    }
+    if(t.classList&&(t.classList.contains('modal-backdrop')||t.classList.contains('rh48-overlay'))){
+      var modal2=t.closest('.modal,.rh48-overlay')||t;
+      if(modal2){
+        if('hidden' in modal2)modal2.hidden=true;
+        if(modal2.parentNode&&modal2.classList&&modal2.classList.contains('rh48-overlay'))modal2.remove();
+      }
+    }
+  },true);
+})();
 /* RH & Folha — stability baseline: quadro atual único, provisões e invariantes aprovados */
 (function(){
 'use strict';
@@ -951,7 +983,18 @@ function rhEnsurePopupTotals(root){
   Array.prototype.forEach.call(root.querySelectorAll('.modal:not([hidden]) table,.rh-detail-card table,#rh-detail-modal:not([hidden]) table'),rhEnsureHtmlTableTotals);
   Array.prototype.forEach.call(root.querySelectorAll('.modal:not([hidden]) .rh-comp-table,.rh-detail-card .rh-comp-table,#rh-detail-modal:not([hidden]) .rh-comp-table'),rhEnsureGridTotals);
 }
-function rhPostRenderPolish(){requestAnimationFrame(function(){rhFitAllCardValues(document);rhEnsurePopupTotals(document);});}
+function rhPostRenderPolish(){
+  /* Fix 02/09/2026 (Lucas — cards piscando/tremendo): o v13 chamava
+     rhFitAllCardValues aqui, mas os hotfixes v15 e v16 (mais abaixo, na
+     mesma tentativa de resolver o mesmo problema) registraram CADA UM o seu
+     próprio observador e a sua própria função de ajuste de fonte, todos
+     escrevendo font-size nos mesmos cards a cada mutação do DOM — daí o
+     piscar/tremer contínuo. Deixamos aqui só o ajuste de totais dos
+     popups (responsabilidade própria do v13) e o encaixe de fonte agora é
+     feito por um único responsável (v16, a versão mais recente e mais
+     precisa, que mede o texto de verdade em vez de tentar por tentativa). */
+  requestAnimationFrame(function(){rhEnsurePopupTotals(document);});
+}
 if(!document.getElementById('_rh_v13_styles')){
   var _rhV13Style=document.createElement('style');_rhV13Style.id='_rh_v13_styles';
   _rhV13Style.textContent='.kpi strong,.rh-close-stat strong,.rh-history-metric strong,.metric-row strong,.summary-card strong,.stat-card strong{max-width:100%;display:block;line-height:1.05;overflow:hidden;text-overflow:clip}.rh-value-tight{letter-spacing:-.02em}.rh-auto-total{border-top:2px solid var(--gold)!important;background:color-mix(in srgb,var(--gold) 8%,transparent)!important}.rh-auto-total td,.rh-auto-total .rh-comp-cell{font-weight:800!important}';
@@ -1003,6 +1046,27 @@ function rhV14EnsureUI(){
   }
   if(!$('_rh_v14_styles')){var st=document.createElement('style');st.id='_rh_v14_styles';st.textContent='.rh-v14-context{display:grid;grid-template-columns:minmax(230px,.8fr) minmax(520px,1.8fr);gap:14px;align-items:stretch;margin:-6px 0 18px}.rh-v14-meta,.rh-v14-stats>div{border:1px solid var(--line-soft);border-radius:12px;background:var(--surface-2);padding:11px 13px}.rh-v14-meta{display:flex;flex-direction:column;gap:3px}.rh-v14-meta strong{font-size:.95rem}.rh-v14-meta small,.rh-v14-stats small,.rh-v14-avg-head small{color:var(--muted);font-size:.69rem}.rh-v14-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.rh-v14-stats span{display:block;color:var(--muted);font-size:.65rem;text-transform:uppercase;font-weight:800}.rh-v14-stats strong{display:block;font-size:1rem;margin:3px 0}.rh-v14-deltas{grid-column:1/-1;display:flex;gap:7px;flex-wrap:wrap}.rh-v14-delta{padding:5px 8px;border-radius:999px;border:1px solid var(--line-soft);background:var(--surface-2);font-size:.68rem;font-weight:800}.rh-v14-delta.up{color:var(--gold)}.rh-v14-delta.down{color:var(--emerald)}.rh-v14-delta.neutral{color:var(--muted)}.rh-v14-averages{margin-bottom:18px}.rh-v14-avg-head{display:flex;justify-content:space-between;gap:10px;align-items:end;margin-bottom:8px}.rh-v14-averages[hidden]{display:none!important}.rh-period-chip-modal{display:inline-flex;align-items:center;margin-top:4px;padding:4px 8px;border-radius:999px;border:1px solid var(--line-soft);background:var(--surface-2);color:var(--muted);font-size:.67rem;font-weight:800}.modal-table-inner tfoot,.responsive-table tfoot{position:sticky;bottom:0;z-index:3;background:var(--surface)}.rh-comp-total{position:sticky;bottom:0;z-index:3;background:var(--surface)!important}@media(max-width:900px){.rh-v14-context{grid-template-columns:1fr}.rh-v14-stats{grid-template-columns:1fr 1fr}.rh-v14-deltas{grid-column:auto}}@media(max-width:560px){.rh-v14-stats{grid-template-columns:1fr}.rh-v14-avg-head{align-items:flex-start;flex-direction:column}}';document.head.appendChild(st);}
 }
+/* Fix 02/09/2026 (Lucas): os 4 cards de MÉDIA MENSAL (Proventos, Encargos,
+   Benefícios, Custo Real) eram só texto — sem composição por trás, ao
+   contrário dos outros cards do sistema. Esta função abre o detalhamento
+   mês a mês por competência, reaproveitando o mesmo popup de composição
+   (rhInterOpen) já usado nos demais cards do RH & Folha. */
+function rhV14OpenAverageDetail(kind){
+  var comps=rhV14ActiveCompetences(),div=Math.max(1,comps.length),ben=rhV14BenefitTotal(),benPerMonth=ben/div;
+  var totalProv=0,totalEnc=0,totalCost=0;
+  comps.forEach(function(c){var m=rhV14CostModel(c);totalProv+=m.proventos;totalEnc+=m.encargos;totalCost+=m.custo;});
+  var rows=comps.map(function(c){
+    var m=rhV14CostModel(c);
+    var val=kind==='prov'?m.proventos:(kind==='enc'?m.encargos:(kind==='cost'?(m.custo+benPerMonth):benPerMonth));
+    return [formatCompetence(c.competencia),fmt(val)];
+  });
+  var totalVal={prov:totalProv,enc:totalEnc,cost:totalCost+ben,ben:ben}[kind]||0;
+  var labels={prov:'Proventos / mês',enc:'Encargos / mês',ben:'Benefícios / mês',cost:'Custo Real / mês'};
+  var subtitle=kind==='ben'
+    ?'Benefícios não são lançados por competência individual no sistema — o valor de cada mês abaixo é o total do período dividido igualmente entre os '+comps.length+' meses carregados, só para referência.'
+    :'Composição mês a mês das competências carregadas no filtro atual.';
+  rhInterOpen(labels[kind]||'Composição','MÉDIA MENSAL',['Competência','Valor'],rows,['MÉDIA ('+comps.length+' meses)',fmt(totalVal/div)],subtitle);
+}
 function rhV14Render(){
   rhV14EnsureUI();var comps=rhV14ActiveCompetences(),count=comps.length,latest=rhV14LatestCompetence(comps),months=rhV14MonthList(comps),unique=(S.pessoas||[]).length,latestCount=rhV14UniqueLatestCount(latest);
   if($('rh-v14-title'))$('rh-v14-title').textContent=rhV14PeriodLabel();
@@ -1017,6 +1081,12 @@ function rhV14Render(){
   var totalProv=0,totalEnc=0,totalCost=0;(comps||[]).forEach(function(c){var m=rhV14CostModel(c);totalProv+=m.proventos;totalEnc+=m.encargos;totalCost+=m.custo;});
   var ben=rhV14BenefitTotal(),div=Math.max(1,count);if($('rh-v14-avg-prov'))$('rh-v14-avg-prov').textContent=fmt(totalProv/div);if($('rh-v14-avg-enc'))$('rh-v14-avg-enc').textContent=fmt(totalEnc/div);if($('rh-v14-avg-ben'))$('rh-v14-avg-ben').textContent=fmt(ben/div);if($('rh-v14-avg-cost'))$('rh-v14-avg-cost').textContent=fmt((totalCost+ben)/div);
   if($('rh-v14-averages'))$('rh-v14-averages').hidden=!count;
+  if(count&&typeof rhInterCardify==='function')rhInterCardify('rh-v14-averages',[
+    function(){rhV14OpenAverageDetail('prov');},
+    function(){rhV14OpenAverageDetail('enc');},
+    function(){rhV14OpenAverageDetail('ben');},
+    function(){rhV14OpenAverageDetail('cost');}
+  ]);
   var deltas=$('rh-v14-deltas');if(deltas){deltas.innerHTML='';if(RH_PERIOD.month!=='all'&&latest){var prev=rhV14PreviousCompetence(latest),cm=rhV14CostModel(latest),pm=rhV14CostModel(prev);deltas.innerHTML=prev?'<span class="rh-v14-delta neutral">vs '+esc(formatCompetence(prev.competencia))+'</span>'+rhV14DeltaHtml('Líquido',cm.liquido,pm.liquido)+rhV14DeltaHtml('Proventos',cm.proventos,pm.proventos)+rhV14DeltaHtml('Custo folha',cm.custo,pm.custo):'<span class="rh-v14-delta neutral">Primeira competência disponível para comparação</span>';}}
   if(typeof rhFitAllCardValues==='function')rhFitAllCardValues(document);
 }
@@ -1077,9 +1147,12 @@ var _rhV14SetupUI=setupUI;setupUI=function(){var r=_rhV14SetupUI.apply(this,argu
   function fitAll(root){root=root||document;Array.prototype.forEach.call(root.querySelectorAll(SELECTOR),fitOne);}
   var scheduled=false;
   function schedule(force){
-    if(force)Array.prototype.forEach.call(document.querySelectorAll(SELECTOR),function(el){delete el.dataset.rhFitSig;});
-    if(scheduled)return;scheduled=true;
-    requestAnimationFrame(function(){requestAnimationFrame(function(){scheduled=false;fitAll(document);});});
+    /* Fix 02/09/2026 (Lucas — cards piscando/tremendo): v15 desativado.
+       Ele e o v16 (logo abaixo) faziam o mesmo ajuste de fonte em paralelo,
+       cada um com !important, brigando pelo valor a cada mutação do DOM —
+       essa disputa entre os dois é a causa do piscar/tremer nos cards.
+       O v16 (medição real do texto) ficou como único responsável. */
+    return;
   }
   window.rhFitAllCardValues=fitAll;
   if(typeof ResizeObserver!=='undefined'){
